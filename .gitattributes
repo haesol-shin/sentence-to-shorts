@@ -5,3 +5,5 @@
 *.ttf binary
 *.otf binary
 *.ico binary
+schemas/*.schema.json linguist-generated=true
+frontend/src/shared/api/generated/** linguist-generated=true
