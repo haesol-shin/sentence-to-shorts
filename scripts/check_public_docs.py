@@ -220,7 +220,7 @@ def check_adr_index(root: Path, files: list[str]) -> list[str]:
     problems = []
     for rel in files:
         name = rel.removeprefix("docs/decisions/")
-        if rel.startswith("docs/decisions/") and "/" not in name and ADR_FILE.match(name) and (root / rel).resolve() not in indexed:
+        if rel.startswith("docs/decisions/") and "/" not in name and ADR_FILE.match(name) and (root / rel).is_file() and (root / rel).resolve() not in indexed:
             problems.append(f"{index_rel}: {name} is not listed in the index")
     return problems
 

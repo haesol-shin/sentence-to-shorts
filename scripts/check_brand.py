@@ -24,7 +24,6 @@ ALLOWLIST = (
     ".git/",
     "README.md",
     "README.ko.md",
-    "docs/decisions/0021-defer-brand-name-to-team.md",
     BRAND_FILE,
 )
 # Used only when the root is not a git checkout.

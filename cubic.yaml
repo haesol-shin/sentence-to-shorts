@@ -3,11 +3,12 @@ version: 1
 reviews:
   enabled: true
   sensitivity: medium
-  incremental_commits: true
+  incremental_commits: false
   check_drafts: false
   auto_approve_behavior: disabled
   ultrareview: manual
   ignore:
+    pr_labels: ['no-cubic']
     files:
       - 'schemas/*.schema.json'
       - 'frontend/src/shared/api/generated/**'

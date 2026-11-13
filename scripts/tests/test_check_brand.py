@@ -19,7 +19,6 @@ ALLOWED = {
     "LICENSE": f"license text for {NAME}\n",
     "README.md": f"# {NAME}\n",
     "README.ko.md": f"# {KO_NAME}\n",
-    "docs/decisions/0021-defer-brand-name-to-team.md": f"The name is {NAME}.\n",
 }
 
 
@@ -64,6 +63,12 @@ class CheckBrandTest(unittest.TestCase):
     def test_brand_ignores_the_placeholder_app_id(self):
         root = self.tree({"core/config/brand.yaml": BRAND, "docs/a.md": "The app stores data per app.\n"})
         self.assertEqual(check_brand.check(root), [])
+
+    def test_brand_rejects_name_copies_in_decision_records(self):
+        for record in ("0001-example.md", "0021-defer-brand-name-to-team.md"):
+            with self.subTest(record=record):
+                root = self.tree({"core/config/brand.yaml": BRAND, f"docs/decisions/{record}": NAME})
+                self.assertEqual(len(check_brand.check(root)), 1)
 
     def test_brand_checks_a_real_app_id(self):
         brand = BRAND.replace("app_id: app", "app_id: exid")

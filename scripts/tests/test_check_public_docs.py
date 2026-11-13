@@ -185,6 +185,11 @@ class CheckPublicDocsTest(unittest.TestCase):
         index = "# Index\n\n[First][adr]\n\n[adr]: ./0001-first.md#context\n"
         self.assert_clean({"docs/decisions/README.md": index, "docs/decisions/0001-first.md": ADR})
 
+    def test_adr_index_allows_deleted_tracked_records(self):
+        root = self.tree({"docs/decisions/README.md": "# Decisions\n"})
+        files = ["docs/decisions/README.md", "docs/decisions/0001-retired.md"]
+        self.assertEqual(check_public_docs.check_adr_index(root, files), [])
+
     # command line
 
     def test_main_exit_codes_follow_the_result(self):

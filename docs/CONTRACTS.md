@@ -1,8 +1,8 @@
 # CONTRACTS
 
-이 문서는 구현 모듈이 서로 맞춰야 하는 실행 계약이다. 제품 결정은 [SPEC](SPEC.md)을 따른다. 용어는 [GLOSSARY](GLOSSARY.md)를 따른다. 이 문서는 제품 결정을 추가하지 않는다. 「기술 선택」은 구현 세부를 고른 것이고 한 줄 이유를 붙인다.
+이 문서는 모듈 간 데이터·API·job·저장 계약의 원본이다. 제품 동작은 [SPEC](SPEC.md), 용어는 [GLOSSARY](GLOSSARY.md)를 따른다. 「기술 선택」은 구현 세부와 그 이유다. 미확정 구현은 마지막 [열린 질문](#열린-질문)에 둔다.
 
-저장과 job 구현은 [ADR 0007](decisions/0007-persist-storage-and-job-state.md)의 Proposed 상태를 따른다. 이 문서의 SQLite index, 불변 revision JSON, artifact 파일 배치와 job 상태·queue·복구 세부는 승인 전까지 비구속적인 기술 제안이다. 아래의 의무형 표현도 해당 세부의 승인을 뜻하지 않는다. 재시작 뒤 성공 결과와 마지막 저장 상태를 재사용한다는 결정은 유지한다.
+저장·job 구조의 상태는 [ADR 0007](decisions/0007-persist-storage-and-job-state.md), provider 분리는 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md), sandbox는 [ADR 0005](decisions/0005-run-generated-code-in-pyodide-deno.md), runtime 동봉은 [ADR 0012](decisions/0012-package-for-windows-and-linux.md)을 따른다.
 
 ## 0. 원본 규칙
 
@@ -15,30 +15,11 @@
 
 ## 1. 데이터 문서
 
-| 파일 | 정의 | 저장 위치 |
-|---|---|---|
-| `common.schema.json` | ID, digest, PinnedRef, Origin, License, Box 등 공통 정의 | 없음 |
-| `settings.schema.json` | 제작 설정 `Settings`, 프리셋 설정 `PresetSettings` | project, video, preset 안 |
-| `project.schema.json` | 프로젝트와 기본 설정 | `DATA_DIR/p/<project_id>/project.json` |
-| `video.schema.json` | 영상 revision snapshot, `VideoBuild` 파생 view | `DATA_DIR/p/<pid>/v/<vid>/r/<revision>.json` |
-| `script.schema.json` | 대본 metadata와 `Line` | video 안 |
-| `scene.schema.json` | 장면 원본과 시각 데이터 | video 안 |
-| `change.schema.json` | 변경 제안 `ChangePlan`과 `Op` | state.db `changes` |
-| `preset.schema.json` | 프리셋 | state.db `presets` |
-| `format-card.schema.json` | 포맷 카드, 이야기 틀 `StoryStructure` | `core/app/catalog/format_cards/<id>.json`, `core/app/catalog/story_structures/<id>.json` |
-| `style-manifest.schema.json` | 그림체 package | 기본 `core/app/plugins/art_styles/<id>/`, 생성 `DATA_DIR/s/<digest16>/` |
-| `template-manifest.schema.json` | 화면 틀 template | 기본 `core/app/plugins/templates/<id>/`, 생성 `DATA_DIR/s/<digest16>/` |
-| `voice-manifest.schema.json` | 목소리 | `core/app/plugins/voices/<id>/` |
-| `bgm-entry.schema.json` | BGM 내장·업로드·코드, `SfxEntry` | 내장 `core/app/plugins/bgm/<id>/`, 업로드 `DATA_DIR/p/<pid>/u/`, 코드 `DATA_DIR/s/<digest16>/`, 효과음 `core/app/plugins/sfx/<id>/` |
-| `font-manifest.schema.json` | 자막 글꼴 | `core/app/plugins/fonts/<id>/` |
-| `job.schema.json` | job과 오류 | state.db `jobs` |
-| `artifact.schema.json` | artifact index와 `Timing` | state.db `artifacts`, 파일은 6절 |
-| `sandbox-io.schema.json` | sandbox runner 입출력 | 저장하지 않음 |
-| `api.schema.json` | API 오류와 요청·응답 본문 | 저장하지 않음 |
+문서별 저장 배치는 [열린 질문](#데이터-문서-배치)의 제안이다.
 
 ### 1.1 문서 규칙
 
-- 모든 객체는 정의하지 않은 필드를 거절한다.
+- 모든 객체는 정의하지 않은 필드를 거절한다. 말투 필드명은 `register`이며 `tone` 필드는 따로 만들지 않는다.
 - ID는 앱이 발급한다. 기술 선택: `<prefix>_<base32 12자>` 형식이다. 이유: Windows 경로를 짧게 유지하고 순서 노출이 없다.
 - 확장 가능한 항목(그림체, 카드, 목소리, BGM, 글꼴, template, 배경, 부위)은 `CatalogId` 문자열이다. 값 검사는 registry 조회로 한다. 코드 enum에 새 항목을 추가하지 않는다.
 - 닫힌 값(말투, 유머, 캐릭터 역할, 자막 표시 모드, job 상태)만 enum이다.
@@ -47,7 +28,8 @@
 - 장면의 대사는 `Scene.lines`가 소유한다. `Script`는 원문과 출처만 갖는다.
 - `scene_order`의 집합은 `scenes`의 key 집합과 같아야 한다.
 - 장면 순서는 `scene_order`만 바꾼다. scene ID는 바꾸지 않는다.
-- 다음 영상은 settings를 복사하고 topic, material, reference, script, scenes를 비운다. `derived_from`에 출처를 남긴다.
+- 다음 영상은 settings를 복사하고 topic, material, reference, script, scenes를 비운다. `derived_from`에 출처를 남긴다. 과거 snapshot은 다음 영상 수정으로 바뀌지 않는다.
+- 프로젝트 설정과 영상별 snapshot이 제작 상태의 원본이다. 대화 이력과 요약은 원본을 대신하거나 확정값·lock을 덮지 못한다.
 - 프로젝트 기본값은 현재 영상 수정으로 바뀌지 않는다. 프리셋 저장은 명시 요청으로만 한다.
 
 ### 1.2 값의 출처와 고정
@@ -164,7 +146,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 
 ### 4.1 단계 gate와 변경 적용
 
-- `stage`는 draft, script_confirmed, scenes_confirmed 순서로만 앞으로 간다.
+- `stage`는 draft, script_confirmed, scenes_confirmed 순서로만 앞으로 간다. 이는 생성 확인 gate이며 UI의 단계 이름 목록과 독립적이다. UI 단계 이름을 core enum으로 고정하지 않는다.
 - `script` job이 대본 전체를 새로 쓰면 적용된 revision의 stage는 draft로 돌아간다.
 - preview는 stage가 script_confirmed 이상일 때만 실행한다. 그 전 preview 호출 수는 0이어야 한다.
 - generate는 stage가 scenes_confirmed일 때만 실행한다.
@@ -181,118 +163,15 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 
 ## 5. Job
 
-### 5.1 상태 전이
-
-| 현재 | 사건 | 다음 |
-|---|---|---|
-| (없음) | 제출 | queued |
-| queued | runner가 원자적으로 점유 (`UPDATE ... WHERE state='queued'`) | running |
-| queued | 취소 | cancelled |
-| running | 성공 | succeeded |
-| running | 실패 | failed |
-| running | 취소 요청 | cancelling |
-| cancelling | 자식 process tree 종료 확인 | cancelled |
-| failed, cancelled | 재시도 (`attempt < max_attempts`) | queued, attempt + 1 |
-| running, cancelling | 앱 재시작 | 아래 5.3 |
-
-- job 행은 terminal 상태가 되기 전에 지우지 않는다.
-- 결과 기록은 `finish(job_id, attempt, ...)`가 `state='running' AND attempt=?` 조건으로만 성공한다. 취소 뒤나 이전 attempt의 늦은 결과는 버린다.
-- checkpoint는 artifact를 검증하고 atomic rename으로 공개한 뒤에만 기록한다.
-
-### 5.2 kind별 deadline과 실행 queue
-
-기술 시작값이다. `core/config/app.yaml`의 `jobs`에서 바꾼다.
-
-| kind | queue | deadline | 최대 attempt |
-|---|---|---|---|
-| draft, script, chat, precheck | light | 180초 | 3 |
-| preview | heavy | 600초 | 3 |
-| generate | heavy | 2400초 | 3 |
-| reference | heavy | 900초 | 2 |
-| style, template | heavy | 900초 | 2 |
-| bgm_code | heavy | 300초 | 2 |
-| bgm_upload | light | 120초 | 1 |
-| runtime_prepare | heavy | 없음 | 3 |
-
-- 기술 선택: light queue와 heavy queue가 각각 한 번에 job 하나를 실행한다. 이유: 노트북 메모리에서 무거운 모델을 동시에 올리지 않는다.
-- TTS, 정렬, 전사 worker는 heavy queue 안에서 한 번에 하나만 살아 있다.
-
-### 5.3 재시작 복구
-
-1. 앱 시작 때 `running`과 `cancelling` job을 찾는다.
-2. `cancelling`은 `cancelled`로 바꾼다.
-3. `running`은 현재 attempt를 `interrupted`로 닫는다.
-4. attempt가 남았고 kind가 재개 가능하면 queued로 되돌린다. 재개 가능 kind는 preview, generate, runtime_prepare, reference다.
-5. 그 밖에는 failed와 `interrupted`로 닫는다. 사용자가 재시도한다.
-6. 재개한 job은 checkpoint의 artifact 존재와 digest를 다시 검사한다. 통과한 것만 재사용한다.
-7. `CACHE_DIR/j/`와 `CACHE_DIR/r/`에서 활성 job이 아닌 폴더를 지운다. 앱 소유 prefix와 job ID 형식이 맞는 폴더만 지운다. symlink는 따라가지 않는다.
-
-### 5.4 부분 결과, 재시도, 취소
-
-- generate는 장면 단위 checkpoint를 남긴다. 실패해도 성공한 장면 artifact는 index에 남는다. `partial`은 true다.
-- 재시도는 같은 job ID의 새 attempt다. cache key가 같은 artifact를 다시 만들지 않는다.
-- 사용자 재시도와 adapter 내부 재시도는 다르다. adapter 재시도는 10절과 11절을 따른다.
-- 취소는 cancel token을 세우고 모든 자식 process tree를 종료한다. 429 대기 중에도 250ms 안에 취소를 확인한다.
-- 이미 보낸 외부 LLM 요청의 과금 취소는 보장하지 않는다.
-- 엔진, 목소리, 모델 변경과 재생성 범위 확대는 조용히 하지 않는다. 필요하면 job을 실패시키고 이유 코드를 남긴다.
-- 실패한 job은 이전 성공 결과와 이전 BGM을 바꾸지 않는다.
+상태 전이·queue·복구 세부는 [열린 질문](#저장과-job-구현)의 제안이다.
 
 ## 6. 저장 경로
 
 ### 6.1 root
 
-결정: 저장소와 서비스의 작업 이름은 팀과 논의해 바꿀 수 있다. 이름 값은 `core/config/brand.yaml` 한 파일에만 둔다. 이 파일은 `display_name_ko`, `display_name_en`, `repository`, `app_id`를 가진다. `repository`는 GitHub 저장소 이름이다. 나중에 이름이 정해지면 GitHub 저장소 rename(GitHub가 옛 URL을 연결한다)과 이 파일 수정 한 번으로 바꾼다. 코드, 화면 문구, 설치 스크립트, 문서 생성은 모두 이 파일을 읽고 이름을 하드코딩하지 않는다. `scripts/check_brand.py`가 CI에서 이 파일의 값이 이 파일 밖에 나오면 실패시킨다. 이 검사는 필수 status check `brand`다. 허용 목록은 `LICENSE`, `.git/`, `README.md`, `README.ko.md`, 이름을 정한 결정 기록 `docs/decisions/0021-defer-brand-name-to-team.md`다. ADR 예외는 결정 기록용이다. 실행 값의 원본은 `brand.yaml` 하나다. frontend는 `GET /api/v1/runtime`의 `brand` 필드에서 표시 이름을 받는다. `core/pyproject.toml`의 `name`은 중립 값 `core`이고 `frontend/package.json`의 `name`은 `frontend`다. 설치기 템플릿은 `brand.yaml`에서 생성한다. 이름이 정해지기 전 `app_id` 자리표시값은 `app`이다. 이유: 짧은 ASCII 값이 Windows 경로 길이와 한글 사용자 경로 문제를 줄인다. `app_id`는 아래 저장 폴더 이름이므로 정식 배포 뒤 바꾸면 이전 폴더를 옮기는 migration이 필요하다. 첫 배포 전에 바꾸면 migration이 필요 없다. 스키마 `$id`는 이름 없는 `https://app.invalid/schemas/<file>`를 쓴다.
+이름 값의 원본은 `core/config/brand.yaml`이다. `display_name_ko`, `display_name_en`, `repository`, `app_id`를 갖는다. 이름은 팀과 논의해 바꿀 수 있고 저장소 rename과 설정을 함께 갱신한다. 코드·화면·설치기·문서는 이 파일에서 읽으며 frontend는 `GET /api/v1/runtime`의 `brand`를 받는다. `scripts/check_brand.py`가 이름 하드코딩을 검사한다. 예외는 `LICENSE`, `.git/`, 두 README뿐이다. Python package 이름은 `core`, frontend package 이름은 `frontend`다. 설치기 템플릿도 설정에서 생성한다. `app_id` 자리표시는 짧은 ASCII `app`이다. 앱 ID를 정식 배포 뒤 바꾸면 저장 폴더 migration이 필요하며 첫 배포 전에는 필요 없다. schema `$id`는 `https://app.invalid/schemas/<file>`다.
 
-| root | Windows 기본값 | Linux 기본값 |
-|---|---|---|
-| `DATA_DIR` | `%LOCALAPPDATA%\<app_id>\data` | `$XDG_DATA_HOME/<app_id>`, 없으면 `~/.local/share/<app_id>` |
-| `CACHE_DIR` | `%LOCALAPPDATA%\<app_id>\cache` | `$XDG_CACHE_HOME/<app_id>`, 없으면 `~/.cache/<app_id>` |
-| `MODEL_DIR` | `DATA_DIR\models` | `DATA_DIR/models` |
-| `RUNTIME_DIR` | 설치 폴더 `rt\` | 설치 폴더 `rt/` |
-| 설치 폴더 | `%LOCALAPPDATA%\Programs\<app_id>\<version>\` | tarball을 푼 폴더 |
-
-환경변수 `APP_DATA_DIR`, `APP_CACHE_DIR`, `APP_MODEL_DIR`, `APP_RUNTIME_DIR`가 기본값을 덮는다. 개발과 시험은 worktree 안 `.local/`을 쓴다.
-
-### 6.2 배치
-
-```text
-DATA_DIR/
-  state.db                      projects, videos, revisions index, changes, presets, jobs, artifacts, holds, idempotency, uploads, activity, catalog_user
-  p/<project_id>/project.json
-  p/<project_id>/v/<video_id>/r/<revision>.json
-  p/<project_id>/u/<upload_id>.wav
-  o/<video_id>/<artifact_id>.mp4 | .srt
-  s/<digest16>/                 생성 style, template, code BGM package (immutable)
-  models/<runtime_item>/<rev12>/
-  rt-journal.json               기기별 설치 journal
-  log/app.log                   회전 로그
-CACHE_DIR/
-  a/<2 hex>/<artifact_id>.<ext> 중간 artifact
-  j/<job_id>/                   job 작업 폴더
-  r/<job_id>/                   참고 영상 원본과 프레임, 분석 직후 삭제
-```
-
-- 파일은 임시 이름으로 쓰고 검증 뒤 같은 volume에서 atomic rename한다.
-- 사용자 파일명과 원본 제목은 경로에 쓰지 않는다. 앱 ID만 쓴다.
-- 경로 최대 길이 목표는 root 뒤 80자 이하다.
-
-### 6.3 소유와 보존
-
-| 경로 | 쓰는 모듈 | 삭제 규칙 |
-|---|---|---|
-| `state.db` | `storage` | migration 백업만 남긴다 |
-| `p/` | `storage` (project 서비스 요청) | 프로젝트 삭제 때 해당 프로젝트만 지운다 |
-| `p/<pid>/u/` | `storage` (sound 서비스 요청) | 프로젝트가 참조하는 동안 보존한다 |
-| `o/` | `storage` (assemble 결과 공개) | 영상이나 프로젝트 삭제 때만 지운다 |
-| `s/` | `plugins/registry` (templates 서비스 요청) | 참조하는 revision, 프리셋, catalog 항목이 없을 때만 지운다 |
-| `models/` | `runtime` | uninstall 기본 보존 |
-| `CACHE_DIR/a/` | `storage` | `sweep`이 hold 없는 항목만 지운다 |
-| `CACHE_DIR/j/`, `r/` | `jobs`, reference 서비스 | job 종료 `finally`와 시작 복구에서 지운다 |
-
-- hold 주체는 `rev:<video_id>:<revision>`, `undo:<video_id>`, `style:<digest>`, `preset:<preset_id>`다.
-- 현재 revision과 직전 revision의 artifact는 hold로 보호한다.
-- uninstall은 `DATA_DIR`과 `MODEL_DIR`을 기본 보존한다.
-- 참고 영상 원본, 추출 프레임, 전사 원문은 분석 job 종료 때 지운다. 남기는 것은 `ReferenceSummary`와 적용된 설정값뿐이다.
+OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-보존)의 제안이다. 환경변수 `APP_DATA_DIR`, `APP_CACHE_DIR`, `APP_MODEL_DIR`, `APP_RUNTIME_DIR`로 격리한다.
 
 ## 7. 로그
 
@@ -322,7 +201,7 @@ CACHE_DIR/
 | `srt` | 순서 있는 timing digest, display_text | BGM |
 
 - 진행 표시 문구는 장면 안의 beat 기준이다. 순서만 바뀌면 clip key는 그대로다.
-- 결과: 화면 글만 바꾸면 TTS는 재사용한다. 순서만 바꾸면 final만 다시 만든다. BGM만 바꾸면 mix와 final만 다시 만든다.
+- 결과: 화면 글만 바꾸면 TTS는 재사용한다. 순서만 바꾸면 final만 다시 만든다. BGM만 바꾸면 mix와 final만 다시 만든다. 말할 글 변경은 그 줄의 TTS만 무효화한다.
 - `ChangePlan.effects`는 변경 전후 key 비교로 계산한다. 장면을 직접 나열하지 않는다.
 
 ## 9. Sandbox
@@ -383,7 +262,7 @@ CACHE_DIR/
 
 ### 9.6 거부 시험
 
-양 OS에서 아래가 모두 거절되거나 부모가 종료해야 sandbox 안전 완료를 선언한다. 고정 프로그램은 `core/tests/sandbox/programs/`에 둔다.
+양 OS에서 아래가 모두 거절되거나 부모가 종료해야 sandbox 안전 완료를 선언한다. 거부 시험이 실패하면 해당 기능을 중단한다. 고정 프로그램은 `core/tests/sandbox/programs/`에 둔다.
 
 `js` bridge로 Deno API 접근, 파일 read, 파일 write, network, env 읽기, 하위 process 실행, FFI, 권한 재요청, 원격 import, 무한 계산, 메모리 급증, stdout flood, 잘못된 PNG, 잘못된 WAV header, 초과 길이 WAV, 이전 실행의 module이나 가상 FS 상태가 다음 실행에 남는지.
 
@@ -424,39 +303,16 @@ class LlmPort(Protocol):
 ```
 
 - 구현은 `core/app/llm/providers/<id>/adapter.py`다. provider SDK는 이 폴더 밖에서 import하지 않는다.
-- `fixture` adapter는 `fixtures/llm/<task>/<digest>.json` 녹화 응답을 돌려준다. 없으면 `llm_invalid_output`이다.
-- `anthropic_api`는 공식 SDK를 쓴다. 배포판 기본이다.
-- `openai_compat`는 dev profile 기본이다. 표준 OpenAI-compatible Chat Completions API로 any OpenAI-compatible endpoint를 호출한다. `base_url`과 model 이름을 설정한다. key가 필요한 endpoint는 keyring 또는 env에서 읽는다. key가 필요 없는 endpoint도 지원한다.
+- `fixture` adapter의 녹화 응답 계약은 [열린 질문](#llm-routing)의 제안이다.
+- `anthropic_api`는 공식 SDK를 쓴다. profile 기본값은 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md)을 따른다.
+- `openai_compat`는 표준 OpenAI-compatible Chat Completions API로 endpoint를 호출한다. `base_url`과 model 이름을 설정한다. key가 필요한 endpoint는 keyring 또는 env에서 읽는다. key가 필요 없는 endpoint도 지원한다.
 - `openai_compat`는 PNG를 OpenAI `image_url` content part로 보낸다. endpoint가 이미지를 거절하면 `reference_vision`은 `llm_refused`로 실패한다.
-- `claude_cli`는 개발용 선택 adapter다. 수정하지 않은 공식 CLI를 비대화 모드로 실행한다.
+- `claude_cli`는 수정하지 않은 공식 CLI를 비대화 모드로 실행한다. profile 범위는 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md)을 따른다.
 - endpoint 인증은 설정된 key만 사용한다. 기여자는 각자 자기 endpoint, 공식 CLI 또는 API key를 쓴다. 한 사람의 endpoint를 공유하지 않는다.
 
 ### 10.2 routing
 
-`core/config/models.yaml`이 task별 model, effort, timeout, 재시도를 정한다. profile별 값을 둔다.
-
-```yaml
-routes:
-  draft:            {model: haiku,  effort: low,    timeout_s: 60,  retries: 2}
-  script.numbered_three: {model: haiku, effort: low, timeout_s: 90, retries: 2}
-  script.default:   {model: sonnet, effort: medium, timeout_s: 120, retries: 2}
-  split:            {model: haiku,  effort: low,    timeout_s: 60,  retries: 2}
-  scene_data:       {model: haiku,  effort: low,    timeout_s: 90,  retries: 2}
-  chat:             {model: haiku,  effort: low,    timeout_s: 60,  retries: 2}
-  scene_rewrite:    {model: sonnet, effort: medium, timeout_s: 90,  retries: 2}
-  precheck:         {model: haiku,  effort: low,    timeout_s: 60,  retries: 1}
-  reference_vision: {model: sonnet, effort: medium, timeout_s: 120, retries: 1}
-  style_code:       {model: sonnet, effort: high,   timeout_s: 240, retries: 1}
-  template_code:    {model: sonnet, effort: high,   timeout_s: 240, retries: 1}
-  bgm_code:         {model: sonnet, effort: high,   timeout_s: 180, retries: 1}
-models:
-  haiku:  {anthropic_api: <Haiku 5.5 model id>,  claude_cli: <same alias>, openai_compat: <configured endpoint model id>}
-  sonnet: {anthropic_api: <Sonnet 5.5 model id>, claude_cli: <same alias>, openai_compat: <configured endpoint model id>}
-```
-
-- 대본의 상위 모델은 Sonnet 5.5다. 나머지 배정은 SPEC 9절 제안을 따른다. 기술 선택: 장면 하나 재작성과 생성 코드도 상위 모델을 쓴다. 이유: 대본 품질과 코드 수정 횟수에 직접 영향을 준다.
-- `anthropic_api`와 `claude_cli`의 실제 model ID는 LLM adapter 작업이 공식 문서에서 확인해 넣는다. `openai_compat`의 model ID는 alias마다 endpoint 설정으로 넣는다.
-- 실행 때 실제 provider, model, effort를 job usage에 기록한다.
+확정된 상위 모델은 [SPEC 9.2](SPEC.md#92-모델과-출력), 미확정 세부 routing은 [열린 질문](#llm-routing)을 따른다.
 
 ### 10.3 실패, 시간 초과, 느림
 
@@ -476,7 +332,7 @@ models:
 
 ### 10.4 보안 규칙
 
-- 외부로 보내는 것은 재료 글, 대본, 대화 문장, 참고 영상 프레임, 참고 전사뿐이다.
+- 외부 LLM 전송 목록의 원본: 재료 글, 대본, 대화 문장(chat text), 참고 영상에서 추출한 프레임과 받아쓴 대사뿐이다. 최초 안내는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다.
 - 참고 자료와 사용자 글은 데이터 part로만 보낸다. system prompt나 설정 파일에 넣지 않는다.
 - LLM 출력은 typed patch와 코드 문자열로만 받는다. 서버가 허용 필드, scene ID, base revision, lock, catalog ID를 다시 검사한다.
 - LLM이 URL, 실행 명령, dependency, host 경로를 등록하지 못한다.
@@ -487,17 +343,7 @@ models:
 
 ### 10.5 Prompt 문체와 작은 검토
 
-- 모든 resolved route의 prompt 파일 앞부분에 짧은 `style notes`를 둔다. 언어와 register와 어조와 단어 선택의 이유를 적는다.
-- 지시는 원하는 동작으로 쓴다. 각 지시에 이유를 짧게 붙인다. 강조용 all-caps 대신 보통 문장을 쓴다. 기술 식별자는 보존한다.
-- 한국어 대본의 지시와 예시는 한국어로 쓴다. 앱에서 선택한 register와 어조를 따른다. 출력에 써도 되는 어휘를 고른다. 목표 말투의 짧은 예시를 1~2개 둔다.
-- route마다 검토용 합성 입력을 2~5개 둔다. 입력 파일은 해당 prompt 옆의 `style-fixtures.jsonl`이다. prompt 안 예시와 별개다. §15의 녹화 응답 조회에 사용하지 않는다.
-- `scripts/compare_prompt_style.py`는 같은 fixture의 변경 전후 응답 파일을 읽어 HTML 한 페이지의 좌우 칸에 표시한다. renderer는 모델을 호출하지 않는다. fixture ID와 입력과 전후 응답을 함께 보인다. route와 전후 prompt 구분값과 실제 model ID와 effort를 함께 기록한다.
-- 비교 응답은 같은 provider와 실제 model ID와 effort와 출력 한도에서 얻는다. 조건이 다르면 페이지에 차이를 표시한다. 최초 작성은 변경 전 응답 없음으로 표시한다. 실패와 누락은 빈 성공값 대신 해당 상태로 표시한다. HTML에 넣는 입력과 응답은 escape한다.
-- 검토 페이지는 일반 앱 로그가 아니다. 합성 자료만 쓰고 작업의 로컬 출력 폴더에 둔다. 검토자가 말투와 어휘와 읽기 자연스러움을 확인할 자료다. 열람 대기는 빌드와 병합의 새 gate가 아니다. 실제 모델 출력이 없으면 문체 품질 미검증으로 표시한다. 재생 출력은 새 prompt 품질 증거로 쓰지 않는다.
-- 선택 도구 `scripts/lint_prompt_style.py`는 부정 지시만 있는 문장과 강조용 all-caps 후보를 경고한다. 기술 식별자는 예외로 둔다. 작성자가 로컬에서 수동 실행한다. 문체 경고의 종료 코드는 0이다. 문체 lint와 비교 페이지는 CI에서 실행하지 않는다. 경고 작업으로도 실행하지 않는다. 필수 status check에도 넣지 않는다. lint 결과를 의미 품질 판정으로 쓰지 않는다.
-- 신뢰된 지시는 system에 둔다. 사용자 글과 제삼자 자료는 기존 tools-off `text`·`png` 데이터 parts로만 보낸다. 이 방식은 Anthropic의 `tool_result` 권고와 다르다. 이 한계를 문서화하고 tool-result 교환을 도입하지 않는다.
-
-근거: [Anthropic prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)는 원하는 동작과 이유와 출력 문체에 맞춘 prompt와 예시를 권한다. [OpenAI prompting guide](https://developers.openai.com/api/docs/guides/prompt-engineering)는 communication style과 원하는 출력 예시를 명시하도록 권한다. 한국어와 register의 일치와 어휘 선택은 이 앱의 적용 규칙이다. 예시 수와 fixture 수와 비교 도구와 warning-only lint는 이 앱의 작은 검토 설계다. [Anthropic indirect prompt injection 권고](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks)는 제삼자 자료를 `tool_result`로 보내도록 권한다.
+prompt 파일 구조는 [ADR 0018](decisions/0018-store-prompts-as-files.md), 문체 구현안은 [열린 질문](#prompt-파일과-문체), 작성자의 수동 검토 절차는 [기여 안내](../CONTRIBUTING.md#prompt-검토)를 따른다.
 
 ## 11. TTS, 정렬, 전사
 
@@ -808,3 +654,250 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 - 정상 fixture는 실제 기본 plugin의 ID만 참조한다. 설명용 가짜 ID를 쓰지 않는다.
 - fixture 화면 완주는 실제 생성 증거가 아니다. 실제 생성 증거는 dev나 release profile 실행 기록이다.
 - 공개 PR 증거는 합성 주제와 합성 자료만 쓴다.
+
+## 16. 구현과 검증
+
+### 현재 검증 범위
+
+- 현재 release 빌드에는 API key를 등록하지 않는다. `anthropic_api` 구현과 fake 응답 시험은 계속하되 실제 API 호출은 미실행으로 기록한다. fake·fixture 결과를 실호출 성공으로 보고하지 않는다.
+- 선택 TTS, 렌더, 설치 시험은 실호출과 구분해 가능한 범위에서 계속한다.
+
+### 16.1 원본과 runtime
+
+- 기술 설계: frontend는 React 18, TypeScript 5.7, Vite 6, Tailwind 4다. core는 Python 3.11, FastAPI, Pydantic v2, Poetry다.
+- 기술 설계: 여럿 실행에 대비해 `owner_id`를 두고 한 명 실행은 고정값을 쓴다. 실행 형태의 제품 범위는 [SPEC 1](SPEC.md#1-범위와-실행-형태)을 따른다.
+- 계약 구현은 stable scene·line ID, schema_version, base revision, style/template digest, origins, lock, artifact 참조를 Pydantic 원본과 OpenAPI로 만든다. 조사 예시 JSON은 실행 규격이 아니다. 한영 정상 fixture와 잘못된 ID·중복 순서·오래된 revision fixture를 둔다. API method·path·입출력·오류·중복·충돌과 TS 생성은 0~4절을 따른다.
+- 재시작과 긴 대화 뒤에도 직접값, lock, 과거 영상이 바뀌지 않는지 시험한다.
+- 저장과 job 세부는 아래 제안의 상태를 유지한다. 재시작 뒤 성공 결과와 마지막 저장 상태를 재사용하는 제품 수락은 [SPEC 기준 27](SPEC.md#106-복구와-품질-검수-2630)을 따른다.
+
+### 16.2 그림과 timing
+
+- 기술 설계: 정지 미리보기는 대본 확인 뒤 구도 검수용이다. TTS 전 길이는 예상값이다. 확정 음성 뒤 preview와 mp4는 같은 timing artifact를 읽는다. 글·font·style·revision 변경 뒤 오래된 preview를 완료로 표시하지 않는다.
+- 한영 font 파일·digest·원본 라이선스를 동봉한다. 실제 glyph와 픽셀 폭으로 줄바꿈하며 OS 기본 font로 조용히 대체하지 않는다. 긴 한글·영문 식별자·숫자·괄호·혼합문자·누락 glyph·자모 분리·타자 효과 fixture를 시험한다.
+- 코드 BGM은 9절 sandbox와 별도 WAV 검증기를 쓴다. host sound 서비스가 반복과 영상 길이를 처리한다. code/runtime digest·seed·설정으로 WAV를 재사용한다. 고정 WAV·잘못된 header·초과 길이·stdout flood·무한 계산·cache hit를 시험한다. BGM 교체 때 renderer 호출은 0이다.
+- 업로드 BGM은 job 전용 ID로 저장하고 고정 decoder로 제한한 내부 오디오로 변환한다. 손상·초과 bytes·길이는 거절한다. 보존 기간은 아래 저장 제안을 따른다.
+
+### 16.3 TTS와 참고 분석
+
+- 기술 시험안: Qwen 비교는 `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`, `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`에서 시작한다. 후보별 환경에서 full revision·설정·OS·CPU·RAM·thread를 기록한다. Base checkpoint 클로닝 시험은 별도 실험이며 후보 비교 승인을 클로닝 UI 승인으로 확대하지 않는다.
+- 기술 수락: cold start는 process 시작부터 합성 준비까지, RTF는 wall time/실제 WAV 길이, peak RAM은 자식 process 포함이다. 설치 실패와 청취 부적합도 남긴다. 전부 실패하면 무음·대체 엔진 대신 TTS 미확정 blocker로 보고한다. 최종 한국어·영어 청취를 수행한다.
+- 기술 설계: 전사와 알려진 대본의 forced alignment는 별도 adapter다. WhisperX는 정렬 기준선이며 가벼운 경로는 한영 시험 통과 때만 대체한다. 화면 글과 말할 글의 대응은 11.2절을 따른다.
+- 기술 설계: 참고 화면은 ffmpeg 프레임으로, 소리는 별도 전사 adapter로 분석한다. 무음 비율·BGM 유무·길이·장면 수를 측정한다. 확정 분석값과 검증 artifact로 삭제·복구를 연결한다. 공급자 보관 정책과 실제 링크 성공은 검증 대기다. 링크 경계는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 유지한다.
+
+### 16.4 기록과 연결 상태
+
+- job·attempt·stage·provider/model·effort·cache hit·usage·재생성 scene ID·monotonic 시작과 끝을 기록한다. 전체 wall time과 병렬 단계 시간을 구분한다. 로그 수집 범위는 7절을 따른다.
+- 사용자 조작 시간은 초안 편집 시작부터 다음 행동까지 활성 구간이다. 대기와 비활성 탭은 분리한다. provider 사용량을 API 현금 비용으로 환산하지 않으며 미확인 비용은 0이 아닌 null이다.
+- offline은 기존 프로젝트 열기·편집·결과 재생의 가능 범위를 표시한다. 로컬 모델 준비 여부에 따라 음성·렌더 가능 경로와 누락 모델을 정확히 알린다. LLM 생성·참고 분석은 연결이 필요하다. 전체 offline 앱이라고 설명하지 않는다.
+
+### 16.5 기기 검증
+
+- 결정: Playwright의 iPhone·Pixel profile과 Chromium·WebKit으로 390px 다섯 단계 완주·화면 캡처를 구현 변경마다 시험한다. 각자 Chrome DevTools 기기 모드로 직접 조작하고 Android Studio의 Chrome으로 키보드와 아래 입력창을 확인한다.
+- 한계: 앞 두 경로는 실제 키보드·손가락 터치·iOS Safari를 재현하지 못한다. Playwright WebKit은 iOS Safari가 아니다. 마지막에 실기기로 한 번 시험한다. 같은 와이파이가 아니면 Tailscale이나 터널을 쓴다.
+
+## 열린 질문
+
+### 데이터 문서 배치
+
+제안: 저장 위치는 [ADR 0007](decisions/0007-persist-storage-and-job-state.md)의 Proposed 범위다. schema 종류와 필드 계약은 본문을 따른다.
+
+| 파일 | 정의 | 저장 위치 |
+|---|---|---|
+| `common.schema.json` | ID, digest, PinnedRef, Origin, License, Box 등 공통 정의 | 없음 |
+| `settings.schema.json` | 제작 설정 `Settings`, 프리셋 설정 `PresetSettings` | project, video, preset 안 |
+| `project.schema.json` | 프로젝트와 기본 설정 | `DATA_DIR/p/<project_id>/project.json` |
+| `video.schema.json` | 영상 revision snapshot, `VideoBuild` 파생 view | `DATA_DIR/p/<pid>/v/<vid>/r/<revision>.json` |
+| `script.schema.json` | 대본 metadata와 `Line` | video 안 |
+| `scene.schema.json` | 장면 원본과 시각 데이터 | video 안 |
+| `change.schema.json` | 변경 제안 `ChangePlan`과 `Op` | state.db `changes` |
+| `preset.schema.json` | 프리셋 | state.db `presets` |
+| `format-card.schema.json` | 포맷 카드, 이야기 틀 `StoryStructure` | `core/app/catalog/format_cards/<id>.json`, `core/app/catalog/story_structures/<id>.json` |
+| `style-manifest.schema.json` | 그림체 package | 기본 `core/app/plugins/art_styles/<id>/`, 생성 `DATA_DIR/s/<digest16>/` |
+| `template-manifest.schema.json` | 화면 틀 template | 기본 `core/app/plugins/templates/<id>/`, 생성 `DATA_DIR/s/<digest16>/` |
+| `voice-manifest.schema.json` | 목소리 | `core/app/plugins/voices/<id>/` |
+| `bgm-entry.schema.json` | BGM 내장·업로드·코드, `SfxEntry` | 내장 `core/app/plugins/bgm/<id>/`, 업로드 `DATA_DIR/p/<pid>/u/`, 코드 `DATA_DIR/s/<digest16>/`, 효과음 `core/app/plugins/sfx/<id>/` |
+| `font-manifest.schema.json` | 자막 글꼴 | `core/app/plugins/fonts/<id>/` |
+| `job.schema.json` | job과 오류 | state.db `jobs` |
+| `artifact.schema.json` | artifact index와 `Timing` | state.db `artifacts`, 파일은 6절 |
+| `sandbox-io.schema.json` | sandbox runner 입출력 | 저장하지 않음 |
+| `api.schema.json` | API 오류와 요청·응답 본문 | 저장하지 않음 |
+
+### 저장과 job 구현
+
+제안: 아래 상태·queue·복구는 [ADR 0007](decisions/0007-persist-storage-and-job-state.md)에 따라 비구속적이다. 본문의 SQLite index와 불변 revision 참조도 이 제안의 승인을 뜻하지 않는다.
+
+### 5.1 상태 전이
+
+| 현재 | 사건 | 다음 |
+|---|---|---|
+| (없음) | 제출 | queued |
+| queued | runner가 원자적으로 점유 (`UPDATE ... WHERE state='queued'`) | running |
+| queued | 취소 | cancelled |
+| running | 성공 | succeeded |
+| running | 실패 | failed |
+| running | 취소 요청 | cancelling |
+| cancelling | 자식 process tree 종료 확인 | cancelled |
+| failed, cancelled | 재시도 (`attempt < max_attempts`) | queued, attempt + 1 |
+| running, cancelling | 앱 재시작 | 아래 5.3 |
+
+- job 행은 terminal 상태가 되기 전에 지우지 않는다.
+- 결과 기록은 `finish(job_id, attempt, ...)`가 `state='running' AND attempt=?` 조건으로만 성공한다. 취소 뒤나 이전 attempt의 늦은 결과는 버린다.
+- checkpoint는 artifact를 검증하고 atomic rename으로 공개한 뒤에만 기록한다.
+
+### 5.2 kind별 deadline과 실행 queue
+
+기술 시작값이다. `core/config/app.yaml`의 `jobs`에서 바꾼다.
+
+| kind | queue | deadline | 최대 attempt |
+|---|---|---|---|
+| draft, script, chat, precheck | light | 180초 | 3 |
+| preview | heavy | 600초 | 3 |
+| generate | heavy | 2400초 | 3 |
+| reference | heavy | 900초 | 2 |
+| style, template | heavy | 900초 | 2 |
+| bgm_code | heavy | 300초 | 2 |
+| bgm_upload | light | 120초 | 1 |
+| runtime_prepare | heavy | 없음 | 3 |
+
+- 기술 선택: light queue와 heavy queue가 각각 한 번에 job 하나를 실행한다. 이유: 노트북 메모리에서 무거운 모델을 동시에 올리지 않는다.
+- TTS, 정렬, 전사 worker는 heavy queue 안에서 한 번에 하나만 살아 있다.
+
+### 5.3 재시작 복구
+
+1. 앱 시작 때 `running`과 `cancelling` job을 찾는다.
+2. `cancelling`은 `cancelled`로 바꾼다.
+3. `running`은 현재 attempt를 `interrupted`로 닫는다.
+4. attempt가 남았고 kind가 재개 가능하면 queued로 되돌린다. 재개 가능 kind는 preview, generate, runtime_prepare, reference다.
+5. 그 밖에는 failed와 `interrupted`로 닫는다. 사용자가 재시도한다.
+6. 재개한 job은 checkpoint의 artifact 존재와 digest를 다시 검사한다. 통과한 것만 재사용한다.
+7. `CACHE_DIR/j/`와 `CACHE_DIR/r/`에서 활성 job이 아닌 폴더를 지운다. 앱 소유 prefix와 job ID 형식이 맞는 폴더만 지운다. symlink는 따라가지 않는다.
+
+### 5.4 부분 결과, 재시도, 취소
+
+- generate는 장면 단위 checkpoint를 남긴다. 실패해도 성공한 장면 artifact는 index에 남는다. `partial`은 true다.
+- 재시도는 같은 job ID의 새 attempt다. cache key가 같은 artifact를 다시 만들지 않는다.
+- 사용자 재시도와 adapter 내부 재시도는 다르다. adapter 재시도는 10절과 11절을 따른다.
+- 취소는 cancel token을 세우고 모든 자식 process tree를 종료한다. 429 대기 중에도 250ms 안에 취소를 확인한다.
+- 이미 보낸 외부 LLM 요청의 과금 취소는 보장하지 않는다.
+- 엔진, 목소리, 모델 변경과 재생성 범위 확대는 조용히 하지 않는다. 필요하면 job을 실패시키고 이유 코드를 남긴다.
+- 실패한 job은 이전 성공 결과와 이전 BGM을 바꾸지 않는다.
+
+### 저장 경로와 보존
+
+제안: 다음은 OS별 사용자 경로와 파일 배치·보존안이다.
+
+| root | Windows 기본값 | Linux 기본값 |
+|---|---|---|
+| `DATA_DIR` | `%LOCALAPPDATA%\<app_id>\data` | `$XDG_DATA_HOME/<app_id>`, 없으면 `~/.local/share/<app_id>` |
+| `CACHE_DIR` | `%LOCALAPPDATA%\<app_id>\cache` | `$XDG_CACHE_HOME/<app_id>`, 없으면 `~/.cache/<app_id>` |
+| `MODEL_DIR` | `DATA_DIR\models` | `DATA_DIR/models` |
+| `RUNTIME_DIR` | 설치 폴더 `rt\` | 설치 폴더 `rt/` |
+| 설치 폴더 | `%LOCALAPPDATA%\Programs\<app_id>\<version>\` | tarball을 푼 폴더 |
+
+개발과 시험은 worktree 안 `.local/`을 쓴다. 환경변수 override는 [6.1절](#61-root)을 따른다.
+
+### 6.2 배치
+
+```text
+DATA_DIR/
+  state.db                      projects, videos, revisions index, changes, presets, jobs, artifacts, holds, idempotency, uploads, activity, catalog_user
+  p/<project_id>/project.json
+  p/<project_id>/v/<video_id>/r/<revision>.json
+  p/<project_id>/u/<upload_id>.wav
+  o/<video_id>/<artifact_id>.mp4 | .srt
+  s/<digest16>/                 생성 style, template, code BGM package (immutable)
+  models/<runtime_item>/<rev12>/
+  rt-journal.json               기기별 설치 journal
+  log/app.log                   회전 로그
+CACHE_DIR/
+  a/<2 hex>/<artifact_id>.<ext> 중간 artifact
+  j/<job_id>/                   job 작업 폴더
+  r/<job_id>/                   참고 영상 원본과 프레임, 분석 직후 삭제
+```
+
+- 파일은 임시 이름으로 쓰고 검증 뒤 같은 volume에서 atomic rename한다.
+- 사용자 파일명과 원본 제목은 경로에 쓰지 않는다. 앱 ID만 쓴다.
+- 경로 최대 길이 목표는 root 뒤 80자 이하다.
+
+### 6.3 소유와 보존
+
+| 경로 | 쓰는 모듈 | 삭제 규칙 |
+|---|---|---|
+| `state.db` | `storage` | migration 백업만 남긴다 |
+| `p/` | `storage` (project 서비스 요청) | 프로젝트 삭제 때 해당 프로젝트만 지운다 |
+| `p/<pid>/u/` | `storage` (sound 서비스 요청) | 프로젝트가 참조하는 동안 보존한다 |
+| `o/` | `storage` (assemble 결과 공개) | 영상이나 프로젝트 삭제 때만 지운다 |
+| `s/` | `plugins/registry` (templates 서비스 요청) | 참조하는 revision, 프리셋, catalog 항목이 없을 때만 지운다 |
+| `models/` | `runtime` | uninstall 기본 보존 |
+| `CACHE_DIR/a/` | `storage` | `sweep`이 hold 없는 항목만 지운다 |
+| `CACHE_DIR/j/`, `r/` | `jobs`, reference 서비스 | job 종료 `finally`와 시작 복구에서 지운다 |
+
+- hold 주체는 `rev:<video_id>:<revision>`, `undo:<video_id>`, `style:<digest>`, `preset:<preset_id>`다.
+- 현재 revision과 직전 revision의 artifact는 hold로 보호한다.
+- uninstall은 `DATA_DIR`과 `MODEL_DIR`을 기본 보존한다.
+- 참고 원본 삭제의 제품 정책은 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다. 기술 제안: 분석 job 종료 때 추출 프레임·전사 원문도 지우고 `ReferenceSummary`와 적용 설정값만 남긴다.
+
+### LLM routing
+
+제안: fixture adapter와 세부 routing·effort는 미확정이다. `fixture` adapter는 `fixtures/llm/<task>/<digest>.json` 녹화 응답을 돌려주며 없으면 `llm_invalid_output`으로 실패한다. fixture 성공을 실제 provider 성공으로 보고하지 않는다. 품질과 사용량을 같은 입력으로 비교하고 실제 provider 수락을 별도로 수행한다.
+
+`core/config/models.yaml`이 task별 model, effort, timeout, 재시도를 정한다. profile별 값을 둔다.
+
+```yaml
+routes:
+  draft:            {model: haiku,  effort: low,    timeout_s: 60,  retries: 2}
+  script.numbered_three: {model: haiku, effort: low, timeout_s: 90, retries: 2}
+  script.default:   {model: sonnet, effort: medium, timeout_s: 120, retries: 2}
+  split:            {model: haiku,  effort: low,    timeout_s: 60,  retries: 2}
+  scene_data:       {model: haiku,  effort: low,    timeout_s: 90,  retries: 2}
+  chat:             {model: haiku,  effort: low,    timeout_s: 60,  retries: 2}
+  scene_rewrite:    {model: sonnet, effort: medium, timeout_s: 90,  retries: 2}
+  precheck:         {model: haiku,  effort: low,    timeout_s: 60,  retries: 1}
+  reference_vision: {model: sonnet, effort: medium, timeout_s: 120, retries: 1}
+  style_code:       {model: sonnet, effort: high,   timeout_s: 240, retries: 1}
+  template_code:    {model: sonnet, effort: high,   timeout_s: 240, retries: 1}
+  bgm_code:         {model: sonnet, effort: high,   timeout_s: 180, retries: 1}
+models:
+  haiku:  {anthropic_api: <Haiku 5.5 model id>,  claude_cli: <same alias>, openai_compat: <configured endpoint model id>}
+  sonnet: {anthropic_api: <Sonnet 5.5 model id>, claude_cli: <same alias>, openai_compat: <configured endpoint model id>}
+```
+
+- 제안: 상위 모델 결정은 [SPEC 9.2](SPEC.md#92-모델과-출력)를 따른다. 단순 카드 대본·장면 나누기·장면 데이터는 Haiku 5.5, 나머지 카드 대본·새 템플릿은 상위 모델을 배정한다. 장면 하나 재작성과 생성 코드도 상위 모델로 시작한다.
+- `anthropic_api`와 `claude_cli`의 실제 model ID는 LLM adapter 작업이 공식 문서에서 확인해 넣는다. `openai_compat`의 model ID는 alias마다 endpoint 설정으로 넣는다.
+- 실행 때 실제 provider, model, effort를 job usage에 기록한다.
+
+- 제안: effort 출발값은 Sonnet 대본 medium·새 템플릿 high, Haiku 장면 나누기·장면 데이터 low, 참고 프레임 medium이다. [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort)를 출발점으로 같은 주제의 자체 평가를 거쳐 바꾸며 routing 설정에 모은다.
+
+### 렌더 구현
+
+- 제안: 모델 템플릿은 장면 데이터 입력·프레임 출력 규칙과 시험 장면 하나의 sandbox 렌더를 통과해야 저장한다.
+- 제안: Python Pillow와 ffmpeg를 유지한다. SVG 컷아웃은 CairoSVG로 PNG로 미리 바꾼다. LGPLv3 배포 방식을 확인한다. 장면별 mp4를 조립하며 전환은 컷과 장면 안 페이드부터 시작한다. 정지 PNG 미리보기는 같은 렌더 함수로 만든다.
+- 제안: 실행 형태는 deployment profile 설정 하나로 고르고 파일 저장·작업 실행·LLM 연결·사용자 구분만 인터페이스로 나눈다.
+- 제안: LLM은 검수 에셋 ID만 고르고 목록 밖 ID는 렌더러가 거절한다. 변화 값의 선택 주체는 [SPEC 열린 질문](SPEC.md#고정과-그림체)의 LLM안과 1.2절의 seed 함수안을 비교해 정한다.
+
+### 미디어 profile
+
+- 제안: 구조는 [ADR 0011](decisions/0011-version-media-output-profiles.md)을 따른다. 1080×1920·30fps·H.264 yuv420p와 -16 LUFS를 출발값으로 하며 AAC-LC 48kHz stereo·내부 48kHz float·master -2 dBTP·최종 AAC decode 뒤 -1 dBTP 상한을 검토한다. 현재 12절의 AAC 44.1kHz는 변경하지 않는다.
+- 제안: 플랫폼 bitrate를 profile로 나누고 색 변환·encoder·음향 설정을 `core/config/media.yaml`에 모은다. 수치는 공식 플랫폼 합격선이 아니다. -14 LUFS를 공통 공식 규격으로 단정하지 않는다. 실제 픽셀 변환·압축 뒤 음량·peak·A/V sync와 청취·실제 업로드가 필요하다. profile은 관련 cache key에 반영한다.
+- 근거: [YouTube encoding](https://support.google.com/youtube/answer/1722171?hl=en), [Instagram media](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media), [FFmpeg filters](https://ffmpeg.org/ffmpeg-filters.html).
+
+### Prompt 파일과 문체
+
+- 제안: [ADR 0018](decisions/0018-store-prompts-as-files.md)의 `core/prompts/` 배치, 변수·schema·예시, loader를 검토한다. 변경 전후 같은 fixture로 품질·계약을 비교하고 prompt digest를 기록·cache에 연결한다. 파일 형식과 loader는 공식 가이드 검토 뒤 정한다.
+
+- 모든 resolved route의 prompt 파일 앞부분에 짧은 `style notes`를 둔다. 언어와 register와 어조와 단어 선택의 이유를 적는다.
+- 지시는 원하는 동작으로 쓴다. 각 지시에 이유를 짧게 붙인다. 강조용 all-caps 대신 보통 문장을 쓴다. 기술 식별자는 보존한다.
+- 한국어 대본의 지시와 예시는 한국어로 쓴다. 앱에서 선택한 register와 어조를 따른다. 출력에 써도 되는 어휘를 고른다. 목표 말투의 짧은 예시를 1~2개 둔다.
+- route마다 검토용 합성 입력을 2~5개 둔다. 입력 파일은 해당 prompt 옆의 `style-fixtures.jsonl`이다. prompt 안 예시와 별개다. §15의 녹화 응답 조회에 사용하지 않는다.
+- `scripts/compare_prompt_style.py`는 같은 fixture의 변경 전후 응답 파일을 읽어 HTML 한 페이지의 좌우 칸에 표시한다. renderer는 모델을 호출하지 않는다. fixture ID와 입력과 전후 응답을 함께 보인다. route와 전후 prompt 구분값과 실제 model ID와 effort를 함께 기록한다.
+- 비교 응답은 같은 provider와 실제 model ID와 effort와 출력 한도에서 얻는다. 조건이 다르면 페이지에 차이를 표시한다. 최초 작성은 변경 전 응답 없음으로 표시한다. 실패와 누락은 빈 성공값 대신 해당 상태로 표시한다. HTML에 넣는 입력과 응답은 escape한다.
+- 검토 페이지는 일반 앱 로그가 아니다. 합성 자료만 쓰고 작업의 로컬 출력 폴더에 둔다. 검토자가 말투와 어휘와 읽기 자연스러움을 확인할 자료다. 절차는 [기여 안내](../CONTRIBUTING.md#prompt-검토)를 따른다. 실제 모델 출력이 없으면 문체 품질 미검증으로 표시한다. 재생 출력은 새 prompt 품질 증거로 쓰지 않는다.
+- 제안: 선택 도구 `scripts/lint_prompt_style.py`는 부정 지시만 있는 문장과 강조용 all-caps 후보를 경고한다. 기술 식별자는 예외로 두고 종료 코드는 0이다. 실행 범위와 품질 해석은 [기여 안내](../CONTRIBUTING.md#prompt-검토)를 따른다.
+- 신뢰된 지시는 system에 둔다. 사용자 글과 제삼자 자료는 기존 tools-off `text`·`png` 데이터 parts로만 보낸다. 이 방식은 Anthropic의 `tool_result` 권고와 다르다. 이 한계를 문서화하고 tool-result 교환을 도입하지 않는다.
+
+근거: [Anthropic prompting best practices](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices)는 원하는 동작과 이유와 출력 문체에 맞춘 prompt와 예시를 권한다. [OpenAI prompting guide](https://developers.openai.com/api/docs/guides/prompt-engineering)는 communication style과 원하는 출력 예시를 명시하도록 권한다. 한국어와 register의 일치와 어휘 선택은 이 앱의 적용 규칙이다. 예시 수와 fixture 수와 비교 도구와 warning-only lint는 이 앱의 작은 검토 설계다. [Anthropic indirect prompt injection 권고](https://platform.claude.com/docs/en/test-and-evaluate/strengthen-guardrails/mitigate-jailbreaks)는 제삼자 자료를 `tool_result`로 보내도록 권한다.
+
+### 남은 검증 입력
+
+- 기술 구현 대기: 핵심어 범위 표현, 실행 가능한 schema·OpenAPI, 모듈별 fixture다.
+- 기술 검증 대기: 양 OS 설치·sandbox 거부, 선택 TTS 속도·청취, BGM 곡별 권리, 한국어 font, 링크 성공 여부다. Kenney 부위 구조와 컷아웃 호환도 확인한다.
