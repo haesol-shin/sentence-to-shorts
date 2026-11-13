@@ -2,6 +2,8 @@
 
 이 문서는 구현 모듈이 서로 맞춰야 하는 실행 계약이다. 제품 결정은 [SPEC](SPEC.md)을 따른다. 용어는 [GLOSSARY](GLOSSARY.md)를 따른다. 이 문서는 제품 결정을 추가하지 않는다. 「기술 선택」은 구현 세부를 고른 것이고 한 줄 이유를 붙인다.
 
+저장과 job 구현은 [ADR 0007](decisions/0007-persist-storage-and-job-state.md)의 Proposed 상태를 따른다. 이 문서의 SQLite index, 불변 revision JSON, artifact 파일 배치와 job 상태·queue·복구 세부는 승인 전까지 비구속적인 기술 제안이다. 아래의 의무형 표현도 해당 세부의 승인을 뜻하지 않는다. 재시작 뒤 성공 결과와 마지막 저장 상태를 재사용한다는 결정은 유지한다.
+
 ## 0. 원본 규칙
 
 - schema 원본은 `core/app/schemas/`의 Pydantic 모델이다.
@@ -310,9 +312,9 @@ CACHE_DIR/
 | artifact | 넣는 입력 | 넣지 않는 입력 |
 |---|---|---|
 | `tts_wav` | speech_text, language, voice PinnedRef, engine runtime digest, speed, seed | display_text, 순서, BGM |
-| `timing_json` | 줄별 tts digest, speech_text, display_text, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
-| `part_png` | style PinnedRef, CharacterSpec, expression, pose, seed, sandbox runtime digest | 장면 글 |
-| `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, seed | BGM, 순서 |
+| `timing_json` | 줄별 tts digest, speech_text, display_text, language, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
+| `part_png` | style PinnedRef, CharacterSpec, expression, pose, canvas, seed, sandbox runtime digest | 장면 글 |
+| `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, canvas, 입력 part digest, seed | BGM, 순서 |
 | `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정, layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
 | `clip_mp4` | still 입력 전체, timing digest, motion, fps, renderer revision | BGM, 순서, 다른 장면 |
 | `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, gain, ducking, SFX digest와 시점, loudness 목표 | 영상 화면 |
@@ -344,7 +346,7 @@ CACHE_DIR/
   - `style_parts`: `build_assets(spec: dict, character: dict, canvas: dict, seed: int) -> dict[str, PIL.Image]`
   - `template_layer`: `render_layer(scene: dict, regions: dict, canvas: dict, parts: dict[str, PIL.Image], seed: int) -> (PIL.Image, dict)`
   - `bgm_loop`: `render_loop(params: dict, seed: int) -> bytes`이고 반환값은 WAV bytes다.
-- 입력으로는 부모가 검증한 장면 JSON, 필요한 부품 PNG, seed만 보낸다. API key, home 경로, 프로젝트 전체, 다른 영상은 보내지 않는다.
+- 입력은 위 kind별 진입 함수에 필요한 인자로 한정하고 부모가 검증한다. API key, home 경로, 프로젝트 전체, 다른 영상은 보내지 않는다.
 - 생성 코드는 부품과 layer PNG만 만든다. 프레임 위치, 페이드, 자막은 host Pillow가 합성한다.
 
 ### 9.3 부모 감독과 한도
@@ -598,7 +600,7 @@ class MediaPort(Protocol):
 ### 13.2 접근 제어
 
 - 기본 bind는 `127.0.0.1`이다. LAN 모드는 `APP_LAN=1`일 때만 사용자가 고른 interface에 bind한다.
-- launcher가 실행마다 일회용 pairing code를 만든다. 브라우저는 `http://127.0.0.1:<port>/#pair=<code>`로 연다. fragment는 서버 로그와 Referer에 남지 않는다.
+- launcher가 실행마다 일회용 pairing code를 만든다. 컴퓨터의 브라우저는 `http://127.0.0.1:<port>/#pair=<code>`로 연다. LAN 모드에서 휴대폰은 사용자가 고른 interface의 LAN IP와 port로 접속하고 노트북 화면의 code로 pairing한다. fragment는 서버 로그와 Referer에 남지 않는다.
 - SPA가 `POST /session/pair`로 code를 세션으로 바꾼다. 세션 cookie는 HttpOnly, SameSite=Strict다. 응답의 CSRF token은 메모리에만 둔다.
 - 상태를 바꾸는 요청은 cookie, `X-CSRF-Token`, 정확한 `Origin`이 모두 맞아야 한다. `null` Origin은 거절한다.
 - `Host`는 loopback 이름, 선택한 LAN IP, 설정한 이름만 허용한다.

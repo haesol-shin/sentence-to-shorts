@@ -180,7 +180,7 @@ def check_links(root: Path, rel: str, tokens, anchors: dict[str, set[str]], pars
             continue
         path_part, _, fragment = href.partition("#")
         path_part = unquote(path_part.partition("?")[0])
-        target = (base / path_part).resolve() if path_part else root / rel
+        target = ((base / path_part) if path_part else (root / rel)).resolve()
         try:
             target.relative_to(root.resolve())
         except ValueError:
@@ -204,10 +204,23 @@ def check_adr_index(root: Path, files: list[str]) -> list[str]:
     if index_rel not in files:
         return []
     index = (root / index_rel).read_text(encoding="utf-8")
+    parser = make_parser()
+    base = (root / index_rel).parent
+    indexed = set()
+    for token in parser.parse(blank_front_matter(index)):
+        for child in token.children or []:
+            if child.type != "link_open":
+                continue
+            href = child.attrGet("href") or ""
+            if not href or LINK_SCHEME.match(href):
+                continue
+            path = unquote(href.partition("#")[0].partition("?")[0])
+            if path:
+                indexed.add((base / path).resolve())
     problems = []
     for rel in files:
         name = rel.removeprefix("docs/decisions/")
-        if rel.startswith("docs/decisions/") and "/" not in name and ADR_FILE.match(name) and name not in index:
+        if rel.startswith("docs/decisions/") and "/" not in name and ADR_FILE.match(name) and (root / rel).resolve() not in indexed:
             problems.append(f"{index_rel}: {name} is not listed in the index")
     return problems
 

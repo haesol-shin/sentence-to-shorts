@@ -23,7 +23,7 @@
 - **화면 글 (display_text)**: 영상에 보이는 글이다.
 - **말할 글 (speech_text)**: TTS가 읽는 글이다.
 - **장면 데이터 (scene data)**: 모듈이 공유하는 typed JSON 계약이다. 장면, 대사, 설정, revision, artifact 참조를 연결한다.
-- **출처 (origin)**: 값이 사용자 직접 입력, 참고 영상, 프리셋, 추천 중 어디에서 왔는지 나타낸다.
+- **출처 (origin)**: 값이 사용자 직접 입력(user), 참고 영상(reference), 프리셋(preset), 포맷 카드(card), LLM 추천(llm), 기본값(default) 중 어디에서 왔는지 나타낸다.
 
 ## 포맷과 스타일
 

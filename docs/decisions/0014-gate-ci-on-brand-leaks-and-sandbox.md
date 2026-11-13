@@ -14,7 +14,7 @@ Proposed
 
 ## Decision
 
-필수 status check를 core, frontend, drift, sandbox, brand로 구성하도록 제안한다. brand 검사는 `core/config/brand.yaml` 밖의 이름 하드코딩을 거절하도록 제안한다. 허용 목록은 `LICENSE`, `.git/`, [이름 결정 기록](0021-defer-brand-name-to-team.md)으로 제한하도록 제안한다. 공개 문서는 내부 경로와 개인 인용을 검사하도록 제안한다. 모든 변경의 diff에는 secret과 leak 검사를 적용하도록 제안한다. sandbox check는 시험 수가 0이면 실패하도록 제안한다. 초기 runtime 존재 시험과 실제 거부 시험의 범위는 구분하도록 제안한다. 실제 거부 시험을 추가하기 전에는 격리 검증 완료로 보고하지 않도록 제안한다. workflow는 최소 권한과 SHA 고정을 사용하도록 제안한다.
+필수 status check를 core, frontend, drift, sandbox, brand로 구성하도록 제안한다. brand 검사는 `core/config/brand.yaml` 밖의 이름 하드코딩을 거절하도록 제안한다. 허용 목록은 `LICENSE`, `.git/`, `README.md`, `README.ko.md`, [이름 결정 기록](0021-defer-brand-name-to-team.md)으로 제한하도록 제안한다. 공개 문서는 내부 경로와 개인 인용을 검사하도록 제안한다. 모든 변경의 diff에는 secret과 leak 검사를 적용하도록 제안한다. sandbox check는 시험 수가 0이면 실패하도록 제안한다. 초기 runtime 존재 시험과 실제 거부 시험의 범위는 구분하도록 제안한다. 실제 거부 시험을 추가하기 전에는 격리 검증 완료로 보고하지 않도록 제안한다. workflow는 최소 권한과 SHA 고정을 사용하도록 제안한다.
 
 ## Basis
 

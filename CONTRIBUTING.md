@@ -6,7 +6,7 @@
 
 - 장기 브랜치는 `main` 하나다. 변경은 `main`에서 만든 짧은 브랜치에서 하고 PR로 제출한다.
 - 필수 CI check가 모두 통과해야 한다.
-- 리뷰 bot(cubic)의 지적은 수정하거나 근거를 들어 답변한다. 해결하지 않은 지적을 남긴 채 병합하지 않는다. 봇의 응답 자체를 지적 해결로 보지 않는다.
+- 리뷰 bot(cubic)의 지적과 cubic을 대신한 독립 리뷰의 지적은 수정하거나 근거를 들어 답변한다. 해결하지 않은 지적을 남긴 채 병합하지 않는다. 봇의 응답 자체를 지적 해결로 보지 않는다.
 - 병합 방식은 squash다. 자동 병합도 같은 조건을 따른다.
 - 결정이 바뀌는 변경은 새 ADR을 추가하고 [결정 기록](docs/decisions/README.md)의 index를 함께 갱신한다. 새 ADR은 대체하는 ADR에 링크한다.
 
@@ -27,7 +27,7 @@
 - 계약 변경이 필요하면 마지막 절에 변경 요청으로 적고 현재 계약으로 끝낸다.
 - 결정이 바뀔 때만 새 ADR 링크 한 줄을 본문에 덧붙인다.
 - 화면 변경에는 390px과 1440px 스크린샷을 붙인다.
-- 공개 문구(PR, 커밋, 코드 주석, 문서)에는 로컬 경로, 개인 이름, 실제 사용자 자료를 넣지 않는다. 증거는 합성 자료만 쓴다. `scripts/check_public_docs.py`가 내부 경로와 개인 인용과 개인 도구 표기를 찾아 실패시킨다.
+- 공개 문구(PR, 커밋, 코드 주석, 문서)에는 로컬 경로, 개인 이름, 실제 사용자 자료를 넣지 않는다. 증거는 합성 자료만 쓴다. `scripts/check_public_docs.py`가 모든 Markdown, `.github/` 아래 workflow YAML, `cubic.yaml`의 내부 경로와 개인 인용과 개인 도구 표기를 검사한다. PR 본문 자체와 커밋 메시지와 코드 주석은 작성자와 리뷰어가 수동으로 확인한다.
 
 ## Markdown
 
@@ -37,7 +37,7 @@
 
 ## 이름
 
-서비스와 저장소 이름은 `core/config/brand.yaml`에만 쓴다. 다른 파일은 그 값을 읽는다. `scripts/check_brand.py`가 CI에서 확인한다.
+서비스와 저장소 이름의 원본은 `core/config/brand.yaml`이다. 다른 파일은 그 값을 읽는다. `scripts/check_brand.py`의 허용 목록은 `LICENSE`, `.git/`, `README.md`, `README.ko.md`, 이름 결정 기록 `docs/decisions/0021-defer-brand-name-to-team.md`다. 이름을 바꾸면 하드코딩 예외인 두 README도 함께 갱신한다.
 
 ## 명령
 

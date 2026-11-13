@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import contextlib
 import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -138,6 +139,13 @@ class CheckPublicDocsTest(unittest.TestCase):
         }
         self.assert_clean(files)
 
+    def test_links_resolve_self_anchors_with_relative_root(self):
+        root = self.tree({"docs/a.md": "# Top\n\nSee [self](#top).\n"})
+        parser = check_public_docs.make_parser()
+        relative_root = Path(os.path.relpath(root))
+        tokens = parser.parse((root / "docs/a.md").read_text())
+        self.assertEqual(check_public_docs.check_links(relative_root, "docs/a.md", tokens, {}, parser), [])
+
     def test_links_fail_for_missing_file(self):
         self.assert_one({"docs/a.md": "See [b](missing.md).\n"}, "broken relative link")
 
@@ -166,6 +174,16 @@ class CheckPublicDocsTest(unittest.TestCase):
 
     def test_adr_index_passes_when_listed_files_exist(self):
         self.assert_clean({"docs/decisions/README.md": ADR_INDEX, "docs/decisions/0001-first.md": ADR})
+
+    def test_adr_index_rejects_mentions_without_links(self):
+        for mention in ("0001-first.md", "`0001-first.md`", "```\n[x](0001-first.md)\n```", "![x](0001-first.md)", "[x](https://example.invalid/0001-first.md)", "[x](../0001-first.md)"):
+            with self.subTest(mention=mention):
+                root = self.tree({"docs/decisions/README.md": "# Index\n\n" + mention + "\n", "docs/decisions/0001-first.md": ADR})
+                self.assertEqual(check_public_docs.check_adr_index(root, ["docs/decisions/README.md", "docs/decisions/0001-first.md"]), ["docs/decisions/README.md: 0001-first.md is not listed in the index"])
+
+    def test_adr_index_accepts_resolved_reference_links(self):
+        index = "# Index\n\n[First][adr]\n\n[adr]: ./0001-first.md#context\n"
+        self.assert_clean({"docs/decisions/README.md": index, "docs/decisions/0001-first.md": ADR})
 
     # command line
 

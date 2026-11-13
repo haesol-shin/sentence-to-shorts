@@ -14,7 +14,7 @@ Accepted
 
 ## Decision
 
-cubic을 모든 PR의 리뷰 봇으로 사용한다. 작업 내부의 독립 리뷰도 유지한다. cubic을 사용할 수 없으면 같은 diff를 별도 독립 리뷰로 검토한다. 필수 CI 통과와 cubic 지적의 해결 또는 답변을 확인한 뒤 승인 범위에서 병합한다. 세부 timeout과 추가 custom rule은 이 ADR에서 확정하지 않는다.
+cubic을 모든 PR의 리뷰 봇으로 사용한다. 작업 내부의 독립 리뷰도 유지한다. cubic을 사용할 수 없으면 같은 diff를 별도 독립 리뷰로 검토한다. 필수 CI 통과와 cubic 또는 이를 대신한 독립 리뷰 지적의 해결 또는 근거 있는 답변을 확인한 뒤 승인 범위에서 병합한다. 세부 timeout과 추가 custom rule은 이 ADR에서 확정하지 않는다.
 
 ## Basis
 
