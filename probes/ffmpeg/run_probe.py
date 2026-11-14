@@ -22,6 +22,7 @@ import os
 import platform
 import shutil
 import sys
+import tempfile
 import traceback
 from datetime import datetime, timezone
 from functools import partial
@@ -35,6 +36,7 @@ from probe_harness import (
     LOUDNESS_TOLERANCE_LU,
     TRUE_PEAK_TARGET_DBTP,
     WIDTH,
+    HarnessError,
     Probe,
     ProbeError,
     detect_license,
@@ -66,7 +68,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--work-dir",
         default=None,
-        help="folder for synthetic media (default: <output>/work, removed after the run)",
+        help="parent folder for a per-run media folder (default: <output>/work)",
     )
     parser.add_argument(
         "--ffmpeg",
@@ -345,7 +347,9 @@ def rms_in_window(probe: Probe, path: Path, start: float, end: float) -> float:
     )
     level = parse_astats_rms(completed.stderr)
     if level is None:
-        raise ProbeError(f"astats did not report an RMS level for {path.name}")
+        raise HarnessError(f"astats did not report an RMS level for {path.name}")
+    if level == float("-inf"):
+        raise ProbeError(f"astats measured silence for {path.name}")
     return level
 
 
@@ -576,12 +580,13 @@ def build_payload(probe: Probe, imageio_version: str, source: str) -> dict:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     output = Path(args.output).resolve()
-    work = Path(args.work_dir).resolve() if args.work_dir else output / "work"
-    if work.exists():
-        shutil.rmtree(work, ignore_errors=True)
+    work_parent = Path(args.work_dir).resolve() if args.work_dir else output / "work"
+    run_dir: Path | None = None
     try:
+        work_parent.mkdir(parents=True, exist_ok=True)
+        run_dir = Path(tempfile.mkdtemp(prefix="run-", dir=work_parent))
         ffmpeg, source, imageio_version = resolve_ffmpeg(args.ffmpeg)
-        probe = Probe(ffmpeg, work, timeout=args.timeout)
+        probe = Probe(ffmpeg, run_dir, timeout=args.timeout)
         payload = build_payload(probe, imageio_version, source)
         result_path, summary_path = write_result(output, payload)
         summary = payload["summary"]
@@ -599,8 +604,8 @@ def main(argv: list[str] | None = None) -> int:
         write_failure(output, message)
         return 2
     finally:
-        if not args.keep_work:
-            shutil.rmtree(work, ignore_errors=True)
+        if run_dir is not None and not args.keep_work:
+            shutil.rmtree(run_dir, ignore_errors=True)
 
 
 if __name__ == "__main__":

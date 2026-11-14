@@ -17,9 +17,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-import probe_harness  # noqa: E402
 import run_probe  # noqa: E402
 from probe_harness import (  # noqa: E402
+    HarnessError,
     Probe,
     ProbeError,
     detect_license,
@@ -123,7 +123,7 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parsed["input_tp"], -11.16)
 
     def test_parse_loudnorm_rejects_output_without_a_block(self) -> None:
-        with self.assertRaises(ProbeError):
+        with self.assertRaises(HarnessError):
             parse_loudnorm("no measurement here")
 
     def test_parse_streams_reads_input_side_only(self) -> None:
@@ -143,7 +143,8 @@ class ParserTests(unittest.TestCase):
     def test_parse_astats_takes_the_last_rms_level(self) -> None:
         text = "[astats] RMS level dB: -30.0\n[astats] RMS level dB: -19.830741\n"
         self.assertEqual(parse_astats_rms(text), -19.830741)
-        self.assertIsNone(parse_astats_rms("[astats] RMS level dB: -inf"))
+        self.assertEqual(parse_astats_rms("[astats] RMS level dB: -inf"), float("-inf"))
+        self.assertIsNone(parse_astats_rms("[astats] no level"))
 
 
 class SyntheticMediaTests(unittest.TestCase):
@@ -173,6 +174,18 @@ class ProbeRecordTests(unittest.TestCase):
             self.assertIn("bad stream", result.error)
             self.assertFalse(result.harness_error)
             self.assertEqual(len(probe.checks), 1)
+
+    def test_check_marks_a_harness_error_as_a_harness_error(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            probe = Probe(Path("/bin/false"), Path(folder))
+
+            def broken() -> dict:
+                raise HarnessError("no measurement block")
+
+            result = probe.check("sample_check", broken)
+            self.assertEqual(result.status, "fail")
+            self.assertTrue(result.harness_error)
+            self.assertIn("no measurement block", result.error)
 
     def test_check_marks_an_unexpected_exception_as_a_harness_error(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -236,18 +249,41 @@ echo "stub failure" >&2
 exit 1
 """
 
+    ZERO_STUB = """\
+#!/bin/sh
+case " $* " in
+  *" -version "*)
+    echo "ffmpeg version stub-build Copyright (c) test"
+    echo "built with a test compiler"
+    echo "configuration: --enable-gpl --enable-version3"
+    exit 0
+    ;;
+esac
+exit 0
+"""
+
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.stub = Path(self.folder.name) / "ffmpeg-stub"
         self.stub.write_text(self.STUB, encoding="utf-8")
         self.stub.chmod(self.stub.stat().st_mode | stat.S_IXUSR)
+        self.zero_stub = Path(self.folder.name) / "ffmpeg-zero-stub"
+        self.zero_stub.write_text(self.ZERO_STUB, encoding="utf-8")
+        self.zero_stub.chmod(self.zero_stub.stat().st_mode | stat.S_IXUSR)
 
     def test_raw_returns_a_nonzero_command(self) -> None:
         probe = Probe(self.stub, Path(self.folder.name) / "work")
         completed = probe.raw(["-i", "missing"])
         self.assertFalse(completed.ok)
         self.assertIn("stub failure", completed.stderr)
+
+    def test_probe_media_rejects_a_failed_null_decode(self) -> None:
+        probe = Probe(self.stub, Path(self.folder.name) / "work")
+        with self.assertRaises(ProbeError) as raised:
+            probe.probe_media(Path("upload.mp3"))
+        self.assertIn("null decode failed", str(raised.exception))
+        self.assertIn("stub failure", str(raised.exception))
 
     def test_command_raises_with_the_stderr_tail(self) -> None:
         probe = Probe(self.stub, Path(self.folder.name) / "work")
@@ -273,6 +309,55 @@ exit 1
         )
         self.assertEqual(code, 2)
         self.assertTrue((output / "failure.json").exists())
+
+    def test_existing_work_folder_survives_a_failed_start(self) -> None:
+        parent = Path(self.folder.name) / "existing"
+        parent.mkdir()
+        marker = parent / "keep.txt"
+        marker.write_text("keep", encoding="utf-8")
+        output = Path(self.folder.name) / "out"
+        code = run_probe.main(
+            [
+                "--ffmpeg",
+                str(Path(self.folder.name) / "missing"),
+                "--output",
+                str(output),
+                "--work-dir",
+                str(parent),
+                "--keep-work",
+            ]
+        )
+        self.assertEqual(code, 2)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+        self.assertEqual(len(list(parent.glob("run-*"))), 1)
+
+    def test_cleanup_removes_only_the_run_folder(self) -> None:
+        parent = Path(self.folder.name) / "existing"
+        parent.mkdir()
+        marker = parent / "keep.txt"
+        marker.write_text("keep", encoding="utf-8")
+        output = Path(self.folder.name) / "out"
+        code = run_probe.main(
+            [
+                "--ffmpeg",
+                str(Path(self.folder.name) / "missing"),
+                "--output",
+                str(output),
+                "--work-dir",
+                str(parent),
+            ]
+        )
+        self.assertEqual(code, 2)
+        self.assertEqual(marker.read_text(encoding="utf-8"), "keep")
+        self.assertEqual(list(parent.glob("run-*")), [])
+
+    def test_unreadable_output_fails_the_workflow(self) -> None:
+        output = Path(self.folder.name) / "out"
+        code = run_probe.main(["--ffmpeg", str(self.zero_stub), "--output", str(output)])
+        self.assertEqual(code, 2)
+        stored = json.loads((output / "result.json").read_text(encoding="utf-8"))
+        self.assertGreater(stored["summary"]["harness_errors"], 0)
+        self.assertFalse((output / "failure.json").exists())
 
 
 if __name__ == "__main__":

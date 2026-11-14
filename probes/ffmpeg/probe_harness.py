@@ -38,7 +38,11 @@ ERROR_TAIL = 1200
 
 
 class ProbeError(RuntimeError):
-    """The harness cannot run a command or a parser cannot read its output."""
+    """The thing under test failed; the probe records it and keeps going."""
+
+
+class HarnessError(RuntimeError):
+    """The harness cannot read ffmpeg's output or start it; the workflow must fail."""
 
 
 @dataclass(frozen=True)
@@ -104,7 +108,7 @@ def parse_version(text: str) -> dict:
     first = text.splitlines()[0] if text.splitlines() else ""
     match = re.search(r"ffmpeg version ([^\s]+)", first)
     if not match:
-        raise ProbeError(f"cannot read the ffmpeg version line: {first[:120]!r}")
+        raise HarnessError(f"cannot read the ffmpeg version line: {first[:120]!r}")
     build = re.search(r"^built with (.+)$", text, re.MULTILINE)
     configuration = re.search(r"^configuration: (.+)$", text, re.MULTILINE)
     return {
@@ -143,7 +147,7 @@ def parse_loudnorm(text: str) -> dict:
         if isinstance(value, dict) and "input_i" in value:
             found.append(value)
     if not found:
-        raise ProbeError("loudnorm did not print a JSON measurement block")
+        raise HarnessError("loudnorm did not print a JSON measurement block")
     block = found[-1]
     numbers = {}
     for key, value in block.items():
@@ -208,10 +212,12 @@ def parse_frames(text: str) -> int | None:
 
 
 def parse_astats_rms(text: str) -> float | None:
-    """Read the last overall RMS level in dB that the astats filter prints."""
+    """Read the last overall RMS level in dB; `-inf` is silence, `None` is unreadable."""
     matches = re.findall(r"RMS level dB:\s*(-?\d+(?:\.\d+)?|-inf)", text)
-    if not matches or matches[-1] == "-inf":
+    if not matches:
         return None
+    if matches[-1] == "-inf":
+        return float("-inf")
     return float(matches[-1])
 
 
@@ -289,9 +295,9 @@ class Probe:
                 timeout=timeout or self.timeout,
             )
         except subprocess.TimeoutExpired as exc:
-            raise ProbeError(f"ffmpeg timed out after {timeout or self.timeout:g}s") from exc
+            raise HarnessError(f"ffmpeg timed out after {timeout or self.timeout:g}s") from exc
         except OSError as exc:
-            raise ProbeError(f"cannot start ffmpeg: {exc}") from exc
+            raise HarnessError(f"cannot start ffmpeg: {exc}") from exc
         return Completed(
             command=command,
             returncode=process.returncode,
@@ -315,11 +321,15 @@ class Probe:
         return completed
 
     def probe_media(self, path: Path) -> dict:
-        """Read streams, duration and decoded frame count without ffprobe."""
+        """Read streams, duration and a real decode without ffprobe."""
         completed = self.raw(["-i", str(path), "-f", "null", "-"])
+        if not completed.ok:
+            raise ProbeError(f"null decode failed for {path.name}: {completed.tail()}")
         streams = parse_input_streams(completed.stderr)
         if not streams:
-            raise ProbeError(f"no input stream in {path.name}: {completed.tail(400)}")
+            raise HarnessError(
+                f"cannot read an input stream from {path.name}: {completed.tail(400)}"
+            )
         return {
             "duration_s": parse_duration(completed.stderr),
             "frames": parse_frames(completed.stderr),
@@ -339,6 +349,9 @@ class Probe:
                 detail=detail or "ok",
                 measurements=measurements,
             )
+        except HarnessError as exc:
+            harness_error = True
+            result = CheckResult(id=check_id, status="fail", detail=detail, error=str(exc))
         except ProbeError as exc:
             # The thing under test failed; that is a probe result, not a crash.
             result = CheckResult(id=check_id, status="fail", detail=detail, error=str(exc))
