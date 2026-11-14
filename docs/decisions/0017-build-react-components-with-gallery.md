@@ -14,4 +14,4 @@ frontend/src/components/의 실제 React 부품을 앱의 개발 전용 /gallery
 
 ## Consequences
 
-390px·1440px에서 default·hover·pressed·disabled·loading·error를 독립 검토하고 사람 확인 뒤 token·부품·기준 화면을 고정한다. 갤러리는 공개하지 않는다. 디자인 확인 대기는 디자인 작업만 멈춘다. 새 부품도 같은 절차를 따른다.
+390px·1920px에서 default·hover·pressed·disabled·loading·error를 독립 검토하고 사람 확인 뒤 token·부품·기준 화면을 고정한다. 갤러리는 공개하지 않는다. 디자인 확인 대기는 디자인 작업만 멈춘다. 새 부품도 같은 절차를 따른다.
