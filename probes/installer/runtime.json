@@ -1,0 +1,46 @@
+{
+  "probe": "installer",
+  "app_version": "0.1.0",
+  "python": {
+    "implementation": "CPython",
+    "version": "3.11.18",
+    "release": "20261110",
+    "distribution": "python-build-standalone install_only",
+    "source": "https://github.com/astral-sh/python-build-standalone/releases/tag/20261110",
+    "checksums": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/SHA256SUMS",
+    "assets": {
+      "linux-x86_64": {
+        "name": "cpython-3.11.18+20261110-x86_64-unknown-linux-gnu-install_only.tar.gz",
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.11.18%2B20261110-x86_64-unknown-linux-gnu-install_only.tar.gz",
+        "bytes": 49244720,
+        "sha256": "ac0b758b6ae4ba1cb87f7091eb6bb17c9a383a9bcdb5c18493cdd4f34e35ae8c"
+      },
+      "windows-x86_64": {
+        "name": "cpython-3.11.18+20261110-x86_64-pc-windows-msvc-install_only.tar.gz",
+        "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.11.18%2B20261110-x86_64-pc-windows-msvc-install_only.tar.gz",
+        "bytes": 49079288,
+        "sha256": "5ca7e23bbcc8933a75f4ae9c3a5e5d1ffae5fd143aec9a9d77cf5124cc6e0eef"
+      }
+    }
+  },
+  "uv": {
+    "version": "0.13.8",
+    "install": "python -m pip install --disable-pip-version-check uv==0.13.8"
+  },
+  "requirements": {
+    "input": "requirements.in",
+    "hashes": "requirements.txt",
+    "install": "uv pip sync --require-hashes"
+  },
+  "runners": {
+    "linux-x86_64": "ubuntu-24.04",
+    "windows-x86_64": "windows-latest"
+  },
+  "measurements": [
+    "download_bytes",
+    "compressed_bytes",
+    "installed_bytes",
+    "install_seconds",
+    "start_seconds"
+  ]
+}
