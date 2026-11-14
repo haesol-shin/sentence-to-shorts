@@ -1,0 +1,25 @@
+{
+  "operationId": "postSessionPair",
+  "method": "POST",
+  "path_template": "/api/v1/session/pair",
+  "path": "/api/v1/session/pair",
+  "request": {
+    "path": {},
+    "query": {},
+    "headers": {},
+    "body": {
+      "code": "paircode-0123456789"
+    },
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "csrf_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "profile": "fixture",
+      "deployment": "local",
+      "ui_language": "ko"
+    }
+  }
+}

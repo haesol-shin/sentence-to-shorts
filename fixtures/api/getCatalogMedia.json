@@ -1,0 +1,22 @@
+{
+  "operationId": "getCatalogMedia",
+  "method": "GET",
+  "path_template": "/api/v1/catalog/{kind}/{item_id}/media/{name}",
+  "path": "/api/v1/catalog/voice/fixed_wav/media/sample.wav",
+  "request": {
+    "path": {
+      "kind": "voice",
+      "item_id": "fixed_wav",
+      "name": "sample.wav"
+    },
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": "audio/wav",
+    "body": null
+  }
+}

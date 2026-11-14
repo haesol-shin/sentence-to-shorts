@@ -1,0 +1,62 @@
+{
+  "operationId": "listCatalog",
+  "method": "GET",
+  "path_template": "/api/v1/catalog/{kind}",
+  "path": "/api/v1/catalog/format_card",
+  "request": {
+    "path": {
+      "kind": "format_card"
+    },
+    "query": {
+      "limit": 20
+    },
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "items": [
+        {
+          "kind": "format_card",
+          "id": "its_like",
+          "revision": "d00ecc8995b48ad3570d2309741d285bd07bb32ef54a4a5960b192063a6a37b9",
+          "label": {
+            "ko": "○○로 치면",
+            "en": "It's Like"
+          },
+          "origin": "builtin",
+          "thumbnail": null,
+          "compatible": null
+        },
+        {
+          "kind": "format_card",
+          "id": "just_three",
+          "revision": "6c9850fd03c8b260b8a595bc072531e43526a586fa6ee2ecc998015ffee94017",
+          "label": {
+            "ko": "딱 3가지만",
+            "en": "Just 3 Things"
+          },
+          "origin": "builtin",
+          "thumbnail": null,
+          "compatible": null
+        },
+        {
+          "kind": "format_card",
+          "id": "what_if",
+          "revision": "9f700a7129628e05dd94de623e8317c96a5f5f72b2bcfea6fea777247355e16b",
+          "label": {
+            "ko": "만약 ~라면?",
+            "en": "What If?"
+          },
+          "origin": "builtin",
+          "thumbnail": null,
+          "compatible": null
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+}

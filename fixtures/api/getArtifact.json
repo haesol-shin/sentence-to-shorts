@@ -1,0 +1,20 @@
+{
+  "operationId": "getArtifact",
+  "method": "GET",
+  "path_template": "/api/v1/artifacts/{aid}",
+  "path": "/api/v1/artifacts/a_0x9jjztjrj83nrbmysv0j1ksda",
+  "request": {
+    "path": {
+      "aid": "a_0x9jjztjrj83nrbmysv0j1ksda"
+    },
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": "video/mp4",
+    "body": null
+  }
+}

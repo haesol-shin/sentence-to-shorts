@@ -1,0 +1,20 @@
+{
+  "operationId": "getBgmAudio",
+  "method": "GET",
+  "path_template": "/api/v1/bgm/{item_id}/audio",
+  "path": "/api/v1/bgm/builtin_loop/audio",
+  "request": {
+    "path": {
+      "item_id": "builtin_loop"
+    },
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": "audio/wav",
+    "body": null
+  }
+}

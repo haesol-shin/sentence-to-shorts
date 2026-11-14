@@ -1,0 +1,22 @@
+{
+  "operationId": "getHealth",
+  "method": "GET",
+  "path_template": "/api/v1/health",
+  "path": "/api/v1/health",
+  "request": {
+    "path": {},
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "version": "0.1.0",
+      "profile": "fixture",
+      "deployment": "local"
+    }
+  }
+}

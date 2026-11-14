@@ -1,0 +1,28 @@
+{
+  "operationId": "getMetrics",
+  "method": "GET",
+  "path_template": "/api/v1/videos/{vid}/metrics",
+  "path": "/api/v1/videos/v_0hzb7bexv28termtt2ypc6trzt/metrics",
+  "request": {
+    "path": {
+      "vid": "v_0hzb7bexv28termtt2ypc6trzt"
+    },
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "active_ms": 0,
+      "waiting_ms": 0,
+      "job_wall_ms": 0,
+      "input_tokens": null,
+      "output_tokens": null,
+      "cost_usd": null,
+      "regenerated_scene_ids": []
+    }
+  }
+}
