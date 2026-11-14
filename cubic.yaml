@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://cubic.dev/schema/cubic-repository-config.schema.json
+version: 1
+reviews:
+  enabled: true
+  sensitivity: medium
+  incremental_commits: false
+  check_drafts: false
+  auto_approve_behavior: disabled
+  ultrareview: manual
+  ignore:
+    pr_labels: ['no-cubic']
+    files:
+      - 'schemas/*.schema.json'
+      - 'frontend/src/shared/api/generated/**'
+  custom_instructions: ""
+  custom_rules: []
+pr_descriptions:
+  generate: false
+issues:
+  auto_fix: "off"  # quoted so YAML 1.1 parsers keep it a string
