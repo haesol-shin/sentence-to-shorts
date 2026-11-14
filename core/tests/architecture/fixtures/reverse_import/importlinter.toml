@@ -1,0 +1,10 @@
+[tool.importlinter]
+root_package = "fakeapp"
+
+[[tool.importlinter.contracts]]
+name = "reverse import is rejected"
+type = "layers"
+layers = [
+    "fakeapp.upper",
+    "fakeapp.lower",
+]

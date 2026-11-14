@@ -1,0 +1,364 @@
+{
+  "$defs": {
+    "AlignFallback": {
+      "enum": [
+        "align_failed",
+        "align_low_confidence",
+        "align_missing_words",
+        "align_unavailable"
+      ],
+      "title": "AlignFallback",
+      "type": "string"
+    },
+    "Artifact": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "minimum": 1,
+          "title": "Bytes",
+          "type": "integer"
+        },
+        "cache_key": {
+          "$ref": "#/$defs/Digest"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "job_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "$ref": "#/$defs/ArtifactKind"
+        },
+        "media": {
+          "$ref": "#/$defs/MediaMeta"
+        },
+        "path": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "root": {
+          "$ref": "#/$defs/ArtifactRoot"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "digest",
+        "bytes",
+        "cache_key",
+        "root",
+        "path",
+        "created_at",
+        "job_id",
+        "media"
+      ],
+      "title": "Artifact",
+      "type": "object"
+    },
+    "ArtifactKind": {
+      "enum": [
+        "still_png",
+        "part_png",
+        "layer_png",
+        "tts_wav",
+        "timing_json",
+        "clip_mp4",
+        "mix_wav",
+        "final_mp4",
+        "srt",
+        "bgm_wav",
+        "ref_frame_png",
+        "ref_audio_wav"
+      ],
+      "title": "ArtifactKind",
+      "type": "string"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "$ref": "#/$defs/Digest"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "id",
+        "digest",
+        "cache_key"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactRoot": {
+      "enum": [
+        "data",
+        "cache"
+      ],
+      "title": "ArtifactRoot",
+      "type": "string"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CaptionPhrase": {
+      "additionalProperties": false,
+      "properties": {
+        "end_char": {
+          "minimum": 1,
+          "title": "End Char",
+          "type": "integer"
+        },
+        "end_ms": {
+          "minimum": 1,
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "start_char": {
+          "minimum": 0,
+          "title": "Start Char",
+          "type": "integer"
+        },
+        "start_ms": {
+          "minimum": 0,
+          "title": "Start Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start_char",
+        "end_char",
+        "start_ms",
+        "end_ms"
+      ],
+      "title": "CaptionPhrase",
+      "type": "object"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "MediaMeta": {
+      "additionalProperties": false,
+      "properties": {
+        "channels": {
+          "enum": [
+            1,
+            2
+          ],
+          "title": "Channels",
+          "type": "integer"
+        },
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "fps": {
+          "const": 30,
+          "title": "Fps",
+          "type": "integer"
+        },
+        "height": {
+          "maximum": 4096,
+          "minimum": 1,
+          "title": "Height",
+          "type": "integer"
+        },
+        "sample_rate": {
+          "maximum": 48000,
+          "minimum": 8000,
+          "title": "Sample Rate",
+          "type": "integer"
+        },
+        "width": {
+          "maximum": 4096,
+          "minimum": 1,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "title": "MediaMeta",
+      "type": "object"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "RelPath": {
+      "description": "Relative path inside a package or data root. No absolute path, no parent segment, no backslash.",
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}$",
+      "type": "string"
+    },
+    "Timestamp": {
+      "description": "ISO 8601 date-time with a timezone.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "Timing": {
+      "additionalProperties": false,
+      "description": "timing_json artifact. Times are integer milliseconds from scene start.",
+      "properties": {
+        "duration_ms": {
+          "minimum": 1,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/TimingLine"
+          },
+          "minItems": 1,
+          "title": "Lines",
+          "type": "array"
+        },
+        "scene_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "voice": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "schema_version",
+        "scene_id",
+        "voice",
+        "duration_ms",
+        "lines"
+      ],
+      "title": "Timing",
+      "type": "object"
+    },
+    "TimingCaption": {
+      "additionalProperties": false,
+      "properties": {
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AlignFallback"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mode_used": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "phrases": {
+          "items": {
+            "$ref": "#/$defs/CaptionPhrase"
+          },
+          "title": "Phrases",
+          "type": "array"
+        }
+      },
+      "required": [
+        "mode_used",
+        "fallback_reason",
+        "phrases"
+      ],
+      "title": "TimingCaption",
+      "type": "object"
+    },
+    "TimingLine": {
+      "additionalProperties": false,
+      "properties": {
+        "caption": {
+          "$ref": "#/$defs/TimingCaption"
+        },
+        "end_ms": {
+          "minimum": 1,
+          "title": "End Ms",
+          "type": "integer"
+        },
+        "line_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "speech_ms": {
+          "minimum": 1,
+          "title": "Speech Ms",
+          "type": "integer"
+        },
+        "start_ms": {
+          "minimum": 0,
+          "title": "Start Ms",
+          "type": "integer"
+        },
+        "tts": {
+          "$ref": "#/$defs/ArtifactRef"
+        }
+      },
+      "required": [
+        "line_id",
+        "tts",
+        "start_ms",
+        "end_ms",
+        "speech_ms",
+        "caption"
+      ],
+      "title": "TimingLine",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/artifact.schema.json",
+  "$ref": "#/$defs/Artifact",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Row of the artifact index in state.db.",
+  "title": "Artifact"
+}

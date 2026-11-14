@@ -30,6 +30,7 @@
 - 장면 순서는 `scene_order`만 바꾼다. scene ID는 바꾸지 않는다.
 - 다음 영상은 settings를 복사하고 topic, material, reference, script, scenes를 비운다. `derived_from`에 출처를 남긴다. 과거 snapshot은 다음 영상 수정으로 바뀌지 않는다.
 - 프로젝트 설정과 영상별 snapshot이 제작 상태의 원본이다. 대화 이력과 요약은 원본을 대신하거나 확정값·lock을 덮지 못한다.
+- 컨셉 확정은 `stage`의 `concept_confirmed`다. 확정 뒤 이야기 방식(`format.story_structure`)·그림체(`visual.art_style`)·캐릭터(`visual.character`)를 바꾸는 계획은 409 `concept_locked`로 거절한다. 대본 재작성은 stage를 `concept_confirmed`로만 되돌리고 컨셉 값은 바꾸지 않는다. 프로젝트 간 locked/varied와 별개다.
 - 프로젝트 기본값은 현재 영상 수정으로 바뀌지 않는다. 프리셋 저장은 명시 요청으로만 한다.
 
 ### 1.2 값의 출처와 고정
@@ -77,6 +78,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 기본 경로는 `/api/v1`이다. 빌드한 SPA는 같은 origin의 `/`에서 제공한다.
 - GET은 상태를 바꾸지 않는다.
 - 인증과 origin 검사는 13절을 따른다. `GET /health`와 `POST /session/pair`만 세션 없이 받는다.
+- `GET /session/csrf`는 유효한 세션 cookie와 같은 origin 요청에 CSRF token을 다시 발급한다. 새 탭과 새로고침은 이 응답만 쓰고 token을 영속 브라우저 저장소에 두지 않는다.
 - 영상을 바꾸는 요청은 `base_revision`을 받는다. head와 다르면 409 `revision_conflict` problem과 `current_revision` 확장 멤버를 돌려준다. 서버는 병합하지 않는다. 이미 적용된 계획의 적용 재시도는 4.1절의 예외를 따른다.
 - 자원이나 job을 만드는 POST는 `Idempotency-Key` header(8~64자 `[A-Za-z0-9_-]`)를 요구한다.
 - 같은 key와 같은 요청 digest는 저장한 응답을 그대로 돌려준다. 같은 key와 다른 digest는 409 `idempotency_mismatch`다. key는 24시간 보관한다.
@@ -105,6 +107,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 |---|---|---|---|---|
 | GET `/health` | 없음 | 200 `{version, profile, deployment}` | 없음 | 아니오 |
 | POST `/session/pair` | `PairRequest` | 200 `PairResponse`와 세션 cookie | 401 `pair_invalid`, 429 `rate_limited` | 아니오 |
+| GET `/session/csrf` | 없음 | 200 `CsrfResponse` | 401 `unauthenticated`, 403 `forbidden_origin` | 아니오 |
 | GET `/runtime` | 없음 | 200 `RuntimeStatus`(`brand` 필드에 표시 이름 포함) | 없음 | 아니오 |
 | POST `/runtime/prepare` | 없음 | 202 Job `runtime_prepare` | 409 `job_running` | 예 |
 | PUT `/credentials/llm` | `ApiKeyRequest` | 204 | 403 `loopback_only`, 400 `validation_failed` | 아니오 |
@@ -124,9 +127,10 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | POST `/videos/{vid}/draft` | `DraftRequest` | 202 Job `draft` | 409 `revision_conflict`, 503 `llm_auth_required` | 예 |
 | POST `/videos/{vid}/script` | `BaseRevision` | 202 Job `script` | 409 | 예 |
 | POST `/videos/{vid}/script/confirm` | `BaseRevision` | 200 Video | 409 `script_missing`, 409 `revision_conflict` | 예 |
+| POST `/videos/{vid}/concept/confirm` | `BaseRevision` | 200 Video, stage `concept_confirmed` | 409 `concept_missing`, 409 `revision_conflict` | 예 |
 | POST `/videos/{vid}/previews` | `BaseRevision`와 선택 `scene_ids` | 202 Job `preview` | 409 `script_not_confirmed` | 예 |
 | POST `/videos/{vid}/scenes/confirm` | `BaseRevision` | 200 Video | 409 `script_not_confirmed`, 409 `scene_data_missing` | 예 |
-| POST `/videos/{vid}/changes` | `ChangeRequest` | 200 ChangePlan, 확인이 필요 없으면 적용된 상태 | 409, 422 `invalid_op`, 422 `invalid_combination` | 예 |
+| POST `/videos/{vid}/changes` | `ChangeRequest` | 200 ChangePlan, 확인이 필요 없으면 적용된 상태 | 409, 409 `concept_locked`, 422 `invalid_op`, 422 `invalid_combination` | 예 |
 | POST `/videos/{vid}/messages` | `MessageRequest` | 202 Job `chat` | 409 | 예 |
 | GET `/changes/{cid}` | 없음 | 200 ChangePlan | 404 | 아니오 |
 | POST `/changes/{cid}/preview` | 없음 | 202 Job `preview` (제안 상태의 정지 화면) | 409 `change_stale` | 예 |
@@ -155,9 +159,9 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 
 ### 4.1 단계 gate와 변경 적용
 
-- `stage`는 draft, script_confirmed, scenes_confirmed 순서로만 앞으로 간다. 이는 생성 확인 gate이며 UI의 단계 이름 목록과 독립적이다. UI 단계 이름을 core enum으로 고정하지 않는다.
-- UI 단계와의 대응: 대본 단계의 확인이 `script_confirmed`를, 편집 단계에서 영상 만들기를 시작하는 장면 확인이 `scenes_confirmed`를 세운다. 컨셉 확인은 이 gate에 값을 더하지 않는다([SPEC 2](SPEC.md#2-흐름)).
-- `script` job이 대본 전체를 새로 쓰면 적용된 revision의 stage는 draft로 돌아간다.
+- `stage`는 draft, concept_confirmed, script_confirmed, scenes_confirmed 순서로만 앞으로 간다. 이는 생성 확인 gate와 컨셉 확정이며 UI의 단계 이름 목록과 독립적이다. UI 단계 이름을 core enum으로 고정하지 않는다.
+- UI 단계와의 대응: 컨셉 단계의 확인이 `concept_confirmed`를, 대본 단계의 확인이 `script_confirmed`를, 편집 단계에서 영상 만들기를 시작하는 장면 확인이 `scenes_confirmed`를 세운다([SPEC 2](SPEC.md#2-흐름)).
+- `script` job이 대본 전체를 새로 쓰면 stage는 `concept_confirmed`로 돌아간다. 컨셉을 확정하기 전이면 draft로 돌아간다.
 - preview는 stage가 script_confirmed 이상일 때만 실행한다. 그 전 preview 호출 수는 0이어야 한다.
 - generate는 stage가 scenes_confirmed일 때만 실행한다.
 - `ChangePlan` 적용은 그 범위의 사용자 확인이다. 적용 뒤 stage는 유지된다.
@@ -175,6 +179,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 ## 5. Job
 
 상태 전이·queue·복구 세부는 [열린 질문](#저장과-job-구현)의 제안이다.
+
+- 검증된 요청 본문은 `JobSubmitter.submit`에 넘기고 서버 전용 저장소에 보존한다. 재시작과 재시도는 `JobContext.input`으로 다시 읽는다. 공개 `Job` 응답에는 넣지 않는다.
 
 ## 6. 저장 경로
 
@@ -202,7 +208,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 
 | artifact | 넣는 입력 | 넣지 않는 입력 |
 |---|---|---|
-| `tts_wav` | speech_text, language, voice PinnedRef, engine runtime digest, speed(단위 미정), seed | display_text, 순서, BGM |
+| `tts_wav` | speech_text, language, voice PinnedRef, engine runtime digest, speed(두 자리 소수 문자열, 예 `"1.00"`), seed | display_text, 순서, BGM |
 | `timing_json` | 줄별 tts digest, speech_text, display_text, language, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
 | `part_png` | style PinnedRef, CharacterSpec, expression, pose, canvas, seed, sandbox runtime digest | 장면 글 |
 | `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, canvas, 입력 part digest, seed | BGM, 순서 |
@@ -297,7 +303,8 @@ class LlmPart:
 
 @dataclass(frozen=True)
 class LlmRequest:
-    task: LlmTask
+    task: LlmTask                      # 작업 종류. 모델 선택이 아니다
+    route: str                         # models.yaml의 확정 route id (예: script.default)
     system: str                       # trusted app prompt
     parts: list[LlmPart]              # untrusted user and reference data, sent as data
     output_schema: dict | None        # JSON Schema generated from a Pydantic model
@@ -325,6 +332,9 @@ class LlmPort(Protocol):
 ### 10.2 routing
 
 확정된 상위 모델은 [SPEC 9.2](SPEC.md#92-모델과-출력), 미확정 세부 routing은 [열린 질문](#llm-routing)을 따른다.
+
+- 요청자는 `models.yaml`의 확정 route id를 `LlmRequest.route`에 싣는다. provider는 route를 prompt나 사용자 자료로 추측하거나 바꾸지 않는다.
+- `LlmRequest.task`는 작업 종류로 남는다. 같은 `script` 작업도 `script.numbered_three`와 `script.default`로 나뉜다.
 
 ### 10.3 실패, 시간 초과, 느림
 
@@ -453,13 +463,14 @@ class MediaPort(Protocol):
 | release | `anthropic_api` | 선택 엔진 | 배포판 |
 
 - 업로드 한도 시작값: 참고 영상 300MB와 3분, BGM 30MB와 10분, 재료 글 20,000자.
+- `app.yaml`의 `providers.fixture_adapters`는 fixture profile에서만 쓰는 구현 이름이다. 아직 구현이 없는 외부 adapter는 fixture profile에서만 `skeleton`을 명시적으로 고르고, 그 객체의 메서드는 `NotImplementedError`를 낸다. dev와 release는 미구현 adapter를 고르면 시작하지 않는다.
 - hosted에서는 링크 다운로드 API가 403 `link_disabled`를 돌려준다.
 
 ### 13.2 접근 제어
 
 - 기본 bind는 `127.0.0.1`이다. LAN 모드는 `APP_LAN=1`일 때만 사용자가 고른 interface에 bind한다.
 - launcher가 실행마다 일회용 pairing code를 만든다. 컴퓨터의 브라우저는 `http://127.0.0.1:<port>/#pair=<code>`로 연다. LAN 모드에서 휴대폰은 사용자가 고른 interface의 LAN IP와 port로 접속하고 노트북 화면의 code로 pairing한다. fragment는 서버 로그와 Referer에 남지 않는다.
-- SPA가 `POST /session/pair`로 code를 세션으로 바꾼다. 세션 cookie는 HttpOnly, SameSite=Strict다. 응답의 CSRF token은 메모리에만 둔다.
+- SPA가 `POST /session/pair`로 code를 세션으로 바꾼다. 세션 cookie는 HttpOnly, SameSite=Strict다. 응답의 CSRF token은 메모리에만 둔다. 새 탭과 새로고침은 `GET /session/csrf`로 유효한 세션 cookie에서 token을 다시 받는다. token을 영속 브라우저 저장소에 두지 않는다.
 - 상태를 바꾸는 요청은 cookie, `X-CSRF-Token`, 정확한 `Origin`이 모두 맞아야 한다. `null` Origin은 거절한다.
 - `Host`는 loopback 이름, 선택한 LAN IP, 설정한 이름만 허용한다.
 - artifact, 미리보기, mp4 range 요청도 세션을 요구한다. data root를 static으로 mount하지 않는다. artifact ID만 경로로 해석한다.
@@ -519,6 +530,15 @@ class JobStore(Protocol):
     def requeue(self, job_id: str) -> Job: ...
     def unfinished(self) -> list[Job]: ...
 
+class JobInputStore(Protocol):
+    def save(self, job_id: str, payload: Mapping[str, Any]) -> None: ...   # 검증된 요청 본문
+    def load(self, job_id: str) -> dict[str, Any] | None: ...              # 재시작·재시도용
+
+class JobSubmitter(Protocol):
+    def submit(self, kind: JobKind, *, project_id: str | None, video_id: str | None,
+               base_revision: int | None, request_digest: str,
+               input: Mapping[str, Any], idempotency_key: str | None) -> Job: ...
+
 class CatalogPort(Protocol):
     def list(self, kind: str, *, video: Video | None = None) -> list[CatalogItem]: ...
     def get(self, kind: str, item_id: str, revision: str | None = None) -> BaseModel: ...  # raises UnknownCatalogId
@@ -560,6 +580,7 @@ class ProjectService:          # services/project, ports: ProjectStore, CatalogP
     def validate(self, video: Video) -> list[Issue]: ...                                     # section 1.3
     def commit(self, plan: ChangePlan, base_revision: int) -> Video: ...
     def undo(self, video_id: str, base_revision: int) -> Video: ...
+    def confirm_concept(self, video_id: str, base_revision: int) -> Video: ...
     def confirm_script(self, video_id: str, base_revision: int) -> Video: ...
     def confirm_scenes(self, video_id: str, base_revision: int) -> Video: ...
     def pick_varied(self, project: Project, previous: list[Video], seed: int) -> Settings: ...
@@ -612,7 +633,7 @@ def plan_change(video: Video, ops: list[Op], source: str, target: Target,
 def build_view(video: Video, services: Services) -> VideoBuild: ...
 ```
 
-- `JobContext`는 jobs가 만든다. `cancel`, `deadline`, `job_dir`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다.
+- `JobContext`는 jobs가 만든다. `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다.
 - 서비스는 결과 파일을 job 폴더에 쓴다. 공개와 index는 pipeline이 `ArtifactStore.publish`로 한다.
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.
 
@@ -664,6 +685,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 실패 fixture 목록: `unknown_asset_id`, `unknown_card_id`, `duplicate_scene_order`, `order_scene_mismatch`, `duplicate_line_id`, `typewriter_fixed_stage`, `role_none_with_character`, `presenter_without_character`, `highlight_out_of_range`, `reveal_line_unknown`, `bad_digest`, `extra_field`, `schema_version_2`, `path_escape_asset`, `bgm_code_20s`, `voice_cloning_true`, `stale_base_revision_request`(API 요청 fixture).
 
 - 정상 fixture는 실제 기본 plugin의 ID만 참조한다. 설명용 가짜 ID를 쓰지 않는다.
+- `fixtures/llm/<task>/<digest>.json`의 `request`는 `route`를 포함하고 파일 이름은 그 요청의 digest다.
 - fixture 화면 완주는 실제 생성 증거가 아니다. 실제 생성 증거는 dev나 release profile 실행 기록이다.
 - 공개 PR 증거는 합성 주제와 합성 자료만 쓴다.
 
@@ -734,7 +756,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 | `sandbox-io.schema.json` | sandbox runner 입출력 | 저장하지 않음 |
 | `api.schema.json` | RFC 9457 problem과 요청·응답 본문 | 저장하지 않음 |
 
-- 열린 결정: 컨셉 확인 뒤 컨셉 값이 바뀌지 않는다는 규칙([SPEC 2](SPEC.md#2-흐름))을 저장 상태로 따로 둘지 정하지 않았다. 지금은 필드를 더하지 않고 4.1의 `stage`와 revision 값만 쓴다.
+- 확정: 컨셉 확인 뒤 이야기 방식·그림체·캐릭터 값은 `stage`의 `concept_confirmed`로 고정한다. 프로젝트 간 locked/varied와 분리한다. 대본 재작성은 이 값을 풀지 않는다.
 
 ### 저장과 job 구현
 
@@ -820,6 +842,9 @@ DATA_DIR/
   p/<project_id>/u/<upload_id>.wav
   o/<video_id>/<artifact_id>.mp4 | .srt
   s/<digest16>/                 생성 style, template, code BGM package (immutable)
+  catalog/index.json            kind·id·revision catalog 인덱스 (시작 때 복원)
+  c/<digest16>/                 참조한 내장 package 불변 사본 (kind·id·revision으로 조회)
+  j/<job_id>.json               서버 전용 검증된 job 입력 (공개 Job 응답에 없음)
   models/<runtime_item>/<rev12>/
   rt-journal.json               기기별 설치 journal
   log/app.log                   회전 로그
@@ -892,7 +917,7 @@ models:
 
 ### 숫자 형식
 
-- 열린 질문: TTS 속도 배율 `speed`는 `tts_wav` key 입력인데 dB나 ms처럼 단위가 분명하지 않아 정수 표현을 정하지 않았다. 제안: 100 = 1.0배인 정수 백분율로 저장한다.
+- 확정: TTS 속도 배율 `speed`는 1.0이 보통인 float 비율이며 0.01 배수만 허용한다. `tts_wav` cache key 입력은 두 자리 소수 문자열(예: `"1.00"`)이고 canonical JSON에 float를 넣지 않는다.
 
 ### 미디어 profile
 

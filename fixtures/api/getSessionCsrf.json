@@ -1,0 +1,20 @@
+{
+  "operationId": "getSessionCsrf",
+  "method": "GET",
+  "path_template": "/api/v1/session/csrf",
+  "path": "/api/v1/session/csrf",
+  "request": {
+    "path": {},
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "csrf_token": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    }
+  }
+}

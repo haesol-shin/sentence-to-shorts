@@ -1,0 +1,1424 @@
+{
+  "$defs": {
+    "Anchor": {
+      "enum": [
+        "left",
+        "center",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "title": "Anchor",
+      "type": "string"
+    },
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "$ref": "#/$defs/Digest"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "id",
+        "digest",
+        "cache_key"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "ArtifactState": {
+      "enum": [
+        "fresh",
+        "stale",
+        "missing",
+        "building",
+        "failed"
+      ],
+      "title": "ArtifactState",
+      "type": "string"
+    },
+    "ArtifactStatus": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cache_key": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Error Code"
+        },
+        "state": {
+          "$ref": "#/$defs/ArtifactState"
+        }
+      },
+      "required": [
+        "state",
+        "cache_key",
+        "artifact",
+        "error_code"
+      ],
+      "title": "ArtifactStatus",
+      "type": "object"
+    },
+    "Audio": {
+      "additionalProperties": false,
+      "properties": {
+        "bgm": {
+          "$ref": "#/$defs/BgmSettings"
+        },
+        "sfx_enabled": {
+          "title": "Sfx Enabled",
+          "type": "boolean"
+        },
+        "voice": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "voice",
+        "bgm",
+        "sfx_enabled"
+      ],
+      "title": "Audio",
+      "type": "object"
+    },
+    "BgmSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "ducking": {
+          "title": "Ducking",
+          "type": "boolean"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "entry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gain_db_x10": {
+          "maximum": 0,
+          "minimum": -400,
+          "title": "Gain Db X10",
+          "type": "integer"
+        },
+        "mood": {
+          "$ref": "#/$defs/Mood"
+        }
+      },
+      "required": [
+        "enabled",
+        "mood",
+        "entry",
+        "gain_db_x10",
+        "ducking"
+      ],
+      "title": "BgmSettings",
+      "type": "object"
+    },
+    "Caption": {
+      "additionalProperties": false,
+      "properties": {
+        "font_id": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "highlight": {
+          "title": "Highlight",
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "position": {
+          "$ref": "#/$defs/CaptionPosition"
+        }
+      },
+      "required": [
+        "mode",
+        "font_id",
+        "position",
+        "highlight"
+      ],
+      "title": "Caption",
+      "type": "object"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CaptionPosition": {
+      "enum": [
+        "top",
+        "middle",
+        "bottom"
+      ],
+      "title": "CaptionPosition",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CharacterMotion": {
+      "enum": [
+        "none",
+        "pop",
+        "bob"
+      ],
+      "title": "CharacterMotion",
+      "type": "string"
+    },
+    "CharacterRole": {
+      "enum": [
+        "none",
+        "presenter",
+        "subject"
+      ],
+      "title": "CharacterRole",
+      "type": "string"
+    },
+    "CharacterSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "face": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "hair": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outfit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "body",
+        "face",
+        "hair",
+        "hat",
+        "outfit",
+        "prop"
+      ],
+      "title": "CharacterSlots",
+      "type": "object"
+    },
+    "CharacterSpec": {
+      "additionalProperties": false,
+      "description": "Concrete part combination. Null when character_role is none.",
+      "properties": {
+        "preset_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slots": {
+          "$ref": "#/$defs/CharacterSlots"
+        }
+      },
+      "required": [
+        "preset_id",
+        "slots"
+      ],
+      "title": "CharacterSpec",
+      "type": "object"
+    },
+    "CreatedBy": {
+      "enum": [
+        "create",
+        "next_video",
+        "draft_job",
+        "change",
+        "confirm",
+        "undo",
+        "system"
+      ],
+      "title": "CreatedBy",
+      "type": "string"
+    },
+    "CueAt": {
+      "enum": [
+        "start",
+        "end"
+      ],
+      "title": "CueAt",
+      "type": "string"
+    },
+    "DerivedFrom": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "video_id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "video_id",
+        "revision"
+      ],
+      "title": "DerivedFrom",
+      "type": "object"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "Element": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/Anchor"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "$ref": "#/$defs/ElementKind"
+        },
+        "reveal_line_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "value",
+        "anchor",
+        "reveal_line_id"
+      ],
+      "title": "Element",
+      "type": "object"
+    },
+    "ElementKind": {
+      "enum": [
+        "label",
+        "code",
+        "asset",
+        "material"
+      ],
+      "title": "ElementKind",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "Format": {
+      "additionalProperties": false,
+      "properties": {
+        "card_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "character_role": {
+          "$ref": "#/$defs/CharacterRole"
+        },
+        "humor": {
+          "$ref": "#/$defs/Humor"
+        },
+        "layout": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "progress_mode": {
+          "$ref": "#/$defs/ProgressMode"
+        },
+        "register": {
+          "$ref": "#/$defs/Register"
+        },
+        "scene_count": {
+          "maximum": 20,
+          "minimum": 3,
+          "title": "Scene Count",
+          "type": "integer"
+        },
+        "story_structure": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "card_id",
+        "story_structure",
+        "layout",
+        "character_role",
+        "register",
+        "humor",
+        "progress_mode",
+        "scene_count"
+      ],
+      "title": "Format",
+      "type": "object"
+    },
+    "Humor": {
+      "enum": [
+        "none",
+        "light"
+      ],
+      "title": "Humor",
+      "type": "string"
+    },
+    "Language": {
+      "enum": [
+        "ko",
+        "en"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "properties": {
+        "display_text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Display Text",
+          "type": "string"
+        },
+        "highlight": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "maxItems": 4,
+          "title": "Highlight",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "speaker": {
+          "$ref": "#/$defs/Speaker"
+        },
+        "speech_text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Speech Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display_text",
+        "speech_text",
+        "speaker",
+        "highlight"
+      ],
+      "title": "Line",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "LockKey": {
+      "enum": [
+        "story_structure",
+        "layout",
+        "character_role",
+        "register",
+        "humor",
+        "art_style",
+        "theme",
+        "character",
+        "voice",
+        "bgm",
+        "caption_mode",
+        "caption_font",
+        "background",
+        "transition"
+      ],
+      "title": "LockKey",
+      "type": "string"
+    },
+    "LockState": {
+      "enum": [
+        "locked",
+        "varied"
+      ],
+      "title": "LockState",
+      "type": "string"
+    },
+    "Material": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "text": {
+          "maxLength": 20000,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text"
+      ],
+      "title": "Material",
+      "type": "object"
+    },
+    "Measured": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_ms": {
+          "minimum": 0,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "has_bgm": {
+          "title": "Has Bgm",
+          "type": "boolean"
+        },
+        "scene_count": {
+          "minimum": 0,
+          "title": "Scene Count",
+          "type": "integer"
+        },
+        "silence_ratio": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Silence Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "duration_ms",
+        "scene_count",
+        "silence_ratio",
+        "has_bgm"
+      ],
+      "title": "Measured",
+      "type": "object"
+    },
+    "Mood": {
+      "enum": [
+        "curious",
+        "playful",
+        "tense",
+        "energetic",
+        "calm",
+        "reflective"
+      ],
+      "title": "Mood",
+      "type": "string"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "properties": {
+        "character_motion": {
+          "$ref": "#/$defs/CharacterMotion"
+        },
+        "transition": {
+          "$ref": "#/$defs/Transition"
+        }
+      },
+      "required": [
+        "transition",
+        "character_motion"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "Origin": {
+      "description": "Where a value came from. Precedence: user > reference > preset > card > llm > default.",
+      "enum": [
+        "user",
+        "reference",
+        "preset",
+        "card",
+        "llm",
+        "default",
+        "derived"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "OwnerId": {
+      "pattern": "^[a-z0-9_-]{1,32}$",
+      "type": "string"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Placement": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/PlacementAnchor"
+        },
+        "expression_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "motion": {
+          "$ref": "#/$defs/SceneMotion"
+        },
+        "pose_id": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "anchor",
+        "expression_id",
+        "pose_id",
+        "motion"
+      ],
+      "title": "Placement",
+      "type": "object"
+    },
+    "PlacementAnchor": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "title": "PlacementAnchor",
+      "type": "string"
+    },
+    "ProgressMode": {
+      "enum": [
+        "numbered",
+        "phases",
+        "none"
+      ],
+      "title": "ProgressMode",
+      "type": "string"
+    },
+    "ReferenceHost": {
+      "enum": [
+        "youtube",
+        "instagram",
+        "tiktok"
+      ],
+      "title": "ReferenceHost",
+      "type": "string"
+    },
+    "ReferenceKind": {
+      "enum": [
+        "file",
+        "link"
+      ],
+      "title": "ReferenceKind",
+      "type": "string"
+    },
+    "ReferenceStatus": {
+      "enum": [
+        "analyzed",
+        "failed"
+      ],
+      "title": "ReferenceStatus",
+      "type": "string"
+    },
+    "ReferenceSummary": {
+      "additionalProperties": false,
+      "description": "Kept after the source file is deleted. Holds no URL, no frames and no transcript.",
+      "properties": {
+        "host": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceHost"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "$ref": "#/$defs/ReferenceKind"
+        },
+        "measured": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Measured"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_deleted": {
+          "title": "Source Deleted",
+          "type": "boolean"
+        },
+        "status": {
+          "$ref": "#/$defs/ReferenceStatus"
+        },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "host",
+        "status",
+        "source_deleted",
+        "measured",
+        "style"
+      ],
+      "title": "ReferenceSummary",
+      "type": "object"
+    },
+    "Register": {
+      "enum": [
+        "friendly",
+        "neutral",
+        "casual"
+      ],
+      "title": "Register",
+      "type": "string"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": {
+          "pattern": "^[a-z0-9_]{1,24}$",
+          "title": "Beat Id",
+          "type": "string"
+        },
+        "beat_label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Beat Label",
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Lines",
+          "type": "array"
+        },
+        "visual": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SceneVisual"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "beat_id",
+        "beat_label",
+        "lines",
+        "visual"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "SceneBuild": {
+      "additionalProperties": false,
+      "properties": {
+        "clip": {
+          "$ref": "#/$defs/ArtifactStatus"
+        },
+        "layer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ArtifactStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "still": {
+          "$ref": "#/$defs/ArtifactStatus"
+        },
+        "timing": {
+          "$ref": "#/$defs/ArtifactStatus"
+        },
+        "tts": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ArtifactStatus"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Tts",
+          "type": "object"
+        }
+      },
+      "required": [
+        "still",
+        "tts",
+        "timing",
+        "layer",
+        "clip"
+      ],
+      "title": "SceneBuild",
+      "type": "object"
+    },
+    "SceneMotion": {
+      "enum": [
+        "none",
+        "pop",
+        "bob",
+        "move"
+      ],
+      "title": "SceneMotion",
+      "type": "string"
+    },
+    "SceneVisual": {
+      "additionalProperties": false,
+      "properties": {
+        "background_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/Placement"
+          },
+          "maxItems": 1,
+          "title": "Characters",
+          "type": "array"
+        },
+        "elements": {
+          "items": {
+            "$ref": "#/$defs/Element"
+          },
+          "maxItems": 6,
+          "title": "Elements",
+          "type": "array"
+        },
+        "sfx": {
+          "items": {
+            "$ref": "#/$defs/SfxCue"
+          },
+          "maxItems": 2,
+          "title": "Sfx",
+          "type": "array"
+        },
+        "transition_in": {
+          "$ref": "#/$defs/TransitionIn"
+        }
+      },
+      "required": [
+        "background_id",
+        "characters",
+        "elements",
+        "sfx",
+        "transition_in"
+      ],
+      "title": "SceneVisual",
+      "type": "object"
+    },
+    "Script": {
+      "additionalProperties": false,
+      "properties": {
+        "raw_text": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Raw Text"
+        },
+        "source": {
+          "$ref": "#/$defs/ScriptSource"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Title"
+        }
+      },
+      "required": [
+        "source",
+        "raw_text",
+        "title"
+      ],
+      "title": "Script",
+      "type": "object"
+    },
+    "ScriptSource": {
+      "enum": [
+        "user",
+        "llm"
+      ],
+      "title": "ScriptSource",
+      "type": "string"
+    },
+    "Settings": {
+      "additionalProperties": false,
+      "properties": {
+        "audio": {
+          "$ref": "#/$defs/Audio"
+        },
+        "caption": {
+          "$ref": "#/$defs/Caption"
+        },
+        "extra_instructions": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Extra Instructions",
+          "type": "array"
+        },
+        "format": {
+          "$ref": "#/$defs/Format"
+        },
+        "language": {
+          "$ref": "#/$defs/Language"
+        },
+        "locks": {
+          "additionalProperties": {
+            "$ref": "#/$defs/LockState"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/LockKey"
+          },
+          "title": "Locks",
+          "type": "object"
+        },
+        "motion": {
+          "$ref": "#/$defs/Motion"
+        },
+        "origins": {
+          "additionalProperties": false,
+          "patternProperties": {
+            "^/(language|target_duration_s|format|visual|audio|caption|motion)(/[a-z_]+)*$": {
+              "$ref": "#/$defs/Origin"
+            }
+          },
+          "title": "Origins",
+          "type": "object"
+        },
+        "target_duration_s": {
+          "enum": [
+            30,
+            60,
+            120
+          ],
+          "title": "Target Duration S",
+          "type": "integer"
+        },
+        "visual": {
+          "$ref": "#/$defs/Visual"
+        }
+      },
+      "required": [
+        "language",
+        "target_duration_s",
+        "format",
+        "visual",
+        "audio",
+        "caption",
+        "motion",
+        "locks",
+        "origins",
+        "extra_instructions"
+      ],
+      "title": "Settings",
+      "type": "object"
+    },
+    "SfxCue": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/CueAt"
+        },
+        "line_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "offset_ms": {
+          "maximum": 2000,
+          "minimum": -500,
+          "title": "Offset Ms",
+          "type": "integer"
+        },
+        "sfx_id": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "sfx_id",
+        "line_id",
+        "at",
+        "offset_ms"
+      ],
+      "title": "SfxCue",
+      "type": "object"
+    },
+    "Span": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Speaker": {
+      "enum": [
+        "narrator",
+        "character"
+      ],
+      "title": "Speaker",
+      "type": "string"
+    },
+    "Timestamp": {
+      "description": "ISO 8601 date-time with a timezone.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "Transition": {
+      "enum": [
+        "cut",
+        "fade"
+      ],
+      "title": "Transition",
+      "type": "string"
+    },
+    "TransitionIn": {
+      "enum": [
+        "cut",
+        "fade"
+      ],
+      "title": "TransitionIn",
+      "type": "string"
+    },
+    "Video": {
+      "additionalProperties": false,
+      "properties": {
+        "change_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "created_by": {
+          "$ref": "#/$defs/CreatedBy"
+        },
+        "derived_from": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DerivedFrom"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "material": {
+          "items": {
+            "$ref": "#/$defs/Material"
+          },
+          "maxItems": 5,
+          "title": "Material",
+          "type": "array"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
+        "parent_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Parent Revision"
+        },
+        "project_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ReferenceSummary"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scene_order": {
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "maxItems": 30,
+          "title": "Scene Order",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "scenes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Scene"
+          },
+          "maxProperties": 30,
+          "propertyNames": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Scenes",
+          "type": "object"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "script": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Script"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "settings": {
+          "$ref": "#/$defs/Settings"
+        },
+        "stage": {
+          "$ref": "#/$defs/VideoStage"
+        },
+        "topic": {
+          "maxLength": 500,
+          "title": "Topic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "project_id",
+        "owner_id",
+        "revision",
+        "parent_revision",
+        "created_at",
+        "created_by",
+        "change_id",
+        "stage",
+        "derived_from",
+        "topic",
+        "material",
+        "reference",
+        "settings",
+        "script",
+        "scene_order",
+        "scenes"
+      ],
+      "title": "Video",
+      "type": "object"
+    },
+    "VideoBuild": {
+      "additionalProperties": false,
+      "description": "Derived view, never persisted. Computed from cache keys and the artifact index.",
+      "properties": {
+        "actual_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Actual Ms"
+        },
+        "attribution": {
+          "items": {
+            "$ref": "#/$defs/LocalizedText"
+          },
+          "title": "Attribution",
+          "type": "array"
+        },
+        "estimated_ms": {
+          "minimum": 0,
+          "title": "Estimated Ms",
+          "type": "integer"
+        },
+        "final": {
+          "$ref": "#/$defs/ArtifactStatus"
+        },
+        "mix": {
+          "$ref": "#/$defs/ArtifactStatus"
+        },
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "scenes": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SceneBuild"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Scenes",
+          "type": "object"
+        },
+        "srt": {
+          "$ref": "#/$defs/ArtifactStatus"
+        },
+        "video_id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "video_id",
+        "revision",
+        "scenes",
+        "mix",
+        "final",
+        "srt",
+        "estimated_ms",
+        "actual_ms",
+        "attribution"
+      ],
+      "title": "VideoBuild",
+      "type": "object"
+    },
+    "VideoStage": {
+      "enum": [
+        "draft",
+        "concept_confirmed",
+        "script_confirmed",
+        "scenes_confirmed"
+      ],
+      "title": "VideoStage",
+      "type": "string"
+    },
+    "Visual": {
+      "additionalProperties": false,
+      "properties": {
+        "art_style": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "character": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CharacterSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "theme_id": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "art_style",
+        "theme_id",
+        "character"
+      ],
+      "title": "Visual",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/video.schema.json",
+  "$ref": "#/$defs/Video",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Immutable snapshot of one video at one revision.",
+  "title": "Video revision"
+}

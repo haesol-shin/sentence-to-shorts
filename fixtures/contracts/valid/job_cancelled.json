@@ -1,0 +1,28 @@
+{
+  "id": "j_02vqj2v2769m0tzdctgvdb8ews",
+  "kind": "draft",
+  "state": "cancelled",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 1,
+  "request_digest": "8b47045eb7b8ca42aa967f33ee1d014ba89f8d1ac207426b482d34b5c0d90935",
+  "idempotency_key": "req-0123456789",
+  "attempt": 1,
+  "max_attempts": 3,
+  "created_at": "2026-11-14T12:00:00Z",
+  "started_at": null,
+  "ended_at": "2026-11-14T12:00:00Z",
+  "deadline_at": "2026-11-14T12:03:00Z",
+  "progress": {
+    "stage": null,
+    "done": 0,
+    "total": 0,
+    "waiting_on": null
+  },
+  "stages": [],
+  "checkpoints": [],
+  "usage": [],
+  "result": null,
+  "error": null,
+  "partial": true
+}

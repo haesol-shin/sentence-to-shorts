@@ -1,0 +1,35 @@
+{
+  "id": "s_0gv16xq3n089nbs6wykgccs0zf",
+  "beat_id": "second",
+  "beat_label": "두 번째",
+  "lines": [
+    {
+      "id": "l_04tv9gfj5z81zagexeemmgpvxn",
+      "display_text": "둘째, 물의 온도를 지킨다.",
+      "speech_text": "둘째, 물의 온도를 지킨다.",
+      "speaker": "character",
+      "highlight": []
+    }
+  ],
+  "visual": {
+    "background_id": "bg_village",
+    "characters": [
+      {
+        "anchor": "center",
+        "expression_id": "expr_happy",
+        "pose_id": "pose_idle",
+        "motion": "none"
+      }
+    ],
+    "elements": [],
+    "sfx": [
+      {
+        "sfx_id": {"id": "pop", "revision": "ed080bd5f08408574bca18e7b5e212b5b046df2ad8fedbecd511e7b7861d6b06"},
+        "line_id": "l_04tv9gfj5z81zagexeemmgpvxn",
+        "at": "start",
+        "offset_ms": 0
+      }
+    ],
+    "transition_in": "cut"
+  }
+}

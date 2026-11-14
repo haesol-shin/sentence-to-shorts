@@ -1,0 +1,622 @@
+{
+  "$defs": {
+    "Checkpoint": {
+      "additionalProperties": false,
+      "properties": {
+        "artifact_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "line_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stage": {
+          "$ref": "#/$defs/Stage"
+        }
+      },
+      "required": [
+        "stage",
+        "scene_id",
+        "line_id",
+        "artifact_id",
+        "digest"
+      ],
+      "title": "Checkpoint",
+      "type": "object"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "Effort": {
+      "enum": [
+        "low",
+        "medium",
+        "high"
+      ],
+      "title": "Effort",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "Job": {
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "minimum": 1,
+          "title": "Attempt",
+          "type": "integer"
+        },
+        "base_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Base Revision"
+        },
+        "checkpoints": {
+          "items": {
+            "$ref": "#/$defs/Checkpoint"
+          },
+          "title": "Checkpoints",
+          "type": "array"
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "deadline_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "ended_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/JobError"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "idempotency_key": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Za-z0-9_-]{8,64}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Idempotency Key"
+        },
+        "kind": {
+          "$ref": "#/$defs/JobKind"
+        },
+        "max_attempts": {
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "partial": {
+          "title": "Partial",
+          "type": "boolean"
+        },
+        "progress": {
+          "$ref": "#/$defs/Progress"
+        },
+        "project_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Result"
+        },
+        "stages": {
+          "items": {
+            "$ref": "#/$defs/StageRecord"
+          },
+          "title": "Stages",
+          "type": "array"
+        },
+        "started_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/JobState"
+        },
+        "usage": {
+          "items": {
+            "$ref": "#/$defs/Usage"
+          },
+          "title": "Usage",
+          "type": "array"
+        },
+        "video_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "state",
+        "project_id",
+        "video_id",
+        "base_revision",
+        "request_digest",
+        "idempotency_key",
+        "attempt",
+        "max_attempts",
+        "created_at",
+        "started_at",
+        "ended_at",
+        "deadline_at",
+        "progress",
+        "stages",
+        "checkpoints",
+        "usage",
+        "result",
+        "error",
+        "partial"
+      ],
+      "title": "Job",
+      "type": "object"
+    },
+    "JobError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/JobErrorCode"
+        },
+        "detail": {
+          "additionalProperties": true,
+          "maxProperties": 8,
+          "title": "Detail",
+          "type": "object"
+        },
+        "retryable": {
+          "title": "Retryable",
+          "type": "boolean"
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "retryable",
+        "stage",
+        "scene_id",
+        "detail"
+      ],
+      "title": "JobError",
+      "type": "object"
+    },
+    "JobErrorCode": {
+      "enum": [
+        "llm_auth",
+        "llm_quota",
+        "llm_rate_limited",
+        "llm_timeout",
+        "llm_connection",
+        "llm_invalid_output",
+        "llm_refused",
+        "tts_not_ready",
+        "tts_failed",
+        "tts_timeout",
+        "render_failed",
+        "font_missing_glyph",
+        "sandbox_denied",
+        "sandbox_timeout",
+        "sandbox_memory",
+        "sandbox_output_invalid",
+        "sandbox_crashed",
+        "sandbox_unavailable",
+        "media_failed",
+        "media_invalid_input",
+        "download_blocked",
+        "download_failed",
+        "download_too_large",
+        "url_not_allowed",
+        "upload_invalid",
+        "model_missing",
+        "model_hash_mismatch",
+        "disk_full",
+        "deadline_exceeded",
+        "interrupted",
+        "stale_revision",
+        "unsupported_version",
+        "internal"
+      ],
+      "title": "JobErrorCode",
+      "type": "string"
+    },
+    "JobKind": {
+      "enum": [
+        "draft",
+        "script",
+        "chat",
+        "preview",
+        "generate",
+        "precheck",
+        "reference",
+        "style",
+        "template",
+        "bgm_code",
+        "bgm_upload",
+        "runtime_prepare"
+      ],
+      "title": "JobKind",
+      "type": "string"
+    },
+    "JobState": {
+      "enum": [
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelling",
+        "cancelled"
+      ],
+      "title": "JobState",
+      "type": "string"
+    },
+    "Progress": {
+      "additionalProperties": false,
+      "properties": {
+        "done": {
+          "minimum": 0,
+          "title": "Done",
+          "type": "integer"
+        },
+        "stage": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Stage"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        },
+        "waiting_on": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/WaitingOn"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "stage",
+        "done",
+        "total",
+        "waiting_on"
+      ],
+      "title": "Progress",
+      "type": "object"
+    },
+    "Stage": {
+      "enum": [
+        "llm_draft",
+        "llm_script",
+        "llm_split",
+        "llm_scene_data",
+        "llm_chat",
+        "llm_precheck",
+        "layer",
+        "still",
+        "tts",
+        "align",
+        "clip",
+        "mix",
+        "assemble",
+        "srt",
+        "ref_fetch",
+        "ref_frames",
+        "ref_transcribe",
+        "ref_llm",
+        "code_llm",
+        "sandbox",
+        "validate",
+        "save",
+        "decode",
+        "model_download",
+        "model_verify"
+      ],
+      "title": "Stage",
+      "type": "string"
+    },
+    "StageRecord": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_hits": {
+          "minimum": 0,
+          "title": "Cache Hits",
+          "type": "integer"
+        },
+        "ended_ms": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Ended Ms"
+        },
+        "rebuilt_scene_ids": {
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Rebuilt Scene Ids",
+          "type": "array"
+        },
+        "stage": {
+          "$ref": "#/$defs/Stage"
+        },
+        "started_ms": {
+          "minimum": 0,
+          "title": "Started Ms",
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/$defs/StageState"
+        }
+      },
+      "required": [
+        "stage",
+        "state",
+        "started_ms",
+        "ended_ms",
+        "cache_hits",
+        "rebuilt_scene_ids"
+      ],
+      "title": "StageRecord",
+      "type": "object"
+    },
+    "StageState": {
+      "enum": [
+        "running",
+        "done",
+        "skipped",
+        "failed",
+        "cancelled"
+      ],
+      "title": "StageState",
+      "type": "string"
+    },
+    "Timestamp": {
+      "description": "ISO 8601 date-time with a timezone.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "Usage": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_read_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cache Read Tokens"
+        },
+        "cost_usd": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Cost Usd"
+        },
+        "effort": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Effort"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "input_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Input Tokens"
+        },
+        "model": {
+          "maxLength": 80,
+          "title": "Model",
+          "type": "string"
+        },
+        "output_tokens": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Output Tokens"
+        },
+        "provider": {
+          "maxLength": 40,
+          "title": "Provider",
+          "type": "string"
+        },
+        "retries": {
+          "minimum": 0,
+          "title": "Retries",
+          "type": "integer"
+        },
+        "stage": {
+          "$ref": "#/$defs/Stage"
+        },
+        "wall_ms": {
+          "minimum": 0,
+          "title": "Wall Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "stage",
+        "provider",
+        "model",
+        "effort",
+        "input_tokens",
+        "output_tokens",
+        "cache_read_tokens",
+        "cost_usd",
+        "wall_ms",
+        "retries"
+      ],
+      "title": "Usage",
+      "type": "object"
+    },
+    "WaitingOn": {
+      "enum": [
+        "queue",
+        "llm",
+        "llm_rate_limit",
+        "tts",
+        "align",
+        "render",
+        "encode",
+        "sandbox",
+        "download"
+      ],
+      "title": "WaitingOn",
+      "type": "string"
+    }
+  },
+  "$id": "https://app.invalid/schemas/job.schema.json",
+  "$ref": "#/$defs/Job",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Row in the jobs table, returned by the jobs API.",
+  "title": "Job"
+}

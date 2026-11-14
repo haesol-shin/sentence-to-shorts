@@ -1,0 +1,66 @@
+[project]
+name = "core"
+version = "0.1.0"
+description = "Contracts and execution skeleton for the local video studio backend"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "fastapi==0.162.7",
+    "pydantic==2.14.3",
+    "python-multipart==0.0.33",
+    "pyyaml==6.0.3",
+    "typing-extensions==4.16.0",
+    "uvicorn==0.54.0",
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.group.dev.dependencies]
+httpx2 = "2.16.0"
+import-linter = "2.16"
+jsonschema = "4.26.0"
+pytest = "9.2.0"
+ruff = "0.17.5"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "sandbox: needs the bundled Deno and Pyodide runtime files",
+    "models: needs downloaded model files",
+    "realllm: calls a real LLM provider",
+]
+filterwarnings = ["error"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["C901", "E", "F", "I"]
+mccabe = { max-complexity = 15 }
+
+[tool.ruff.lint.per-file-ignores]
+"tests/architecture/fixtures/**" = ["E501"]
+
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "application direction"
+type = "layers"
+layers = [
+    "app.main",
+    "app.bootstrap",
+    "app.routers | app.access",
+    "app.services.pipeline",
+    "app.services.project | app.services.story | app.services.reference | app.services.render | app.services.voice | app.services.sound | app.services.assemble | app.services.templates",
+    "app.jobs | app.storage | app.runtime | app.llm | app.tools | app.plugins",
+    "app.ports",
+    "app.schemas",
+]
+
+[[tool.importlinter.contracts]]
+name = "services use contracts not implementations"
+type = "forbidden"
+source_modules = ["app.services", "app.routers"]
+forbidden_modules = ["app.jobs", "app.storage", "app.runtime", "app.llm", "app.tools", "app.plugins"]

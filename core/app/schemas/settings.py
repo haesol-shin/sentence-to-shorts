@@ -1,0 +1,175 @@
+"""Production settings shared by project defaults, video snapshots and presets."""
+
+from __future__ import annotations
+
+from enum import StrEnum
+from typing import Annotated, Literal
+
+from pydantic import ConfigDict, Field
+
+from app.schemas.common import (
+    CaptionMode,
+    CatalogId,
+    CharacterRole,
+    ContractModel,
+    Language,
+    Mood,
+    Origin,
+    PinnedRef,
+)
+
+
+class Register(StrEnum):
+    friendly = "friendly"
+    neutral = "neutral"
+    casual = "casual"
+
+
+class Humor(StrEnum):
+    none = "none"
+    light = "light"
+
+
+class ProgressMode(StrEnum):
+    numbered = "numbered"
+    phases = "phases"
+    none = "none"
+
+
+class Transition(StrEnum):
+    cut = "cut"
+    fade = "fade"
+
+
+class CharacterMotion(StrEnum):
+    none = "none"
+    pop = "pop"
+    bob = "bob"
+
+
+class CaptionPosition(StrEnum):
+    top = "top"
+    middle = "middle"
+    bottom = "bottom"
+
+
+class Format(ContractModel):
+    card_id: CatalogId | None
+    story_structure: CatalogId
+    layout: PinnedRef
+    character_role: CharacterRole
+    register_value: Annotated[Register, Field(alias="register")]
+    humor: Humor
+    progress_mode: ProgressMode
+    scene_count: Annotated[int, Field(ge=3, le=20)]
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class CharacterSlots(ContractModel):
+    body: CatalogId
+    face: CatalogId
+    hair: CatalogId | None
+    hat: CatalogId | None
+    outfit: CatalogId | None
+    prop: CatalogId | None
+
+
+class CharacterSpec(ContractModel):
+    """Concrete part combination. Null when character_role is none."""
+
+    preset_id: CatalogId | None
+    slots: CharacterSlots
+
+
+class Visual(ContractModel):
+    art_style: PinnedRef
+    theme_id: CatalogId
+    character: CharacterSpec | None
+
+
+class BgmSettings(ContractModel):
+    enabled: bool
+    mood: Mood
+    entry: PinnedRef | None
+    gain_db_x10: Annotated[int, Field(ge=-400, le=0)]
+    ducking: bool
+
+
+class Audio(ContractModel):
+    voice: PinnedRef
+    bgm: BgmSettings
+    sfx_enabled: bool
+
+
+class Caption(ContractModel):
+    mode: CaptionMode
+    font_id: PinnedRef
+    position: CaptionPosition
+    highlight: bool
+
+
+class Motion(ContractModel):
+    transition: Transition
+    character_motion: CharacterMotion
+
+
+class LockKey(StrEnum):
+    story_structure = "story_structure"
+    layout = "layout"
+    character_role = "character_role"
+    register = "register"
+    humor = "humor"
+    art_style = "art_style"
+    theme = "theme"
+    character = "character"
+    voice = "voice"
+    bgm = "bgm"
+    caption_mode = "caption_mode"
+    caption_font = "caption_font"
+    background = "background"
+    transition = "transition"
+
+
+class LockState(StrEnum):
+    locked = "locked"
+    varied = "varied"
+
+
+ORIGIN_POINTER_PATTERN = (
+    r"^/(language|target_duration_s|format|visual|audio|caption|motion)(/[a-z_]+)*$"
+)
+
+LockMap = dict[LockKey, LockState]
+OriginMap = Annotated[
+    dict[Annotated[str, Field(pattern=ORIGIN_POINTER_PATTERN)], Origin],
+    Field(json_schema_extra={"additionalProperties": False}),
+]
+ExtraInstructions = Annotated[
+    list[Annotated[str, Field(min_length=1, max_length=200)]], Field(max_length=20)
+]
+
+
+class Settings(ContractModel):
+    language: Language
+    target_duration_s: Literal[30, 60, 120]
+    format: Format
+    visual: Visual
+    audio: Audio
+    caption: Caption
+    motion: Motion
+    locks: LockMap
+    origins: OriginMap
+    extra_instructions: ExtraInstructions
+
+
+class PresetSettings(ContractModel):
+    """Settings saved in a preset. Language, length, topic, script and results are not saved."""
+
+    format: Format
+    visual: Visual
+    audio: Audio
+    caption: Caption
+    motion: Motion
+    locks: LockMap
+    extra_instructions: ExtraInstructions

@@ -1,0 +1,131 @@
+{
+  "$defs": {
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "properties": {
+        "display_text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Display Text",
+          "type": "string"
+        },
+        "highlight": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "maxItems": 4,
+          "title": "Highlight",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "speaker": {
+          "$ref": "#/$defs/Speaker"
+        },
+        "speech_text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Speech Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display_text",
+        "speech_text",
+        "speaker",
+        "highlight"
+      ],
+      "title": "Line",
+      "type": "object"
+    },
+    "Script": {
+      "additionalProperties": false,
+      "properties": {
+        "raw_text": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Raw Text"
+        },
+        "source": {
+          "$ref": "#/$defs/ScriptSource"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Title"
+        }
+      },
+      "required": [
+        "source",
+        "raw_text",
+        "title"
+      ],
+      "title": "Script",
+      "type": "object"
+    },
+    "ScriptSource": {
+      "enum": [
+        "user",
+        "llm"
+      ],
+      "title": "ScriptSource",
+      "type": "string"
+    },
+    "Span": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Speaker": {
+      "enum": [
+        "narrator",
+        "character"
+      ],
+      "title": "Speaker",
+      "type": "string"
+    }
+  },
+  "$id": "https://app.invalid/schemas/script.schema.json",
+  "$ref": "#/$defs/Script",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Script metadata of a video. The spoken lines live in scenes.",
+  "title": "Script"
+}

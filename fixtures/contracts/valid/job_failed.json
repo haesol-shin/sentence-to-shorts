@@ -1,0 +1,36 @@
+{
+  "id": "j_02vqj2v2769m0tzdctgvdb8ews",
+  "kind": "draft",
+  "state": "failed",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 1,
+  "request_digest": "5d28a90f4498a81461efbaf6f628a19d9778390bb5c81a393dd936181cc3d826",
+  "idempotency_key": "req-0123456789",
+  "attempt": 1,
+  "max_attempts": 3,
+  "created_at": "2026-11-14T12:00:00Z",
+  "started_at": "2026-11-14T12:00:00Z",
+  "ended_at": "2026-11-14T12:00:00Z",
+  "deadline_at": "2026-11-14T12:03:00Z",
+  "progress": {
+    "stage": null,
+    "done": 0,
+    "total": 0,
+    "waiting_on": null
+  },
+  "stages": [],
+  "checkpoints": [],
+  "usage": [],
+  "result": null,
+  "error": {
+    "code": "llm_timeout",
+    "retryable": true,
+    "stage": "llm_draft",
+    "scene_id": null,
+    "detail": {
+      "http_status": 504
+    }
+  },
+  "partial": false
+}

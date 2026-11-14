@@ -1,0 +1,44 @@
+{
+  "operationId": "getRuntime",
+  "method": "GET",
+  "path_template": "/api/v1/runtime",
+  "path": "/api/v1/runtime",
+  "request": {
+    "path": {},
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "app_version": "0.1.0",
+      "profile": "fixture",
+      "deployment": "local",
+      "brand": {
+        "display_name_ko": "테스트 앱",
+        "display_name_en": "Test app"
+      },
+      "items": [
+        {
+          "id": "deno",
+          "state": "missing",
+          "bytes": 42917472
+        }
+      ],
+      "llm_auth": {
+        "adapter": "fixture",
+        "state": "ok"
+      },
+      "capabilities": {
+        "open_edit_play": true,
+        "render": false,
+        "tts": true,
+        "llm": true,
+        "link_download": false
+      }
+    }
+  }
+}

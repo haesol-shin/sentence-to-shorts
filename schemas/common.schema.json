@@ -1,0 +1,338 @@
+{
+  "$defs": {
+    "ArtifactRef": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_key": {
+          "$ref": "#/$defs/Digest"
+        },
+        "digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "id",
+        "digest",
+        "cache_key"
+      ],
+      "title": "ArtifactRef",
+      "type": "object"
+    },
+    "Box": {
+      "additionalProperties": false,
+      "description": "Rectangle in output pixels of the 1080x1920 frame.",
+      "properties": {
+        "h": {
+          "maximum": 1920,
+          "minimum": 1,
+          "title": "H",
+          "type": "integer"
+        },
+        "w": {
+          "maximum": 1080,
+          "minimum": 1,
+          "title": "W",
+          "type": "integer"
+        },
+        "x": {
+          "maximum": 1080,
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "maximum": 1920,
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "Box",
+      "type": "object"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CharacterRole": {
+      "enum": [
+        "none",
+        "presenter",
+        "subject"
+      ],
+      "title": "CharacterRole",
+      "type": "string"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "HexColor": {
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "type": "string"
+    },
+    "Language": {
+      "enum": [
+        "ko",
+        "en"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "License": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "author": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Author",
+          "type": "string"
+        },
+        "commercial_ok": {
+          "title": "Commercial Ok",
+          "type": "boolean"
+        },
+        "license_file": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "source_url": {
+          "format": "uri",
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Url",
+          "type": "string"
+        },
+        "spdx": {
+          "pattern": "^[A-Za-z0-9.+-]{2,40}$",
+          "title": "Spdx",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spdx",
+        "source_url",
+        "author",
+        "commercial_ok",
+        "attribution",
+        "license_file"
+      ],
+      "title": "License",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "Mood": {
+      "enum": [
+        "curious",
+        "playful",
+        "tense",
+        "energetic",
+        "calm",
+        "reflective"
+      ],
+      "title": "Mood",
+      "type": "string"
+    },
+    "Origin": {
+      "description": "Where a value came from. Precedence: user > reference > preset > card > llm > default.",
+      "enum": [
+        "user",
+        "reference",
+        "preset",
+        "card",
+        "llm",
+        "default",
+        "derived"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "OwnerId": {
+      "pattern": "^[a-z0-9_-]{1,32}$",
+      "type": "string"
+    },
+    "PackageOrigin": {
+      "enum": [
+        "builtin",
+        "user",
+        "generated"
+      ],
+      "title": "PackageOrigin",
+      "type": "string"
+    },
+    "PackageStatus": {
+      "description": "Generated packages move draft -> validated -> ready. Only ready is listed.",
+      "enum": [
+        "draft",
+        "validated",
+        "ready"
+      ],
+      "title": "PackageStatus",
+      "type": "string"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 1080,
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "maximum": 1920,
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Generated package origin. Never contains prompts, URLs or user text.",
+      "properties": {
+        "job_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "model": {
+          "maxLength": 80,
+          "title": "Model",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "maxLength": 40,
+          "title": "Provider",
+          "type": "string"
+        },
+        "reference_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_digest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "request_digest",
+        "parent",
+        "reference_digest",
+        "job_id",
+        "provider",
+        "model"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RelPath": {
+      "description": "Relative path inside a package or data root. No absolute path, no parent segment, no backslash.",
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}$",
+      "type": "string"
+    },
+    "Timestamp": {
+      "description": "ISO 8601 date-time with a timezone.",
+      "format": "date-time",
+      "type": "string"
+    }
+  },
+  "$id": "https://app.invalid/schemas/common.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Common definitions"
+}

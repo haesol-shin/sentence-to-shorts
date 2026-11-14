@@ -1,0 +1,38 @@
+{
+  "task": "split",
+  "request": {
+    "task": "split",
+    "route": "split",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "고양이가 컵을 쏟는 데는 이유가 있다. 첫째, 호기심이다. 둘째, 주의를 끌고 싶다. 셋째, 표면이 재미있다.",
+        "png": null
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "{\"beats\":[{\"beat\":\"hook\",\"line\":\"고양이는 왜 컵을 쏟을까\"},{\"beat\":\"first\",\"line\":\"첫째, 호기심이다\"},{\"beat\":\"second\",\"line\":\"둘째, 주의를 끌고 싶다\"},{\"beat\":\"third\",\"line\":\"셋째, 표면이 재미있다\"}]}",
+  "parsed": {
+    "beats": [
+      {
+        "beat": "hook",
+        "line": "고양이는 왜 컵을 쏟을까"
+      },
+      {
+        "beat": "first",
+        "line": "첫째, 호기심이다"
+      },
+      {
+        "beat": "second",
+        "line": "둘째, 주의를 끌고 싶다"
+      },
+      {
+        "beat": "third",
+        "line": "셋째, 표면이 재미있다"
+      }
+    ]
+  }
+}

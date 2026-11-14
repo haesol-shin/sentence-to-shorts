@@ -1,0 +1,30 @@
+{
+  "id": "j_08c71zekrt8ceaqnmy5jjy5zvn",
+  "kind": "draft",
+  "state": "succeeded",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 1,
+  "request_digest": "5dceaeceb6d8a49d3665594710ace68dfbc1800e2d663d7febb302b4dbee3d27",
+  "idempotency_key": "req-0123456789",
+  "attempt": 1,
+  "max_attempts": 3,
+  "created_at": "2026-11-14T12:00:00Z",
+  "started_at": "2026-11-14T12:00:00Z",
+  "ended_at": "2026-11-14T12:00:00Z",
+  "deadline_at": "2026-11-14T12:03:00Z",
+  "progress": {
+    "stage": null,
+    "done": 0,
+    "total": 0,
+    "waiting_on": null
+  },
+  "stages": [],
+  "checkpoints": [],
+  "usage": [],
+  "result": {
+    "change_id": "c_0t2wvk16pb9s0a453j9s6540mg"
+  },
+  "error": null,
+  "partial": false
+}

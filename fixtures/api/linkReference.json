@@ -1,0 +1,52 @@
+{
+  "operationId": "linkReference",
+  "method": "POST",
+  "path_template": "/api/v1/videos/{vid}/references/link",
+  "path": "/api/v1/videos/v_0hzb7bexv28termtt2ypc6trzt/references/link",
+  "request": {
+    "path": {
+      "vid": "v_0hzb7bexv28termtt2ypc6trzt"
+    },
+    "query": {},
+    "headers": {
+      "Idempotency-Key": "req-0123456789"
+    },
+    "body": {
+      "base_revision": 1,
+      "url": "https://example.invalid/video"
+    },
+    "multipart": null
+  },
+  "response": {
+    "status": 202,
+    "media_type": null,
+    "body": {
+      "id": "j_08c71zekrt8ceaqnmy5jjy5zvn",
+      "kind": "draft",
+      "state": "queued",
+      "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+      "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+      "base_revision": 1,
+      "request_digest": "d36be6494248ee06ac18f38ea1119dfe4699fdcfcbbcc30a2e4f1ccbce68dfac",
+      "idempotency_key": "req-0123456789",
+      "attempt": 1,
+      "max_attempts": 3,
+      "created_at": "2026-11-14T12:00:00Z",
+      "started_at": null,
+      "ended_at": null,
+      "deadline_at": "2026-11-14T12:03:00Z",
+      "progress": {
+        "stage": null,
+        "done": 0,
+        "total": 0,
+        "waiting_on": null
+      },
+      "stages": [],
+      "checkpoints": [],
+      "usage": [],
+      "result": null,
+      "error": null,
+      "partial": false
+    }
+  }
+}

@@ -1,0 +1,325 @@
+{
+  "$defs": {
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "Language": {
+      "enum": [
+        "ko",
+        "en"
+      ],
+      "title": "Language",
+      "type": "string"
+    },
+    "License": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "author": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Author",
+          "type": "string"
+        },
+        "commercial_ok": {
+          "title": "Commercial Ok",
+          "type": "boolean"
+        },
+        "license_file": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "source_url": {
+          "format": "uri",
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Url",
+          "type": "string"
+        },
+        "spdx": {
+          "pattern": "^[A-Za-z0-9.+-]{2,40}$",
+          "title": "Spdx",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spdx",
+        "source_url",
+        "author",
+        "commercial_ok",
+        "attribution",
+        "license_file"
+      ],
+      "title": "License",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "RelPath": {
+      "description": "Relative path inside a package or data root. No absolute path, no parent segment, no backslash.",
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}$",
+      "type": "string"
+    },
+    "VoiceManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "cloning": {
+          "const": false,
+          "title": "Cloning",
+          "type": "boolean"
+        },
+        "engine_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "languages": {
+          "items": {
+            "$ref": "#/$defs/Language"
+          },
+          "minItems": 1,
+          "title": "Languages",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "license": {
+          "$ref": "#/$defs/License"
+        },
+        "model": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/VoiceModel"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "output": {
+          "$ref": "#/$defs/VoiceOutput"
+        },
+        "sample": {
+          "$ref": "#/$defs/VoiceSample"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "settings": {
+          "$ref": "#/$defs/VoiceSettings"
+        },
+        "speaker": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Speaker",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "label",
+        "engine_id",
+        "model",
+        "speaker",
+        "languages",
+        "settings",
+        "output",
+        "sample",
+        "license",
+        "cloning"
+      ],
+      "title": "VoiceManifest",
+      "type": "object"
+    },
+    "VoiceModel": {
+      "additionalProperties": false,
+      "properties": {
+        "repo": {
+          "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+          "title": "Repo",
+          "type": "string"
+        },
+        "revision": {
+          "pattern": "^[0-9a-f]{40}$",
+          "title": "Revision",
+          "type": "string"
+        },
+        "runtime_item": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "runtime_item",
+        "repo",
+        "revision"
+      ],
+      "title": "VoiceModel",
+      "type": "object"
+    },
+    "VoiceOutput": {
+      "additionalProperties": false,
+      "properties": {
+        "channels": {
+          "const": 1,
+          "title": "Channels",
+          "type": "integer"
+        },
+        "sample_rate": {
+          "enum": [
+            16000,
+            22050,
+            24000,
+            44100,
+            48000
+          ],
+          "title": "Sample Rate",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "sample_rate",
+        "channels"
+      ],
+      "title": "VoiceOutput",
+      "type": "object"
+    },
+    "VoiceSample": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "file",
+        "sha256"
+      ],
+      "title": "VoiceSample",
+      "type": "object"
+    },
+    "VoiceSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "seed": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "speed": {
+          "enum": [
+            0.8,
+            0.81,
+            0.82,
+            0.83,
+            0.84,
+            0.85,
+            0.86,
+            0.87,
+            0.88,
+            0.89,
+            0.9,
+            0.91,
+            0.92,
+            0.93,
+            0.94,
+            0.95,
+            0.96,
+            0.97,
+            0.98,
+            0.99,
+            1.0,
+            1.01,
+            1.02,
+            1.03,
+            1.04,
+            1.05,
+            1.06,
+            1.07,
+            1.08,
+            1.09,
+            1.1,
+            1.11,
+            1.12,
+            1.13,
+            1.14,
+            1.15,
+            1.16,
+            1.17,
+            1.18,
+            1.19,
+            1.2,
+            1.21,
+            1.22,
+            1.23,
+            1.24,
+            1.25
+          ],
+          "maximum": 1.25,
+          "minimum": 0.8,
+          "title": "Speed",
+          "type": "number"
+        }
+      },
+      "required": [
+        "speed",
+        "seed"
+      ],
+      "title": "VoiceSettings",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/voice-manifest.schema.json",
+  "$ref": "#/$defs/VoiceManifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "core/app/plugins/voices/<id>/manifest.json.",
+  "title": "Voice manifest"
+}

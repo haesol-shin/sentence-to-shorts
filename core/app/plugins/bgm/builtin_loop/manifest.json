@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "builtin_loop",
+  "label": {
+    "ko": "기본 잔잔한 루프",
+    "en": "Default calm loop"
+  },
+  "mood": "calm",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "3052ab8b14d54f620c1b09d7fdc5a550fa4247bfd12924ee106b428ecb7036b4",
+  "duration_ms": 2000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": null,
+  "true_peak_dbtp_x10": null,
+  "license": {
+    "spdx": "Apache-2.0",
+    "source_url": "https://www.apache.org/licenses/LICENSE-2.0",
+    "author": "Project authors",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

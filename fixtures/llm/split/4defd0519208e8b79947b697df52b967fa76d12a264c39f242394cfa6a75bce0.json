@@ -1,0 +1,38 @@
+{
+  "task": "split",
+  "request": {
+    "task": "split",
+    "route": "split",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "Cats knock over cups for three reasons. First, curiosity. Second, they want attention. Third, the surface is fun.",
+        "png": null
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "{\"beats\":[{\"beat\":\"hook\",\"line\":\"Why do cats knock over cups\"},{\"beat\":\"first\",\"line\":\"First, curiosity\"},{\"beat\":\"second\",\"line\":\"Second, they want attention\"},{\"beat\":\"third\",\"line\":\"Third, the surface is fun\"}]}",
+  "parsed": {
+    "beats": [
+      {
+        "beat": "hook",
+        "line": "Why do cats knock over cups"
+      },
+      {
+        "beat": "first",
+        "line": "First, curiosity"
+      },
+      {
+        "beat": "second",
+        "line": "Second, they want attention"
+      },
+      {
+        "beat": "third",
+        "line": "Third, the surface is fun"
+      }
+    ]
+  }
+}

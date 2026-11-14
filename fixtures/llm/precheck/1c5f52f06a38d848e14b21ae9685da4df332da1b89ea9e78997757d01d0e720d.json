@@ -1,0 +1,24 @@
+{
+  "task": "precheck",
+  "request": {
+    "task": "precheck",
+    "route": "precheck",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "Cat cup script",
+        "png": null
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "{\"opening_promise\":\"Why cats knock over cups\",\"ending_answer\":\"Curiosity and attention\",\"claims\":[],\"hypotheticals\":[]}",
+  "parsed": {
+    "opening_promise": "Why cats knock over cups",
+    "ending_answer": "Curiosity and attention",
+    "claims": [],
+    "hypotheticals": []
+  }
+}

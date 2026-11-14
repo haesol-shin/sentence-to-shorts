@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "id": "icon_arrow",
+  "width": 5,
+  "height": 5,
+  "scale": 10,
+  "palette": {
+    "W": [245, 245, 245]
+  },
+  "rows": [
+    "..W..",
+    "..WW.",
+    "WWWWW",
+    "..WW.",
+    "..W.."
+  ]
+}

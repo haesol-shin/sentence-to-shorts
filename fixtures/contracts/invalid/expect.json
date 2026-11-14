@@ -1,0 +1,72 @@
+{
+  "files": {
+    "extra_field.json": {
+      "level": "schema",
+      "code": "validation_failed"
+    },
+    "schema_version_2.json": {
+      "level": "schema",
+      "code": "unsupported_version"
+    },
+    "bad_digest.json": {
+      "level": "schema",
+      "code": "validation_failed"
+    },
+    "path_escape_asset.json": {
+      "level": "schema",
+      "code": "validation_failed"
+    },
+    "bgm_code_20s.json": {
+      "level": "schema",
+      "code": "validation_failed"
+    },
+    "voice_cloning_true.json": {
+      "level": "schema",
+      "code": "validation_failed"
+    },
+    "stale_base_revision_request.json": {
+      "level": "semantic",
+      "code": "revision_conflict"
+    },
+    "unknown_asset_id.json": {
+      "level": "semantic",
+      "code": "unknown_catalog_id"
+    },
+    "unknown_card_id.json": {
+      "level": "semantic",
+      "code": "unknown_catalog_id"
+    },
+    "duplicate_scene_order.json": {
+      "level": "semantic",
+      "code": "duplicate_order"
+    },
+    "order_scene_mismatch.json": {
+      "level": "semantic",
+      "code": "duplicate_order"
+    },
+    "duplicate_line_id.json": {
+      "level": "semantic",
+      "code": "duplicate_line_id"
+    },
+    "typewriter_fixed_stage.json": {
+      "level": "semantic",
+      "code": "typewriter_layout"
+    },
+    "role_none_with_character.json": {
+      "level": "semantic",
+      "code": "role_none_character"
+    },
+    "presenter_without_character.json": {
+      "level": "semantic",
+      "code": "character_missing"
+    },
+    "highlight_out_of_range.json": {
+      "level": "semantic",
+      "code": "highlight_range"
+    },
+    "reveal_line_unknown.json": {
+      "level": "semantic",
+      "code": "reveal_line_unknown"
+    }
+  }
+}

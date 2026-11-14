@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "api_version": 1,
+  "id": "full_stage",
+  "version": "1.0.0",
+  "label": {
+    "ko": "장면 중심",
+    "en": "Scene stage"
+  },
+  "origin": "builtin",
+  "status": "ready",
+  "renderer": {
+    "kind": "builtin",
+    "module": "full_stage"
+  },
+  "regions": {
+    "title": null,
+    "progress": null,
+    "visual": {"x": 0, "y": 0, "w": 1080, "h": 1010},
+    "caption": {"x": 90, "y": 1040, "w": 900, "h": 160}
+  },
+  "character_anchors": {
+    "left": {"x": 270, "y": 960},
+    "center": {"x": 540, "y": 960},
+    "right": {"x": 810, "y": 960}
+  },
+  "caption_modes": ["sentence", "phrase"],
+  "dialog_box": false,
+  "test": {
+    "scene": "test_scene.json",
+    "layer_digest": null
+  },
+  "provenance": null
+}

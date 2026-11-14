@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "id": "single_analogy",
+  "label": {
+    "ko": "비유 하나",
+    "en": "One analogy"
+  },
+  "beats": [
+    {"beat_id": "familiar", "label": {"ko": "익숙한 대상", "en": "Familiar thing"}},
+    {"beat_id": "mapping", "label": {"ko": "대응", "en": "Mapping"}},
+    {"beat_id": "concept", "label": {"ko": "개념", "en": "Concept"}},
+    {"beat_id": "reality", "label": {"ko": "현실로 복귀", "en": "Back to reality"}}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "operationId": "listProjects",
+  "method": "GET",
+  "path_template": "/api/v1/projects",
+  "path": "/api/v1/projects",
+  "request": {
+    "path": {},
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "items": [
+        {
+          "id": "p_06pxfteaw88hs93kkckw5j51ng",
+          "title": "커피 시리즈",
+          "updated_at": "2026-11-14T12:00:00Z",
+          "video_count": 3
+        }
+      ],
+      "next_cursor": null
+    }
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "id": "c_0s5jsvnt309meabamnrnnrasja",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 2,
+  "created_at": "2026-11-14T12:00:00Z",
+  "source": "scene_rewrite",
+  "target": {
+    "scene_id": "s_0gv16xq3n089nbs6wykgccs0zf",
+    "pointer": null
+  },
+  "ops": [
+    {
+      "op": "set",
+      "path": "/scenes/s_0gv16xq3n089nbs6wykgccs0zf/lines",
+      "value": [
+        {
+          "id": "l_04tv9gfj5z81zagexeemmgpvxn",
+          "display_text": "둘째, 물의 온도를 90도로 지킨다.",
+          "speech_text": "둘째, 물의 온도를 90도로 지킨다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "origin": "llm"
+    }
+  ],
+  "effects": {
+    "script": false,
+    "scene_ids_text": [
+      "s_0gv16xq3n089nbs6wykgccs0zf"
+    ],
+    "scene_ids_tts": [
+      "s_0gv16xq3n089nbs6wykgccs0zf"
+    ],
+    "scene_ids_render": [
+      "s_0gv16xq3n089nbs6wykgccs0zf"
+    ],
+    "mix": false,
+    "assemble": false,
+    "locked_keys": [],
+    "overwrites_user_values": []
+  },
+  "requires_confirmation": true,
+  "confirmation_reasons": [
+    "rebuild_tts",
+    "rebuild_render"
+  ],
+  "warnings": [],
+  "unsupported": [],
+  "notes": [],
+  "status": "proposed",
+  "applied_revision": null
+}

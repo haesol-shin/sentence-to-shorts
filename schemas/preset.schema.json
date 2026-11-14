@@ -1,0 +1,555 @@
+{
+  "$defs": {
+    "Audio": {
+      "additionalProperties": false,
+      "properties": {
+        "bgm": {
+          "$ref": "#/$defs/BgmSettings"
+        },
+        "sfx_enabled": {
+          "title": "Sfx Enabled",
+          "type": "boolean"
+        },
+        "voice": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "voice",
+        "bgm",
+        "sfx_enabled"
+      ],
+      "title": "Audio",
+      "type": "object"
+    },
+    "BgmSettings": {
+      "additionalProperties": false,
+      "properties": {
+        "ducking": {
+          "title": "Ducking",
+          "type": "boolean"
+        },
+        "enabled": {
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "entry": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "gain_db_x10": {
+          "maximum": 0,
+          "minimum": -400,
+          "title": "Gain Db X10",
+          "type": "integer"
+        },
+        "mood": {
+          "$ref": "#/$defs/Mood"
+        }
+      },
+      "required": [
+        "enabled",
+        "mood",
+        "entry",
+        "gain_db_x10",
+        "ducking"
+      ],
+      "title": "BgmSettings",
+      "type": "object"
+    },
+    "Caption": {
+      "additionalProperties": false,
+      "properties": {
+        "font_id": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "highlight": {
+          "title": "Highlight",
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "position": {
+          "$ref": "#/$defs/CaptionPosition"
+        }
+      },
+      "required": [
+        "mode",
+        "font_id",
+        "position",
+        "highlight"
+      ],
+      "title": "Caption",
+      "type": "object"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CaptionPosition": {
+      "enum": [
+        "top",
+        "middle",
+        "bottom"
+      ],
+      "title": "CaptionPosition",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CharacterMotion": {
+      "enum": [
+        "none",
+        "pop",
+        "bob"
+      ],
+      "title": "CharacterMotion",
+      "type": "string"
+    },
+    "CharacterRole": {
+      "enum": [
+        "none",
+        "presenter",
+        "subject"
+      ],
+      "title": "CharacterRole",
+      "type": "string"
+    },
+    "CharacterSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "face": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "hair": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "hat": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "outfit": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "prop": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "body",
+        "face",
+        "hair",
+        "hat",
+        "outfit",
+        "prop"
+      ],
+      "title": "CharacterSlots",
+      "type": "object"
+    },
+    "CharacterSpec": {
+      "additionalProperties": false,
+      "description": "Concrete part combination. Null when character_role is none.",
+      "properties": {
+        "preset_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "slots": {
+          "$ref": "#/$defs/CharacterSlots"
+        }
+      },
+      "required": [
+        "preset_id",
+        "slots"
+      ],
+      "title": "CharacterSpec",
+      "type": "object"
+    },
+    "DerivedFrom": {
+      "additionalProperties": false,
+      "properties": {
+        "revision": {
+          "minimum": 1,
+          "title": "Revision",
+          "type": "integer"
+        },
+        "video_id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "video_id",
+        "revision"
+      ],
+      "title": "DerivedFrom",
+      "type": "object"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "Format": {
+      "additionalProperties": false,
+      "properties": {
+        "card_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CatalogId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "character_role": {
+          "$ref": "#/$defs/CharacterRole"
+        },
+        "humor": {
+          "$ref": "#/$defs/Humor"
+        },
+        "layout": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "progress_mode": {
+          "$ref": "#/$defs/ProgressMode"
+        },
+        "register": {
+          "$ref": "#/$defs/Register"
+        },
+        "scene_count": {
+          "maximum": 20,
+          "minimum": 3,
+          "title": "Scene Count",
+          "type": "integer"
+        },
+        "story_structure": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "card_id",
+        "story_structure",
+        "layout",
+        "character_role",
+        "register",
+        "humor",
+        "progress_mode",
+        "scene_count"
+      ],
+      "title": "Format",
+      "type": "object"
+    },
+    "Humor": {
+      "enum": [
+        "none",
+        "light"
+      ],
+      "title": "Humor",
+      "type": "string"
+    },
+    "LockKey": {
+      "enum": [
+        "story_structure",
+        "layout",
+        "character_role",
+        "register",
+        "humor",
+        "art_style",
+        "theme",
+        "character",
+        "voice",
+        "bgm",
+        "caption_mode",
+        "caption_font",
+        "background",
+        "transition"
+      ],
+      "title": "LockKey",
+      "type": "string"
+    },
+    "LockState": {
+      "enum": [
+        "locked",
+        "varied"
+      ],
+      "title": "LockState",
+      "type": "string"
+    },
+    "Mood": {
+      "enum": [
+        "curious",
+        "playful",
+        "tense",
+        "energetic",
+        "calm",
+        "reflective"
+      ],
+      "title": "Mood",
+      "type": "string"
+    },
+    "Motion": {
+      "additionalProperties": false,
+      "properties": {
+        "character_motion": {
+          "$ref": "#/$defs/CharacterMotion"
+        },
+        "transition": {
+          "$ref": "#/$defs/Transition"
+        }
+      },
+      "required": [
+        "transition",
+        "character_motion"
+      ],
+      "title": "Motion",
+      "type": "object"
+    },
+    "OwnerId": {
+      "pattern": "^[a-z0-9_-]{1,32}$",
+      "type": "string"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Preset": {
+      "additionalProperties": false,
+      "properties": {
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "from_video": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DerivedFrom"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "name": {
+          "maxLength": 60,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
+        "project_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "settings": {
+          "$ref": "#/$defs/PresetSettings"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "owner_id",
+        "project_id",
+        "name",
+        "created_at",
+        "from_video",
+        "settings"
+      ],
+      "title": "Preset",
+      "type": "object"
+    },
+    "PresetSettings": {
+      "additionalProperties": false,
+      "description": "Settings saved in a preset. Language, length, topic, script and results are not saved.",
+      "properties": {
+        "audio": {
+          "$ref": "#/$defs/Audio"
+        },
+        "caption": {
+          "$ref": "#/$defs/Caption"
+        },
+        "extra_instructions": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 20,
+          "title": "Extra Instructions",
+          "type": "array"
+        },
+        "format": {
+          "$ref": "#/$defs/Format"
+        },
+        "locks": {
+          "additionalProperties": {
+            "$ref": "#/$defs/LockState"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/LockKey"
+          },
+          "title": "Locks",
+          "type": "object"
+        },
+        "motion": {
+          "$ref": "#/$defs/Motion"
+        },
+        "visual": {
+          "$ref": "#/$defs/Visual"
+        }
+      },
+      "required": [
+        "format",
+        "visual",
+        "audio",
+        "caption",
+        "motion",
+        "locks",
+        "extra_instructions"
+      ],
+      "title": "PresetSettings",
+      "type": "object"
+    },
+    "ProgressMode": {
+      "enum": [
+        "numbered",
+        "phases",
+        "none"
+      ],
+      "title": "ProgressMode",
+      "type": "string"
+    },
+    "Register": {
+      "enum": [
+        "friendly",
+        "neutral",
+        "casual"
+      ],
+      "title": "Register",
+      "type": "string"
+    },
+    "Timestamp": {
+      "description": "ISO 8601 date-time with a timezone.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "Transition": {
+      "enum": [
+        "cut",
+        "fade"
+      ],
+      "title": "Transition",
+      "type": "string"
+    },
+    "Visual": {
+      "additionalProperties": false,
+      "properties": {
+        "art_style": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "character": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CharacterSpec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "theme_id": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "art_style",
+        "theme_id",
+        "character"
+      ],
+      "title": "Visual",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/preset.schema.json",
+  "$ref": "#/$defs/Preset",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Saved format. Created only by an explicit user action.",
+  "title": "Preset"
+}

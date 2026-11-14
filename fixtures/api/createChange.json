@@ -1,0 +1,81 @@
+{
+  "operationId": "createChange",
+  "method": "POST",
+  "path_template": "/api/v1/videos/{vid}/changes",
+  "path": "/api/v1/videos/v_0hzb7bexv28termtt2ypc6trzt/changes",
+  "request": {
+    "path": {
+      "vid": "v_0hzb7bexv28termtt2ypc6trzt"
+    },
+    "query": {},
+    "headers": {
+      "Idempotency-Key": "req-0123456789"
+    },
+    "body": {
+      "base_revision": 1,
+      "source": "direct",
+      "target": {
+        "scene_id": "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+        "pointer": null
+      },
+      "ops": [
+        {
+          "op": "set",
+          "path": "/scenes/s_0nzvrzf0tp9wba44f6yvh6nzpr/lines",
+          "value": [
+            {
+              "id": "l_079jmk94bf8vj82ct90jqj44km",
+              "display_text": "커피를 고르는 기준은 세 가지뿐이다.",
+              "speech_text": "커피를 고르는 기준은 세 가지뿐이다.",
+              "speaker": "narrator",
+              "highlight": []
+            }
+          ],
+          "origin": "llm"
+        }
+      ]
+    },
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "schema_version": 1,
+      "id": "c_0t2wvk16pb9s0a453j9s6540mg",
+      "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+      "base_revision": 1,
+      "created_at": "2026-11-14T12:00:00Z",
+      "source": "direct",
+      "target": {
+        "scene_id": null,
+        "pointer": "/settings/caption/highlight"
+      },
+      "ops": [
+        {
+          "op": "set",
+          "path": "/settings/caption/highlight",
+          "value": true,
+          "origin": "user"
+        }
+      ],
+      "effects": {
+        "script": false,
+        "scene_ids_text": [],
+        "scene_ids_tts": [],
+        "scene_ids_render": [],
+        "mix": false,
+        "assemble": false,
+        "locked_keys": [],
+        "overwrites_user_values": []
+      },
+      "requires_confirmation": false,
+      "confirmation_reasons": [],
+      "warnings": [],
+      "unsupported": [],
+      "notes": [],
+      "status": "applied",
+      "applied_revision": 2
+    }
+  }
+}

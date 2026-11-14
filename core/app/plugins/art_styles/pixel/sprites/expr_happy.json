@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "expr_happy",
+  "width": 10,
+  "height": 6,
+  "scale": 10,
+  "origin": {"x": 0, "y": 0},
+  "palette": {
+    "K": [20, 20, 28],
+    "S": [246, 200, 160],
+    "A": [255, 120, 150]
+  },
+  "rows": [
+    "..........",
+    "..........",
+    "..........",
+    ".SSKSSKSS.",
+    ".SSSSSSSS.",
+    "..SSSSSS.."
+  ]
+}

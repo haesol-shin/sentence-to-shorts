@@ -1,0 +1,21 @@
+{
+  "operationId": "downloadVideo",
+  "method": "GET",
+  "path_template": "/api/v1/videos/{vid}/download/{kind}",
+  "path": "/api/v1/videos/v_0hzb7bexv28termtt2ypc6trzt/download/mp4",
+  "request": {
+    "path": {
+      "vid": "v_0hzb7bexv28termtt2ypc6trzt",
+      "kind": "mp4"
+    },
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": "video/mp4",
+    "body": null
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "task": "scene_data",
+  "request": {
+    "task": "scene_data",
+    "route": "scene_data",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "Scene 1: Why do cats knock over cups",
+        "png": null
+      }
+    ],
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "background_id": {
+          "type": "string"
+        }
+      }
+    },
+    "max_output_tokens": 800
+  },
+  "text": "{\"background_id\":\"bg_village\",\"expression_id\":\"expr_happy\",\"pose_id\":\"pose_idle\"}",
+  "parsed": {
+    "background_id": "bg_village",
+    "expression_id": "expr_happy",
+    "pose_id": "pose_idle"
+  }
+}

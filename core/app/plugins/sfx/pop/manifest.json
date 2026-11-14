@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "pop",
+  "label": {
+    "ko": "팝",
+    "en": "Pop"
+  },
+  "kind": "pop",
+  "file": "pop.wav",
+  "sha256": "5ac8cbd1df4944fa4c32e13a4de803a23de126d7c23433faed49911fea631ba9",
+  "duration_ms": 120,
+  "license": {
+    "spdx": "Apache-2.0",
+    "source_url": "https://www.apache.org/licenses/LICENSE-2.0",
+    "author": "Project authors",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

@@ -1,0 +1,265 @@
+{
+  "$defs": {
+    "Beat": {
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": {
+          "pattern": "^[a-z0-9_]{1,24}$",
+          "title": "Beat Id",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        }
+      },
+      "required": [
+        "beat_id",
+        "label"
+      ],
+      "title": "Beat",
+      "type": "object"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CardFills": {
+      "additionalProperties": false,
+      "properties": {
+        "character_role": {
+          "$ref": "#/$defs/CharacterRole"
+        },
+        "humor": {
+          "$ref": "#/$defs/Humor"
+        },
+        "layout": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "register": {
+          "$ref": "#/$defs/Register"
+        },
+        "story_structure": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "story_structure",
+        "layout",
+        "character_role",
+        "register",
+        "humor"
+      ],
+      "title": "CardFills",
+      "type": "object"
+    },
+    "CardRecommends": {
+      "additionalProperties": false,
+      "properties": {
+        "bgm_mood": {
+          "$ref": "#/$defs/Mood"
+        },
+        "caption_mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "progress_mode": {
+          "$ref": "#/$defs/ProgressMode"
+        },
+        "scene_count": {
+          "$ref": "#/$defs/SceneCountRecommends"
+        }
+      },
+      "required": [
+        "progress_mode",
+        "caption_mode",
+        "bgm_mood",
+        "scene_count"
+      ],
+      "title": "CardRecommends",
+      "type": "object"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CharacterRole": {
+      "enum": [
+        "none",
+        "presenter",
+        "subject"
+      ],
+      "title": "CharacterRole",
+      "type": "string"
+    },
+    "FormatCard": {
+      "additionalProperties": false,
+      "description": "Data file core/app/catalog/format_cards/<id>.json.\n\nfills are card values; recommends never overwrite user values.",
+      "properties": {
+        "example": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "fills": {
+          "$ref": "#/$defs/CardFills"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "recommends": {
+          "$ref": "#/$defs/CardRecommends"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "label",
+        "example",
+        "fills",
+        "recommends"
+      ],
+      "title": "FormatCard",
+      "type": "object"
+    },
+    "Humor": {
+      "enum": [
+        "none",
+        "light"
+      ],
+      "title": "Humor",
+      "type": "string"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "Mood": {
+      "enum": [
+        "curious",
+        "playful",
+        "tense",
+        "energetic",
+        "calm",
+        "reflective"
+      ],
+      "title": "Mood",
+      "type": "string"
+    },
+    "ProgressMode": {
+      "enum": [
+        "numbered",
+        "phases",
+        "none"
+      ],
+      "title": "ProgressMode",
+      "type": "string"
+    },
+    "Register": {
+      "enum": [
+        "friendly",
+        "neutral",
+        "casual"
+      ],
+      "title": "Register",
+      "type": "string"
+    },
+    "SceneCountRecommends": {
+      "additionalProperties": false,
+      "properties": {
+        "120": {
+          "maximum": 20,
+          "minimum": 3,
+          "title": "120",
+          "type": "integer"
+        },
+        "30": {
+          "maximum": 20,
+          "minimum": 3,
+          "title": "30",
+          "type": "integer"
+        },
+        "60": {
+          "maximum": 20,
+          "minimum": 3,
+          "title": "60",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "30",
+        "60",
+        "120"
+      ],
+      "title": "SceneCountRecommends",
+      "type": "object"
+    },
+    "StoryStructure": {
+      "additionalProperties": false,
+      "properties": {
+        "beats": {
+          "items": {
+            "$ref": "#/$defs/Beat"
+          },
+          "maxItems": 12,
+          "minItems": 2,
+          "title": "Beats",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "label",
+        "beats"
+      ],
+      "title": "StoryStructure",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/format-card.schema.json",
+  "$ref": "#/$defs/FormatCard",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Data file core/app/catalog/format_cards/<id>.json.",
+  "title": "Format card"
+}

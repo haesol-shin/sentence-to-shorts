@@ -1,0 +1,253 @@
+{
+  "schema_version": 1,
+  "id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "owner_id": "owner",
+  "revision": 1,
+  "parent_revision": null,
+  "created_at": "2026-11-14T12:00:00Z",
+  "created_by": "create",
+  "change_id": null,
+  "stage": "scenes_confirmed",
+  "derived_from": null,
+  "topic": "커피를 고르는 세 가지 기준",
+  "material": [],
+  "reference": null,
+  "settings": {
+    "language": "ko",
+    "target_duration_s": 30,
+    "format": {
+      "card_id": "just_three",
+      "story_structure": "numbered_three",
+      "layout": {
+        "id": "fixed_stage",
+        "revision": "cefcb99666d9e8b563eb21eb6ef889b4a338616e98cc2350093ac6591072e05d"
+      },
+      "character_role": "presenter",
+      "register": "friendly",
+      "humor": "none",
+      "progress_mode": "numbered",
+      "scene_count": 5
+    },
+    "visual": {
+      "art_style": {
+        "id": "pixel",
+        "revision": "da643660f6d0a1f9288ef9507c20feda104f56c3dbb2f344579a7ad99bcfa102"
+      },
+      "theme_id": "day",
+      "character": {
+        "preset_id": null,
+        "slots": {
+          "body": "body_hero",
+          "face": "face_neutral",
+          "hair": null,
+          "hat": null,
+          "outfit": null,
+          "prop": null
+        }
+      }
+    },
+    "audio": {
+      "voice": {
+        "id": "fixed_wav",
+        "revision": "ba110776c483d72203c4546080a8b32a277f4b22bf81af8781936685a226c768"
+      },
+      "bgm": {
+        "enabled": true,
+        "mood": "curious",
+        "entry": {
+          "id": "builtin_loop",
+          "revision": "1b4543fa99e396518be2bd4a2ff5ce0442470f8b253e4fbc9393a383ec1b0dad"
+        },
+        "gain_db_x10": -120,
+        "ducking": true
+      },
+      "sfx_enabled": true
+    },
+    "caption": {
+      "mode": "sentence",
+      "font_id": {"id": "galmuri11", "revision": "d92c304c2bc07f41810bf938c71bd8a9cab36e27fcb980bbb98a6ffb27098c75"},
+      "position": "bottom",
+      "highlight": true
+    },
+    "motion": {
+      "transition": "cut",
+      "character_motion": "none"
+    },
+    "locks": {},
+    "origins": {
+      "/format/card_id": "card",
+      "/visual/art_style": "default"
+    },
+    "extra_instructions": []
+  },
+  "script": {
+    "source": "llm",
+    "raw_text": "synthetic script",
+    "title": "synthetic"
+  },
+  "scene_order": [
+    "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+    "s_0yy2rmcgs4816a52axdfjcmeb1",
+    "s_0gv16xq3n089nbs6wykgccs0zf",
+    "s_05e173a1am8qhaw9p4g8prkh0g",
+    "s_054rv8t7g08geaczsh1z15xe59"
+  ],
+  "scenes": {
+    "s_0nzvrzf0tp9wba44f6yvh6nzpr": {
+      "id": "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+      "beat_id": "hook",
+      "beat_label": "훅",
+      "lines": [
+        {
+          "id": "l_079jmk94bf8vj82ct90jqj44km",
+          "display_text": "커피를 고르는 기준은 세 가지뿐이다.",
+          "speech_text": "커피를 고르는 기준은 세 가지뿐이다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": {
+        "background_id": "bg_village",
+        "characters": [
+          {
+            "anchor": "center",
+            "expression_id": "expr_happy",
+            "pose_id": "pose_idle",
+            "motion": "none"
+          }
+        ],
+        "elements": [],
+        "sfx": [],
+        "transition_in": "cut"
+      }
+    },
+    "s_0yy2rmcgs4816a52axdfjcmeb1": {
+      "id": "s_0yy2rmcgs4816a52axdfjcmeb1",
+      "beat_id": "first",
+      "beat_label": "첫 번째",
+      "lines": [
+        {
+          "id": "l_000tmxhafr8vjvyf2wzeb1fc9n",
+          "display_text": "첫째, 원두가 신선한지 본다.",
+          "speech_text": "첫째, 원두가 신선한지 본다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": {
+        "background_id": "bg_stars",
+        "characters": [
+          {
+            "anchor": "center",
+            "expression_id": "expr_happy",
+            "pose_id": "pose_idle",
+            "motion": "none"
+          }
+        ],
+        "elements": [
+          {
+            "id": "e_0wyybe1tnp8fktk2g80mbghwh9",
+            "kind": "label",
+            "value": "신선도",
+            "anchor": "top",
+            "reveal_line_id": "l_000tmxhafr8vjvyf2wzeb1fc9n"
+          }
+        ],
+        "sfx": [],
+        "transition_in": "cut"
+      }
+    },
+    "s_0gv16xq3n089nbs6wykgccs0zf": {
+      "id": "s_0gv16xq3n089nbs6wykgccs0zf",
+      "beat_id": "second",
+      "beat_label": "두 번째",
+      "lines": [
+        {
+          "id": "l_04tv9gfj5z81zagexeemmgpvxn",
+          "display_text": "둘째, 물의 온도를 지킨다.",
+          "speech_text": "둘째, 물의 온도를 지킨다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": {
+        "background_id": "bg_village",
+        "characters": [
+          {
+            "anchor": "center",
+            "expression_id": "expr_happy",
+            "pose_id": "pose_idle",
+            "motion": "none"
+          }
+        ],
+        "elements": [],
+        "sfx": [
+          {
+            "sfx_id": {"id": "pop", "revision": "ed080bd5f08408574bca18e7b5e212b5b046df2ad8fedbecd511e7b7861d6b06"},
+            "line_id": "l_04tv9gfj5z81zagexeemmgpvxn",
+            "at": "start",
+            "offset_ms": 0
+          }
+        ],
+        "transition_in": "cut"
+      }
+    },
+    "s_05e173a1am8qhaw9p4g8prkh0g": {
+      "id": "s_05e173a1am8qhaw9p4g8prkh0g",
+      "beat_id": "third",
+      "beat_label": "세 번째",
+      "lines": [
+        {
+          "id": "l_0tmp4xmjqm94ca10kqj859cxb7",
+          "display_text": "셋째, 비율을 지킨다.",
+          "speech_text": "셋째, 비율을 지킨다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": {
+        "background_id": "bg_stars",
+        "characters": [
+          {
+            "anchor": "center",
+            "expression_id": "expr_happy",
+            "pose_id": "pose_idle",
+            "motion": "none"
+          }
+        ],
+        "elements": [],
+        "sfx": [],
+        "transition_in": "cut"
+      }
+    },
+    "s_054rv8t7g08geaczsh1z15xe59": {
+      "id": "s_054rv8t7g08geaczsh1z15xe59",
+      "beat_id": "recap",
+      "beat_label": "한 줄 요약",
+      "lines": [
+        {
+          "id": "l_0kzmxaaw4v9y7r37bx4bcry39a",
+          "display_text": "이 세 가지만 지키면 충분하다.",
+          "speech_text": "이 세 가지만 지키면 충분하다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": {
+        "background_id": "bg_village",
+        "characters": [
+          {
+            "anchor": "center",
+            "expression_id": "expr_happy",
+            "pose_id": "pose_idle",
+            "motion": "none"
+          }
+        ],
+        "elements": [],
+        "sfx": [],
+        "transition_in": "cut"
+      }
+    }
+  }
+}
