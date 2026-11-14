@@ -22,7 +22,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness import HarnessError, run  # noqa: E402
 import launcher  # noqa: E402
 from launcher import default_port_file, parse_args, server_env  # noqa: E402
-from run_probe import shortcut_arguments, windows_installer_command, windows_user_env, windows_user_home  # noqa: E402
+from run_probe import long_install_path, shortcut_arguments, windows_installer_command, windows_user_env, windows_user_home  # noqa: E402
+from harness import LONG_PATH_TARGET  # noqa: E402
 
 from harness import (  # noqa: E402
     HarnessError,
@@ -81,6 +82,15 @@ class PathTest(unittest.TestCase):
         windows = synthetic_paths(Path("C:/work"), "windows", "app", "0.1.0")
         self.assertIn(" ", windows["login_name"])
         self.assertTrue(str(windows["install"]).endswith("Programs/app/0.1.0") or str(windows["install"]).endswith("Programs\\app\\0.1.0"))
+
+    def test_long_install_path_is_unique_and_long(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp) / "app"
+            base.mkdir()
+            first = long_install_path(base)
+            second = long_install_path(base)
+            self.assertNotEqual(first, second)
+            self.assertGreaterEqual(len(str(first)), LONG_PATH_TARGET)
 
     def test_deep_path_reaches_the_requested_length(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

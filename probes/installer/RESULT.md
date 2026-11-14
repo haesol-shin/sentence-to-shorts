@@ -21,7 +21,7 @@
 - `install_seconds`는 설치 폴더 생성과 tar 압축 해제 또는 installer 종료까지다. 다운로드, 빌드, 시작 시간은 넣지 않는다.
 - `start_seconds`는 인자 없는 `start.sh`나 시작 바로가기를 띄운 순간부터 `/health` 첫 200까지다. 빈 port 선택, port file 기록, server 기동을 포함한다. browser 열기 시도는 `browser_opened`에 기록하고 판정하지 않는다.
 - 새 계정은 이름과 홈 경로에 한글과 공백이 있는 합성 값이다. Linux login 이름에는 공백을 쓸 수 없어 한글 이름과 공백이 든 홈 경로를 쓴다. 차이는 `user.difference`에 남는다. 실제 새 계정 시험을 못 하면 `USERPROFILE`과 `LOCALAPPDATA`, `HOME`을 한글·공백 경로로 바꾼 실행으로 대신하고 `user.created`에 false를 남긴다.
-- 긴 경로는 240자 이상 설치 경로에 배포물을 설치하고 그 위치의 동봉 interpreter와 package 폴더로 시작해 `/health` 200까지 확인한다. Windows는 현재 계정으로 설치한다. 260자 초과는 OS 정책과 manifest에 달려 있어 gate가 아니다.
+- 긴 경로는 시도마다 별도 240자 이상 설치 경로에 배포물을 설치하고 그 위치의 동봉 interpreter와 package 폴더로 시작해 `/health` 200까지 확인한다. Windows는 현재 계정으로 설치한다. 이전 시도의 설치물과 `port.json`은 쓰지 않는다. 260자 초과는 OS 정책과 manifest에 달려 있어 gate가 아니다.
 - 배포 bundle에는 동봉 Python, 설치한 package 폴더, 앱을 넣는다. build 때 만든 가상 환경은 넣지 않고 package 파일만 꺼내며, build 폴더를 지운 뒤 앱을 시작한다. launcher가 package 폴더를 `PYTHONPATH`로 넘기므로 interpreter가 build 경로를 참조하지 않는다.
 - PATH의 Python으로 우연히 성공했는지 가르기 위해 `/health`가 `sys.executable`과 `base_prefix`를 돌려준다. server가 보고한 실행 경로와 base 경로가 설치 폴더 안이어야 한다. PATH에서 찾은 Python 경로도 `python.not_from_path`에 함께 남긴다.
 - 고정 값은 [runtime.json](runtime.json)에 있다. Python은 3.11.18 install_only 배포 파일이고 Windows x64와 Linux x64가 같은 배포 방식을 쓴다. uv 버전도 이 파일이 원본이며 workflow가 읽는다.

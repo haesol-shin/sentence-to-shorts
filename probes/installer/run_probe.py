@@ -812,12 +812,17 @@ def stop_windows_process(process: subprocess.Popen | None, record: dict) -> None
             run(["taskkill", "/PID", str(pid), "/T", "/F"], timeout=60)
 
 
+def long_install_path(base: Path) -> Path:
+    """A fresh 240+ character path for one long-path attempt."""
+    return deep_path(base, LONG_PATH_TARGET) / f"r{secrets.token_hex(4)}"
+
+
 def windows_long_path(session: Session, probe: Probe, check_id: str = "path.long") -> None:
     """Install and start on the running Windows account at a path of 240 characters or more."""
 
     def action() -> dict:
         require(session.user and session.artifact, "no installer or account")
-        target = deep_path(Path(session.user["install"]).parent, LONG_PATH_TARGET)
+        target = long_install_path(Path(session.user["install"]).parent)
         environment = windows_user_env(session.user)
         started = time.monotonic()
         completed = run_windows_command(
@@ -834,6 +839,9 @@ def windows_long_path(session: Session, probe: Probe, check_id: str = "path.long
         launcher_script = target / "launcher.py"
         require(interpreter.is_file(), f"the bundled interpreter is missing: {interpreter}")
         require(launcher_script.is_file(), f"the launcher is missing: {launcher_script}")
+        port_file = target / "port.json"
+        if port_file.exists():
+            port_file.unlink()
         process = subprocess.Popen(
             [str(interpreter), str(launcher_script)],
             env=environment,
@@ -870,10 +878,13 @@ def long_path(session: Session, probe: Probe, check_id: str = "path.long") -> No
 
     def action() -> dict:
         require(session.user and session.user.get("install"), "no install root")
-        target = deep_path(Path(session.user["install"]).parent, LONG_PATH_TARGET)
+        target = long_install_path(Path(session.user["install"]).parent)
         started = time.monotonic()
         install_tarball(session, target)
         install_seconds = time.monotonic() - started
+        port_file = target / "port.json"
+        if port_file.exists():
+            port_file.unlink()
         process = launch_linux(session, target)
         store = {**session.record}
         try:
