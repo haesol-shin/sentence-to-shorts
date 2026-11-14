@@ -868,6 +868,7 @@ models:
 - 제안: 상위 모델 결정은 [SPEC 9.2](SPEC.md#92-모델과-출력)를 따른다. 단순 카드 대본·장면 나누기·장면 데이터는 Haiku 5.5, 나머지 카드 대본·새 템플릿은 상위 모델을 배정한다. 장면 하나 재작성과 생성 코드도 상위 모델로 시작한다.
 - `anthropic_api`와 `claude_cli`의 실제 model ID는 LLM adapter 작업이 공식 문서에서 확인해 넣는다. `openai_compat`의 model ID는 alias마다 endpoint 설정으로 넣는다.
 - 실행 때 실제 provider, model, effort를 job usage에 기록한다.
+- 제안: Opus도 routing 후보로 둔다. 같은 작업을 더 적은 출력과 재시도로 끝내면 작업당 비용이 Sonnet보다 낮을 수 있고, 그림체 코드와 참고 프레임 같은 시각 작업은 상위 모델 추천이 있다. 같은 입력의 작업당 비용과 품질 비교 뒤 정한다.
 
 - 제안: effort 출발값은 Sonnet 대본 medium·새 템플릿 high, Haiku 장면 나누기·장면 데이터 low, 참고 프레임 medium이다. [Anthropic effort](https://platform.claude.com/docs/en/build-with-claude/effort)를 출발점으로 같은 주제의 자체 평가를 거쳐 바꾸며 routing 설정에 모은다.
 
