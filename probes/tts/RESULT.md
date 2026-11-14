@@ -12,6 +12,7 @@
 - 모델 bytes는 내려받은 snapshot 파일 크기의 합, 환경 bytes는 가상 환경 디렉터리 크기다.
 - thread 수, CPU 모델, RAM, OS, Python 버전은 `result.json`의 `thread`와 `host`에 적는다.
 - install과 모델 다운로드는 30분 제한을 두고 제한을 넘으면 결과 파일에 timeout으로 적는다.
+- 문장 하나의 합성 호출은 300초 제한을 둔다. 가장 느린 후보에 맞춘 값이다. Chatterbox q4는 1024 token에서 잘리고 그 길이가 40.96초 음성이며, warmup 5.92초 음성을 18.35초에 합성했으므로 최대 길이 문장은 약 127초가 걸린다. 그 두 배를 분 단위로 올림한 값이 300초임. 제한을 넘으면 `result.json`에 timeout을 적고 프로세스가 끝난다.
 - 시험 대상의 실패와 timeout은 `result.json`에 적고 workflow는 성공으로 끝낸다. workflow 실패는 harness 오류만 뜻한다. 상태는 `ok`, `partial`, `failed` 중 하나이며 `partial`은 일부 문장만 실패한 경우다.
 - 청취 묶음은 성공한 WAV를 -16 LUFS로 맞추고 peak를 -1 dBFS 아래로 제한한다. 0.4초 이상은 표준 400ms BS.1770 block으로 재고, 그보다 짧은 음성만 더 짧은 block을 쓴다. 두 조건을 함께 맞추지 못하면 `target_met`을 false로 두고 실측값을 key에 적는다.
 - 후보 이름은 후보마다 글자 하나로 바꾸고 OS별 파일은 같은 글자 아래 하위 폴더에 둔다. 대응표는 이 문서에 적지 않고 별도 artifact `listening-key`에만 둔다.
@@ -48,5 +49,6 @@ Windows 실행은 설치 작업이 끝난 뒤 `workflow_dispatch` 입력 `window
 
 - 실패 사유는 각 artifact의 `result.json`에 단계(`install`, `load`, `synthesize`)와 코드로 남는다. 이 표에는 artifact를 읽은 뒤 같은 내용을 옮긴다.
 - MOSS와 Chatterbox 경로는 upstream Python 패키지의 text normalization을 쓰지 않는다. 숫자와 단위가 든 K3, K4, K5의 발음은 이 경로의 실제 동작이며 제품의 normalization 결정과 별개다.
+- Chatterbox는 숫자가 든 K3의 합성이 1024 token 한도에 걸려 실패한 적이 있다. 정규화가 없는 이 경로의 실제 동작이며 timeout과는 별개로 `synthesize_failed`로 남는다.
 - Chatterbox는 preset 화자 모델이 아니라 reference audio가 필요한 모델이다. 묶음에 들어 있는 `default_voice.wav` 하나를 두 언어에 쓴다.
 - 이 호스트는 aarch64라서 후보 환경을 만들지 않는다. 모든 수치는 x64 GitHub Actions 러너에서만 나온다.

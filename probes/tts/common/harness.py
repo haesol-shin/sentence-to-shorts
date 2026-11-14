@@ -28,7 +28,15 @@ from typing import Any, Protocol
 
 SCHEMA_VERSION = 1
 DEFAULT_REPEATS = 3
-DEFAULT_TIMEOUT_S = 120.0
+# One call can produce up to the engine's own audio cap, so the timeout follows
+# the slowest measured engine instead of the average. Chatterbox Multilingual V3
+# q4 trims at 1024 tokens, which is 40.96 s of audio at 24 kHz and 960 samples
+# per token, and it synthesised the 5.92 s warmup clip in 18.35 s, so a
+# full-length sentence needs about 127 s. Doubled for runner variance and
+# rounded up to a minute: 300 s. The probe job keeps a 90 minute limit because
+# setup is capped at 30 minutes per step and a timeout ends the run after one
+# recorded result.
+DEFAULT_TIMEOUT_S = 300.0
 DEFAULT_LOAD_TIMEOUT_S = 900.0
 RSS_INTERVAL_S = 0.05
 

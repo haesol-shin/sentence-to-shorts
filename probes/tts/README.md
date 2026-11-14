@@ -32,6 +32,8 @@ The harness starts the model, synthesises the first text once as warmup, then ev
 
 `PROBE_START_MS` is the wall-clock start of the process in milliseconds. The workflow sets it before Python starts so cold start includes interpreter and import time. Without it the script falls back to its own start and records `cold_start_source`.
 
+`--timeout` (default 300 s) bounds one synthesis call. It follows the slowest candidate instead of the average: the Chatterbox q4 graph trims at 1024 tokens, which is 40.96 s of audio, and its measured warmup needed 18.35 s for 5.92 s of audio, so a full-length sentence needs about 127 s. The default doubles that for runner variance and rounds up to a minute. A call that overruns is written to `result.json` and the process exits 3.
+
 The listening pack consumes artifact directories:
 
 ```sh
@@ -65,10 +67,31 @@ Workflow syntax is checked with `actionlint` when it is available. Candidate env
 
 ## Requirements
 
-`requirements.txt` files are universal CPython 3.11 resolutions of the sibling `requirements.in`, with hashes for both Ubuntu and Windows wheels. Regenerate them from the repository root with:
+The MOSS, Chatterbox and pack files are universal CPython 3.11 resolutions of their sibling input, with hashes for both Ubuntu and Windows wheels. Regenerate them from the repository root with:
 
 ```sh
-uv pip compile probes/tts/<candidate>/requirements.in --python-version 3.11 --universal --generate-hashes --no-header -o probes/tts/<candidate>/requirements.txt
+uv pip compile probes/tts/<candidate>/requirements.in --python-version 3.11 --universal --generate-hashes -o probes/tts/<candidate>/requirements.txt
 ```
 
-The Qwen candidates also install CPU builds from the PyTorch CPU index; add `--emit-index-url --index https://download.pytorch.org/whl/cpu` to keep the extra index line. Their dependency tree is the one `qwen-tts` declares, including packages the probe does not call such as gradio, so the install cost in the artifact is the real package cost.
+The Qwen candidates install CPU builds from the PyTorch CPU index, so their files are resolved for the runner that installs them, CPython 3.11 on ubuntu-24.04 x64. A universal resolution cannot carry correct hashes for them: when PyPI and the PyTorch CPU index both publish a version, `uv` records the file of one platform only, and a macOS wheel hash then fails on the runner. Regenerate them with:
+
+```sh
+uv pip compile probes/tts/<candidate>/requirements.in \
+  --python-version 3.11 --python-platform x86_64-manylinux_2_28 \
+  --generate-hashes --index-strategy unsafe-first-match \
+  --index-url https://pypi.org/simple \
+  --extra-index-url https://download.pytorch.org/whl/cpu \
+  --emit-index-url -o probes/tts/<candidate>/requirements.txt
+```
+
+`--index-strategy unsafe-first-match` keeps every pin that PyPI carries from PyPI and falls back to the PyTorch CPU index only for the `+cpu` builds that PyPI does not publish. Their dependency tree is the one `qwen-tts` declares, including packages the probe does not call such as gradio, so the install cost in the artifact is the real package cost.
+
+Check a rewritten file against the runner platform before committing. This downloads every file and verifies each hash:
+
+```sh
+uv pip install --require-hashes --python 3.11 \
+  --python-platform x86_64-manylinux_2_28 --target "$TMPDIR/lockcheck" \
+  -r probes/tts/<candidate>/requirements.txt
+```
+
+`uv pip install --dry-run --require-hashes` is not enough on its own: it resolves without downloading, so a hash pinned to another platform's wheel passes it and fails on the runner. The Windows legs wait for the installer work and need their own resolution of the two Qwen files.

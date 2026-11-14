@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "probes/tts/**"
+      - ".github/workflows/probe-tts.yml"
   workflow_dispatch:
     inputs:
       windows:
