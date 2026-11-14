@@ -1,0 +1,80 @@
+name: Bundled ffmpeg probe
+
+on:
+  pull_request:
+    paths:
+      - "probes/ffmpeg/**"
+      - ".github/workflows/probe-ffmpeg.yml"
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: "Also run the Windows probe"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      - name: Choose the matrix
+        id: matrix
+        shell: bash
+        env:
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          if [ "$WINDOWS" = "true" ]; then
+            echo 'value={"include":[{"os":"ubuntu-24.04","artifact":"probe-linux-x86_64"},{"os":"windows-latest","artifact":"probe-windows-x86_64"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value={"include":[{"os":"ubuntu-24.04","artifact":"probe-linux-x86_64"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
+  probe:
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Install the wheel and run the probe
+        shell: bash
+        run: |
+          set -eu
+          python -m venv "$RUNNER_TEMP/probe-env"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PY="$RUNNER_TEMP/probe-env/Scripts/python.exe"
+          else
+            PY="$RUNNER_TEMP/probe-env/bin/python"
+          fi
+          "$PY" -m pip install --disable-pip-version-check --no-input imageio-ffmpeg==0.8.1
+          "$PY" -m unittest discover -s probes/ffmpeg/tests -v
+          "$PY" probes/ffmpeg/run_probe.py --output probes/ffmpeg/.local/probe
+      - name: Add the probe summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f probes/ffmpeg/.local/probe/summary.md ]; then
+            cat probes/ffmpeg/.local/probe/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload the probe result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: ${{ matrix.artifact }}
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            probes/ffmpeg/.local/probe/result.json
+            probes/ffmpeg/.local/probe/summary.md
+            probes/ffmpeg/.local/probe/failure.json
