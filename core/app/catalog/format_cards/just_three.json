@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "just_three",
+  "label": {
+    "ko": "딱 3가지만",
+    "en": "Just 3 Things"
+  },
+  "example": {
+    "ko": "커피를 고르는 기준 세 가지만 알려 준다",
+    "en": "The three things that decide a good coffee"
+  },
+  "fills": {
+    "story_structure": "numbered_three",
+    "layout": "fixed_stage",
+    "character_role": "presenter",
+    "register": "friendly",
+    "humor": "none"
+  },
+  "recommends": {
+    "progress_mode": "numbered",
+    "caption_mode": "sentence",
+    "bgm_mood": "curious",
+    "scene_count": {
+      "30": 5,
+      "60": 8,
+      "120": 11
+    }
+  }
+}

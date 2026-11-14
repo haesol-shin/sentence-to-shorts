@@ -1,0 +1,2 @@
+Apache License 2.0. The effect WAV is generated synthetically for the builtin
+catalog and is not a third-party recording.

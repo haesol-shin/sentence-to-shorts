@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "expr_surprised",
+  "width": 10,
+  "height": 6,
+  "scale": 10,
+  "origin": {"x": 0, "y": 0},
+  "palette": {
+    "K": [20, 20, 28],
+    "S": [246, 200, 160],
+    "W": [245, 245, 245]
+  },
+  "rows": [
+    "..........",
+    "..........",
+    "..........",
+    ".SSWSSWSS.",
+    ".SSSSSSSS.",
+    "..SSKKSS.."
+  ]
+}

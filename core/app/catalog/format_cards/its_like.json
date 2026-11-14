@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "its_like",
+  "label": {
+    "ko": "○○로 치면",
+    "en": "It's Like"
+  },
+  "example": {
+    "ko": "캐시를 사무실 책상 서랍에 비유한다",
+    "en": "Explain a cache like a desk drawer"
+  },
+  "fills": {
+    "story_structure": "single_analogy",
+    "layout": "full_stage",
+    "character_role": "subject",
+    "register": "friendly",
+    "humor": "light"
+  },
+  "recommends": {
+    "progress_mode": "phases",
+    "caption_mode": "phrase",
+    "bgm_mood": "playful",
+    "scene_count": {
+      "30": 5,
+      "60": 8,
+      "120": 11
+    }
+  }
+}

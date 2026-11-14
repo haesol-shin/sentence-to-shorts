@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "skin_plain",
+  "width": 9,
+  "height": 9,
+  "scale": 20,
+  "palette": {
+    "W": [245, 245, 245],
+    "K": [20, 20, 28],
+    "G": [120, 124, 136]
+  },
+  "rows": [
+    "WWWWWWWWW",
+    "WKKKKKKKW",
+    "WKGKKKGKW",
+    "WKKKKKKKW",
+    "WKKKKKKKW",
+    "WKKKKKKKW",
+    "WKGKKKGKW",
+    "WKKKKKKKW",
+    "WWWWWWWWW"
+  ]
+}

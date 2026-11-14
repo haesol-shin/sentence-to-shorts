@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "id": "bg_stars",
+  "width": 9,
+  "height": 16,
+  "scale": 20,
+  "palette": {
+    "K": [20, 20, 28],
+    "N": [24, 40, 96],
+    "W": [245, 245, 245],
+    "C": [90, 150, 230]
+  },
+  "rows": [
+    "NNNNNNNNN",
+    "NWNNNNCNN",
+    "NNNNWNNNN",
+    "NNNNNNNWN",
+    "NNWNNNNNN",
+    "NNNNNNCNC",
+    "NNNNNNNNN",
+    "NCWNNNNNN",
+    "NNNNNNWNN",
+    "NNNNNNNNN",
+    "NNNWNNCNC",
+    "NNNNNNNNN",
+    "NNNNWNNNN",
+    "NNNNNNNNW",
+    "NWNNNNNNN",
+    "NNNNNNNNN"
+  ]
+}

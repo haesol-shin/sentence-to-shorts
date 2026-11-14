@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "galmuri14",
+  "label": {
+    "ko": "갈무리 14",
+    "en": "Galmuri 14"
+  },
+  "file": "Galmuri14.ttf",
+  "sha256": "d3818c0f2898a3b2d79ccd04ec1e4de5e8940aa26abee261f73e315a44ce8df9",
+  "scripts": ["hangul", "latin", "digits"],
+  "pixel_size": 14,
+  "license": {
+    "spdx": "OFL-1.1",
+    "source_url": "https://github.com/quiple/galmuri",
+    "author": "Lee Minseo",
+    "commercial_ok": true,
+    "attribution": {
+      "ko": "Copyright 2019-2025 Lee Minseo (quiple)",
+      "en": "Copyright 2019-2025 Lee Minseo (quiple)"
+    },
+    "license_file": "OFL.txt"
+  }
+}

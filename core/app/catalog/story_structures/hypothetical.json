@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "hypothetical",
+  "label": {
+    "ko": "가정",
+    "en": "Hypothetical"
+  },
+  "beats": [
+    {"beat_id": "question", "label": {"ko": "만약 질문", "en": "What if"}},
+    {"beat_id": "first_result", "label": {"ko": "결과 1", "en": "Result 1"}},
+    {"beat_id": "second_result", "label": {"ko": "결과 2", "en": "Result 2"}},
+    {"beat_id": "third_result", "label": {"ko": "결과 3", "en": "Result 3"}},
+    {"beat_id": "reality", "label": {"ko": "현실", "en": "Reality"}}
+  ]
+}

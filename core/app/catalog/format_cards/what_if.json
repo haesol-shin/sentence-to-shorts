@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "what_if",
+  "label": {
+    "ko": "만약 ~라면?",
+    "en": "What If?"
+  },
+  "example": {
+    "ko": "만약 하루에 한 권씩 책을 읽는다면",
+    "en": "What if you read one book a day"
+  },
+  "fills": {
+    "story_structure": "hypothetical",
+    "layout": "full_stage",
+    "character_role": "subject",
+    "register": "friendly",
+    "humor": "light"
+  },
+  "recommends": {
+    "progress_mode": "phases",
+    "caption_mode": "phrase",
+    "bgm_mood": "tense",
+    "scene_count": {
+      "30": 5,
+      "60": 8,
+      "120": 11
+    }
+  }
+}

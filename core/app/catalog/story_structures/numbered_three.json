@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "id": "numbered_three",
+  "label": {
+    "ko": "목차 1·2·3",
+    "en": "Numbered 1-2-3"
+  },
+  "beats": [
+    {"beat_id": "hook", "label": {"ko": "훅", "en": "Hook"}},
+    {"beat_id": "first", "label": {"ko": "첫 번째", "en": "First"}},
+    {"beat_id": "second", "label": {"ko": "두 번째", "en": "Second"}},
+    {"beat_id": "third", "label": {"ko": "세 번째", "en": "Third"}},
+    {"beat_id": "recap", "label": {"ko": "한 줄 요약", "en": "Recap"}}
+  ]
+}

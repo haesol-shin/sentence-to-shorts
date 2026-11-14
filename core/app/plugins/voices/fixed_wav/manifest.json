@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "fixed_wav",
+  "label": {
+    "ko": "시험용 고정 음성",
+    "en": "Fixed test tone"
+  },
+  "engine_id": "fixed_wav",
+  "model": null,
+  "speaker": "tone",
+  "languages": ["ko", "en"],
+  "settings": {
+    "speed": 1.0,
+    "seed": 0
+  },
+  "output": {
+    "sample_rate": 22050,
+    "channels": 1
+  },
+  "sample": {
+    "file": "sample.wav",
+    "sha256": "3cdc1f4627254b13a9e2d2e270156bde5ab6c310d4d4213c02178a9886a4a3ba"
+  },
+  "license": {
+    "spdx": "Apache-2.0",
+    "source_url": "https://www.apache.org/licenses/LICENSE-2.0",
+    "author": "Project authors",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "cloning": false
+}
