@@ -12,6 +12,7 @@ still exits 0 for them.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -28,40 +29,25 @@ from harness import main  # noqa: E402
 from ort_cpu_runtime import OrtCpuRuntime  # noqa: E402
 
 CANDIDATE = "moss-tts-nano-100m"
-TTS_DIR = "MOSS-TTS-Nano-100M-ONNX"
-CODEC_DIR = "MOSS-Audio-Tokenizer-Nano-ONNX"
+SPEC = json.loads((Path(__file__).resolve().with_name("models.json")).read_text(encoding="utf-8"))
+TTS_MODEL = SPEC["models"][0]
+CODEC_MODEL = SPEC["models"][1]
+TTS_DIR = TTS_MODEL["local_dir"]
+CODEC_DIR = CODEC_MODEL["local_dir"]
 VOICE = {"ko": "Ava", "en": "Ava"}
 MAX_NEW_FRAMES = 1500
 PACKAGES = ("onnxruntime", "numpy", "sentencepiece", "soundfile")
 
 
 def _decode(runtime: OrtCpuRuntime, frames: list[list[int]]) -> np.ndarray:
-    """Decode frames to a channel-major float array with the runtime fallback."""
+    """Decode frames with the full decoder; a failure is the candidate result."""
     try:
         channels, length = runtime.decode_full_audio(frames)
-        if length > 0 and channels:
-            return np.stack([np.asarray(channel[:length]) for channel in channels], axis=1)
-    except Exception:  # noqa: BLE001 - fall back to the streaming decode path
-        pass
-    runtime.codec_streaming_session.reset()
-    merged: list[list[np.ndarray]] = [list() for _ in range(int(runtime.codec_meta["codec_config"]["channels"]))]
-    try:
-        for start in range(0, len(frames), 8):
-            decoded = runtime.codec_streaming_session.run_frames(frames[start : start + 8])
-            if decoded is None:
-                continue
-            audio, length = decoded
-            if length <= 0:
-                continue
-            for index in range(audio.shape[1]):
-                merged[index].append(np.asarray(audio[0, index, :length], dtype=np.float32))
-    finally:
-        runtime.codec_streaming_session.reset()
-    channels = [np.concatenate(parts) if parts else np.zeros((0,), dtype=np.float32) for parts in merged]
-    if not channels or channels[0].size == 0:
-        raise RuntimeError("codec returned no audio")
-    length = min(channel.shape[0] for channel in channels)
-    return np.stack([channel[:length] for channel in channels], axis=1)
+    except Exception as exc:  # noqa: BLE001 - recorded with the original cause
+        raise RuntimeError(f"full codec decode failed: {exc}") from exc
+    if length <= 0 or not channels:
+        raise RuntimeError("full codec decode returned no audio")
+    return np.stack([np.asarray(channel[:length]) for channel in channels], axis=1)
 
 
 class MossEngine:
@@ -71,7 +57,7 @@ class MossEngine:
 
     def __init__(self, threads: int) -> None:
         self.threads = max(1, int(threads))
-        self.models_root = Path(os.environ.get("PROBE_MODELS_DIR", ".probe/models"))
+        self.models_root = Path(os.environ.get("PROBE_MODELS_DIR", ".local/probe/models"))
         self.runtime: OrtCpuRuntime | None = None
         self.tokenizer = None
         self.codes: dict[str, list[list[int]]] = {}
@@ -103,10 +89,18 @@ class MossEngine:
         self.tokenizer = spm.SentencePieceProcessor(
             model_file=str(self.models_root / TTS_DIR / "tokenizer.model")
         )
+        voices = {
+            str(item["voice"]): item for item in self.runtime.list_builtin_voices()
+        }
         for language, voice in VOICE.items():
-            self.codes[language] = self.runtime.resolve_prompt_audio_codes(
-                voice=voice, prompt_audio_path=None
-            )
+            if voice not in voices:
+                raise ValueError(
+                    f"built-in voice not found: {voice}; available: {sorted(voices)}"
+                )
+            codes = voices[voice]["prompt_audio_codes"]
+            if not codes:
+                raise ValueError(f"built-in voice has no prompt codes: {voice}")
+            self.codes[language] = [[int(value) for value in row] for row in codes]
 
     def synthesize(self, text: str, language: str, wav_path: Path) -> dict[str, Any] | None:
         if self.runtime is None or self.tokenizer is None:
@@ -126,6 +120,7 @@ class MossEngine:
             "frames": len(frames),
             "truncated": len(frames) >= MAX_NEW_FRAMES,
             "text_tokens": len(token_ids),
+            "decode_path": "full",
         }
 
     def close(self) -> None:

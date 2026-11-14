@@ -305,7 +305,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--threads", required=True, type=int)
     parser.add_argument(
         "--models",
-        default=os.environ.get("PROBE_MODELS_DIR", ".probe/models"),
+        default=os.environ.get("PROBE_MODELS_DIR", ".local/probe/models"),
         type=Path,
         help="directory holding the downloaded model snapshots",
     )
@@ -457,7 +457,8 @@ def run_engine(
         watchdog.arm(args.timeout, "synthesize")
         started = time.perf_counter()
         engine.synthesize(first["text"], first["language"], warmup_path)
-        result["first_wav_ms"] = round((time.perf_counter() - started) * 1000.0, 1)
+        result["warmup_synth_ms"] = round((time.perf_counter() - started) * 1000.0, 1)
+        result["first_wav_ms"] = round(time.time() * 1000.0 - started_at_ms, 1)
         result["sample_rate"] = wav_facts(warmup_path)["sample_rate"]
         watchdog.disarm()
     except BaseException as exc:  # noqa: BLE001 - engine failures are results

@@ -8,6 +8,7 @@ still exits 0 for them.
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -18,9 +19,9 @@ from harness import main  # noqa: E402
 from qwen3_tts_engine import QwenEngine  # noqa: E402
 
 CANDIDATE = "qwen3-tts-0.6b"
-MODEL_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
-REVISION = "85e237c12c027371202489a0ec509ded67b5e4b5"
-LOCAL_DIR = "Qwen3-TTS-12Hz-0.6B-CustomVoice"
+MODEL = json.loads(
+    (Path(__file__).resolve().with_name("models.json")).read_text(encoding="utf-8")
+)["models"][0]
 PACKAGES = (
     "qwen-tts",
     "torch",
@@ -37,9 +38,9 @@ def factory(threads: int) -> QwenEngine:
     return QwenEngine(
         threads=threads,
         candidate=CANDIDATE,
-        model_id=MODEL_ID,
-        revision=REVISION,
-        local_dir=LOCAL_DIR,
+        model_id=MODEL["repo_id"],
+        revision=MODEL["revision"],
+        local_dir=MODEL["local_dir"],
     )
 
 

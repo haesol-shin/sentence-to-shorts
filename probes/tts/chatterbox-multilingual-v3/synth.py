@@ -14,6 +14,7 @@ still exits 0 for them.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from pathlib import Path
@@ -30,7 +31,10 @@ sys.path.insert(0, str(COMMON))
 from harness import main  # noqa: E402
 
 CANDIDATE = "chatterbox-multilingual-v3"
-LOCAL_DIR = "chatterbox-multilingual-v3-ONNX"
+MODEL = json.loads(
+    (Path(__file__).resolve().with_name("models.json")).read_text(encoding="utf-8")
+)["models"][0]
+LOCAL_DIR = MODEL["local_dir"]
 SAMPLE_RATE = 24000
 START_SPEECH_TOKEN = 6561
 STOP_SPEECH_TOKEN = 6562
@@ -74,7 +78,7 @@ class ChatterboxEngine:
     def __init__(self, threads: int) -> None:
         self.threads = max(1, int(threads))
         self.model_dir = (
-            Path(os.environ.get("PROBE_MODELS_DIR", ".probe/models")) / LOCAL_DIR
+            Path(os.environ.get("PROBE_MODELS_DIR", ".local/probe/models")) / LOCAL_DIR
         )
         self.sessions: dict[str, ort.InferenceSession] = {}
         self.tokenizer: Tokenizer | None = None

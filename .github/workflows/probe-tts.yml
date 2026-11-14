@@ -64,9 +64,10 @@ jobs:
     env:
       CANDIDATE: ${{ matrix.candidate }}
       PROBE_THREADS: ${{ github.event_name == 'workflow_dispatch' && inputs.threads || '4' }}
-      PROBE_ROOT: ${{ github.workspace }}/.probe
-      PROBE_MODELS_DIR: ${{ github.workspace }}/.probe/models
-      HF_HOME: ${{ github.workspace }}/.probe/hf
+      PROBE_ROOT: ${{ github.workspace }}/.local/probe
+      PROBE_MODELS_DIR: ${{ github.workspace }}/.local/probe/models
+      HF_HOME: ${{ github.workspace }}/.local/probe/hf
+      PROBE_SETUP_TIMEOUT: "1800"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:
@@ -92,8 +93,11 @@ jobs:
         run: |
           started=$(date +%s)
           set +e
-          "$PY" -m pip install --no-cache-dir --no-input --require-hashes \
-            -r "probes/tts/$CANDIDATE/requirements.txt" > install.log 2>&1
+          "$PY" probes/tts/common/run_limited.py \
+            --timeout "$PROBE_SETUP_TIMEOUT" \
+            --log install.log \
+            -- "$PY" -m pip install --no-cache-dir --no-input --require-hashes \
+              -r "probes/tts/$CANDIDATE/requirements.txt"
           code=$?
           set -e
           echo "INSTALL_SECONDS=$(( $(date +%s) - started ))" >> "$GITHUB_ENV"
@@ -105,12 +109,17 @@ jobs:
         if: env.INSTALL_CODE == '0'
         shell: bash
         run: |
+          started=$(date +%s)
           set +e
-          "$PY" probes/tts/common/fetch_models.py \
-            --spec "probes/tts/$CANDIDATE/models.json" \
-            --root "$PROBE_MODELS_DIR" > fetch.log 2>&1
+          "$PY" probes/tts/common/run_limited.py \
+            --timeout "$PROBE_SETUP_TIMEOUT" \
+            --log fetch.log \
+            -- "$PY" probes/tts/common/fetch_models.py \
+              --spec "probes/tts/$CANDIDATE/models.json" \
+              --root "$PROBE_MODELS_DIR"
           code=$?
           set -e
+          echo "FETCH_SECONDS=$(( $(date +%s) - started ))" >> "$GITHUB_ENV"
           echo "FETCH_CODE=$code" >> "$GITHUB_ENV"
           tail -n 40 fetch.log
       - name: Measure the candidate
@@ -118,22 +127,31 @@ jobs:
         run: |
           mkdir -p probe-out
           if [ "$INSTALL_CODE" != "0" ]; then
+            code=install_failed
+            if [ "$INSTALL_CODE" = "124" ]; then
+              code=install_timeout
+            fi
             "$PY" probes/tts/common/record_failure.py \
               --out probe-out/result.json \
               --candidate "$CANDIDATE" \
               --stage install \
-              --code install_failed \
+              --code "$code" \
               --log install.log \
               --seconds "$INSTALL_SECONDS"
             exit 0
           fi
           if [ "${FETCH_CODE:-1}" != "0" ]; then
+            code=download_failed
+            if [ "${FETCH_CODE:-1}" = "124" ]; then
+              code=download_timeout
+            fi
             "$PY" probes/tts/common/record_failure.py \
               --out probe-out/result.json \
               --candidate "$CANDIDATE" \
               --stage download \
-              --code download_failed \
-              --log fetch.log
+              --code "$code" \
+              --log fetch.log \
+              --seconds "${FETCH_SECONDS:-0}"
             exit 0
           fi
           started=$("$PY" -c 'import time; print(int(time.time() * 1000))')

@@ -88,6 +88,8 @@ class HarnessTest(unittest.TestCase):
         self.assertEqual(result["thread"], 2)
         self.assertGreaterEqual(result["cold_start_ms"], 0)
         self.assertIsNotNone(result["first_wav_ms"])
+        self.assertGreaterEqual(result["first_wav_ms"], result["cold_start_ms"])
+        self.assertGreaterEqual(result["first_wav_ms"], result["warmup_synth_ms"])
         self.assertEqual(result["sample_rate"], SAMPLE_RATE)
         self.assertGreater(result["rtf"], 0)
         self.assertGreater(result["peak_rss_bytes"], 0)

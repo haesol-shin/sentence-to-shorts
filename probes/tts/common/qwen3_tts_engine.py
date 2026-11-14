@@ -34,7 +34,7 @@ class QwenEngine:
         self.candidate = candidate
         self.model_id = model_id
         self.revision = revision
-        self.model_path = Path(os.environ.get("PROBE_MODELS_DIR", ".probe/models")) / local_dir
+        self.model_path = Path(os.environ.get("PROBE_MODELS_DIR", ".local/probe/models")) / local_dir
         self.model = None
         self.notes = {
             "backend": "qwen-tts",
