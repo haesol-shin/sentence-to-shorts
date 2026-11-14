@@ -147,6 +147,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 ### 4.1 단계 gate와 변경 적용
 
 - `stage`는 draft, script_confirmed, scenes_confirmed 순서로만 앞으로 간다. 이는 생성 확인 gate이며 UI의 단계 이름 목록과 독립적이다. UI 단계 이름을 core enum으로 고정하지 않는다.
+- UI 단계와의 대응: 대본 단계의 확인이 `script_confirmed`를, 편집 단계에서 영상 만들기를 시작하는 장면 확인이 `scenes_confirmed`를 세운다. 컨셉 확인은 이 gate에 값을 더하지 않는다([SPEC 2](SPEC.md#2-흐름)).
 - `script` job이 대본 전체를 새로 쓰면 적용된 revision의 stage는 draft로 돌아간다.
 - preview는 stage가 script_confirmed 이상일 때만 실행한다. 그 전 preview 호출 수는 0이어야 한다.
 - generate는 stage가 scenes_confirmed일 때만 실행한다.
@@ -692,7 +693,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 ### 16.5 기기 검증
 
-- 결정: Playwright의 iPhone·Pixel profile과 Chromium·WebKit으로 390px 다섯 단계 완주·화면 캡처를 구현 변경마다 시험한다. 각자 Chrome DevTools 기기 모드로 직접 조작하고 Android Studio의 Chrome으로 키보드와 아래 입력창을 확인한다.
+- 결정: Playwright의 iPhone·Pixel profile과 Chromium·WebKit으로 390px 네 단계 완주·화면 캡처를 구현 변경마다 시험한다. 각자 Chrome DevTools 기기 모드로 직접 조작하고 Android Studio의 Chrome으로 키보드와 아래 입력창을 확인한다.
 - 한계: 앞 두 경로는 실제 키보드·손가락 터치·iOS Safari를 재현하지 못한다. Playwright WebKit은 iOS Safari가 아니다. 마지막에 실기기로 한 번 시험한다. 같은 와이파이가 아니면 Tailscale이나 터널을 쓴다.
 
 ## 열린 질문
@@ -721,6 +722,8 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 | `artifact.schema.json` | artifact index와 `Timing` | state.db `artifacts`, 파일은 6절 |
 | `sandbox-io.schema.json` | sandbox runner 입출력 | 저장하지 않음 |
 | `api.schema.json` | API 오류와 요청·응답 본문 | 저장하지 않음 |
+
+- 열린 결정: 컨셉 확인 뒤 컨셉 값이 바뀌지 않는다는 규칙([SPEC 2](SPEC.md#2-흐름))을 저장 상태로 따로 둘지 정하지 않았다. 지금은 필드를 더하지 않고 4.1의 `stage`와 revision 값만 쓴다.
 
 ### 저장과 job 구현
 
