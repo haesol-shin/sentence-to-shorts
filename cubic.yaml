@@ -9,6 +9,7 @@ reviews:
   ultrareview: manual
   ignore:
     pr_labels: ['no-cubic']
+    head_branches: ['agent/*']
     files:
       - 'schemas/*.schema.json'
       - 'frontend/src/shared/api/generated/**'
