@@ -676,7 +676,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 ### 16.1 원본과 runtime
 
-- 기술 설계: frontend는 React 18, TypeScript 5.7, Vite 6, Tailwind 4다. core는 Python 3.11, FastAPI, Pydantic v2, Poetry다.
+- 기술 설계: frontend는 React 18, TypeScript 5.7, Vite 6, Tailwind 4다. 화면 부품은 shadcn/ui on Base UI다([ADR 0023](decisions/0023-build-components-on-shadcn-base-ui.md)). core는 Python 3.11, FastAPI, Pydantic v2, Poetry다.
 - 기술 설계: 여럿 실행에 대비해 `owner_id`를 두고 한 명 실행은 고정값을 쓴다. 실행 형태의 제품 범위는 [SPEC 1](SPEC.md#1-범위와-실행-형태)을 따른다.
 - 계약 구현은 stable scene·line ID, schema_version, base revision, style/template digest, origins, lock, artifact 참조를 Pydantic 원본과 OpenAPI로 만든다. 조사 예시 JSON은 실행 규격이 아니다. 한영 정상 fixture와 잘못된 ID·중복 순서·오래된 revision fixture를 둔다. API method·path·입출력·오류·중복·충돌과 TS 생성은 0~4절을 따른다.
 - 재시작과 긴 대화 뒤에도 직접값, lock, 과거 영상이 바뀌지 않는지 시험한다.

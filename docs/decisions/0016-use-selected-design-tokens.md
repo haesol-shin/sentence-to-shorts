@@ -14,4 +14,4 @@ Status: Accepted | Date: 2026-11-14
 
 ## Consequences
 
-나머지 token은 미확정이다. 화면 배치는 [SPEC 10a](../SPEC.md#10a-화면-상태-ux-states)를 따른다. accent 위 작은 글자 대비와 상태별 화면을 검수한다. token 채택은 컴포넌트 승인이 아니다.
+대표색 token 이름은 [ADR 0023](0023-build-components-on-shadcn-base-ui.md)에서 `primary`로 바뀌었고 값은 같다. 나머지 token은 미확정이다. 화면 배치는 [SPEC 10a](../SPEC.md#10a-화면-상태-ux-states)를 따른다. accent 위 작은 글자 대비와 상태별 화면을 검수한다. token 채택은 컴포넌트 승인이 아니다.
