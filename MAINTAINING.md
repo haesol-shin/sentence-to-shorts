@@ -11,5 +11,5 @@
 ## cubic
 
 - trial은 검토한 줄 20,000줄까지이며 전체 재검토는 같은 줄도 다시 센다. 자동 incremental 검토는 끈다. 실행 설정의 원본은 [cubic.yaml](cubic.yaml)이다.
-- draft PR과 `no-cubic` label이 있는 PR은 자동 검토하지 않는다. 필요할 때 `@cubic-dev-ai review`로 요청한다. 증분 검토는 `@cubic-dev-ai incremental review`로 요청한다.
+- draft PR, `no-cubic` label이 있는 PR, `agent/`로 시작하는 브랜치의 PR은 자동 검토하지 않는다. 에이전트 작업 브랜치는 병합 전 독립 리뷰를 이미 거쳤고 label을 붙이지 않기 때문이다. 필요할 때 `@cubic-dev-ai review`로 요청한다. 증분 검토는 `@cubic-dev-ai incremental review`로 요청한다.
 - 사용량과 지원 설정의 근거: [AI review usage](https://docs.cubic.dev/account/ai-review-usage.md), [cubic.yaml](https://docs.cubic.dev/configure/cubic-yaml.md). timeout과 추가 custom rule은 정하지 않았다.
