@@ -46,6 +46,11 @@ class CommitMessagesTest(unittest.TestCase):
         self.assertEqual(checker.check_message(prefix + "x" * 70), [])
         self.assertTrue(checker.check_message(prefix + "x" * 71))
 
+    def test_message_limits_bullet_count(self):
+        prefix = "fix(cache): retain audio\n\n"
+        self.assertEqual(checker.check_message(prefix + "\n".join(f"- Reason {n}" for n in range(5))), [])
+        self.assertTrue(checker.check_message(prefix + "\n".join(f"- Reason {n}" for n in range(6))))
+
     def test_range_checks_earlier_commits_not_only_head(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

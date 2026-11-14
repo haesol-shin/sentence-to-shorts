@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+MAX_BULLETS = 5
 TITLE = re.compile(r"[a-z][a-z0-9-]*\([A-Za-z0-9][A-Za-z0-9_./-]*\)!?: [!-~](?:[ -~]*[!-~])?")
 
 
@@ -24,6 +25,8 @@ def check_message(message: str) -> list[str]:
             problems.append(f"line {number}: expected one nonempty '- ' bullet")
         if len(line) > 72:
             problems.append(f"line {number}: exceeds 72 characters")
+    if len(lines) - 2 > MAX_BULLETS:
+        problems.append(f"body has {len(lines) - 2} bullets; at most {MAX_BULLETS}")
     return problems
 
 
