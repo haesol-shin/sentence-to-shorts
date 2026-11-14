@@ -2,18 +2,22 @@
 
 faster-whisper small int8을 CPU에서 돌려 한영 전사 시간, peak RAM, 모델 bytes, 단어 오류를 잰다. 이 문서는 결과 표와 측정 규칙만 둔다.
 
-결과는 이 PR의 Actions 실행 artifact에서 채운다.
+결과는 Actions 실행 `43604143620`(2026-11-14), commit `f26100bbfae1abce7188fbb62ea04b10fbe186fb`의 `probe-transcribe-ubuntu-24.04` artifact에서 옮겼다.
 
 ## 결과 표
 
 | 실행 | OS | 언어 | 오디오 (초) | 전사 시간 (초) | RTF | peak RAM (MB) | 모델 bytes | 단어 수 | WER | 실패 사유 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 1 | ubuntu-24.04 | ko | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | - |
-| 2 | ubuntu-24.04 | en | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | - |
+| 1 | ubuntu-24.04 | ko | 32.51 | 8.12 | 0.2498 | 697.8 | 486212372 | 47 | 0.3478 | - |
+| 2 | ubuntu-24.04 | en | 30.71 | 7.1 | 0.2312 | 703.0 | 486212372 | 89 | 0.0 | - |
 | 3 | windows-latest | ko | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 |
 | 4 | windows-latest | en | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 | 미측정 |
 
 Windows 행은 설치 작업 전까지 비워 둔다. 같은 실행의 `result.json`은 `probe-transcribe-<OS>` artifact에 있다.
+
+- peak RAM은 harness의 `_mb`로 bytes를 MiB로 환산한 값이다. 값은 process peak라서 2행의 703.0 MB가 두 실행 전체의 peak다.
+- WER은 ko reference words 46, edits 16, 0.3478이고 en reference words 89, edits 0, 0.0이다.
+- 한국어 오류는 고유명사에서 주로 났다. 예: 진앙→진항, 성빈센트→성벤센트, 패터슨→퍼터슨, 리→니, 바울→4월, 정부→정보. 조사와 띄어쓰기 경계가 어긋난 경우도 있었다: 단정하기→단정하게, 경찰봉 세례→경찰 봉세례, 보호 제도→보호자들. 모델 선택은 이 표로 판단하지 않는다.
 
 ## 표를 채우는 방법
 
@@ -33,9 +37,9 @@ Windows 행은 설치 작업 전까지 비워 둔다. 같은 실행의 `result.j
 
 ## 결정 gate
 
-- 전사가 통과하면 참고 영상 분석이 이 전사를 쓴다.
-- 전사가 실패하면 참고 영상 분석은 프레임 분석만으로 진행하고 전사 미지원을 표시한다.
-- 판정은 위 표에 실측 수치가 채워진 뒤에 한다. 지금은 판정하지 않는다.
+- Linux x64에서 두 언어 전사가 실패 없이 끝났으므로(`status` `ok`) 참고 영상 분석은 이 전사를 쓴다.
+- 한국어 WER 0.3478은 고유명사 오류가 주된 원인이다. 모델 선택은 이 표로 판단하지 않는다.
+- Windows 판정은 설치 작업 뒤 표를 채운 뒤에 한다.
 
 ## Windows 실행
 
@@ -46,4 +50,4 @@ Windows 행은 설치 작업 전까지 비워 둔다. 같은 실행의 `result.j
 ## 이 호스트에서 확인한 것과 못 한 것
 
 - 확인: harness 문법 검사, 단위 시험 15개, stub dry run, workflow YAML 검사, 저장소 검사 스크립트.
-- 못 함: x64 CPU의 전사 시간과 peak RAM, 실제 model download와 load, Windows 실행. 모두 Actions 실행이 필요하다.
+- 못 함: 이 호스트에서 x64 CPU의 전사 시간과 peak RAM, 실제 model download와 load, Windows 실행. x64 Linux 수치는 위 표에 있고, Windows는 R1 뒤다.

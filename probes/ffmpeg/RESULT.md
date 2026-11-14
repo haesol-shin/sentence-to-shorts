@@ -19,7 +19,7 @@
 - sidechaincompress는 speech가 큰 구간에서 music의 RMS 감소가 2 dB 이상인지로 ducking을 판정한다.
 - Windows 행은 같은 표에 OS 열로 더한다.
 
-결과는 이 PR의 Actions 실행 artifact에서 채운다.
+결과는 Actions 실행 `43604133062`(2026-11-14)의 `probe-linux-x86_64` artifact에서 옮겼다.
 
 ## 시험 항목
 
@@ -43,13 +43,39 @@
 
 | OS | runner | 경로 | bytes | SHA-256 | version | configuration | 라이선스 | ffprobe |
 |---|---|---|---|---|---|---|---|---|
+| Linux | ubuntu-24.04 | `$RUNNER_TEMP/probe-env/lib/python3.11/site-packages/imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v9.0.2` | 172692552 | `0d709a0bed1a43f24cd2c420878c63afea4580671b6949ad19ed124572f3bc3d` | `n9.0.2-17-g2a571b6068-20260930` | `--enable-gpl --enable-version3` (전문은 아래) | `GPL-3.0-or-later` | 없음 (`bundled` false, `system` false); metadata는 `ffmpeg -i` stream 줄과 null decode frame 수 |
+
+- artifact의 경로는 runner 임시 폴더의 절대 경로다. 공개 문서 규칙에 따라 접두사를 `$RUNNER_TEMP`로 적었다.
+- `-version` 첫 줄: `ffmpeg version n9.0.2-17-g2a571b6068-20260930 Copyright (c) 2000-2026 the FFmpeg developers`.
+- build: `gcc 16.2.0 (crosstool-NG 1.29.0.7_b1a94f6)`.
+- wheel은 imageio-ffmpeg 0.8.1이고 실행 파일은 그 wheel의 `binaries` 폴더에 있다.
+- 라이선스는 `configuration`의 `--enable-gpl`과 `--enable-version3`으로 GPL-3.0-or-later다.
+- configuration 전문:
+
+```text
+--prefix=/ffbuild/prefix --pkg-config-flags=--static --pkg-config=pkg-config --cross-prefix=x86_64-ffbuild-linux-gnu- --arch=x86_64 --target-os=linux --enable-gpl --enable-version3 --disable-debug --enable-iconv --enable-zlib --enable-libxml2 --enable-libsoxr --enable-openssl --enable-libvmaf --enable-libxcb --enable-xlib --enable-fontconfig --enable-libharfbuzz --enable-libfreetype --enable-libfribidi --enable-vulkan --enable-libdav1d --enable-libvorbis --enable-librav1e --enable-librsvg --enable-libpulse --enable-gmp --enable-lzma --enable-liblcevc-dec --enable-opencl --enable-amf --enable-libaom --enable-avisynth --enable-chromaprint --enable-libdavs2 --enable-libdvdread --enable-libdvdnav --disable-libfdk-aac --enable-ffnvcodec --enable-cuda-llvm --enable-frei0r --enable-libgme --enable-libkvazaar --enable-libaribb24 --enable-libaribcaption --enable-libass --enable-libbluray --enable-libjxl --enable-libmp3lame --enable-libopus --enable-libplacebo --enable-librist --enable-libssh --enable-libtheora --enable-libvpx --enable-libwebp --enable-libzmq --enable-lv2 --enable-libvpl --enable-openal --enable-liboapv --enable-libopencore-amrnb --enable-libopencore-amrwb --enable-libopenh264 --enable-libopenjpeg --enable-libopenmpt --enable-librubberband --disable-schannel --enable-sdl2 --enable-libsnappy --enable-libsrt --enable-libsvtav1 --enable-libtwolame --enable-libuavs3d --enable-libdrm --enable-vaapi --enable-libvidstab --enable-libvvenc --disable-whisper --enable-libx264 --enable-libx265 --enable-libxavs2 --enable-libxvid --enable-libzimg --enable-libzvbi --extra-cflags=-DLIBTWOLAME_STATIC --extra-cxxflags= --extra-libs='-lgomp -ldl' --extra-ldflags=-pthread --extra-ldexeflags= --cc=x86_64-ffbuild-linux-gnu-gcc --cxx=x86_64-ffbuild-linux-gnu-g++ --ar=x86_64-ffbuild-linux-gnu-gcc-ar --ranlib=x86_64-ffbuild-linux-gnu-gcc-ranlib --nm=x86_64-ffbuild-linux-gnu-gcc-nm --extra-version=20260930
+```
 
 ### 시험
 
 | OS | check | status | 측정값 | 비고 |
 |---|---|---|---|---|
+| Linux | `rgb24_stdin_h264` | pass | 30 frames, 1.0 s, 1080x1920, yuv420p, fps 30.0, 17846 bytes; 0.439 s | - |
+| Linux | `concat_copy` | pass | 3 clips, 30 frames, 1.0 s, h264/mp4; 0.53 s | 재 encoding 없음 |
+| Linux | `aac_mux` | pass | h264 + AAC 44100 Hz, 1.0 s, 33951 bytes; 0.5 s | - |
+| Linux | `loudnorm_two_pass` | pass | pass1 -25.25 LUFS / -20.4 dBTP, output -16.05 LUFS / -11.16 dBTP, target -16.0 LUFS / -1.0 dBTP; 0.257 s | 목표 -16 LUFS ±1, true peak -1 dBTP 이하 |
+| Linux | `sidechaincompress_ducking` | pass | music -19.831 dB, ducked -36.714 dB, reduction 16.883 dB; 0.213 s | 감소 기준 2.0 dB 이상 |
+| Linux | `bgm_loop_crossfade` | pass | loop 2.0 s, crossfade 0.5 s (구간 3.5 s); 0.093 s | - |
+| Linux | `protocol_whitelist_file_pipe` | pass | pipe frames 5, data 거절; 0.146 s | - |
+| Linux | `decode_mp3` | pass | mp3, 1.0 s, 17179 bytes, libmp3lame; 0.057 s | - |
+| Linux | `decode_m4a` | pass | AAC, 1.0 s, 15806 bytes, encoder aac; 0.033 s | - |
+| Linux | `decode_ogg` | pass | vorbis, 1.0 s, 5829 bytes, libvorbis; 0.034 s | - |
+| Linux | `decode_wav` | pass | pcm_s16le, 1.0 s, 88278 bytes; 0.025 s | - |
+
+`summary`는 total 11, passed 11, failed 0, harness errors 0이다.
 
 ## 결정 gate
 
 - 통과하면 제품은 imageio-ffmpeg의 동봉 실행 파일 경로를 쓴다.
 - 실패하면 대안 정적 빌드 하나를 골라 URL, SHA-256, 라이선스를 이 문서에 적고 runtime lock에 넣는다.
+- 이번 Linux 실행은 11개가 모두 `pass`라서 통과 쪽이다. 제품은 동봉 실행 파일 경로를 쓴다. Windows 행은 R1 뒤에 더한다.
