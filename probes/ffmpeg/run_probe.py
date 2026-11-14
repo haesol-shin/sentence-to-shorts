@@ -175,26 +175,45 @@ def audio_stream(info: dict) -> dict:
     raise ProbeError("no audio stream in the decoded input")
 
 
+def measurement(info: dict, key: str, source: str):
+    """A required value the harness reads from its own output; absence is a harness error."""
+    value = info.get(key)
+    if value is None:
+        raise HarnessError(f"cannot read {key} from {source}")
+    return value
+
+
+def stream_measurement(stream: dict, key: str, kind: str):
+    """A required stream field; absence is a harness error, a wrong value a probe failure."""
+    value = stream.get(key)
+    if value is None:
+        raise HarnessError(f"cannot read {key} from the {kind} stream")
+    return value
+
+
 def check_rgb24_stdin(probe: Probe, work: Path) -> dict:
     output = work / "rgb24.mp4"
     encode_frames(probe, output, raw_rgb24(FPS))
     info = probe.probe_media(output)
     stream = video_stream(info)
-    require(info["frames"] == FPS, f"decoded {info['frames']} frames, expected {FPS}")
-    require(stream["codec"] == "h264", f"video codec is {stream['codec']}, expected h264")
-    require(stream.get("pix_fmt") == "yuv420p", f"pixel format is {stream.get('pix_fmt')}")
-    require(
-        (stream.get("width"), stream.get("height")) == (WIDTH, HEIGHT),
-        f"frame size is {stream.get('width')}x{stream.get('height')}",
-    )
-    require(float(stream.get("fps", 0)) == FPS, f"frame rate is {stream.get('fps')}")
+    frames = measurement(info, "frames", output.name)
+    codec = stream_measurement(stream, "codec", "video")
+    pix_fmt = stream_measurement(stream, "pix_fmt", "video")
+    width = stream_measurement(stream, "width", "video")
+    height = stream_measurement(stream, "height", "video")
+    fps = stream_measurement(stream, "fps", "video")
+    require(frames == FPS, f"decoded {frames} frames, expected {FPS}")
+    require(codec == "h264", f"video codec is {codec}, expected h264")
+    require(pix_fmt == "yuv420p", f"pixel format is {pix_fmt}")
+    require((width, height) == (WIDTH, HEIGHT), f"frame size is {width}x{height}")
+    require(float(fps) == FPS, f"frame rate is {fps}")
     return {
-        "frames": info["frames"],
+        "frames": frames,
         "duration_s": info["duration_s"],
-        "width": stream["width"],
-        "height": stream["height"],
-        "pix_fmt": stream["pix_fmt"],
-        "fps": stream["fps"],
+        "width": width,
+        "height": height,
+        "pix_fmt": pix_fmt,
+        "fps": fps,
         "bytes": output.stat().st_size,
     }
 
@@ -215,13 +234,15 @@ def check_concat_copy(probe: Probe, work: Path) -> dict:
     info = probe.probe_media(output)
     stream = video_stream(info)
     expected = (FPS // 3) * 3
-    require(info["frames"] == expected, f"decoded {info['frames']} frames, expected {expected}")
-    require(stream["codec"] == "h264", f"video codec is {stream['codec']}, expected h264")
+    frames = measurement(info, "frames", output.name)
+    codec = stream_measurement(stream, "codec", "video")
+    require(frames == expected, f"decoded {frames} frames, expected {expected}")
+    require(codec == "h264", f"video codec is {codec}, expected h264")
     return {
         "clips": len(clips),
-        "frames": info["frames"],
+        "frames": frames,
         "duration_s": info["duration_s"],
-        "codec": stream["codec"],
+        "codec": codec,
         "container": "mp4",
         "reencoded": False,
     }
@@ -255,14 +276,17 @@ def check_aac_mux(probe: Probe, work: Path) -> dict:
     )
     info = probe.probe_media(output)
     stream = audio_stream(info)
-    require(stream["codec"] == "aac", f"audio codec is {stream['codec']}, expected aac")
-    require(stream.get("sample_rate") == 44100, f"sample rate is {stream.get('sample_rate')}")
-    duration = info["duration_s"]
-    require(duration is not None and 0.9 <= duration <= 1.1, f"duration is {duration}")
+    codec = stream_measurement(stream, "codec", "audio")
+    rate = stream_measurement(stream, "sample_rate", "audio")
+    duration = measurement(info, "duration_s", output.name)
+    video_codec = stream_measurement(video_stream(info), "codec", "video")
+    require(codec == "aac", f"audio codec is {codec}, expected aac")
+    require(rate == 44100, f"sample rate is {rate}")
+    require(0.9 <= duration <= 1.1, f"duration is {duration}")
     return {
-        "video": video_stream(info)["codec"],
-        "audio": stream["codec"],
-        "sample_rate": stream["sample_rate"],
+        "video": video_codec,
+        "audio": codec,
+        "sample_rate": rate,
         "duration_s": duration,
         "bytes": output.stat().st_size,
     }
@@ -275,15 +299,21 @@ def check_loudnorm_two_pass(probe: Probe, work: Path) -> dict:
         ["-i", str(source), "-af", f"{LOUDNORM_FILTER}:print_format=json", "-f", "null", "-"]
     )
     measured = parse_loudnorm(first.stderr)
+    checked = {}
     for key in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset"):
-        require(key in measured, f"loudnorm pass 1 is missing {key}")
+        value = measured.get(key)
+        if value is None:
+            raise HarnessError(f"loudnorm pass 1 is missing {key}")
+        if not isinstance(value, (int, float)):
+            raise HarnessError(f"loudnorm pass 1 has a non-numeric {key}: {value!r}")
+        checked[key] = value
     second_filter = (
         f"{LOUDNORM_FILTER}"
-        f":measured_I={measured['input_i']:.2f}"
-        f":measured_TP={measured['input_tp']:.2f}"
-        f":measured_LRA={measured['input_lra']:.2f}"
-        f":measured_thresh={measured['input_thresh']:.2f}"
-        f":offset={measured['target_offset']:.2f}"
+        f":measured_I={checked['input_i']:.2f}"
+        f":measured_TP={checked['input_tp']:.2f}"
+        f":measured_LRA={checked['input_lra']:.2f}"
+        f":measured_thresh={checked['input_thresh']:.2f}"
+        f":offset={checked['target_offset']:.2f}"
         ":linear=true:print_format=json"
     )
     normalized = work / "loudnorm.wav"
@@ -312,8 +342,11 @@ def check_loudnorm_two_pass(probe: Probe, work: Path) -> dict:
         ]
     )
     result = parse_loudnorm(final.stderr)
-    integrated = float(result["input_i"])
-    peak = float(result["input_tp"])
+    try:
+        integrated = float(result["input_i"])
+        peak = float(result["input_tp"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HarnessError(f"loudnorm measurement is incomplete: {exc}") from exc
     require(
         abs(integrated - LOUDNESS_TARGET_LUFS) <= LOUDNESS_TOLERANCE_LU,
         f"integrated loudness is {integrated:.2f} LUFS, target {LOUDNESS_TARGET_LUFS:g} +-{LOUDNESS_TOLERANCE_LU:g}",
@@ -323,8 +356,8 @@ def check_loudnorm_two_pass(probe: Probe, work: Path) -> dict:
         f"true peak is {peak:.2f} dBTP, limit {TRUE_PEAK_TARGET_DBTP:g}",
     )
     return {
-        "pass1_integrated_lufs": measured["input_i"],
-        "pass1_true_peak_dbtp": measured["input_tp"],
+        "pass1_integrated_lufs": checked["input_i"],
+        "pass1_true_peak_dbtp": checked["input_tp"],
         "output_integrated_lufs": integrated,
         "output_true_peak_dbtp": peak,
         "target_integrated_lufs": LOUDNESS_TARGET_LUFS,
@@ -393,7 +426,8 @@ def check_bgm_loop_crossfade(probe: Probe, work: Path) -> dict:
     probe.command(["-stream_loop", "-1", "-i", str(bgm), "-t", "2", "-c:a", "pcm_s16le", str(looped)])
     loop_info = probe.command(["-i", str(looped), "-f", "null", "-"])
     loop_duration = parse_duration(loop_info.stderr)
-    require(loop_duration is not None, "looped BGM has no duration")
+    if loop_duration is None:
+        raise HarnessError("cannot read the looped BGM duration")
     require(abs(loop_duration - 2.0) <= 0.05, f"looped duration is {loop_duration}")
     crossfaded = work / "crossfaded.wav"
     probe.command(
@@ -419,7 +453,8 @@ def check_bgm_loop_crossfade(probe: Probe, work: Path) -> dict:
     )
     cross_info = probe.command(["-i", str(crossfaded), "-f", "null", "-"])
     cross_duration = parse_duration(cross_info.stderr)
-    require(cross_duration is not None, "crossfaded BGM has no duration")
+    if cross_duration is None:
+        raise HarnessError("cannot read the crossfaded BGM duration")
     require(abs(cross_duration - 3.5) <= 0.05, f"crossfaded duration is {cross_duration}")
     return {
         "loop_duration_s": loop_duration,
@@ -457,7 +492,8 @@ def check_protocol_whitelist(probe: Probe, work: Path) -> dict:
         stdin=raw_rgb24(frames),
     )
     info = probe.probe_media(video)
-    require(info["frames"] == frames, f"decoded {info['frames']} frames, expected {frames}")
+    pipe_frames = measurement(info, "frames", video.name)
+    require(pipe_frames == frames, f"decoded {pipe_frames} frames, expected {frames}")
 
     tiny = work / "inline.wav"
     write_tone_wav(tiny, 0.1, sample_rate=8000)
@@ -473,7 +509,7 @@ def check_protocol_whitelist(probe: Probe, work: Path) -> dict:
         f"the rejection did not name the whitelist: {blocked.tail(400)}",
     )
     return {
-        "pipe_frames": info["frames"],
+        "pipe_frames": pipe_frames,
         "disallowed_protocol": "data",
         "disallowed_protocol_rejected": True,
     }
@@ -494,14 +530,12 @@ def decode_upload(
     probe.command(["-i", str(source), *encoder_args, str(fixture)])
     info = probe.probe_media(fixture)
     stream = audio_stream(info)
-    require(
-        stream["codec"] == expected_codec,
-        f"decoded codec is {stream['codec']}, expected {expected_codec}",
-    )
-    duration = info["duration_s"]
-    require(duration is not None and 0.85 <= duration <= 1.25, f"duration is {duration}")
+    codec = stream_measurement(stream, "codec", "audio")
+    duration = measurement(info, "duration_s", fixture.name)
+    require(codec == expected_codec, f"decoded codec is {codec}, expected {expected_codec}")
+    require(0.85 <= duration <= 1.25, f"duration is {duration}")
     return {
-        "codec": stream["codec"],
+        "codec": codec,
         "duration_s": duration,
         "bytes": fixture.stat().st_size,
         "encoder": encoder_args[1] if len(encoder_args) > 1 else "",

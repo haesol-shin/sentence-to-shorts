@@ -187,6 +187,12 @@ class ProbeRecordTests(unittest.TestCase):
             self.assertTrue(result.harness_error)
             self.assertIn("no measurement block", result.error)
 
+    def test_missing_measurement_is_a_harness_error(self) -> None:
+        with self.assertRaises(HarnessError):
+            run_probe.measurement({}, "frames", "clip.mp4")
+        with self.assertRaises(HarnessError):
+            run_probe.stream_measurement({}, "codec", "video")
+
     def test_check_marks_an_unexpected_exception_as_a_harness_error(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             probe = Probe(Path("/bin/false"), Path(folder))
@@ -262,15 +268,56 @@ esac
 exit 0
 """
 
+    PARTIAL_STUB = """\
+#!/bin/sh
+case " $* " in
+  *" -version "*)
+    echo "ffmpeg version stub-build Copyright (c) test"
+    echo "built with a test compiler"
+    echo "configuration: --enable-gpl --enable-version3"
+    exit 0
+    ;;
+  *" -f null "*)
+    echo "  Stream #0:0[0x1](und): Video: h264 (High), yuv420p, 1080x1920, 30 fps" >&2
+    exit 0
+    ;;
+  *" -f rawvideo "*)
+    exit 0
+    ;;
+esac
+exit 1
+"""
+
+    LOUDNORM_STUB = """\
+#!/bin/sh
+case " $* " in
+  *" -version "*)
+    echo "ffmpeg version stub-build Copyright (c) test"
+    echo "built with a test compiler"
+    echo "configuration: --enable-gpl --enable-version3"
+    exit 0
+    ;;
+  *" -af "*)
+    echo '{ "input_i": "-16.00" }' >&2
+    exit 0
+    ;;
+esac
+exit 1
+"""
+
+    def write_stub(self, name: str, text: str) -> Path:
+        path = Path(self.folder.name) / name
+        path.write_text(text, encoding="utf-8")
+        path.chmod(path.stat().st_mode | stat.S_IXUSR)
+        return path
+
     def setUp(self) -> None:
         self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
-        self.stub = Path(self.folder.name) / "ffmpeg-stub"
-        self.stub.write_text(self.STUB, encoding="utf-8")
-        self.stub.chmod(self.stub.stat().st_mode | stat.S_IXUSR)
-        self.zero_stub = Path(self.folder.name) / "ffmpeg-zero-stub"
-        self.zero_stub.write_text(self.ZERO_STUB, encoding="utf-8")
-        self.zero_stub.chmod(self.zero_stub.stat().st_mode | stat.S_IXUSR)
+        self.stub = self.write_stub("ffmpeg-stub", self.STUB)
+        self.zero_stub = self.write_stub("ffmpeg-zero-stub", self.ZERO_STUB)
+        self.partial_stub = self.write_stub("ffmpeg-partial-stub", self.PARTIAL_STUB)
+        self.loudnorm_stub = self.write_stub("ffmpeg-loudnorm-stub", self.LOUDNORM_STUB)
 
     def test_raw_returns_a_nonzero_command(self) -> None:
         probe = Probe(self.stub, Path(self.folder.name) / "work")
@@ -358,6 +405,24 @@ exit 0
         stored = json.loads((output / "result.json").read_text(encoding="utf-8"))
         self.assertGreater(stored["summary"]["harness_errors"], 0)
         self.assertFalse((output / "failure.json").exists())
+
+    def test_missing_frame_count_is_a_harness_error(self) -> None:
+        output = Path(self.folder.name) / "out"
+        code = run_probe.main(["--ffmpeg", str(self.partial_stub), "--output", str(output)])
+        self.assertEqual(code, 2)
+        stored = json.loads((output / "result.json").read_text(encoding="utf-8"))
+        checks = {check["id"]: check for check in stored["checks"]}
+        self.assertTrue(checks["rgb24_stdin_h264"].get("harness_error"))
+        self.assertIn("frames", checks["rgb24_stdin_h264"]["error"])
+
+    def test_partial_loudnorm_block_is_a_harness_error(self) -> None:
+        output = Path(self.folder.name) / "out"
+        code = run_probe.main(["--ffmpeg", str(self.loudnorm_stub), "--output", str(output)])
+        self.assertEqual(code, 2)
+        stored = json.loads((output / "result.json").read_text(encoding="utf-8"))
+        checks = {check["id"]: check for check in stored["checks"]}
+        self.assertTrue(checks["loudnorm_two_pass"].get("harness_error"))
+        self.assertIn("input_tp", checks["loudnorm_two_pass"]["error"])
 
 
 if __name__ == "__main__":
