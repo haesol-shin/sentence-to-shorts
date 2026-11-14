@@ -277,19 +277,32 @@ def copy_app(session: Session, probe: Probe) -> None:
 # --- packaging ----------------------------------------------------------------------
 
 
+FIXED_TOOLS = {
+    "iscc": (
+        Path(r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"),
+        Path(r"C:\Program Files\Inno Setup 6\ISCC.exe"),
+    ),
+    "makensis": (
+        Path(r"C:\Program Files (x86)\NSIS\makensis.exe"),
+        Path(r"C:\Program Files\NSIS\makensis.exe"),
+    ),
+}
+
+
+def fixed_candidates(name: str) -> tuple[Path, ...]:
+    """The default install locations of one setup tool, never of another tool."""
+    return FIXED_TOOLS.get(name.lower().removesuffix(".exe"), ())
+
+
 def find_tool(*names: str) -> str | None:
     for name in names:
         found = shutil.which(name)
         if found:
             return found
-    for path in (
-        Path(r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe"),
-        Path(r"C:\Program Files\Inno Setup 6\ISCC.exe"),
-        Path(r"C:\Program Files (x86)\NSIS\makensis.exe"),
-        Path(r"C:\Program Files\NSIS\makensis.exe"),
-    ):
-        if path.is_file():
-            return str(path)
+    for name in names:
+        for path in fixed_candidates(name):
+            if path.is_file():
+                return str(path)
     return None
 
 

@@ -22,7 +22,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness import HarnessError, run  # noqa: E402
 import launcher  # noqa: E402
 from launcher import default_port_file, parse_args, server_env  # noqa: E402
-from run_probe import long_install_path, shortcut_arguments, windows_installer_command, windows_user_env, windows_user_home  # noqa: E402
+from run_probe import (
+    find_tool,
+    fixed_candidates,
+    long_install_path,
+    shortcut_arguments,
+    windows_installer_command,
+    windows_user_env,
+    windows_user_home,
+)  # noqa: E402
 from harness import LONG_PATH_TARGET  # noqa: E402
 
 from harness import (  # noqa: E402
@@ -202,6 +210,14 @@ class LaunchTest(unittest.TestCase):
     def test_shortcut_arguments_split_the_quoted_launcher(self) -> None:
         self.assertEqual(shortcut_arguments('"C:\\Program Files\\app\\launcher.py"'), [r"C:\Program Files\app\launcher.py"])
         self.assertEqual(shortcut_arguments(""), [])
+
+
+class ToolLookupTest(unittest.TestCase):
+    def test_each_tool_has_only_its_own_fixed_locations(self) -> None:
+        self.assertTrue(all("inno" in str(path).lower() for path in fixed_candidates("iscc")))
+        self.assertTrue(all("nsis" in str(path).lower() for path in fixed_candidates("makensis")))
+        self.assertEqual(fixed_candidates("makensis"), fixed_candidates("MAKENSIS.EXE"))
+        self.assertFalse(find_tool("makensis-not-installed"))
 
 
 class WindowsCommandTest(unittest.TestCase):
