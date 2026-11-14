@@ -24,8 +24,7 @@
     }
   },
   "uv": {
-    "version": "0.13.8",
-    "install": "python -m pip install --disable-pip-version-check uv==0.13.8"
+    "version": "0.13.8"
   },
   "requirements": {
     "input": "requirements.in",

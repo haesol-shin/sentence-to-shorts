@@ -57,7 +57,10 @@ jobs:
           python-version: "3.11"
       - name: Install the pinned uv
         shell: bash
-        run: python -m pip install --disable-pip-version-check --no-input uv==0.13.8
+        # The manifest owns the version so the workflow cannot drift from the result record.
+        run: |
+          UV=$(python -c "import json; print(json.load(open('probes/installer/runtime.json'))['uv']['version'])")
+          python -m pip install --disable-pip-version-check --no-input "uv==$UV"
       - name: Check the harness
         shell: bash
         run: python -m unittest discover -s probes/installer/tests -v

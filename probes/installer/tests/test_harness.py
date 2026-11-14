@@ -18,7 +18,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from run_probe import silent_flags  # noqa: E402
+from harness import HarnessError, run  # noqa: E402
+from launcher import default_port_file, parse_args  # noqa: E402
+from run_probe import shortcut_arguments, silent_flags, windows_user_env  # noqa: E402
 
 from harness import (  # noqa: E402
     HarnessError,
@@ -83,7 +85,7 @@ class PathTest(unittest.TestCase):
             base = Path(tmp) / "install"
             base.mkdir()
             target = deep_path(base, len(str(base)) + 120)
-            self.assertEqual(len(str(target)), len(str(base)) + 120)
+            self.assertGreaterEqual(len(str(target)), len(str(base)) + 120)
             self.assertTrue(str(target).startswith(str(base)))
 
 
@@ -136,7 +138,7 @@ class TemplateTest(unittest.TestCase):
         lowered = script.lower()
         self.assertIn("privilegesrequired=lowest", lowered)
         self.assertIn(r"defaultdirname={localappdata}\programs\app\0.1.0", lowered)
-        self.assertIn("pythonw.exe", lowered)
+        self.assertIn(r"{app}\env\scripts\pythonw.exe", lowered)
         self.assertIn("launcher.py", lowered)
 
     def test_nsi_requests_user_level(self) -> None:
@@ -144,12 +146,40 @@ class TemplateTest(unittest.TestCase):
         lowered = script.lower()
         self.assertIn("requestexecutionlevel user", lowered)
         self.assertIn("$localappdata\\programs\\app\\0.1.0", lowered)
-        self.assertIn("pythonw.exe", lowered)
+        self.assertIn(r"$instdir\env\scripts\pythonw.exe", lowered)
         self.assertIn("launcher.py", lowered)
 
     def test_template_rejects_an_unfilled_value(self) -> None:
         with self.assertRaises(HarnessError):
             render_iss({"APP_ID": "app"})
+
+
+class TimeoutTest(unittest.TestCase):
+    def test_probe_target_timeout_is_a_result(self) -> None:
+        with self.assertRaises(ProbeError):
+            run([sys.executable, "-c", "import time; time.sleep(5)"], timeout=0.2, timeout_is_probe=True)
+
+    def test_harness_command_timeout_stays_a_harness_error(self) -> None:
+        with self.assertRaises(HarnessError):
+            run([sys.executable, "-c", "import time; time.sleep(5)"], timeout=0.2)
+
+
+class LaunchTest(unittest.TestCase):
+    def test_launcher_works_without_arguments(self) -> None:
+        args = parse_args([])
+        self.assertIsNone(args.port_file)
+        self.assertTrue(str(default_port_file()).endswith("port.json"))
+        self.assertFalse(args.no_browser)
+
+    def test_windows_fallback_uses_the_install_profile(self) -> None:
+        home = r"C:\Users\설치 사용자"
+        environment = windows_user_env({"home": home})
+        self.assertEqual(environment["USERPROFILE"], home)
+        self.assertEqual(Path(environment["LOCALAPPDATA"]), Path(home) / "AppData" / "Local")
+
+    def test_shortcut_arguments_split_the_quoted_launcher(self) -> None:
+        self.assertEqual(shortcut_arguments('"C:\\Program Files\\app\\launcher.py"'), [r"C:\Program Files\app\launcher.py"])
+        self.assertEqual(shortcut_arguments(""), [])
 
 
 class WindowsCommandTest(unittest.TestCase):

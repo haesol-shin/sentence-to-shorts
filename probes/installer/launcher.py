@@ -1,9 +1,9 @@
 """Start the bundled empty app on a free port and open the browser.
 
 The probe runs this through the installed shortcut on Windows and through `start.sh` on
-Linux. It writes the chosen port, the absolute interpreter paths and the server pid to
-`--port-file` only after `GET /health` answers, so a reader of that file never talks to a
-half-started server.
+Linux, both without arguments. It writes the chosen port, the absolute interpreter paths
+and the server pid to `port.json` next to this file, or to `--port-file`, only after
+`GET /health` answers, so a reader of that file never talks to a half-started server.
 
 Exit codes: 0 when the server started (it then blocks until stopped), 1 when the server
 did not become healthy. The probe treats a nonzero exit as a result of the thing under
@@ -75,9 +75,18 @@ def server_command(port: int) -> list[str]:
     ]
 
 
+def default_port_file() -> Path:
+    """The port record a shortcut or start.sh reads when no argument is given."""
+    return Path(__file__).resolve().parent / "port.json"
+
+
+def port_file(args: argparse.Namespace) -> Path:
+    return args.port_file or default_port_file()
+
+
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--port-file", type=Path, required=True)
+    parser.add_argument("--port-file", type=Path, default=None)
     parser.add_argument("--no-browser", action="store_true")
     parser.add_argument("--timeout", type=float, default=START_TIMEOUT)
     return parser.parse_args(argv)
@@ -85,6 +94,7 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None, opener=webbrowser.open) -> int:
     args = parse_args(argv)
+    record_path = port_file(args)
     port = free_port()
     app_dir = Path(__file__).resolve().parent
     process = subprocess.Popen(
@@ -118,7 +128,7 @@ def main(argv: list[str] | None = None, opener=webbrowser.open) -> int:
             except subprocess.TimeoutExpired:
                 process.kill()
             write_port_file(
-                args.port_file,
+                record_path,
                 {
                     "error": error,
                     "server_stderr": stderr[-1200:],
@@ -143,7 +153,7 @@ def main(argv: list[str] | None = None, opener=webbrowser.open) -> int:
             except Exception as exc:  # noqa: BLE001 - opening the browser is not a gate
                 record["browser_opened"] = False
                 record["browser_error"] = f"{type(exc).__name__}: {exc}"
-        write_port_file(args.port_file, record)
+        write_port_file(record_path, record)
         while process.poll() is None:
             time.sleep(0.2)
         return 0

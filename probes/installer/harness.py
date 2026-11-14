@@ -41,7 +41,6 @@ MINIMAL_PATH = "/usr/bin:/bin"
 CHUNK = 1 << 20
 DOWNLOAD_TIMEOUT = 600
 LONG_PATH_TARGET = 240
-LONG_PATH_BEYOND = 300
 # The path of the interpreter that the launch shortcut and `start.sh` must use is recorded
 # in the probe result. These are the names to look up in the bundled runtime folder.
 BUNDLED_PYTHON = {
@@ -232,6 +231,7 @@ def deep_path(base: Path, target_chars: int) -> Path:
     while len(str(path)) < target_chars:
         remaining = target_chars - len(str(path))
         if remaining <= 2:
+            path = path / ("p" * max(1, remaining - 1))
             break
         name = f"d{index:04d}"
         if len(name) + 1 > remaining:
@@ -470,6 +470,7 @@ def run(
     env: dict | None = None,
     timeout: float = 600.0,
     input_text: str | None = None,
+    timeout_is_probe: bool = False,
 ) -> Completed:
     try:
         process = subprocess.run(
@@ -482,6 +483,10 @@ def run(
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as exc:
+        if timeout_is_probe:
+            # A hung installer or launcher is a failure of the thing under test, not of the
+            # probe that started it.
+            raise ProbeError(f"the probe target timed out after {timeout:g}s: {command[:3]!r}") from exc
         raise HarnessError(f"command timed out after {timeout:g}s: {command[:3]!r}") from exc
     except OSError as exc:
         raise HarnessError(f"cannot start {command[0]!r}: {exc}") from exc
@@ -493,8 +498,15 @@ def run(
     )
 
 
-def checked(command: list[str], *, cwd: Path | None = None, env: dict | None = None, timeout: float = 600.0) -> Completed:
-    completed = run(command, cwd=cwd, env=env, timeout=timeout)
+def checked(
+    command: list[str],
+    *,
+    cwd: Path | None = None,
+    env: dict | None = None,
+    timeout: float = 600.0,
+    timeout_is_probe: bool = False,
+) -> Completed:
+    completed = run(command, cwd=cwd, env=env, timeout=timeout, timeout_is_probe=timeout_is_probe)
     if not completed.ok:
         raise ProbeError(f"{command[0]} exited {completed.returncode}: {completed.tail()}")
     return completed

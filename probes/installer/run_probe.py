@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from harness import (  # noqa: E402
     BUNDLED_PYTHON,
-    LONG_PATH_BEYOND,
+    Completed,
     LONG_PATH_TARGET,
     MINIMAL_PATH,
     REQUIREMENTS,
@@ -90,9 +90,16 @@ class Session:
         self.paths = synthetic_paths(self.root, os_name, self.app_id, self.version)
         self.asset_file: Path | None = None
         self.python_exe: Path | None = None
+        self.base_python: Path | None = None
         self.env_python: Path | None = None
         self.python_version = manifest["python"]["version"]
+        self.site_packages_rel = ""
+        self.site_packages_bytes = 0
+        self.fallback: dict = {}
         self.artifact: dict = {}
+        self.nsis_artifact: dict = {}
+        self.nsis_error = ""
+        self.primary_artifact: dict = {}
         self.user: dict = {}
         self.password = ""
         self.install: Path = self.paths["install"]
@@ -121,6 +128,20 @@ def ready(session: Session, *attributes: str) -> None:
     missing = [name for name in attributes if not getattr(session, name)]
     if missing:
         raise Blocked(f"missing prerequisite: {', '.join(missing)}")
+
+
+def purelib(env_python: Path) -> Path:
+    completed = checked([str(env_python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"])
+    path = Path(completed.stdout.strip())
+    require(path.is_absolute(), f"purelib is not absolute: {path}")
+    return path
+
+
+def user_checked(session: Session, command: list[str], *, timeout: float = TIMEOUTS["command"]) -> Completed:
+    completed = as_user(session, command, timeout=timeout)
+    if not completed.ok:
+        raise ProbeError(f"{command[0]} exited {completed.returncode}: {completed.tail()}")
+    return completed
 
 
 # --- runtime ------------------------------------------------------------------------
@@ -176,10 +197,11 @@ def create_venv(session: Session, probe: Probe) -> None:
     assert python is not None
 
     def action() -> dict:
-        checked([str(python), "-m", "venv", str(session.bundle / "env")], timeout=TIMEOUTS["command"])
+        checked([str(python), "-m", "venv", "--without-pip", str(session.bundle / "env")], timeout=TIMEOUTS["command"])
         env_python = session.bundle / "env" / ("Scripts/python.exe" if session.os_name == "windows" else "bin/python")
         require(env_python.is_file(), f"venv interpreter is missing: {env_python}")
         session.env_python = env_python
+        session.base_python = python
         version = checked([str(env_python), "-c", "import platform; print(platform.python_version())"]).stdout.strip()
         session.python_version = version
         return {"executable": str(env_python), "version": version, "base": str(python)}
@@ -211,6 +233,30 @@ def sync_requirements(session: Session, probe: Probe) -> None:
         }
 
     stage(probe, "env.requirements", action, detail="hash-pinned sync with uv")
+
+
+def pack_site_packages(session: Session, probe: Probe) -> None:
+    ready(session, "env_python")
+
+    def action() -> dict:
+        packages = purelib(session.env_python)
+        target = session.bundle / "site-packages"
+        if target.exists():
+            shutil.rmtree(target)
+        shutil.copytree(packages, target)
+        session.site_packages_rel = packages.relative_to(session.bundle).as_posix()
+        session.site_packages_bytes = tree_bytes(target)
+        # The build environment holds absolute paths to this bundle. Ship only the package
+        # files and create a fresh environment at the install path.
+        shutil.rmtree(session.bundle / "env")
+        require(not (session.bundle / "env").exists(), "the build environment is still in the bundle")
+        return {
+            "relative": session.site_packages_rel,
+            "bytes": session.site_packages_bytes,
+            "files": sum(1 for path in target.rglob("*") if path.is_file()),
+        }
+
+    stage(probe, "env.site_packages", action, detail="package files copied out of the build environment")
 
 
 def copy_app(session: Session, probe: Probe) -> None:
@@ -249,6 +295,26 @@ def find_tool(*names: str) -> str | None:
     return None
 
 
+def build_nsis_artifact(session: Session, makensis: str) -> dict:
+    setup = session.dist / f"{session.app_id}-{session.version}-windows-x86_64-nsis-setup.exe"
+    script = session.dist / "installer.nsi"
+    script.write_text(
+        render_nsi(
+            {
+                "APP_ID": session.app_id,
+                "DISPLAY_NAME": session.display_name,
+                "VERSION": session.version,
+                "BUNDLE_DIR": str(session.bundle),
+                "OUTPUT_FILE": str(setup),
+            }
+        ),
+        encoding="utf-8",
+    )
+    checked([makensis, "/V2", str(script)], timeout=TIMEOUTS["command"])
+    require(setup.is_file(), f"NSIS did not write {setup.name}")
+    return {"tool": "nsis", "path": str(setup), "bytes": setup.stat().st_size, "sha256": sha256_file(setup)}
+
+
 def build_archive(session: Session, probe: Probe) -> None:
     def action() -> dict:
         if session.os_name == "linux":
@@ -284,29 +350,20 @@ def build_archive(session: Session, probe: Probe) -> None:
                     # at user level and record both facts.
                     inno_error = compiled.tail()
             if not session.artifact and nsis:
-                setup = session.dist / f"{session.app_id}-{session.version}-windows-x86_64-setup.exe"
-                script = session.dist / "installer.nsi"
-                script.write_text(
-                    render_nsi(
-                        {
-                            "APP_ID": session.app_id,
-                            "DISPLAY_NAME": session.display_name,
-                            "VERSION": session.version,
-                            "BUNDLE_DIR": str(session.bundle),
-                            "OUTPUT_FILE": str(setup),
-                        }
-                    ),
-                    encoding="utf-8",
-                )
-                checked([nsis, "/V2", str(script)], timeout=TIMEOUTS["command"])
-                require(setup.is_file(), f"NSIS did not write {setup.name}")
-                session.artifact = {"tool": "nsis", "path": str(setup), "bytes": setup.stat().st_size, "sha256": sha256_file(setup)}
+                session.artifact = build_nsis_artifact(session, nsis)
                 if inno_error:
                     session.artifact["inno_error"] = inno_error
             if not session.artifact:
                 if inno_error:
                     raise ProbeError(f"Inno Setup failed and NSIS is not installed: {inno_error}")
                 raise ProbeError("neither Inno Setup nor NSIS is installed")
+            if session.artifact.get("tool") == "inno" and nsis:
+                # Keep an NSIS setup ready so an install or start failure can rerun the same
+                # test after the build bundle is removed.
+                try:
+                    session.nsis_artifact = build_nsis_artifact(session, nsis)
+                except (ProbeError, HarnessError) as exc:
+                    session.nsis_error = str(exc)
         session.measurements["compressed_bytes"] = session.artifact["bytes"]
         return dict(session.artifact)
 
@@ -339,7 +396,7 @@ def check_archive(session: Session, probe: Probe) -> None:
         else:
             require("requestexecutionlevel user" in lowered, "the NSIS script does not install per user")
             require("$localappdata" in lowered, "the NSIS script does not install below localappdata")
-        require("pythonw.exe" in lowered and "launcher.py" in lowered, "the shortcut does not run the launcher")
+        require("env\\scripts\\pythonw.exe" in lowered and "launcher.py" in lowered, "the shortcut does not run the app environment")
         return {"tool": tool, "privileges": "lowest" if tool == "inno" else "user", "shortcut_launcher": True}
 
     stage(probe, "archive.check", action, detail="archive keeps its start path and per-user install")
@@ -434,35 +491,88 @@ def as_user(session: Session, command: list[str], *, env: dict | None = None, ti
     return run(command, env=environment, timeout=timeout)
 
 
-def apply_install(session: Session, probe: Probe) -> None:
+def install_tarball(session: Session, target: Path) -> None:
+    created = as_user(session, ["mkdir", "-p", str(target)])
+    if not created.ok:
+        raise ProbeError(f"cannot create the install directory: {created.tail()}")
+    extracted = as_user(session, ["tar", "-xzf", session.artifact["path"], "-C", str(target)])
+    if not extracted.ok:
+        raise ProbeError(f"tar extraction failed: {extracted.tail()}")
+    start_sh = target / "start.sh"
+    require(start_sh.is_file(), "start.sh was not installed")
+    require(os.access(start_sh, os.X_OK), "the installed start.sh is not executable")
+
+
+def local_env_python(session: Session, target: Path) -> Path:
+    relative = Path("env/Scripts/python.exe") if session.os_name == "windows" else Path("env/bin/python")
+    return target / relative
+
+
+def prepare_local_env(session: Session, target: Path) -> dict:
+    """Create the app environment at the install path and copy the bundled packages in."""
+    if session.args.dry_run:
+        base_python = Path(session.base_python or sys.executable)
+    else:
+        base_python = target / ("python/python.exe" if session.os_name == "windows" else "python/bin/python3.11")
+        require(base_python.is_file(), f"installed interpreter is missing: {base_python}")
+    env_python = local_env_python(session, target)
+    python_argv = [str(base_python), "-m", "venv", "--without-pip", str(target / "env")]
+    if session.os_name == "linux":
+        user_checked(session, python_argv)
+    else:
+        checked(python_argv, timeout=TIMEOUTS["command"])
+    require(env_python.is_file(), f"local environment is missing: {env_python}")
+    packages = purelib(env_python)
+    source = target / "site-packages"
+    require(source.is_dir(), "the bundle has no site-packages")
+    if session.os_name == "linux":
+        # The environment belongs to the install account, so copy and clean as that account.
+        user_checked(session, ["cp", "-a", f"{source}/.", f"{packages}/"])
+        user_checked(session, ["rm", "-rf", str(source)])
+    else:
+        shutil.copytree(source, packages, dirs_exist_ok=True)
+        shutil.rmtree(source)
+    command = [
+        str(env_python),
+        "-c",
+        "import json, platform, sys, fastapi, uvicorn; print(json.dumps({'python': platform.python_version(), 'executable': sys.executable, 'base_prefix': sys.base_prefix, 'fastapi': fastapi.__version__, 'uvicorn': uvicorn.__version__}))",
+    ]
+    probe_json = user_checked(session, command) if session.os_name == "linux" else checked(command)
+    data = json.loads(probe_json.stdout)
+    require(path_under(data["executable"], target), f"the local environment is outside the install dir: {data['executable']}")
+    data["base_prefix_inside"] = under(data["base_prefix"], target)
+    if not session.args.dry_run:
+        require(data["base_prefix_inside"], f"the base interpreter is outside the install dir: {data['base_prefix']}")
+    return data
+
+
+def apply_install(session: Session, probe: Probe, check_id: str = "install.apply", target: Path | None = None) -> None:
     ready(session, "artifact", "user")
 
     def action() -> dict:
+        install_root = Path(target or session.user["install"])
+        started = time.monotonic()
         if session.os_name == "linux":
-            target = Path(session.user["install"])
-            created = as_user(session, ["mkdir", "-p", str(target)])
-            if not created.ok:
-                raise ProbeError(f"cannot create the install directory: {created.tail()}")
-            started = time.monotonic()
-            extracted = as_user(session, ["tar", "-xzf", session.artifact["path"], "-C", str(target)])
-            elapsed = time.monotonic() - started
-            if not extracted.ok:
-                raise ProbeError(f"tar extraction failed: {extracted.tail()}")
-            start_sh = target / "start.sh"
-            require(start_sh.is_file(), "start.sh was not installed")
-            require(os.access(start_sh, os.X_OK), "the installed start.sh is not executable")
+            install_tarball(session, install_root)
         else:
-            started = time.monotonic()
             run_windows_installer(session)
-            elapsed = time.monotonic() - started
-            target = Path(session.user["install"])
-            require(target.is_dir(), f"installer did not create {target}")
-        session.install = target
-        session.measurements["install_seconds"] = round(elapsed, 3)
-        session.measurements["installed_bytes"] = tree_bytes(target)
-        return {"install_dir": str(target), "installed_bytes": session.measurements["installed_bytes"], "seconds": session.measurements["install_seconds"]}
+            require(install_root.is_dir(), f"installer did not create {install_root}")
+        local = prepare_local_env(session, install_root)
+        elapsed = time.monotonic() - started
+        session.install = install_root
+        if check_id == "install.apply":
+            session.measurements["install_seconds"] = round(elapsed, 3)
+            session.measurements["installed_bytes"] = tree_bytes(install_root)
+        elif check_id == "nsis.install":
+            session.measurements["fallback_install_seconds"] = round(elapsed, 3)
+        return {
+            "install_dir": str(install_root),
+            "installed_bytes": tree_bytes(install_root),
+            "seconds": round(elapsed, 3),
+            "env_python": local["executable"],
+        }
 
-    stage(probe, "install.apply", action, detail="silent install into the synthetic home")
+    stage(probe, check_id, action, detail="silent install and a local environment at the install path")
 
 
 def silent_flags(tool: str, install_path: Path | None) -> list[str]:
@@ -501,12 +611,9 @@ def run_windows_installer(session: Session) -> None:
         if result != 0:
             raise ProbeError(f"the installer exited {result} as {session.user['login']}")
         return
-    environment = os.environ.copy()
-    environment["USERPROFILE"] = str(session.user["home"])
-    environment["LOCALAPPDATA"] = str(Path(session.user["home"]) / "AppData" / "Local")
     checked(
         [installer, *silent_flags(session.artifact["tool"], install_path)],
-        env=environment,
+        env=windows_user_env(session.user),
         timeout=TIMEOUTS["install"],
     )
 
@@ -524,7 +631,17 @@ def wait_windows_task(task: str, timeout: float) -> int:
     raise ProbeError(f"the scheduled task did not finish in {timeout:g}s: {last[-400:]}")
 
 
-def verify_shortcut(session: Session, probe: Probe) -> None:
+def bundle_removed(session: Session, probe: Probe) -> None:
+    def action() -> dict:
+        if session.bundle.exists():
+            shutil.rmtree(session.bundle)
+        require(not session.bundle.exists(), f"the build folder still exists: {session.bundle}")
+        return {"build_folder": str(session.bundle), "removed": True}
+
+    stage(probe, "bundle.removed", action, detail="build folder removed before the app starts")
+
+
+def verify_shortcut(session: Session, probe: Probe, check_id: str = "shortcut.target") -> None:
     def action() -> dict:
         if session.os_name == "linux":
             start_sh = session.install / "start.sh"
@@ -550,67 +667,112 @@ def verify_shortcut(session: Session, probe: Probe) -> None:
         require(Path(target).is_file(), f"shortcut target does not exist: {target}")
         require("launcher.py" in arguments, f"shortcut does not run the launcher: {arguments}")
         require(under(target, session.install), f"shortcut target is outside the install dir: {target}")
+        expected = str(session.install / "env" / "Scripts" / "pythonw.exe")
+        require(target.lower() == expected.lower(), f"shortcut does not use the app environment: {target}")
         session.record.update({"shortcut": str(shortcut), "target": target, "arguments": arguments, "working_directory": working_directory})
         return {"shortcut": str(shortcut), "target": target, "arguments": arguments}
 
-    stage(probe, "shortcut.target", action, detail="start shortcut runs the bundled launcher")
+    stage(probe, check_id, action, detail="start shortcut runs the launcher from the app environment")
+
+
+def shortcut_arguments(text: str) -> list[str]:
+    """Split the shortcut argument string. The probe writes one quoted launcher path."""
+    value = text.strip()
+    if value.startswith('"') and value.endswith('"') and value.count('"') == 2:
+        return [value[1:-1]]
+    return [part for part in value.split() if part]
 
 
 # --- start, health, stop ------------------------------------------------------------
 
 
-def start(session: Session, probe: Probe) -> None:
+def launch_linux(session: Session, target: Path) -> subprocess.Popen:
+    command = [str(target / "start.sh")]
+    if session.user.get("created"):
+        command = ["sudo", "-n", "-u", session.user["login"], "--", "env", f"HOME={session.user['home']}", f"PATH={MINIMAL_PATH}", *command]
+    environment = os.environ.copy()
+    if not session.user.get("created"):
+        environment["HOME"] = session.user.get("home", str(session.paths["home"]))
+        environment["PATH"] = MINIMAL_PATH
+    return subprocess.Popen(
+        command,
+        env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+
+
+def windows_user_env(user: dict) -> dict:
+    environment = os.environ.copy()
+    environment["USERPROFILE"] = str(user["home"])
+    environment["LOCALAPPDATA"] = str(Path(user["home"]) / "AppData" / "Local")
+    return environment
+
+
+def launch_windows_direct(session: Session, target: Path) -> subprocess.Popen:
+    environment = windows_user_env(session.user)
+    return subprocess.Popen(
+        [session.record["target"], *shortcut_arguments(session.record["arguments"])],
+        env=environment,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+
+def wait_for_app(session: Session, target: Path, process: subprocess.Popen | None) -> tuple[dict, dict, float]:
+    started = time.monotonic()
+    port_file = target / "port.json"
+    deadline = time.monotonic() + TIMEOUTS["start"]
+    last = ""
+    while time.monotonic() < deadline:
+        if port_file.exists() and port_file.stat().st_size:
+            break
+        if process is not None and process.poll() is not None:
+            last = (process.stderr.read() or "")[-800:] if process.stderr else ""
+            break
+        time.sleep(0.1)
+    if not port_file.exists():
+        raise ProbeError(f"the launcher did not write a port file: {last}")
+    record = parse_port_file(port_file.read_text(encoding="utf-8"))
+    payload = wait_health(record["port"], timeout=max(1.0, deadline - time.monotonic()))
+    return record, payload, time.monotonic() - started
+
+
+def start(session: Session, probe: Probe, check_id: str = "app.start", target: Path | None = None) -> None:
     def action() -> dict:
-        session.port_file = session.install / "port.json"
-        if session.port_file.exists():
-            session.port_file.unlink()
-        started = time.monotonic()
+        app_root = Path(target or session.install)
+        port_file = app_root / "port.json"
+        if port_file.exists():
+            port_file.unlink()
         if session.os_name == "linux":
-            command = [str(session.install / "start.sh"), "--port-file", str(session.port_file), "--no-browser"]
-            if session.user.get("created"):
-                command = ["sudo", "-n", "-u", session.user["login"], "--", "env", f"HOME={session.user['home']}", f"PATH={MINIMAL_PATH}", *command]
-            environment = os.environ.copy()
-            if not session.user.get("created"):
-                environment["HOME"] = session.user.get("home", str(session.paths["home"]))
-                environment["PATH"] = MINIMAL_PATH
-            session.process = subprocess.Popen(
-                command,
-                env=environment,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True,
-                start_new_session=True,
-            )
+            process = launch_linux(session, app_root)
+        elif session.user.get("created"):
+            schedule_windows_launcher(session, app_root)
+            process = None
         else:
-            schedule_windows_launcher(session)
-        deadline = time.monotonic() + TIMEOUTS["start"]
-        last = ""
-        while time.monotonic() < deadline:
-            if session.port_file.exists() and session.port_file.stat().st_size:
-                break
-            if session.process is not None and session.process.poll() is not None:
-                last = (session.process.stderr.read() or "")[-800:] if session.process.stderr else ""
-                break
-            time.sleep(0.1)
-        if not session.port_file.exists():
-            raise ProbeError(f"the launcher did not write a port file: {last}")
-        record = parse_port_file(session.port_file.read_text(encoding="utf-8"))
-        payload = wait_health(record["port"], timeout=max(1.0, deadline - time.monotonic()))
+            process = launch_windows_direct(session, app_root)
+        record, payload, seconds = wait_for_app(session, app_root, process)
+        session.process = process
         session.record.update({**record, "health": payload})
-        session.measurements["start_seconds"] = round(time.monotonic() - started, 3)
+        if check_id == "app.start":
+            session.measurements["start_seconds"] = round(seconds, 3)
         return {
             "port": record["port"],
             "launcher_pid": record.get("launcher_pid"),
             "server_pid": record.get("server_pid"),
-            "seconds": session.measurements["start_seconds"],
+            "browser_opened": record.get("browser_opened"),
+            "seconds": round(seconds, 3),
         }
 
-    stage(probe, "app.start", action, detail="launcher picked a free port and the app became healthy")
+    stage(probe, check_id, action, detail="no-argument start opened a free port and became healthy")
 
 
-def schedule_windows_launcher(session: Session) -> None:
+def schedule_windows_launcher(session: Session, target: Path) -> None:
     task = f"installer-probe-{secrets.token_hex(4)}"
-    command = f'"{session.record["target"]}" {session.record["arguments"]} --port-file "{session.port_file}" --no-browser'
+    command = f'"{session.record["target"]}" {session.record["arguments"]}'
     create = run(
         ["schtasks", "/Create", "/TN", task, "/RU", session.user["login"], "/RP", session.password, "/SC", "ONCE", "/ST", "23:59", "/TR", command, "/F"],
         timeout=TIMEOUTS["command"],
@@ -621,15 +783,16 @@ def schedule_windows_launcher(session: Session) -> None:
     session.task = task
 
 
-def health(session: Session, probe: Probe) -> None:
+def health(session: Session, probe: Probe, check_id: str = "app.health", target: Path | None = None) -> None:
     def action() -> dict:
+        app_root = Path(target or session.install)
         payload = session.record.get("health") or {}
         require(payload.get("status") == "ok", f"/health body is not ok: {payload}")
         server_python = str(payload.get("python", ""))
         base_prefix = str(payload.get("base_prefix", ""))
         require(bool(server_python), "/health did not report the interpreter")
-        require(path_under(server_python, session.install), f"the server interpreter is outside the install dir: {server_python}")
-        base_inside = under(base_prefix, session.install) if base_prefix else False
+        require(path_under(server_python, app_root), f"the server interpreter is outside the install dir: {server_python}")
+        base_inside = under(base_prefix, app_root) if base_prefix else False
         if not session.args.dry_run:
             require(base_inside, f"the base interpreter is outside the install dir: {base_prefix}")
         return {
@@ -641,77 +804,70 @@ def health(session: Session, probe: Probe) -> None:
             "port": session.record.get("port"),
         }
 
-    stage(probe, "app.health", action, detail="GET /health returned 200 after install")
+    stage(probe, check_id, action, detail="GET /health returned 200 after install")
 
 
-def not_from_path(session: Session, probe: Probe) -> None:
+def not_from_path(session: Session, probe: Probe, check_id: str = "python.not_from_path", target: Path | None = None) -> None:
     def action() -> dict:
+        app_root = Path(target or session.install)
         server_python = str((session.record.get("health") or {}).get("python", ""))
         on_path = shutil.which("python") or shutil.which("python3")
         require(on_path is not None, "no Python on PATH, so the check cannot prove the negative")
         require(Path(server_python).resolve() != Path(on_path).resolve(), "the server used the interpreter from PATH")
-        require(path_under(server_python, session.install), f"server interpreter is not installed: {server_python}")
+        require(path_under(server_python, app_root), f"server interpreter is not installed: {server_python}")
         return {
             "server_python": server_python,
             "path_python": on_path,
             "path": MINIMAL_PATH if session.os_name == "linux" else os.environ.get("PATH", ""),
-            "install_dir": str(session.install),
+            "install_dir": str(app_root),
         }
 
-    stage(probe, "python.not_from_path", action, detail="the server ran the installed interpreter, not PATH python")
+    stage(probe, check_id, action, detail="the server ran the installed interpreter, not PATH python")
 
 
 def long_path(session: Session, probe: Probe) -> None:
+    if session.os_name == "windows":
+        probe.skip("path.long", "the Windows long-path install waits with the Windows leg", detail="deferred")
+        return
+
     def action() -> dict:
-        require(session.install.is_dir(), "the install directory is missing")
-        target = deep_path(session.install, LONG_PATH_TARGET)
-        target.mkdir(parents=True, exist_ok=True)
-        marker = target / "probe.txt"
-        marker.write_text("ok\n", encoding="utf-8")
-        require(marker.read_text(encoding="utf-8").strip() == "ok", "cannot read the deep marker")
-        beyond = deep_path(session.install, LONG_PATH_BEYOND)
-        beyond_ok = False
-        beyond_error = ""
+        require(session.user and session.user.get("install"), "no install root")
+        target = deep_path(Path(session.user["install"]).parent, LONG_PATH_TARGET)
+        started = time.monotonic()
+        install_tarball(session, target)
+        local = prepare_local_env(session, target)
+        install_seconds = time.monotonic() - started
+        process = launch_linux(session, target)
+        store = {**session.record}
         try:
-            beyond.mkdir(parents=True, exist_ok=True)
-            (beyond / "probe.txt").write_text("ok\n", encoding="utf-8")
-            beyond_ok = True
-        except OSError as exc:
-            beyond_error = f"{type(exc).__name__}: {exc}"
+            record, payload, start_seconds = wait_for_app(session, target, process)
+            require(payload.get("status") == "ok", f"/health body is not ok: {payload}")
+            server_python = str(payload.get("python", ""))
+            require(path_under(server_python, target), f"long-path server interpreter is outside: {server_python}")
+            if not session.args.dry_run:
+                require(under(str(payload.get("base_prefix", "")), target), "long-path base interpreter is outside")
+        finally:
+            stop_linux(session, process, record if "record" in locals() else {})
+        session.record = store
         return {
-            "install_dir_chars": len(str(session.install)),
-            "deep_path": str(target),
-            "deep_path_chars": len(str(target)),
-            "beyond_max_chars": len(str(beyond)),
-            "beyond_max_created": beyond_ok,
-            "beyond_max_error": beyond_error,
-            "note": "paths above 260 characters depend on the OS policy and are recorded, not gated",
+            "install_dir_chars": len(str(target)),
+            "install_dir": str(target),
+            "install_seconds": round(install_seconds, 3),
+            "start_seconds": round(start_seconds, 3),
+            "server_python": local["executable"],
+            "note": "installed and started at a path of 240 characters or more; paths above 260 depend on the OS policy",
         }
 
-    stage(probe, "path.long", action, detail="deep path under the install directory")
+    stage(probe, "path.long", action, detail="full install and /health at a long install path")
 
 
-def stop_process(session: Session) -> None:
-    """Stop the launcher and the server. Safe to call twice."""
-    if session.stopped:
+def stop_linux(session: Session, process: subprocess.Popen | None, record: dict) -> None:
+    if process is None:
         return
-    session.stopped = True
-    record = session.record
-    if session.os_name == "windows":
-        for key in ("launcher_pid", "server_pid"):
-            pid = record.get(key)
-            if pid:
-                run(["taskkill", "/PID", str(pid), "/T", "/F"], timeout=60)
-        if session.task:
-            run(["schtasks", "/End", "/TN", session.task], timeout=60)
-            run(["schtasks", "/Delete", "/TN", session.task, "/F"], timeout=60)
-        return
-    if session.process is None:
-        return
-    if session.process.poll() is None:
+    if process.poll() is None:
         if not session.user.get("created"):
             try:
-                os.killpg(os.getpgid(session.process.pid), signal.SIGTERM)
+                os.killpg(os.getpgid(process.pid), signal.SIGTERM)
             except (ProcessLookupError, PermissionError):
                 pass
         for key in ("launcher_pid", "server_pid"):
@@ -722,20 +878,106 @@ def stop_process(session: Session) -> None:
                     command = ["sudo", "-n", *command]
                 run(command, timeout=30)
     try:
-        session.process.wait(timeout=TIMEOUTS["stop"])
+        process.wait(timeout=TIMEOUTS["stop"])
     except subprocess.TimeoutExpired:
-        session.process.kill()
+        process.kill()
 
 
-def stop(session: Session, probe: Probe) -> None:
+def stop_process(session: Session) -> None:
+    """Stop the launcher and the server. Safe to call twice."""
+    if session.stopped:
+        return
+    session.stopped = True
+    record = session.record
+    if session.os_name == "windows":
+        if session.process is not None and session.process.poll() is None:
+            session.process.terminate()
+            try:
+                session.process.wait(timeout=TIMEOUTS["stop"])
+            except subprocess.TimeoutExpired:
+                session.process.kill()
+        for key in ("launcher_pid", "server_pid"):
+            pid = record.get(key)
+            if pid:
+                run(["taskkill", "/PID", str(pid), "/T", "/F"], timeout=60)
+        if session.task:
+            run(["schtasks", "/End", "/TN", session.task], timeout=60)
+            run(["schtasks", "/Delete", "/TN", session.task, "/F"], timeout=60)
+        return
+    stop_linux(session, session.process, record)
+
+
+def stop(session: Session, probe: Probe, check_id: str = "app.stop") -> None:
     def action() -> dict:
         stop_process(session)
         return {"stopped": True}
 
     if session.process is None and not session.record.get("server_pid") and not session.task:
-        probe.skip("app.stop", "the app never started")
+        probe.skip(check_id, "the app never started")
         return
-    stage(probe, "app.stop", action, detail="launcher and server stopped")
+    stage(probe, check_id, action, detail="launcher and server stopped")
+
+
+INSTALL_FAILURE_IDS = {"install.apply", "shortcut.target", "app.start", "app.health", "python.not_from_path"}
+
+
+def run_nsis_retry(session: Session, probe: Probe) -> None:
+    """The task gate: after an Inno install or start failure, run the same test with NSIS."""
+    if session.os_name != "windows" or session.artifact.get("tool") != "inno":
+        return
+    failed = {check.id for check in probe.failed}
+    if not failed & INSTALL_FAILURE_IDS:
+        return
+    stop_process(session)
+    session.stopped = False
+    session.process = None
+    session.task = ""
+    session.record = {}
+    makensis = find_tool("makensis", "makensis.exe")
+    if not makensis:
+        probe.skip("nsis.build", "NSIS is not installed")
+        return
+
+    def build() -> dict:
+        if session.nsis_artifact:
+            return dict(session.nsis_artifact)
+        if not session.bundle.is_dir():
+            raise ProbeError(f"no NSIS setup and no build bundle: {session.nsis_error}")
+        return build_nsis_artifact(session, makensis)
+
+    try:
+        artifact = stage(probe, "nsis.build", build, detail="NSIS setup at user level after the Inno failure")
+    except Blocked:
+        return
+    session.fallback = {"tool": "nsis", "reason": f"Inno Setup failed at {sorted(failed & INSTALL_FAILURE_IDS)}"}
+    session.artifact = artifact
+    target = Path(session.user["install"])
+    shutil.rmtree(target, ignore_errors=True)
+    home = Path(session.user["home"])
+    programs = home / "AppData" / "Roaming" / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+    if programs.is_dir():
+        for shortcut in programs.rglob("*.lnk"):
+            try:
+                shortcut.unlink()
+            except OSError:
+                pass
+    blocked: str | None = None
+    steps: list[tuple[str, Callable[..., None]]] = [
+        ("nsis.install", apply_install),
+        ("nsis.shortcut", verify_shortcut),
+        ("nsis.start", start),
+        ("nsis.health", health),
+        ("nsis.not_from_path", not_from_path),
+        ("nsis.stop", stop),
+    ]
+    for check_id, func in steps:
+        if blocked:
+            probe.skip(check_id, blocked)
+            continue
+        try:
+            func(session, probe, check_id=check_id)
+        except Blocked as exc:
+            blocked = str(exc)
 
 
 # --- main ---------------------------------------------------------------------------
@@ -806,17 +1048,19 @@ PIPELINE: list[tuple[str, Callable[[Session, Probe], None]]] = [
     ("runtime.extract", extract_runtime),
     ("env.venv", create_venv),
     ("env.requirements", sync_requirements),
+    ("env.site_packages", pack_site_packages),
     ("bundle.app", copy_app),
     ("archive.build", build_archive),
     ("archive.check", check_archive),
     ("install.user", resolve_user),
     ("install.apply", apply_install),
+    ("bundle.removed", bundle_removed),
     ("shortcut.target", verify_shortcut),
     ("app.start", start),
     ("app.health", health),
     ("python.not_from_path", not_from_path),
-    ("path.long", long_path),
     ("app.stop", stop),
+    ("path.long", long_path),
 ]
 
 
@@ -855,17 +1099,27 @@ def main(argv: list[str] | None = None) -> int:
     probe = Probe()
     try:
         run_pipeline(session, probe)
+        session.primary_artifact = dict(session.artifact)
+        run_nsis_retry(session, probe)
     finally:
         stop_process(session)
         payload["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
         payload["harness_error"] = probe.harness_failed
         payload["checks"] = [check.as_dict() for check in probe.checks]
+        primary = session.primary_artifact or session.artifact
         payload["installer"] = {
-            "tool": session.artifact.get("tool"),
-            "path": session.artifact.get("path"),
-            "bytes": session.artifact.get("bytes"),
-            "sha256": session.artifact.get("sha256"),
+            "tool": primary.get("tool"),
+            "path": primary.get("path"),
+            "bytes": primary.get("bytes"),
+            "sha256": primary.get("sha256"),
         }
+        if session.fallback:
+            payload["fallback_installer"] = {
+                "tool": session.artifact.get("tool"),
+                "path": session.artifact.get("path"),
+                "bytes": session.artifact.get("bytes"),
+                "sha256": session.artifact.get("sha256"),
+            }
         payload["python"]["asset"] = session.manifest["python"]["assets"][session.label] if not args.dry_run else {"name": "dry-run"}
         payload["python"]["version"] = session.python_version
         payload["python"]["executable"] = str(session.python_exe or session.env_python or "")
@@ -876,6 +1130,8 @@ def main(argv: list[str] | None = None) -> int:
         if session.record:
             payload["launcher"] = {key: value for key, value in session.record.items() if key != "health"}
             payload["launcher"]["health"] = session.record.get("health")
+        if session.fallback:
+            payload["fallback"] = session.fallback
         result_path, _summary_path = write_result(args.output, payload)
         print(f"result: {result_path}")
         print(summary_markdown(payload))

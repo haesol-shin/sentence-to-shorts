@@ -18,7 +18,7 @@ Section "Install"
   SetOutPath "$INSTDIR"
   File /r "@BUNDLE_DIR@\*.*"
   CreateDirectory "$SMPROGRAMS\@DISPLAY_NAME@"
-  CreateShortCut "$SMPROGRAMS\@DISPLAY_NAME@\@DISPLAY_NAME@.lnk" "$INSTDIR\python\pythonw.exe" '"$INSTDIR\launcher.py"' "$INSTDIR\python\pythonw.exe" 0
+  CreateShortCut "$SMPROGRAMS\@DISPLAY_NAME@\@DISPLAY_NAME@.lnk" "$INSTDIR\env\Scripts\pythonw.exe" '"$INSTDIR\launcher.py"' "$INSTDIR\env\Scripts\pythonw.exe" 0
   WriteUninstaller "$INSTDIR\uninstall.exe"
 SectionEnd
 
