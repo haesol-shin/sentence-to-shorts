@@ -1,0 +1,13 @@
+# Probe environment only. These packages must not join product dependencies
+# or the product lockfile.
+#
+# Pinned to releases from 2025 so the whole set resolves on Python 3.11 with
+# cp311 wheels for both Linux x86_64 and Windows x86_64. The installed
+# transitive versions are recorded in result.json under "runtime".
+faster-whisper==1.2.1
+ctranslate2==4.6.0
+av==15.1.0
+onnxruntime==1.22.0
+tokenizers==0.21.4
+huggingface-hub==0.35.3
+numpy==2.2.6

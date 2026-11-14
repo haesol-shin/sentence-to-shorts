@@ -1,0 +1,74 @@
+name: Probe transcription
+
+on:
+  pull_request:
+    paths:
+      - "probes/transcribe/**"
+      - ".github/workflows/probe-transcribe.yml"
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: "Run the Windows runner leg too"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-transcribe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  plan:
+    # The matrix is built here because a job level if cannot read matrix values.
+    name: Plan runners
+    runs-on: ubuntu-24.04
+    outputs:
+      runners: ${{ steps.pick.outputs.runners }}
+    steps:
+      - name: Pick runners
+        id: pick
+        env:
+          WINDOWS_LEG: ${{ inputs.windows }}
+        run: |
+          if [ "$WINDOWS_LEG" = "true" ]; then
+            echo 'runners=["ubuntu-24.04","windows-latest"]' >> "$GITHUB_OUTPUT"
+          else
+            echo 'runners=["ubuntu-24.04"]' >> "$GITHUB_OUTPUT"
+          fi
+
+  transcribe:
+    name: Transcribe (${{ matrix.os }})
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(needs.plan.outputs.runners) }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: probes/transcribe/requirements.txt
+      - name: Check the harness
+        run: python -m unittest discover -s probes/transcribe/tests -v
+      - name: Install probe dependencies
+        run: python -m pip install --disable-pip-version-check --requirement probes/transcribe/requirements.txt
+      - name: Run the probe
+        run: python probes/transcribe/harness.py run --out probes/transcribe/out/result.json
+      - name: Upload the result
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: probe-transcribe-${{ matrix.os }}
+          path: probes/transcribe/out/result.json
+          if-no-files-found: warn
+          retention-days: 30
