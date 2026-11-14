@@ -25,14 +25,13 @@ import subprocess
 import sys
 import tempfile
 import time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Callable
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from harness import (  # noqa: E402
     BUNDLED_PYTHON,
-    Completed,
     LONG_PATH_TARGET,
     MINIMAL_PATH,
     REQUIREMENTS,
@@ -135,13 +134,6 @@ def purelib(env_python: Path) -> Path:
     path = Path(completed.stdout.strip())
     require(path.is_absolute(), f"purelib is not absolute: {path}")
     return path
-
-
-def user_checked(session: Session, command: list[str], *, timeout: float = TIMEOUTS["command"]) -> Completed:
-    completed = as_user(session, command, timeout=timeout)
-    if not completed.ok:
-        raise ProbeError(f"{command[0]} exited {completed.returncode}: {completed.tail()}")
-    return completed
 
 
 # --- runtime ------------------------------------------------------------------------
@@ -250,6 +242,11 @@ def pack_site_packages(session: Session, probe: Probe) -> None:
         # files and create a fresh environment at the install path.
         shutil.rmtree(session.bundle / "env")
         require(not (session.bundle / "env").exists(), "the build environment is still in the bundle")
+        if session.args.dry_run:
+            link = session.bundle / "python/bin/python3.11"
+            link.parent.mkdir(parents=True, exist_ok=True)
+            if not link.exists():
+                link.symlink_to(Path(session.base_python or sys.executable))
         return {
             "relative": session.site_packages_rel,
             "bytes": session.site_packages_bytes,
@@ -381,6 +378,7 @@ def check_archive(session: Session, probe: Probe) -> None:
                 required.append("python/bin/python3.11")
             missing = missing_exec_modes(modes, required)
             require(not missing, f"tar lost the executable bit: {missing}")
+            require("site-packages/fastapi/__init__.py" in modes, "tar has no bundled package folder")
             return {
                 "start_sh_mode": oct(modes["start.sh"]),
                 "python_mode": oct(modes.get("python/bin/python3.11", 0)),
@@ -396,7 +394,7 @@ def check_archive(session: Session, probe: Probe) -> None:
         else:
             require("requestexecutionlevel user" in lowered, "the NSIS script does not install per user")
             require("$localappdata" in lowered, "the NSIS script does not install below localappdata")
-        require("env\\scripts\\pythonw.exe" in lowered and "launcher.py" in lowered, "the shortcut does not run the app environment")
+        require("python\\pythonw.exe" in lowered and "launcher.py" in lowered, "the shortcut does not run the bundled interpreter")
         return {"tool": tool, "privileges": "lowest" if tool == "inno" else "user", "shortcut_launcher": True}
 
     stage(probe, "archive.check", action, detail="archive keeps its start path and per-user install")
@@ -454,6 +452,11 @@ def make_linux_user(session: Session) -> dict:
     }
 
 
+def windows_user_home(login: str) -> PureWindowsPath:
+    drive = os.environ.get("SystemDrive", "C:").rstrip("\\/") + "\\"
+    return PureWindowsPath(drive) / "Users" / login
+
+
 def make_windows_user(session: Session) -> dict:
     login = session.paths["login_name"]
     password = "Pb-" + secrets.token_hex(12)
@@ -461,7 +464,7 @@ def make_windows_user(session: Session) -> dict:
     if completed.ok:
         run(["net", "localgroup", "Users", login, "/add"], timeout=TIMEOUTS["command"])
         session.password = password
-        profile = Path(os.environ.get("SystemDrive", "C:")) / "Users" / login
+        profile = Path(windows_user_home(login))
         return {
             "created": True,
             "login": login,
@@ -478,72 +481,37 @@ def make_windows_user(session: Session) -> dict:
     }
 
 
-def as_user(session: Session, command: list[str], *, env: dict | None = None, timeout: float = TIMEOUTS["command"]):
+def as_user(
+    session: Session,
+    command: list[str],
+    *,
+    env: dict | None = None,
+    timeout: float = TIMEOUTS["command"],
+    timeout_is_probe: bool = False,
+):
     if session.os_name == "linux" and session.user.get("created"):
         return run(
             ["sudo", "-n", "-u", session.user["login"], "--", "env", f"HOME={session.user['home']}", f"PATH={MINIMAL_PATH}", *command],
             timeout=timeout,
+            timeout_is_probe=timeout_is_probe,
         )
     environment = (env or os.environ).copy()
     environment["HOME"] = session.user.get("home", str(session.paths["home"]))
     if session.os_name == "linux":
         environment["PATH"] = MINIMAL_PATH
-    return run(command, env=environment, timeout=timeout)
+    return run(command, env=environment, timeout=timeout, timeout_is_probe=timeout_is_probe)
 
 
 def install_tarball(session: Session, target: Path) -> None:
-    created = as_user(session, ["mkdir", "-p", str(target)])
+    created = as_user(session, ["mkdir", "-p", str(target)], timeout_is_probe=True)
     if not created.ok:
         raise ProbeError(f"cannot create the install directory: {created.tail()}")
-    extracted = as_user(session, ["tar", "-xzf", session.artifact["path"], "-C", str(target)])
+    extracted = as_user(session, ["tar", "-xzf", session.artifact["path"], "-C", str(target)], timeout_is_probe=True)
     if not extracted.ok:
         raise ProbeError(f"tar extraction failed: {extracted.tail()}")
     start_sh = target / "start.sh"
     require(start_sh.is_file(), "start.sh was not installed")
     require(os.access(start_sh, os.X_OK), "the installed start.sh is not executable")
-
-
-def local_env_python(session: Session, target: Path) -> Path:
-    relative = Path("env/Scripts/python.exe") if session.os_name == "windows" else Path("env/bin/python")
-    return target / relative
-
-
-def prepare_local_env(session: Session, target: Path) -> dict:
-    """Create the app environment at the install path and copy the bundled packages in."""
-    if session.args.dry_run:
-        base_python = Path(session.base_python or sys.executable)
-    else:
-        base_python = target / ("python/python.exe" if session.os_name == "windows" else "python/bin/python3.11")
-        require(base_python.is_file(), f"installed interpreter is missing: {base_python}")
-    env_python = local_env_python(session, target)
-    python_argv = [str(base_python), "-m", "venv", "--without-pip", str(target / "env")]
-    if session.os_name == "linux":
-        user_checked(session, python_argv)
-    else:
-        checked(python_argv, timeout=TIMEOUTS["command"])
-    require(env_python.is_file(), f"local environment is missing: {env_python}")
-    packages = purelib(env_python)
-    source = target / "site-packages"
-    require(source.is_dir(), "the bundle has no site-packages")
-    if session.os_name == "linux":
-        # The environment belongs to the install account, so copy and clean as that account.
-        user_checked(session, ["cp", "-a", f"{source}/.", f"{packages}/"])
-        user_checked(session, ["rm", "-rf", str(source)])
-    else:
-        shutil.copytree(source, packages, dirs_exist_ok=True)
-        shutil.rmtree(source)
-    command = [
-        str(env_python),
-        "-c",
-        "import json, platform, sys, fastapi, uvicorn; print(json.dumps({'python': platform.python_version(), 'executable': sys.executable, 'base_prefix': sys.base_prefix, 'fastapi': fastapi.__version__, 'uvicorn': uvicorn.__version__}))",
-    ]
-    probe_json = user_checked(session, command) if session.os_name == "linux" else checked(command)
-    data = json.loads(probe_json.stdout)
-    require(path_under(data["executable"], target), f"the local environment is outside the install dir: {data['executable']}")
-    data["base_prefix_inside"] = under(data["base_prefix"], target)
-    if not session.args.dry_run:
-        require(data["base_prefix_inside"], f"the base interpreter is outside the install dir: {data['base_prefix']}")
-    return data
 
 
 def apply_install(session: Session, probe: Probe, check_id: str = "install.apply", target: Path | None = None) -> None:
@@ -557,7 +525,6 @@ def apply_install(session: Session, probe: Probe, check_id: str = "install.apply
         else:
             run_windows_installer(session)
             require(install_root.is_dir(), f"installer did not create {install_root}")
-        local = prepare_local_env(session, install_root)
         elapsed = time.monotonic() - started
         session.install = install_root
         if check_id == "install.apply":
@@ -569,10 +536,9 @@ def apply_install(session: Session, probe: Probe, check_id: str = "install.apply
             "install_dir": str(install_root),
             "installed_bytes": tree_bytes(install_root),
             "seconds": round(elapsed, 3),
-            "env_python": local["executable"],
         }
 
-    stage(probe, check_id, action, detail="silent install and a local environment at the install path")
+    stage(probe, check_id, action, detail="silent install of the bundled interpreter, environment and app")
 
 
 def silent_flags(tool: str, install_path: Path | None) -> list[str]:
@@ -615,6 +581,7 @@ def run_windows_installer(session: Session) -> None:
         [installer, *silent_flags(session.artifact["tool"], install_path)],
         env=windows_user_env(session.user),
         timeout=TIMEOUTS["install"],
+        timeout_is_probe=True,
     )
 
 
@@ -667,12 +634,12 @@ def verify_shortcut(session: Session, probe: Probe, check_id: str = "shortcut.ta
         require(Path(target).is_file(), f"shortcut target does not exist: {target}")
         require("launcher.py" in arguments, f"shortcut does not run the launcher: {arguments}")
         require(under(target, session.install), f"shortcut target is outside the install dir: {target}")
-        expected = str(session.install / "env" / "Scripts" / "pythonw.exe")
+        expected = str(session.install / "python" / "pythonw.exe")
         require(target.lower() == expected.lower(), f"shortcut does not use the app environment: {target}")
         session.record.update({"shortcut": str(shortcut), "target": target, "arguments": arguments, "working_directory": working_directory})
         return {"shortcut": str(shortcut), "target": target, "arguments": arguments}
 
-    stage(probe, check_id, action, detail="start shortcut runs the launcher from the app environment")
+    stage(probe, check_id, action, detail="start shortcut runs the launcher with the bundled interpreter")
 
 
 def shortcut_arguments(text: str) -> list[str]:
@@ -825,9 +792,71 @@ def not_from_path(session: Session, probe: Probe, check_id: str = "python.not_fr
     stage(probe, check_id, action, detail="the server ran the installed interpreter, not PATH python")
 
 
+def stop_windows_process(process: subprocess.Popen | None, record: dict) -> None:
+    if process is not None and process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=TIMEOUTS["stop"])
+        except subprocess.TimeoutExpired:
+            process.kill()
+    for key in ("launcher_pid", "server_pid"):
+        pid = record.get(key)
+        if pid:
+            run(["taskkill", "/PID", str(pid), "/T", "/F"], timeout=60)
+
+
+def windows_long_path(session: Session, probe: Probe) -> None:
+    """Install and start on the running Windows account at a path of 240 characters or more."""
+
+    def action() -> dict:
+        require(session.user and session.artifact, "no installer or account")
+        target = deep_path(Path(session.user["install"]).parent, LONG_PATH_TARGET)
+        environment = windows_user_env(session.user)
+        started = time.monotonic()
+        checked(
+            [session.artifact["path"], *silent_flags(session.artifact["tool"], target)],
+            env=environment,
+            timeout=TIMEOUTS["install"],
+            timeout_is_probe=True,
+        )
+        install_seconds = time.monotonic() - started
+        require(target.is_dir(), f"the installer did not create the long path: {target}")
+        interpreter = target / "python" / "pythonw.exe"
+        launcher_script = target / "launcher.py"
+        require(interpreter.is_file(), f"the bundled interpreter is missing: {interpreter}")
+        require(launcher_script.is_file(), f"the launcher is missing: {launcher_script}")
+        process = subprocess.Popen(
+            [str(interpreter), str(launcher_script)],
+            env=environment,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        record: dict = {}
+        try:
+            record, payload, start_seconds = wait_for_app(session, target, process)
+            require(payload.get("status") == "ok", f"/health body is not ok: {payload}")
+            server_python = str(payload.get("python", ""))
+            require(path_under(server_python, target), f"long-path server interpreter is outside: {server_python}")
+            require(under(str(payload.get("base_prefix", "")), target), "long-path base interpreter is outside")
+        finally:
+            stop_windows_process(process, record)
+        return {
+            "install_dir_chars": len(str(target)),
+            "install_dir": str(target),
+            "install_seconds": round(install_seconds, 3),
+            "start_seconds": round(start_seconds, 3),
+            "server_python": server_python,
+            "account": os.environ.get("USERNAME", ""),
+            "note": "installed and started on the running account at a path of 240 characters or more",
+        }
+
+    stage(probe, "path.long", action, detail="full Windows install and /health at a long install path")
+
+
 def long_path(session: Session, probe: Probe) -> None:
     if session.os_name == "windows":
-        probe.skip("path.long", "the Windows long-path install waits with the Windows leg", detail="deferred")
+        windows_long_path(session, probe)
         return
 
     def action() -> dict:
@@ -835,7 +864,6 @@ def long_path(session: Session, probe: Probe) -> None:
         target = deep_path(Path(session.user["install"]).parent, LONG_PATH_TARGET)
         started = time.monotonic()
         install_tarball(session, target)
-        local = prepare_local_env(session, target)
         install_seconds = time.monotonic() - started
         process = launch_linux(session, target)
         store = {**session.record}
@@ -854,7 +882,7 @@ def long_path(session: Session, probe: Probe) -> None:
             "install_dir": str(target),
             "install_seconds": round(install_seconds, 3),
             "start_seconds": round(start_seconds, 3),
-            "server_python": local["executable"],
+            "server_python": server_python,
             "note": "installed and started at a path of 240 characters or more; paths above 260 depend on the OS policy",
         }
 

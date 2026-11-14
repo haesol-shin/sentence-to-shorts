@@ -288,7 +288,7 @@ def tar_modes(path: Path) -> dict[str, int]:
                 name = member.name
                 while name.startswith("./"):
                     name = name[2:]
-                if member.isfile() or member.isdir():
+                if member.isfile() or member.isdir() or member.issym() or member.islnk():
                     modes[name] = member.mode
     except (OSError, tarfile.TarError) as exc:
         raise HarnessError(f"cannot read the tarball {path}: {exc}") from exc

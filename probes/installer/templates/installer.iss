@@ -23,7 +23,7 @@ CloseApplications=no
 Source: "@BUNDLE_DIR@\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-Name: "{autoprograms}\@DISPLAY_NAME@"; Filename: "{app}\env\Scripts\pythonw.exe"; Parameters: """{app}\launcher.py"""; WorkingDir: "{app}"
+Name: "{autoprograms}\@DISPLAY_NAME@"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launcher.py"""; WorkingDir: "{app}"
 
 [Run]
-Filename: "{app}\env\Scripts\pythonw.exe"; Parameters: """{app}\launcher.py"""; Description: "@DISPLAY_NAME@"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launcher.py"""; Description: "@DISPLAY_NAME@"; Flags: nowait postinstall skipifsilent

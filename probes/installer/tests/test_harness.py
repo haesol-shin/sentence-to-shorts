@@ -13,14 +13,16 @@ import tarfile
 import tempfile
 import threading
 import unittest
+from unittest import mock
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from harness import HarnessError, run  # noqa: E402
-from launcher import default_port_file, parse_args  # noqa: E402
-from run_probe import shortcut_arguments, silent_flags, windows_user_env  # noqa: E402
+import launcher  # noqa: E402
+from launcher import default_port_file, parse_args, server_env  # noqa: E402
+from run_probe import shortcut_arguments, silent_flags, windows_user_env, windows_user_home  # noqa: E402
 
 from harness import (  # noqa: E402
     HarnessError,
@@ -138,7 +140,7 @@ class TemplateTest(unittest.TestCase):
         lowered = script.lower()
         self.assertIn("privilegesrequired=lowest", lowered)
         self.assertIn(r"defaultdirname={localappdata}\programs\app\0.1.0", lowered)
-        self.assertIn(r"{app}\env\scripts\pythonw.exe", lowered)
+        self.assertIn(r"{app}\python\pythonw.exe", lowered)
         self.assertIn("launcher.py", lowered)
 
     def test_nsi_requests_user_level(self) -> None:
@@ -146,7 +148,7 @@ class TemplateTest(unittest.TestCase):
         lowered = script.lower()
         self.assertIn("requestexecutionlevel user", lowered)
         self.assertIn("$localappdata\\programs\\app\\0.1.0", lowered)
-        self.assertIn(r"$instdir\env\scripts\pythonw.exe", lowered)
+        self.assertIn(r"$instdir\python\pythonw.exe", lowered)
         self.assertIn("launcher.py", lowered)
 
     def test_template_rejects_an_unfilled_value(self) -> None:
@@ -176,6 +178,16 @@ class LaunchTest(unittest.TestCase):
         environment = windows_user_env({"home": home})
         self.assertEqual(environment["USERPROFILE"], home)
         self.assertEqual(Path(environment["LOCALAPPDATA"]), Path(home) / "AppData" / "Local")
+
+    def test_launcher_adds_the_bundled_packages(self) -> None:
+        value = server_env()["PYTHONPATH"]
+        self.assertTrue(value.startswith(str(Path(launcher.__file__).resolve().parent / "site-packages")))
+
+    def test_windows_profile_path_has_a_drive_root(self) -> None:
+        with mock.patch.dict("os.environ", {"SystemDrive": "D:"}):
+            profile = windows_user_home("설치 사용자")
+        self.assertEqual(str(profile), r"D:\Users\설치 사용자")
+        self.assertTrue(profile.is_absolute())
 
     def test_shortcut_arguments_split_the_quoted_launcher(self) -> None:
         self.assertEqual(shortcut_arguments('"C:\\Program Files\\app\\launcher.py"'), [r"C:\Program Files\app\launcher.py"])

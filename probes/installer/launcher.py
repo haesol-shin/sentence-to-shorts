@@ -60,6 +60,15 @@ def write_port_file(path: Path, value: dict) -> None:
     os.replace(temporary, path)
 
 
+def server_env() -> dict:
+    """The bundled packages sit next to this file, outside the interpreter's own prefix."""
+    environment = os.environ.copy()
+    packages = str(Path(__file__).resolve().parent / "site-packages")
+    current = environment.get("PYTHONPATH", "")
+    environment["PYTHONPATH"] = packages + (os.pathsep + current if current else "")
+    return environment
+
+
 def server_command(port: int) -> list[str]:
     return [
         sys.executable,
@@ -100,6 +109,7 @@ def main(argv: list[str] | None = None, opener=webbrowser.open) -> int:
     process = subprocess.Popen(
         server_command(port),
         cwd=str(app_dir / "app"),
+        env=server_env(),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         text=True,

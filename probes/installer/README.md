@@ -25,7 +25,7 @@ python -m py_compile probes/installer/harness.py probes/installer/run_probe.py p
 python probes/installer/run_probe.py --dry-run --python <3.11 interpreter> --output probes/installer/out
 ```
 
-`--dry-run`은 이 호스트의 Python으로 Python 3.11 환경을 만들고 package 파일만 bundle에 넣고, tar로 묶고, 한글과 공백이 든 작업 폴더에 풀고, 설치 위치에서 앱 환경을 새로 만든 뒤 build 폴더를 지우고 인자 없는 `start.sh`로 앱을 띄워 `/health`를 확인한다. 긴 경로 설치와 시작도 같은 실행에서 확인한다. x64 배포 파일을 받지 않으므로 `runtime.download`와 `runtime.extract`는 건너뛰고, 새 계정도 만들지 않는다. 이 결과는 실측이 아니며 [RESULT](RESULT.md) 표에 옮기지 않는다.
+`--dry-run`은 이 호스트의 Python으로 hash 목록을 설치한 뒤 package 파일만 bundle에 넣고, 이 호스트 interpreter를 bundle의 Python 자리에 연결하고, tar로 묶고, 한글과 공백이 든 작업 폴더에 풀고, build 폴더를 지우고 인자 없는 `start.sh`로 앱을 띄워 `/health`를 확인한다. 긴 경로 설치와 시작도 같은 실행에서 확인한다. x64 배포 파일을 받지 않으므로 `runtime.download`와 `runtime.extract`는 건너뛰고, 새 계정도 만들지 않는다. 이 결과는 실측이 아니며 [RESULT](RESULT.md) 표에 옮기지 않는다.
 
 `--strict`를 붙이면 harness 오류를 종료 코드 2로 돌려준다. workflow는 이 값을 쓴다.
 
@@ -45,4 +45,4 @@ pull request를 열면 [workflow](../../.github/workflows/probe-installer.yml)�
 - 결과는 `--output`에만 쓰고, 실패한 실행도 `result.json`과 `summary.md`를 남긴다.
 - `--keep`은 작업 폴더를 지우지 않는다. Linux에서 만든 합성 계정은 runner가 사라질 때 함께 사라진다.
 - 시작은 `start.sh`와 시작 바로가기 모두 인자 없이 한다. launcher는 옆의 `port.json`에 port를 쓰고 browser를 연다. headless runner에서는 `browser_opened` 값만 남고 실제 창은 확인하지 않는다.
-- bundle에는 빌드 환경을 넣지 않는다. 설치 위치에서 `python -m venv --without-pip`으로 앱 환경을 만들고 bundle의 package를 복사한 뒤 build 폴더를 지운다.
+- bundle에는 동봉 Python, package 폴더, 앱을 넣는다. build 때 만든 가상 환경은 넣지 않고 package 파일만 꺼낸다. launcher와 `start.sh`는 그 package 폴더를 `PYTHONPATH`로 넘긴다.
