@@ -1,0 +1,7 @@
+# Probe-only dependencies. The product does not install this file and does not
+# list these packages in its own dependency files.
+#
+# Versions are pinned so both platform legs draw with the same Pillow build.
+pillow==13.0.0
+fonttools==4.68.0
+regex==2026.11.9
