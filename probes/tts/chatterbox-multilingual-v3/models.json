@@ -1,0 +1,21 @@
+{
+  "models": [
+    {
+      "repo_id": "Masterx/chatterbox-multilingual-v3-ONNX",
+      "revision": "19b94afe41de738624b2f3afc75b4cd56221fbeb",
+      "local_dir": "chatterbox-multilingual-v3-ONNX",
+      "allow_patterns": [
+        "default_voice.wav",
+        "tokenizer.json",
+        "onnx/speech_encoder.onnx",
+        "onnx/speech_encoder.onnx_data",
+        "onnx/embed_tokens.onnx",
+        "onnx/embed_tokens.onnx_data",
+        "onnx/language_model_q4.onnx",
+        "onnx/language_model_q4.onnx_data",
+        "onnx/conditional_decoder.onnx",
+        "onnx/conditional_decoder.onnx_data"
+      ]
+    }
+  ]
+}
