@@ -20,8 +20,8 @@
 ### 1.1 문서 규칙
 
 - 모든 객체는 정의하지 않은 필드를 거절한다. 말투 필드명은 `register`이며 `tone` 필드는 따로 만들지 않는다.
-- ID는 앱이 발급한다. 기술 선택: `<prefix>_<base32 12자>` 형식이다. 이유: Windows 경로를 짧게 유지하고 순서 노출이 없다.
-- 확장 가능한 항목(그림체, 카드, 목소리, BGM, 글꼴, template, 배경, 부위)은 `CatalogId` 문자열이다. 값 검사는 registry 조회로 한다. 코드 enum에 새 항목을 추가하지 않는다.
+- 앱이 발급하는 ID는 TypeID다. 기술 선택: `<prefix>_<26자 Crockford base32>` 형식이고 접미사 26자는 UUIDv7의 128비트를 소문자 Crockford base32로 적은 값이며 첫 글자는 `0`~`7`이다([TypeID 명세](https://github.com/jetify-com/typeid)). 접두사는 지금 값을 유지한다. 이유: [SPEC 1](SPEC.md#1-범위와-실행-형태)이 여럿 실행의 데이터 구조를 지금 정하고, 여러 기기와 실행 형태의 데이터 저장소에서 만든 ID를 나중에 합칠 수 있기 때문이다.
+- 확장 가능한 항목(그림체, 카드, 목소리, BGM, 글꼴, template, 배경, 부위)은 `CatalogId` 문자열이다. 값 검사는 registry 조회로 하고 TypeID 규칙을 쓰지 않는다. 코드 enum에 새 항목을 추가하지 않는다.
 - 닫힌 값(말투, 유머, 캐릭터 역할, 자막 표시 모드, job 상태)만 enum이다.
 - video revision은 immutable이다. 변경은 새 revision을 쓴다. 과거 revision 파일은 다시 쓰지 않는다.
 - 생성 결과는 video 문서에 넣지 않는다. 기술 선택: artifact는 cache key로 index에서 찾고 `VideoBuild`로 보여 준다. 이유: undo가 같은 원본으로 돌아가면 같은 key로 이전 결과를 바로 찾는다.
@@ -44,7 +44,7 @@
 
 ### 1.3 의미 검사
 
-schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한다. 오류 코드는 `ApiError.detail.issues[].code`로 돌려준다.
+schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한다. 오류 코드는 [3.1절](#31-오류-본문)의 `errors[].code`로 돌려준다.
 
 | code | 조건 |
 |---|---|
@@ -57,7 +57,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | `incompatible_part` | `rig.compat`가 허용하지 않는 body와 부위 조합 |
 | `highlight_range` | highlight span이 display_text 범위를 벗어나거나 겹침 |
 | `reveal_line_unknown` | element나 sfx가 장면에 없는 line을 가리킴 |
-| `revision_conflict` | 요청의 base_revision이 head가 아님 (HTTP 409로 응답, `detail.current_revision`을 함께 돌려준다) |
+| `revision_conflict` | 요청의 base_revision이 head가 아님 (HTTP 409 problem으로 응답하고 `current_revision` 확장 멤버를 함께 돌려준다) |
 
 ## 2. 버전과 migration
 
@@ -68,7 +68,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - migration은 `core/app/storage/migrations/v<N>_to_v<N+1>.py`의 순수 함수 `migrate(doc: dict) -> dict`다.
 - 읽을 때 순서대로 적용한다. 원본 revision 파일은 다시 쓰지 않는다. 다음 쓰기에서 새 버전으로 저장한다.
 - migration마다 이전 버전 fixture와 기대 결과 fixture를 함께 추가한다.
-- 앱보다 높은 `schema_version` 문서는 열지 않는다. API는 422 `unsupported_version`과 `detail.found`, `detail.supported`로 알린다. job 안에서 읽다 만나면 job 오류 `unsupported_version`으로 실패시킨다. 두 enum 모두에 이 코드가 있다.
+- 앱보다 높은 `schema_version` 문서는 열지 않는다. API는 422 `unsupported_version` problem과 `found`, `supported` 확장 멤버로 알린다. job 안에서 읽다 만나면 job 오류 `unsupported_version`으로 실패시킨다. 두 enum 모두에 이 코드가 있다.
 - plugin과 생성 package의 manifest는 migration하지 않는다. 지원하지 않는 `schema_version`이나 `api_version`은 registry가 등록 전에 거절한다.
 - SQLite는 `PRAGMA user_version`과 순서 있는 SQL migration을 쓴다. 적용 전에 `state.db`를 `state.db.bak-<version>`으로 복사한다. 실패하면 원본을 보존하고 앱을 시작하지 않는다.
 
@@ -77,16 +77,25 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 기본 경로는 `/api/v1`이다. 빌드한 SPA는 같은 origin의 `/`에서 제공한다.
 - GET은 상태를 바꾸지 않는다.
 - 인증과 origin 검사는 13절을 따른다. `GET /health`와 `POST /session/pair`만 세션 없이 받는다.
-- 영상을 바꾸는 요청은 `base_revision`을 받는다. head와 다르면 409 `revision_conflict`와 `detail.current_revision`을 돌려준다. 서버는 병합하지 않는다.
+- 영상을 바꾸는 요청은 `base_revision`을 받는다. head와 다르면 409 `revision_conflict` problem과 `current_revision` 확장 멤버를 돌려준다. 서버는 병합하지 않는다. 이미 적용된 계획의 적용 재시도는 4.1절의 예외를 따른다.
 - 자원이나 job을 만드는 POST는 `Idempotency-Key` header(8~64자 `[A-Za-z0-9_-]`)를 요구한다.
 - 같은 key와 같은 요청 digest는 저장한 응답을 그대로 돌려준다. 같은 key와 다른 digest는 409 `idempotency_mismatch`다. key는 24시간 보관한다.
 - 요청 digest는 SHA-256이다. JSON 본문은 canonical JSON(8절 규칙)의 SHA-256이다. multipart 본문은 `file` 파트의 SHA-256과 나머지 필드를 이름 순으로 canonical JSON으로 만든 값을 이어 붙인 문자열의 SHA-256이다. 서버는 업로드를 임시 파일로 받으며 해시를 계산하므로 파일 전체를 메모리에 올리지 않는다. 한도를 넘으면 해시 계산 중에도 413으로 끊는다.
 - 같은 영상, 같은 kind, 같은 요청 digest의 활성 job이 있으면 새 job 대신 그 job을 200으로 돌려준다.
-- 같은 영상, 같은 kind의 다른 활성 job이 있으면 409 `job_running`과 `detail.job_id`를 돌려준다.
-- 오류 본문은 `api.schema.json#/$defs/ApiError`다. 화면 문구는 `message_key`로 frontend locale에서 찾는다.
+- 같은 영상, 같은 kind의 다른 활성 job이 있으면 409 `job_running` problem과 `job_id` 확장 멤버를 돌려준다.
+- 오류 응답은 [3.1절](#31-오류-본문)의 RFC 9457 problem이다.
 - 오류 코드 구분: HTTP 응답 코드 `llm_auth_required`(503)는 job이 시작되기 전에 인증이 없을 때다. job 오류 `llm_auth`는 실행 중 인증이 없거나 만료됐을 때다. HTTP 응답 코드 `revision_conflict`(409)는 요청의 base_revision이 head와 다를 때다. job 오류 `stale_revision`은 job이 끝났는데 영상 head가 이미 바뀌어 결과를 적용하지 않고 버릴 때다.
 - 202 응답 본문은 `Job`이다. client는 `GET /jobs/{id}`를 보이는 탭에서 1초, 숨은 탭에서 5초 간격으로 조회한다. 기술 선택: SSE와 WebSocket을 쓰지 않는다. 이유: 인증·origin 검사 경로를 하나로 유지한다.
-- 목록은 `?cursor=&limit=`(최대 50)을 받는다.
+- 목록 응답은 `{items, next_cursor}` 봉투다. 요청은 `?cursor=&limit=`(최대 50)을 받는다. `next_cursor`는 불투명 문자열이고 client가 해석하지 않으며 마지막 쪽에서는 `null`이다.
+
+### 3.1 오류 본문
+
+- 오류 응답의 media type은 `application/problem+json`이고 본문은 `api.schema.json#/$defs/Problem`이다. [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details를 따른다.
+- 표준 멤버는 `type`, `title`, `status`, `detail`, `instance`다. `status`는 HTTP 응답 코드와 같은 정수이고 `instance`는 요청 경로다. `title`은 code별 고정 요약이고 `detail`은 그 발생을 설명하는 문자열이다.
+- `type`은 `https://app.invalid/problems/<code>`다. `.invalid`는 [RFC 2606](https://www.rfc-editor.org/rfc/rfc2606)이 예약한 이름이라 이 주소에 실제 문서를 두지 않는다.
+- 확장 멤버는 `code`, `message_key`, `retryable`, `errors`다. `code`는 앱 오류 코드이고 `message_key`는 화면 문구 key이며 `retryable`은 같은 요청을 다시 보낼 수 있는지다. 화면 문구는 `message_key`로 frontend locale에서 찾는다.
+- `errors`는 의미 검사 실패 목록이고 각 item의 `code`는 [1.3절](#13-의미-검사)의 코드다.
+- 문맥 값은 확장 멤버로 돌려준다: `current_revision`(409 `revision_conflict`), `job_id`(409 `job_running`), `found`와 `supported`(422 `unsupported_version`).
 
 ## 4. HTTP API 목록
 
@@ -101,16 +110,16 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | PUT `/credentials/llm` | `ApiKeyRequest` | 204 | 403 `loopback_only`, 400 `validation_failed` | 아니오 |
 | GET `/credentials/llm` | 없음 | 200 `{configured}` | 없음 | 아니오 |
 | DELETE `/credentials/llm` | 없음 | 204 | 403 `loopback_only` | 아니오 |
-| GET `/catalog/{kind}` | `?video_id=&q=` | 200 `{items: CatalogItem[], next_cursor}` | 404 `not_found` | 아니오 |
+| GET `/catalog/{kind}` | `?video_id=&q=&cursor=&limit=` | 200 `{items: CatalogItem[], next_cursor}` | 404 `not_found` | 아니오 |
 | GET `/catalog/{kind}/{id}` | 없음 | 200 manifest | 404 `not_found` | 아니오 |
 | GET `/catalog/{kind}/{id}/media/{name}` | 없음 | 200 썸네일 PNG 또는 샘플 WAV | 404 | 아니오 |
 | POST `/projects` | `CreateProjectRequest` | 201 Project | 400 | 예 |
-| GET `/projects` | 없음 | 200 요약 목록 | 없음 | 아니오 |
+| GET `/projects` | `?cursor=&limit=` | 200 `{items: Project 요약[], next_cursor}` | 없음 | 아니오 |
 | GET `/projects/{pid}` | 없음 | 200 Project | 404 | 아니오 |
 | DELETE `/projects/{pid}` | 없음 | 204 | 404, 409 `job_running` | 아니오 |
 | POST `/projects/{pid}/videos` | `CreateVideoRequest` | 201 Video revision 1 | 404, 422 `unknown_catalog_id` | 예 |
 | GET `/videos/{vid}` | 없음 | 200 `VideoView` | 404 | 아니오 |
-| GET `/videos/{vid}/revisions` | 없음 | 200 `[{revision, created_at, created_by, change_id}]` | 404 | 아니오 |
+| GET `/videos/{vid}/revisions` | `?cursor=&limit=` | 200 `{items: RevisionInfo[], next_cursor}`, `RevisionInfo`는 `{revision, created_at, created_by, change_id}` | 404 | 아니오 |
 | GET `/videos/{vid}/revisions/{n}` | 없음 | 200 Video | 404 | 아니오 |
 | POST `/videos/{vid}/draft` | `DraftRequest` | 202 Job `draft` | 409 `revision_conflict`, 503 `llm_auth_required` | 예 |
 | POST `/videos/{vid}/script` | `BaseRevision` | 202 Job `script` | 409 | 예 |
@@ -121,7 +130,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | POST `/videos/{vid}/messages` | `MessageRequest` | 202 Job `chat` | 409 | 예 |
 | GET `/changes/{cid}` | 없음 | 200 ChangePlan | 404 | 아니오 |
 | POST `/changes/{cid}/preview` | 없음 | 202 Job `preview` (제안 상태의 정지 화면) | 409 `change_stale` | 예 |
-| POST `/changes/{cid}/apply` | `BaseRevision` | 200 Video | 409 `revision_conflict`, 409 `change_stale` | 예 |
+| POST `/changes/{cid}/apply` | `BaseRevision` | 200 Video (이미 적용된 계획은 그 `applied_revision`의 Video) | 409 `revision_conflict`, 409 `change_stale` | 예 |
 | POST `/changes/{cid}/reject` | 없음 | 200 ChangePlan | 409 `change_stale` | 예 |
 | POST `/videos/{vid}/undo` | `BaseRevision` | 200 Video | 409 `nothing_to_undo` | 예 |
 | POST `/videos/{vid}/precheck` | `BaseRevision` | 202 Job `precheck` | 409 `scenes_not_confirmed` | 예 |
@@ -134,8 +143,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | POST `/bgm/uploads` | multipart `file`, `project_id` | 202 Job `bgm_upload` | 413 `payload_too_large`, 415 `unsupported_media` | 예 |
 | GET `/bgm/{id}/audio` | 없음 | 200 WAV | 404 | 아니오 |
 | POST `/projects/{pid}/presets` | `PresetRequest` | 201 Preset | 404 | 예 |
-| GET `/projects/{pid}/presets` | 없음 | 200 Preset 목록 | 404 | 아니오 |
-| GET `/jobs` | `?video_id=&state=` | 200 Job 목록 | 없음 | 아니오 |
+| GET `/projects/{pid}/presets` | `?cursor=&limit=` | 200 `{items: Preset[], next_cursor}` | 404 | 아니오 |
+| GET `/jobs` | `?video_id=&state=&cursor=&limit=` | 200 `{items: Job[], next_cursor}` | 없음 | 아니오 |
 | GET `/jobs/{jid}` | `If-None-Match` | 200 Job 또는 304 | 404 | 아니오 |
 | POST `/jobs/{jid}/cancel` | 없음 | 202 Job `cancelling` 또는 200 Job `cancelled` | 409 `job_terminal` | 아니오 |
 | POST `/jobs/{jid}/retry` | 없음 | 202 Job | 409 `job_not_retryable` | 예 |
@@ -156,6 +165,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 확인이 필요한 조건은 대본 재작성, 여러 장면 변경, lock 변경, 사용자 값 덮어쓰기, TTS나 렌더 재실행이다.
 - `draft` job은 base_revision이 아직 head면 결과를 바로 적용한다. head가 바뀌었으면 계획을 `proposed`로 남긴다.
 - head가 바뀐 뒤의 `proposed` 계획은 `stale`이 된다. 적용 요청은 409 `change_stale`이다.
+- 이미 `applied`인 계획의 적용은 `base_revision` 검사보다 먼저 200과 그 `applied_revision`의 Video를 돌려준다. 새 revision을 만들지 않고, 응답을 잃은 client의 재시도가 성공한다. `rejected` 계획의 적용은 409다.
 - 앞뒤 장면의 옛 표현은 `stale_wording_in_neighbor` 경고만 남긴다. 자동으로 고치지 않는다.
 - undo는 직전 revision의 원본을 새 revision으로 쓴다. 이전 결과는 같은 cache key로 다시 연결된다.
 - `script` job은 대본이 없으면 결과를 바로 적용한다. 대본이 있으면 `script_rewrite` 확인이 필요한 계획을 만든다.
@@ -186,18 +196,19 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 ## 8. Cache key와 변경 범위
 
 - 계산은 `core/app/services/pipeline/cache_keys.py` 한 곳에서 한다.
-- key는 canonical JSON(UTF-8, key 정렬, 공백 없음, 정수 ms, float 금지)의 SHA-256이다.
+- key는 canonical JSON(UTF-8, key 정렬, 공백 없음, 숫자는 정수만, float 금지)의 SHA-256이다.
+- 시간은 정수 ms다. dB 눈금 값(gain, ducking, 음량 목표, true peak)은 dB의 10배 정수로 저장하고 필드 이름에 `_x10`을 붙인다. 예: -3.5 dB는 `gain_db_x10: -35`이고 -16 LUFS는 `loudness_lufs_x10: -160`이다. 단위가 분명하지 않은 `speed`는 [숫자 형식](#숫자-형식)에 둔다.
 - 각 key는 `kind`와 `api_version`을 포함한다.
 
 | artifact | 넣는 입력 | 넣지 않는 입력 |
 |---|---|---|
-| `tts_wav` | speech_text, language, voice PinnedRef, engine runtime digest, speed, seed | display_text, 순서, BGM |
+| `tts_wav` | speech_text, language, voice PinnedRef, engine runtime digest, speed(단위 미정), seed | display_text, 순서, BGM |
 | `timing_json` | 줄별 tts digest, speech_text, display_text, language, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
 | `part_png` | style PinnedRef, CharacterSpec, expression, pose, canvas, seed, sandbox runtime digest | 장면 글 |
 | `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, canvas, 입력 part digest, seed | BGM, 순서 |
 | `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정, layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
 | `clip_mp4` | still 입력 전체, timing digest, motion, fps, renderer revision | BGM, 순서, 다른 장면 |
-| `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, gain, ducking, SFX digest와 시점, loudness 목표 | 영상 화면 |
+| `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, `gain_db_x10`, `ducking_db_x10`, SFX digest와 시점, 음량 목표 `loudness_lufs_x10` | 영상 화면 |
 | `final_mp4` | 순서 있는 clip digest, mix digest, encoder 설정 | UI 상태 |
 | `srt` | 순서 있는 timing digest, display_text | BGM |
 
@@ -251,7 +262,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 
 - PNG 검증기와 WAV 검증기는 별도 모듈이다.
 - PNG: signature, IHDR의 폭과 높이를 decode 전에 검사한다. Pillow decode는 픽셀 상한을 건다. RGBA로 다시 encode해 부가 chunk를 버린다.
-- WAV: RIFF와 WAVE header, fmt chunk의 PCM, channel 1, 44100Hz, 16bit, data 크기와 실제 frame 수, 파일 크기, 허용하지 않은 chunk를 검사한다. 최대 길이를 넘으면 거절한다. peak와 loudness를 측정해 manifest에 쓴다.
+- WAV: RIFF와 WAVE header, fmt chunk의 PCM, channel 1, 44100Hz, 16bit, data 크기와 실제 frame 수, 파일 크기, 허용하지 않은 chunk를 검사한다. 최대 길이를 넘으면 거절한다. peak와 loudness를 측정해 manifest에 10배 정수로 쓴다.
 - runner가 보낸 「검증 통과」 같은 필드는 믿지 않는다.
 
 ### 9.5 worker 수명과 cache
@@ -419,7 +430,7 @@ class MediaPort(Protocol):
 - `-nostdin`, `-protocol_whitelist file,pipe`를 쓴다. 입력은 내려받거나 업로드된 로컬 파일뿐이다.
 - 출력 규격은 1080×1920, 30fps, H.264 yuv420p, AAC 44.1kHz다. 정지 미리보기는 540×960 PNG다. 기술 선택: 미리보기는 최종의 절반 크기다. 이유: 같은 함수를 쓰면서 생성 시간을 줄인다.
 - 자막 줄바꿈과 배치는 1080×1920 기준으로 실제 glyph 폭을 재서 한 번 계산한다. 미리보기는 같은 배치를 축소한다.
-- 음량 목표는 -16 LUFS, true peak -1 dBTP다. BGM ducking은 sidechain으로 한다.
+- 음량 목표는 -16 LUFS, true peak -1 dBTP다. 계약 값은 `loudness_lufs_x10: -160`과 `true_peak_dbtp_x10: -10`이다. BGM ducking은 sidechain으로 한다.
 - 장면 clip은 무음 영상이다. 소리는 최종 mux에서 한 번 넣는다.
 
 ## 13. 설정, profile, 접근 제어
@@ -721,7 +732,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 | `job.schema.json` | job과 오류 | state.db `jobs` |
 | `artifact.schema.json` | artifact index와 `Timing` | state.db `artifacts`, 파일은 6절 |
 | `sandbox-io.schema.json` | sandbox runner 입출력 | 저장하지 않음 |
-| `api.schema.json` | API 오류와 요청·응답 본문 | 저장하지 않음 |
+| `api.schema.json` | RFC 9457 problem과 요청·응답 본문 | 저장하지 않음 |
 
 - 열린 결정: 컨셉 확인 뒤 컨셉 값이 바뀌지 않는다는 규칙([SPEC 2](SPEC.md#2-흐름))을 저장 상태로 따로 둘지 정하지 않았다. 지금은 필드를 더하지 않고 4.1의 `stage`와 revision 값만 쓴다.
 
@@ -878,6 +889,10 @@ models:
 - 제안: Python Pillow와 ffmpeg를 유지한다. SVG 컷아웃은 CairoSVG로 PNG로 미리 바꾼다. LGPLv3 배포 방식을 확인한다. 장면별 mp4를 조립하며 전환은 컷과 장면 안 페이드부터 시작한다. 정지 PNG 미리보기는 같은 렌더 함수로 만든다.
 - 제안: 실행 형태는 deployment profile 설정 하나로 고르고 파일 저장·작업 실행·LLM 연결·사용자 구분만 인터페이스로 나눈다.
 - 제안: LLM은 검수 에셋 ID만 고르고 목록 밖 ID는 렌더러가 거절한다. 변화 값의 선택 주체는 [SPEC 열린 질문](SPEC.md#고정과-그림체)의 LLM안과 1.2절의 seed 함수안을 비교해 정한다.
+
+### 숫자 형식
+
+- 열린 질문: TTS 속도 배율 `speed`는 `tts_wav` key 입력인데 dB나 ms처럼 단위가 분명하지 않아 정수 표현을 정하지 않았다. 제안: 100 = 1.0배인 정수 백분율로 저장한다.
 
 ### 미디어 profile
 
