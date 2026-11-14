@@ -1,0 +1,14 @@
+{
+  "models": [
+    {
+      "repo_id": "OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX",
+      "revision": "f52645cb467506d8e18e746ddd59482685b74e58",
+      "local_dir": "MOSS-TTS-Nano-100M-ONNX"
+    },
+    {
+      "repo_id": "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX",
+      "revision": "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae",
+      "local_dir": "MOSS-Audio-Tokenizer-Nano-ONNX"
+    }
+  ]
+}

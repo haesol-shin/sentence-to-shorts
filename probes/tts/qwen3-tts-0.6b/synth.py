@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+"""Synthesize the comparison script with Qwen3-TTS 0.6B CustomVoice.
+
+The shared harness in ``probes/tts/common/`` measures cold start, first WAV,
+RTF and peak RSS. Engine failures are written to ``result.json``; this script
+still exits 0 for them.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+COMMON = Path(__file__).resolve().parents[1] / "common"
+sys.path.insert(0, str(COMMON))
+
+from harness import main  # noqa: E402
+from qwen3_tts_engine import QwenEngine  # noqa: E402
+
+CANDIDATE = "qwen3-tts-0.6b"
+MODEL_ID = "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"
+REVISION = "85e237c12c027371202489a0ec509ded67b5e4b5"
+LOCAL_DIR = "Qwen3-TTS-12Hz-0.6B-CustomVoice"
+PACKAGES = (
+    "qwen-tts",
+    "torch",
+    "torchaudio",
+    "transformers",
+    "accelerate",
+    "soundfile",
+    "numpy",
+    "onnxruntime",
+)
+
+
+def factory(threads: int) -> QwenEngine:
+    return QwenEngine(
+        threads=threads,
+        candidate=CANDIDATE,
+        model_id=MODEL_ID,
+        revision=REVISION,
+        local_dir=LOCAL_DIR,
+    )
+
+
+if __name__ == "__main__":
+    sys.exit(main(factory, PACKAGES))
