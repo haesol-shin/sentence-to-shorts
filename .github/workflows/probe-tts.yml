@@ -61,10 +61,11 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-    # Setup is capped at 30 minutes per step, the synthesis budget below is
-    # 50 minutes and the summary and artifact upload take about 5 minutes, so a
-    # slow candidate ends with a written result well inside this limit.
-    timeout-minutes: 120
+    # Worst case: 30 min install + 30 min download + 15 min load (the harness
+    # default) + 60 min synthesis + one 5 min call that started just under the
+    # budget + 3 min of checkout and upload = 143 min, inside this 150 min job
+    # limit, so a slow candidate always ends with a written result.
+    timeout-minutes: 150
     env:
       CANDIDATE: ${{ matrix.candidate }}
       PROBE_THREADS: ${{ github.event_name == 'workflow_dispatch' && inputs.threads || '4' }}
@@ -72,7 +73,7 @@ jobs:
       PROBE_MODELS_DIR: ${{ github.workspace }}/.local/probe/models
       HF_HOME: ${{ github.workspace }}/.local/probe/hf
       PROBE_SETUP_TIMEOUT: "1800"
-      PROBE_SYNTH_BUDGET: "3000"
+      PROBE_SYNTH_BUDGET: "3600"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:

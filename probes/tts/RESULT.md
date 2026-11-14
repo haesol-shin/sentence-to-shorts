@@ -12,7 +12,7 @@
 - 모델 bytes는 내려받은 snapshot 파일 크기의 합, 환경 bytes는 가상 환경 디렉터리 크기다.
 - thread 수, CPU 모델, RAM, OS, Python 버전은 `result.json`의 `thread`와 `host`에 적는다.
 - install과 모델 다운로드는 30분 제한을 두고 제한을 넘으면 결과 파일에 timeout으로 적는다.
-- 합성은 호출 하나의 제한과 단계 전체의 예산을 함께 둔다. 값과 산출 근거는 `common/harness.py` 한 곳에 두고, workflow는 자기 job 한도에서 감당할 수 있는 예산을 넘긴다. 호출이 제한을 넘거나 예산이 바닥나면 남은 문장을 건너뛰고 `result.json`을 그 자리에서 마감한다.
+- 합성은 호출 하나의 제한과 단계 전체의 예산을 함께 둔다. 실패한 호출도 쓴 시간을 예산에 넣는다. 값과 산출 근거는 `common/harness.py` 한 곳에 두고, workflow는 job 한도에서 설치·다운로드·load·마지막 호출까지 뺀 나머지를 예산으로 넘긴다. 예산이 바닥나면 남은 반복을 건너뛰고 지금까지의 측정과 성공한 WAV로 `result.json`과 청취 묶음을 마감한다.
 - 시험 대상의 실패와 timeout은 `result.json`에 적고 workflow는 성공으로 끝낸다. workflow 실패는 harness 오류만 뜻한다. 상태는 `ok`, `partial`, `failed` 중 하나이며 `partial`은 일부 문장만 실패한 경우다.
 - 청취 묶음은 성공한 WAV를 -16 LUFS로 맞추고 peak를 -1 dBFS 아래로 제한한다. 0.4초 이상은 표준 400ms BS.1770 block으로 재고, 그보다 짧은 음성만 더 짧은 block을 쓴다. 두 조건을 함께 맞추지 못하면 `target_met`을 false로 두고 실측값을 key에 적는다.
 - 후보 이름은 후보마다 글자 하나로 바꾸고 OS별 파일은 같은 글자 아래 하위 폴더에 둔다. 대응표는 이 문서에 적지 않고 별도 artifact `listening-key`에만 둔다.

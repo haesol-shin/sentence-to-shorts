@@ -32,7 +32,7 @@ The harness starts the model, synthesises the first text once as warmup, then ev
 
 `PROBE_START_MS` is the wall-clock start of the process in milliseconds. The workflow sets it before Python starts so cold start includes interpreter and import time. Without it the script falls back to its own start and records `cold_start_source`.
 
-`--timeout` bounds one synthesis call and `--synth-budget` bounds the whole synthesis stage. A call that overruns, or a budget that is already used up before the next call, is written to `result.json` and the process exits 3. The `common/harness.py` constants hold both defaults and the measurement behind the timeout; the workflow passes the budget it can afford from its own job limit.
+`--timeout` bounds one synthesis call and `--synth-budget` bounds the wall time the stage spends, counting calls that failed. A call that overruns, or a budget that is already used up before the next call, is written to `result.json` and the process exits 3; a text that already wrote its first WAV keeps it, so the listening pack still receives it. The `common/harness.py` constants hold both defaults and the measurement behind the timeout; the workflow passes the budget left over from its own job limit.
 
 The listening pack consumes artifact directories:
 

@@ -37,8 +37,9 @@ DEFAULT_REPEATS = 3
 DEFAULT_TIMEOUT_S = 300.0
 DEFAULT_LOAD_TIMEOUT_S = 900.0
 # Zero means no budget. The workflow passes the value it can afford from its own
-# job limit, so one slow candidate ends with a written result instead of a job
-# that the runner kills while the result still says "running".
+# job limit, and that limit has to hold the install cap, the download cap, the
+# load timeout, this budget, one more call that started just under the budget
+# (the per-call timeout) and the closing steps together.
 DEFAULT_SYNTH_BUDGET_S = 0.0
 RSS_INTERVAL_S = 0.05
 
@@ -383,6 +384,7 @@ def run_engine(
         "packages": package_versions(package_names),
         "cold_start_ms": None,
         "first_wav_ms": None,
+        "stopped_early": None,
         "sample_rate": None,
         "rtf": None,
         "peak_rss_bytes": None,
@@ -413,6 +415,11 @@ def run_engine(
                 result["failure"] = failure
             measured = [entry for entry in result["texts"] if not entry.get("warmup")]
             failures = [entry for entry in measured if entry["failure"] is not None]
+            measured_any = [
+                entry
+                for entry in measured
+                if any(run.get("rtf") is not None for run in entry.get("runs", []))
+            ]
             if result["failure"] is not None or result["texts"] and not measured:
                 result["status"] = "failed"
             elif failures and len(failures) == len(measured):
@@ -421,6 +428,10 @@ def run_engine(
             elif failures:
                 result["status"] = "partial"
                 result["failure"] = failures[0]["failure"]
+            elif result["stopped_early"] is not None:
+                result["status"] = "partial" if measured_any else "failed"
+                if not measured_any:
+                    result["failure"] = result["stopped_early"]
             else:
                 result["status"] = "ok"
             result["peak_rss_bytes"] = sampler.stop()
@@ -525,20 +536,22 @@ def run_engine(
             "runs": [],
             "rtf": None,
             "failure": None,
+            "skipped": None,
         }
         for repeat in range(1, args.repeats + 1):
             keep = repeat == 1
             target = wav_dir / f"{item['id']}.wav" if keep else scratch_dir / f"{item['id']}-{repeat}.wav"
             run: dict[str, Any] = {"repeat": repeat, "wall_ms": None, "wav_ms": None, "rtf": None}
             if not budget_left():
-                run["failure"] = budget_failure()
-                entry["failure"] = run["failure"]
+                stop = budget_failure()
+                run["skipped"] = stop
+                entry["skipped"] = stop
                 entry["runs"].append(run)
                 exhausted = True
                 break
+            started = time.perf_counter()
             try:
                 watchdog.arm(args.timeout, "synthesize")
-                started = time.perf_counter()
                 extra = engine.synthesize(item["text"], item["language"], target)
                 wall_ms = (time.perf_counter() - started) * 1000.0
                 watchdog.disarm()
@@ -562,6 +575,9 @@ def run_engine(
                     target.unlink(missing_ok=True)
             except BaseException as exc:  # noqa: BLE001 - engine failures are results
                 watchdog.disarm()
+                failed_ms = (time.perf_counter() - started) * 1000.0
+                spent_s += failed_ms / 1000.0
+                run["wall_ms"] = round(failed_ms, 1)
                 run["failure"] = record("synthesize", exc)
                 entry["failure"] = run["failure"]
                 target.unlink(missing_ok=True)
@@ -582,6 +598,15 @@ def run_engine(
             break
 
     result["synth_spent_s"] = round(spent_s, 1)
+    if exhausted:
+        result["stopped_early"] = {
+            "stage": "synthesize",
+            "code": "total_timeout",
+            "reason": "synth_budget",
+            "budget_s": args.synth_budget,
+            "spent_s": round(spent_s, 1),
+            "message": f"synthesis budget of {args.synth_budget:g} s is used up",
+        }
     if total_audio > 0:
         result["rtf"] = round(total_wall / total_audio, 4)
     try:

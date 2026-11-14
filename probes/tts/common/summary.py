@@ -43,10 +43,17 @@ def render(result: dict) -> str:
         f"| env bytes | {_mib(result.get('env_bytes'))} MiB |",
     ]
     failure = result.get("failure")
+    stopped = result.get("stopped_early")
     if failure:
         message = str(failure.get("message", "")).splitlines()[:3]
         lines += ["", f"Failure at {failure.get('stage')}: {failure.get('code')}", ""]
         lines += [f"> {line}" for line in message]
+    elif stopped:
+        lines += [
+            "",
+            f"Stopped early: {stopped.get('reason')} after "
+            f"{_number(stopped.get('spent_s'))} s of {_number(stopped.get('budget_s'), 0)} s",
+        ]
     texts = result.get("texts", [])
     if texts:
         lines += ["", "| text | wav ms | rtf |", "| --- | --- | --- |"]
