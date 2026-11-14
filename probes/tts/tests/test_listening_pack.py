@@ -183,6 +183,28 @@ class ShortAndLoudAudioTest(unittest.TestCase):
         self.assertAlmostEqual(data.size, int(0.2 * SAMPLE_RATE), delta=2)
         self.assertTrue((self.root / "key.json").is_file())
 
+    def test_clips_from_half_second_use_standard_block(self) -> None:
+        tones = self.root / "tones"
+        write_tone(tones / "K1.wav", seconds=0.8)
+        write_tone(tones / "K2.wav", seconds=2.0)
+        write_result(
+            self.artifacts,
+            "tts-mixed",
+            "mixed",
+            "Linux",
+            {"K1": tones / "K1.wav", "K2": tones / "K2.wav"},
+        )
+        key = make_listening_pack.build(
+            self.artifacts, self.root / "pack", self.root / "key.json", 13
+        )
+        records = key["assignments"][0]["runs"][0]["files"]
+        self.assertEqual(len(records), 2)
+        for record in records:
+            self.assertEqual(record["block_ms"], 400.0)
+            self.assertTrue(record["target_met"])
+            data, rate = sf.read(str(self.root / "pack" / record["out"]))
+            self.assertAlmostEqual(pyln.Meter(rate).integrated_loudness(data), -16.0, delta=0.25)
+
     def test_peak_limited_clip_keeps_target_loudness(self) -> None:
         tones = self.root / "tones"
         write_high_crest(tones / "K1.wav")

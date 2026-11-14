@@ -38,7 +38,7 @@ The listening pack consumes artifact directories:
 python probes/tts/make_listening_pack.py --artifacts artifacts --out pack --key key/key.json
 ```
 
-`pack/` holds one letter per candidate and one subdirectory per runner OS, for example `pack/A/linux/K1.wav`. Each clip is normalised to -16 LUFS and its peak is kept below -1 dBFS; clips shorter than the standard 0.4 s BS.1770 block are measured with a smaller block, and a clip that cannot meet both conditions keeps its measured output loudness with `target_met: false`. `key/key.json` holds the mapping and is uploaded as a separate artifact.
+`pack/` holds one letter per candidate and one subdirectory per runner OS, for example `pack/A/linux/K1.wav`. Each clip is normalised to -16 LUFS and its peak is kept below -1 dBFS. Clips of 0.4 s or longer use the standard 0.4 s BS.1770 block; only shorter clips use a smaller block, and a clip that cannot meet both conditions keeps its measured output loudness with `target_met: false`. `key/key.json` holds the mapping and is uploaded as a separate artifact.
 
 Model snapshots, the Hugging Face cache and the probe workspace stay under `.local/probe/`, which git ignores.
 

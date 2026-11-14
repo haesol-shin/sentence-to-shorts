@@ -89,7 +89,10 @@ def _measure(signal: np.ndarray, rate: int) -> tuple[float | None, float | None]
     duration = signal.size / float(rate)
     if duration < MIN_BLOCK_S:
         return None, None
-    block = min(STANDARD_BLOCK_S, max(MIN_BLOCK_S, duration / 4.0))
+    if duration >= STANDARD_BLOCK_S:
+        block = STANDARD_BLOCK_S
+    else:
+        block = max(MIN_BLOCK_S, duration / 4.0)
     meter = pyln.Meter(rate, block_size=block)
     try:
         value = float(meter.integrated_loudness(signal))
