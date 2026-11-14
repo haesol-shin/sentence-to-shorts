@@ -1,0 +1,19 @@
+{
+  "task": "script",
+  "request": {
+    "task": "script",
+    "route": "script.default",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "Synthetic topic: why cats knock over cups",
+        "png": null
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "Cats knock over cups for three reasons. First, curiosity. Second, they want attention. Third, the surface is fun.",
+  "parsed": null
+}

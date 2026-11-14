@@ -1,0 +1,18 @@
+{
+  "task": "draft",
+  "request": {
+    "task": "draft",
+    "route": "draft",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "합성 주제: 고양이가 컵을 쏟는 이유"
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "초안: 고양이는 왜 컵을 쏟을까. 세 가지 이유를 살펴본다.",
+  "parsed": null
+}

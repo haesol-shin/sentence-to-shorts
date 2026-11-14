@@ -1,0 +1,349 @@
+{
+  "$defs": {
+    "Anchor": {
+      "enum": [
+        "left",
+        "center",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "title": "Anchor",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CueAt": {
+      "enum": [
+        "start",
+        "end"
+      ],
+      "title": "CueAt",
+      "type": "string"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "Element": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/Anchor"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "$ref": "#/$defs/ElementKind"
+        },
+        "reveal_line_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "value",
+        "anchor",
+        "reveal_line_id"
+      ],
+      "title": "Element",
+      "type": "object"
+    },
+    "ElementKind": {
+      "enum": [
+        "label",
+        "code",
+        "asset",
+        "material"
+      ],
+      "title": "ElementKind",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "properties": {
+        "display_text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Display Text",
+          "type": "string"
+        },
+        "highlight": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "maxItems": 4,
+          "title": "Highlight",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "speaker": {
+          "$ref": "#/$defs/Speaker"
+        },
+        "speech_text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Speech Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display_text",
+        "speech_text",
+        "speaker",
+        "highlight"
+      ],
+      "title": "Line",
+      "type": "object"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Placement": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/PlacementAnchor"
+        },
+        "expression_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "motion": {
+          "$ref": "#/$defs/SceneMotion"
+        },
+        "pose_id": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "anchor",
+        "expression_id",
+        "pose_id",
+        "motion"
+      ],
+      "title": "Placement",
+      "type": "object"
+    },
+    "PlacementAnchor": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "title": "PlacementAnchor",
+      "type": "string"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": {
+          "pattern": "^[a-z0-9_]{1,24}$",
+          "title": "Beat Id",
+          "type": "string"
+        },
+        "beat_label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Beat Label",
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Lines",
+          "type": "array"
+        },
+        "visual": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SceneVisual"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "beat_id",
+        "beat_label",
+        "lines",
+        "visual"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "SceneMotion": {
+      "enum": [
+        "none",
+        "pop",
+        "bob",
+        "move"
+      ],
+      "title": "SceneMotion",
+      "type": "string"
+    },
+    "SceneVisual": {
+      "additionalProperties": false,
+      "properties": {
+        "background_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/Placement"
+          },
+          "maxItems": 1,
+          "title": "Characters",
+          "type": "array"
+        },
+        "elements": {
+          "items": {
+            "$ref": "#/$defs/Element"
+          },
+          "maxItems": 6,
+          "title": "Elements",
+          "type": "array"
+        },
+        "sfx": {
+          "items": {
+            "$ref": "#/$defs/SfxCue"
+          },
+          "maxItems": 2,
+          "title": "Sfx",
+          "type": "array"
+        },
+        "transition_in": {
+          "$ref": "#/$defs/TransitionIn"
+        }
+      },
+      "required": [
+        "background_id",
+        "characters",
+        "elements",
+        "sfx",
+        "transition_in"
+      ],
+      "title": "SceneVisual",
+      "type": "object"
+    },
+    "SfxCue": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/CueAt"
+        },
+        "line_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "offset_ms": {
+          "maximum": 2000,
+          "minimum": -500,
+          "title": "Offset Ms",
+          "type": "integer"
+        },
+        "sfx_id": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "sfx_id",
+        "line_id",
+        "at",
+        "offset_ms"
+      ],
+      "title": "SfxCue",
+      "type": "object"
+    },
+    "Span": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Speaker": {
+      "enum": [
+        "narrator",
+        "character"
+      ],
+      "title": "Speaker",
+      "type": "string"
+    },
+    "TransitionIn": {
+      "enum": [
+        "cut",
+        "fade"
+      ],
+      "title": "TransitionIn",
+      "type": "string"
+    }
+  },
+  "$id": "https://app.invalid/schemas/scene.schema.json",
+  "$ref": "#/$defs/Scene",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Source data of one scene.",
+  "title": "Scene"
+}

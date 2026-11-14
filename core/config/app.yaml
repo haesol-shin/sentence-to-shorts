@@ -1,0 +1,79 @@
+# Application defaults. Every key is read by app/settings.py; providers name the
+# implementation that the bootstrap wires for each service and adapter.
+
+app:
+  profile: dev
+  deployment: local
+  bind_host: 127.0.0.1
+  port: 8700
+  log_level: info
+
+providers:
+  adapters:
+    llm: fixture
+    tts: fixed_wav
+    aligner: default
+    transcriber: default
+    media: default
+    sandbox: default
+    downloader: default
+  fixture_adapters:
+    aligner: skeleton
+    transcriber: skeleton
+    media: skeleton
+    sandbox: skeleton
+    downloader: skeleton
+
+limits:
+  list_page_max: 50
+  idempotency_key_ttl_hours: 24
+
+jobs:
+  deadlines_s:
+    draft: 180
+    script: 180
+    chat: 180
+    precheck: 180
+    preview: 600
+    generate: 2400
+    reference: 900
+    style: 900
+    template: 900
+    bgm_code: 300
+    bgm_upload: 120
+    runtime_prepare: null
+  max_attempts:
+    draft: 3
+    script: 3
+    chat: 3
+    precheck: 3
+    preview: 3
+    generate: 3
+    reference: 2
+    style: 2
+    template: 2
+    bgm_code: 2
+    bgm_upload: 1
+    runtime_prepare: 3
+
+sandbox:
+  wall_ms:
+    style_parts: 60000
+    template_layer: 20000
+    bgm_loop: 30000
+  memory_bytes: 1073741824
+  stdin_bytes: 12582912
+  stdout_bytes: 50331648
+  stderr_bytes: 65536
+  max_files: 64
+  max_png_side: 1920
+  max_png_bytes: 8388608
+  max_wav_ms: 16000
+  max_wav_bytes: 1572864
+
+uploads:
+  reference_max_bytes: 314572800
+  reference_max_ms: 180000
+  bgm_max_bytes: 31457280
+  bgm_max_ms: 600000
+  material_max_chars: 20000

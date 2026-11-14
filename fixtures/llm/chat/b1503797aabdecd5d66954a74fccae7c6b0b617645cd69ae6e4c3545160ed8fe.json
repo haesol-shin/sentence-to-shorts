@@ -1,0 +1,19 @@
+{
+  "task": "chat",
+  "request": {
+    "task": "chat",
+    "route": "chat",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "Make scene 3 shorter.",
+        "png": null
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "Third, the surface is fun.",
+  "parsed": null
+}

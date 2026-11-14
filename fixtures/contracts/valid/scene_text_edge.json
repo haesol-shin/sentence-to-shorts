@@ -1,0 +1,37 @@
+{
+  "id": "s_054rv8t7g08geaczsh1z15xe59",
+  "beat_id": "recap",
+  "beat_label": "한 줄 요약",
+  "lines": [
+    {
+      "id": "l_0kzmxaaw4v9y7r37bx4bcry39a",
+      "display_text": "AI가 2026년에 3배(약 300%) 빨라졌다면?",
+      "speech_text": "에이아이가 이천이십육년에 세 배, 약 삼백 퍼센트 빨라졌다면",
+      "speaker": "narrator",
+      "highlight": [
+        {
+          "start": 0,
+          "end": 2
+        },
+        {
+          "start": 10,
+          "end": 13
+        }
+      ]
+    }
+  ],
+  "visual": {
+    "background_id": "bg_village",
+    "characters": [
+      {
+        "anchor": "center",
+        "expression_id": "expr_happy",
+        "pose_id": "pose_idle",
+        "motion": "none"
+      }
+    ],
+    "elements": [],
+    "sfx": [],
+    "transition_in": "cut"
+  }
+}

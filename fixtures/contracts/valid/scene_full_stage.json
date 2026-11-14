@@ -1,0 +1,36 @@
+{
+  "id": "s_0yy2rmcgs4816a52axdfjcmeb1",
+  "beat_id": "first",
+  "beat_label": "첫 번째",
+  "lines": [
+    {
+      "id": "l_000tmxhafr8vjvyf2wzeb1fc9n",
+      "display_text": "첫째, 원두가 신선한지 본다.",
+      "speech_text": "첫째, 원두가 신선한지 본다.",
+      "speaker": "narrator",
+      "highlight": []
+    }
+  ],
+  "visual": {
+    "background_id": "bg_stars",
+    "characters": [
+      {
+        "anchor": "center",
+        "expression_id": "expr_happy",
+        "pose_id": "pose_idle",
+        "motion": "none"
+      }
+    ],
+    "elements": [
+      {
+        "id": "e_0wyybe1tnp8fktk2g80mbghwh9",
+        "kind": "label",
+        "value": "신선도",
+        "anchor": "top",
+        "reveal_line_id": "l_000tmxhafr8vjvyf2wzeb1fc9n"
+      }
+    ],
+    "sfx": [],
+    "transition_in": "cut"
+  }
+}

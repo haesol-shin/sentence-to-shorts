@@ -1,0 +1,748 @@
+{
+  "$defs": {
+    "AssetKind": {
+      "enum": [
+        "part",
+        "expression",
+        "pose",
+        "background",
+        "skin",
+        "icon"
+      ],
+      "title": "AssetKind",
+      "type": "string"
+    },
+    "AssetRelPath": {
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}\\.(png|json)$",
+      "type": "string"
+    },
+    "BuiltinRenderer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "builtin",
+          "title": "Kind",
+          "type": "string"
+        },
+        "module": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "kind",
+        "module"
+      ],
+      "title": "BuiltinRenderer",
+      "type": "object"
+    },
+    "Canvas": {
+      "additionalProperties": false,
+      "properties": {
+        "height": {
+          "maximum": 1920,
+          "minimum": 160,
+          "title": "Height",
+          "type": "integer"
+        },
+        "scale": {
+          "$ref": "#/$defs/RenderScale"
+        },
+        "width": {
+          "maximum": 1080,
+          "minimum": 90,
+          "title": "Width",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "scale"
+      ],
+      "title": "Canvas",
+      "type": "object"
+    },
+    "Capabilities": {
+      "additionalProperties": false,
+      "properties": {
+        "caption_modes": {
+          "items": {
+            "$ref": "#/$defs/CaptionMode"
+          },
+          "minItems": 1,
+          "title": "Caption Modes",
+          "type": "array"
+        },
+        "character_roles": {
+          "items": {
+            "$ref": "#/$defs/CharacterRole"
+          },
+          "minItems": 1,
+          "title": "Character Roles",
+          "type": "array"
+        },
+        "layouts": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "minItems": 1,
+          "title": "Layouts",
+          "type": "array"
+        }
+      },
+      "required": [
+        "layouts",
+        "caption_modes",
+        "character_roles"
+      ],
+      "title": "Capabilities",
+      "type": "object"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CharacterRole": {
+      "enum": [
+        "none",
+        "presenter",
+        "subject"
+      ],
+      "title": "CharacterRole",
+      "type": "string"
+    },
+    "Compat": {
+      "additionalProperties": false,
+      "properties": {
+        "asset_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "body_ids": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "minItems": 1,
+          "title": "Body Ids",
+          "type": "array"
+        }
+      },
+      "required": [
+        "asset_id",
+        "body_ids"
+      ],
+      "title": "Compat",
+      "type": "object"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "HexColor": {
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "type": "string"
+    },
+    "License": {
+      "additionalProperties": false,
+      "properties": {
+        "attribution": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/LocalizedText"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "author": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Author",
+          "type": "string"
+        },
+        "commercial_ok": {
+          "title": "Commercial Ok",
+          "type": "boolean"
+        },
+        "license_file": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "source_url": {
+          "format": "uri",
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Source Url",
+          "type": "string"
+        },
+        "spdx": {
+          "pattern": "^[A-Za-z0-9.+-]{2,40}$",
+          "title": "Spdx",
+          "type": "string"
+        }
+      },
+      "required": [
+        "spdx",
+        "source_url",
+        "author",
+        "commercial_ok",
+        "attribution",
+        "license_file"
+      ],
+      "title": "License",
+      "type": "object"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "PackageOrigin": {
+      "enum": [
+        "builtin",
+        "user",
+        "generated"
+      ],
+      "title": "PackageOrigin",
+      "type": "string"
+    },
+    "PackageStatus": {
+      "description": "Generated packages move draft -> validated -> ready. Only ready is listed.",
+      "enum": [
+        "draft",
+        "validated",
+        "ready"
+      ],
+      "title": "PackageStatus",
+      "type": "string"
+    },
+    "Palette": {
+      "additionalProperties": false,
+      "description": "Theme colours. The five required keys are fixed; up to 11 extra keys are allowed.",
+      "maxProperties": 16,
+      "patternProperties": {
+        "^[a-z_]{1,24}$": {
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "type": "string"
+        }
+      },
+      "properties": {
+        "accent": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "bg": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "caption_box": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "caption_text": {
+          "$ref": "#/$defs/HexColor"
+        },
+        "ink": {
+          "$ref": "#/$defs/HexColor"
+        }
+      },
+      "required": [
+        "bg",
+        "ink",
+        "accent",
+        "caption_text",
+        "caption_box"
+      ],
+      "title": "Palette",
+      "type": "object"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Generated package origin. Never contains prompts, URLs or user text.",
+      "properties": {
+        "job_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "model": {
+          "maxLength": 80,
+          "title": "Model",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "maxLength": 40,
+          "title": "Provider",
+          "type": "string"
+        },
+        "reference_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_digest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "request_digest",
+        "parent",
+        "reference_digest",
+        "job_id",
+        "provider",
+        "model"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "RelPath": {
+      "description": "Relative path inside a package or data root. No absolute path, no parent segment, no backslash.",
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}$",
+      "type": "string"
+    },
+    "RenderScale": {
+      "enum": [
+        "nearest",
+        "smooth"
+      ],
+      "title": "RenderScale",
+      "type": "string"
+    },
+    "Rig": {
+      "additionalProperties": false,
+      "properties": {
+        "compat": {
+          "items": {
+            "$ref": "#/$defs/Compat"
+          },
+          "title": "Compat",
+          "type": "array"
+        },
+        "expressions": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "minItems": 1,
+          "title": "Expressions",
+          "type": "array"
+        },
+        "poses": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "minItems": 1,
+          "title": "Poses",
+          "type": "array"
+        },
+        "slots": {
+          "$ref": "#/$defs/RigSlots"
+        }
+      },
+      "required": [
+        "slots",
+        "expressions",
+        "poses",
+        "compat"
+      ],
+      "title": "Rig",
+      "type": "object"
+    },
+    "RigSlots": {
+      "additionalProperties": false,
+      "properties": {
+        "body": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "minItems": 1,
+          "title": "Body",
+          "type": "array"
+        },
+        "face": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "minItems": 1,
+          "title": "Face",
+          "type": "array"
+        },
+        "hair": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "title": "Hair",
+          "type": "array"
+        },
+        "hat": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "title": "Hat",
+          "type": "array"
+        },
+        "outfit": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "title": "Outfit",
+          "type": "array"
+        },
+        "prop": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "title": "Prop",
+          "type": "array"
+        }
+      },
+      "required": [
+        "body",
+        "face",
+        "hair",
+        "hat",
+        "outfit",
+        "prop"
+      ],
+      "title": "RigSlots",
+      "type": "object"
+    },
+    "SandboxRenderer": {
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "const": "build_assets",
+          "title": "Entry",
+          "type": "string"
+        },
+        "kind": {
+          "const": "sandbox",
+          "title": "Kind",
+          "type": "string"
+        },
+        "program": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "program_digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "runtime_digest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "kind",
+        "program",
+        "program_digest",
+        "runtime_digest",
+        "entry"
+      ],
+      "title": "SandboxRenderer",
+      "type": "object"
+    },
+    "SlotName": {
+      "enum": [
+        "body",
+        "face",
+        "hair",
+        "hat",
+        "outfit",
+        "prop"
+      ],
+      "title": "SlotName",
+      "type": "string"
+    },
+    "StyleAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "$ref": "#/$defs/AssetRelPath"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "kind": {
+          "$ref": "#/$defs/AssetKind"
+        },
+        "license_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Digest"
+        },
+        "slot": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SlotName"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "slot",
+        "file",
+        "sha256",
+        "license_id"
+      ],
+      "title": "StyleAsset",
+      "type": "object"
+    },
+    "StyleManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "api_version": {
+          "const": 1,
+          "title": "Api Version",
+          "type": "integer"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/StyleAsset"
+          },
+          "maxItems": 400,
+          "title": "Assets",
+          "type": "array"
+        },
+        "canvas": {
+          "$ref": "#/$defs/Canvas"
+        },
+        "capabilities": {
+          "$ref": "#/$defs/Capabilities"
+        },
+        "extends": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "fonts": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Fonts",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "licenses": {
+          "additionalProperties": {
+            "$ref": "#/$defs/License"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "title": "Licenses",
+          "type": "object"
+        },
+        "origin": {
+          "$ref": "#/$defs/PackageOrigin"
+        },
+        "preview": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/RelPath"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "renderer": {
+          "discriminator": {
+            "mapping": {
+              "builtin": "#/$defs/BuiltinRenderer",
+              "sandbox": "#/$defs/SandboxRenderer"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/BuiltinRenderer"
+            },
+            {
+              "$ref": "#/$defs/SandboxRenderer"
+            }
+          ],
+          "title": "Renderer"
+        },
+        "rig": {
+          "$ref": "#/$defs/Rig"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/PackageStatus"
+        },
+        "themes": {
+          "items": {
+            "$ref": "#/$defs/Theme"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Themes",
+          "type": "array"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "api_version",
+        "id",
+        "version",
+        "label",
+        "origin",
+        "status",
+        "extends",
+        "renderer",
+        "canvas",
+        "rig",
+        "themes",
+        "assets",
+        "fonts",
+        "capabilities",
+        "licenses",
+        "provenance",
+        "preview"
+      ],
+      "title": "StyleManifest",
+      "type": "object"
+    },
+    "Theme": {
+      "additionalProperties": false,
+      "properties": {
+        "backgrounds": {
+          "items": {
+            "$ref": "#/$defs/CatalogId"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Backgrounds",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "palette": {
+          "$ref": "#/$defs/Palette"
+        },
+        "skin_id": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "palette",
+        "skin_id",
+        "backgrounds"
+      ],
+      "title": "Theme",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/style-manifest.schema.json",
+  "$ref": "#/$defs/StyleManifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "manifest.json of an art style package.",
+  "title": "Style package manifest"
+}

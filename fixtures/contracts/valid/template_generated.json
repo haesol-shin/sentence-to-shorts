@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "api_version": 1,
+  "id": "generated_template",
+  "version": "0.1.0",
+  "label": {
+    "ko": "생성 화면 틀",
+    "en": "Generated template"
+  },
+  "origin": "generated",
+  "status": "ready",
+  "renderer": {
+    "kind": "sandbox",
+    "program": "program.py",
+    "program_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "runtime_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "entry": "render_layer",
+    "max_ms_per_scene": 20000
+  },
+  "regions": {
+    "title": null,
+    "progress": null,
+    "visual": {
+      "x": 0,
+      "y": 0,
+      "w": 1080,
+      "h": 1010
+    },
+    "caption": {
+      "x": 90,
+      "y": 1040,
+      "w": 900,
+      "h": 160
+    }
+  },
+  "character_anchors": {
+    "left": {
+      "x": 270,
+      "y": 960
+    },
+    "center": {
+      "x": 540,
+      "y": 960
+    },
+    "right": {
+      "x": 810,
+      "y": 960
+    }
+  },
+  "caption_modes": [
+    "sentence",
+    "phrase"
+  ],
+  "dialog_box": false,
+  "test": {
+    "scene": "test_scene.json",
+    "layer_digest": null
+  },
+  "provenance": {
+    "request_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "parent": null,
+    "reference_digest": null,
+    "job_id": "j_08c71zekrt8ceaqnmy5jjy5zvn",
+    "provider": "fixture",
+    "model": "fixture"
+  }
+}

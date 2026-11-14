@@ -1,0 +1,37 @@
+{
+  "id": "j_02vqj2v2769m0tzdctgvdb8ews",
+  "kind": "draft",
+  "state": "running",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 1,
+  "request_digest": "c071cf5f5ed6f884cc70155b6f05f755fd46a302d05e4261b7e92ce878bbfed8",
+  "idempotency_key": "req-0123456789",
+  "attempt": 1,
+  "max_attempts": 3,
+  "created_at": "2026-11-14T12:00:00Z",
+  "started_at": "2026-11-14T12:00:00Z",
+  "ended_at": null,
+  "deadline_at": "2026-11-14T12:03:00Z",
+  "progress": {
+    "stage": "llm_draft",
+    "done": 1,
+    "total": 5,
+    "waiting_on": "llm"
+  },
+  "stages": [
+    {
+      "stage": "llm_draft",
+      "state": "running",
+      "started_ms": 0,
+      "ended_ms": null,
+      "cache_hits": 0,
+      "rebuilt_scene_ids": []
+    }
+  ],
+  "checkpoints": [],
+  "usage": [],
+  "result": null,
+  "error": null,
+  "partial": false
+}

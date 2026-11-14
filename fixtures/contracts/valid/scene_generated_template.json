@@ -1,0 +1,28 @@
+{
+  "id": "s_05e173a1am8qhaw9p4g8prkh0g",
+  "beat_id": "third",
+  "beat_label": "세 번째",
+  "lines": [
+    {
+      "id": "l_0tmp4xmjqm94ca10kqj859cxb7",
+      "display_text": "셋째, 비율을 지킨다.",
+      "speech_text": "셋째, 비율을 지킨다.",
+      "speaker": "narrator",
+      "highlight": []
+    }
+  ],
+  "visual": {
+    "background_id": "bg_stars",
+    "characters": [
+      {
+        "anchor": "center",
+        "expression_id": "expr_happy",
+        "pose_id": "pose_idle",
+        "motion": "none"
+      }
+    ],
+    "elements": [],
+    "sfx": [],
+    "transition_in": "cut"
+  }
+}

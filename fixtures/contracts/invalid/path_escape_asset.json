@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "api_version": 1,
+  "id": "generated_style",
+  "version": "0.1.0",
+  "label": {
+    "ko": "생성 그림체",
+    "en": "Generated style"
+  },
+  "origin": "generated",
+  "status": "ready",
+  "extends": {
+    "id": "pixel",
+    "revision": "da643660f6d0a1f9288ef9507c20feda104f56c3dbb2f344579a7ad99bcfa102"
+  },
+  "renderer": {
+    "kind": "sandbox",
+    "program": "program.py",
+    "program_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "runtime_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "entry": "build_assets"
+  },
+  "canvas": {
+    "width": 180,
+    "height": 320,
+    "scale": "nearest"
+  },
+  "rig": {
+    "slots": {
+      "body": [
+        "body_hero"
+      ],
+      "face": [
+        "face_neutral"
+      ],
+      "hair": [],
+      "hat": [],
+      "outfit": [],
+      "prop": []
+    },
+    "expressions": [
+      "expr_happy"
+    ],
+    "poses": [
+      "pose_idle"
+    ],
+    "compat": []
+  },
+  "themes": [
+    {
+      "id": "day",
+      "label": {
+        "ko": "낮",
+        "en": "Day"
+      },
+      "palette": {
+        "bg": "#0a0c28",
+        "ink": "#f5f5f5",
+        "accent": "#ffd65a",
+        "caption_text": "#f5f5f5",
+        "caption_box": "#14141c"
+      },
+      "skin_id": "skin_plain",
+      "backgrounds": [
+        "bg_village",
+        "bg_stars"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "body_hero",
+      "kind": "part",
+      "slot": "body",
+      "file": "../escape.png",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "license_id": "apache"
+    }
+  ],
+  "fonts": [
+    "galmuri11"
+  ],
+  "capabilities": {
+    "layouts": [
+      "fixed_stage"
+    ],
+    "caption_modes": [
+      "sentence"
+    ],
+    "character_roles": [
+      "presenter"
+    ]
+  },
+  "licenses": {},
+  "provenance": {
+    "request_digest": "0000000000000000000000000000000000000000000000000000000000000000",
+    "parent": {
+      "id": "pixel",
+      "revision": "da643660f6d0a1f9288ef9507c20feda104f56c3dbb2f344579a7ad99bcfa102"
+    },
+    "reference_digest": null,
+    "job_id": "j_08c71zekrt8ceaqnmy5jjy5zvn",
+    "provider": "fixture",
+    "model": "fixture"
+  },
+  "preview": null
+}

@@ -1,0 +1,251 @@
+{
+  "$defs": {
+    "SandboxAsset": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[a-z0-9_]{1,40}$",
+          "title": "Name",
+          "type": "string"
+        },
+        "png_b64": {
+          "maxLength": 2800000,
+          "title": "Png B64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "png_b64"
+      ],
+      "title": "SandboxAsset",
+      "type": "object"
+    },
+    "SandboxError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/SandboxErrorCode"
+        },
+        "message": {
+          "maxLength": 2000,
+          "title": "Message",
+          "type": "string"
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "error",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "request_id",
+        "code",
+        "message"
+      ],
+      "title": "SandboxError",
+      "type": "object"
+    },
+    "SandboxErrorCode": {
+      "enum": [
+        "python_exception",
+        "import_denied",
+        "bad_return",
+        "too_many_files",
+        "bad_request"
+      ],
+      "title": "SandboxErrorCode",
+      "type": "string"
+    },
+    "SandboxFile": {
+      "additionalProperties": false,
+      "properties": {
+        "b64": {
+          "maxLength": 11200000,
+          "title": "B64",
+          "type": "string"
+        },
+        "media_type": {
+          "enum": [
+            "image/png",
+            "audio/wav"
+          ],
+          "title": "Media Type",
+          "type": "string"
+        },
+        "name": {
+          "pattern": "^[a-z0-9_]{1,40}$",
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "media_type",
+        "b64"
+      ],
+      "title": "SandboxFile",
+      "type": "object"
+    },
+    "SandboxKind": {
+      "enum": [
+        "style_parts",
+        "template_layer",
+        "bgm_loop"
+      ],
+      "title": "SandboxKind",
+      "type": "string"
+    },
+    "SandboxLimits": {
+      "additionalProperties": false,
+      "properties": {
+        "max_files": {
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Max Files",
+          "type": "integer"
+        },
+        "max_png_side": {
+          "maximum": 1920,
+          "minimum": 16,
+          "title": "Max Png Side",
+          "type": "integer"
+        },
+        "max_wav_ms": {
+          "maximum": 16000,
+          "minimum": 500,
+          "title": "Max Wav Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "max_files",
+        "max_png_side",
+        "max_wav_ms"
+      ],
+      "title": "SandboxLimits",
+      "type": "object"
+    },
+    "SandboxRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/SandboxAsset"
+          },
+          "maxItems": 64,
+          "title": "Assets",
+          "type": "array"
+        },
+        "code": {
+          "maxLength": 65536,
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "input": {
+          "additionalProperties": true,
+          "title": "Input",
+          "type": "object"
+        },
+        "kind": {
+          "$ref": "#/$defs/SandboxKind"
+        },
+        "limits": {
+          "$ref": "#/$defs/SandboxLimits"
+        },
+        "protocol": {
+          "const": 1,
+          "title": "Protocol",
+          "type": "integer"
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "seed": {
+          "maximum": 2147483647,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "protocol",
+        "request_id",
+        "kind",
+        "code",
+        "input",
+        "assets",
+        "seed",
+        "limits"
+      ],
+      "title": "SandboxRequest",
+      "type": "object"
+    },
+    "SandboxResult": {
+      "additionalProperties": false,
+      "properties": {
+        "files": {
+          "items": {
+            "$ref": "#/$defs/SandboxFile"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Files",
+          "type": "array"
+        },
+        "meta": {
+          "additionalProperties": true,
+          "maxProperties": 8,
+          "title": "Meta",
+          "type": "object"
+        },
+        "request_id": {
+          "pattern": "^[0-9a-f]{16}$",
+          "title": "Request Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "result",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "request_id",
+        "files",
+        "meta"
+      ],
+      "title": "SandboxResult",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/sandbox-io.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "One request JSON on stdin, one response JSON line on stdout.",
+  "discriminator": {
+    "mapping": {
+      "error": "#/$defs/SandboxError",
+      "result": "#/$defs/SandboxResult"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SandboxResult"
+    },
+    {
+      "$ref": "#/$defs/SandboxError"
+    }
+  ],
+  "title": "Sandbox runner protocol"
+}

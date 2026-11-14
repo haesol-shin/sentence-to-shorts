@@ -1,0 +1,908 @@
+{
+  "$defs": {
+    "AddSceneOp": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "op": {
+          "const": "add_scene",
+          "title": "Op",
+          "type": "string"
+        },
+        "scene": {
+          "$ref": "#/$defs/Scene"
+        }
+      },
+      "required": [
+        "op",
+        "after",
+        "scene"
+      ],
+      "title": "AddSceneOp",
+      "type": "object"
+    },
+    "Anchor": {
+      "enum": [
+        "left",
+        "center",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "title": "Anchor",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "ChangePlan": {
+      "additionalProperties": false,
+      "properties": {
+        "applied_revision": {
+          "anyOf": [
+            {
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Applied Revision"
+        },
+        "base_revision": {
+          "minimum": 1,
+          "title": "Base Revision",
+          "type": "integer"
+        },
+        "confirmation_reasons": {
+          "items": {
+            "$ref": "#/$defs/ConfirmationReason"
+          },
+          "title": "Confirmation Reasons",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "created_at": {
+          "$ref": "#/$defs/Timestamp"
+        },
+        "effects": {
+          "$ref": "#/$defs/Effects"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "notes": {
+          "items": {
+            "maxLength": 300,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 5,
+          "title": "Notes",
+          "type": "array"
+        },
+        "ops": {
+          "items": {
+            "discriminator": {
+              "mapping": {
+                "add_scene": "#/$defs/AddSceneOp",
+                "remove_scene": "#/$defs/RemoveSceneOp",
+                "reorder": "#/$defs/ReorderOp",
+                "replace_scene": "#/$defs/ReplaceSceneOp",
+                "set": "#/$defs/SetOp",
+                "set_script": "#/$defs/SetScriptOp"
+              },
+              "propertyName": "op"
+            },
+            "oneOf": [
+              {
+                "$ref": "#/$defs/SetOp"
+              },
+              {
+                "$ref": "#/$defs/ReorderOp"
+              },
+              {
+                "$ref": "#/$defs/AddSceneOp"
+              },
+              {
+                "$ref": "#/$defs/RemoveSceneOp"
+              },
+              {
+                "$ref": "#/$defs/ReplaceSceneOp"
+              },
+              {
+                "$ref": "#/$defs/SetScriptOp"
+              }
+            ]
+          },
+          "maxItems": 60,
+          "minItems": 1,
+          "title": "Ops",
+          "type": "array"
+        },
+        "requires_confirmation": {
+          "title": "Requires Confirmation",
+          "type": "boolean"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "source": {
+          "$ref": "#/$defs/ChangeSource"
+        },
+        "status": {
+          "$ref": "#/$defs/ChangeStatus"
+        },
+        "target": {
+          "$ref": "#/$defs/Target"
+        },
+        "unsupported": {
+          "items": {
+            "maxLength": 200,
+            "minLength": 1,
+            "type": "string"
+          },
+          "maxItems": 10,
+          "title": "Unsupported",
+          "type": "array"
+        },
+        "video_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "warnings": {
+          "items": {
+            "$ref": "#/$defs/PlanWarning"
+          },
+          "maxItems": 30,
+          "title": "Warnings",
+          "type": "array"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "video_id",
+        "base_revision",
+        "created_at",
+        "source",
+        "target",
+        "ops",
+        "effects",
+        "requires_confirmation",
+        "confirmation_reasons",
+        "warnings",
+        "unsupported",
+        "notes",
+        "status",
+        "applied_revision"
+      ],
+      "title": "ChangePlan",
+      "type": "object"
+    },
+    "ChangeSource": {
+      "enum": [
+        "direct",
+        "card",
+        "chat",
+        "scene_rewrite",
+        "reference",
+        "style",
+        "template",
+        "bgm"
+      ],
+      "title": "ChangeSource",
+      "type": "string"
+    },
+    "ChangeStatus": {
+      "enum": [
+        "proposed",
+        "applied",
+        "rejected",
+        "stale"
+      ],
+      "title": "ChangeStatus",
+      "type": "string"
+    },
+    "ConfirmationReason": {
+      "enum": [
+        "script_rewrite",
+        "multi_scene",
+        "lock_change",
+        "user_value_overwrite",
+        "rebuild_tts",
+        "rebuild_render"
+      ],
+      "title": "ConfirmationReason",
+      "type": "string"
+    },
+    "CueAt": {
+      "enum": [
+        "start",
+        "end"
+      ],
+      "title": "CueAt",
+      "type": "string"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "Effects": {
+      "additionalProperties": false,
+      "properties": {
+        "assemble": {
+          "title": "Assemble",
+          "type": "boolean"
+        },
+        "locked_keys": {
+          "items": {
+            "$ref": "#/$defs/LockKey"
+          },
+          "title": "Locked Keys",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "mix": {
+          "title": "Mix",
+          "type": "boolean"
+        },
+        "overwrites_user_values": {
+          "items": {
+            "maxLength": 200,
+            "type": "string"
+          },
+          "title": "Overwrites User Values",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "scene_ids_render": {
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Scene Ids Render",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "scene_ids_text": {
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Scene Ids Text",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "scene_ids_tts": {
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "title": "Scene Ids Tts",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "script": {
+          "title": "Script",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "script",
+        "scene_ids_text",
+        "scene_ids_tts",
+        "scene_ids_render",
+        "mix",
+        "assemble",
+        "locked_keys",
+        "overwrites_user_values"
+      ],
+      "title": "Effects",
+      "type": "object"
+    },
+    "Element": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/Anchor"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "kind": {
+          "$ref": "#/$defs/ElementKind"
+        },
+        "reveal_line_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "value": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "value",
+        "anchor",
+        "reveal_line_id"
+      ],
+      "title": "Element",
+      "type": "object"
+    },
+    "ElementKind": {
+      "enum": [
+        "label",
+        "code",
+        "asset",
+        "material"
+      ],
+      "title": "ElementKind",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "Line": {
+      "additionalProperties": false,
+      "properties": {
+        "display_text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Display Text",
+          "type": "string"
+        },
+        "highlight": {
+          "items": {
+            "$ref": "#/$defs/Span"
+          },
+          "maxItems": 4,
+          "title": "Highlight",
+          "type": "array"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "speaker": {
+          "$ref": "#/$defs/Speaker"
+        },
+        "speech_text": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Speech Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "display_text",
+        "speech_text",
+        "speaker",
+        "highlight"
+      ],
+      "title": "Line",
+      "type": "object"
+    },
+    "LockKey": {
+      "enum": [
+        "story_structure",
+        "layout",
+        "character_role",
+        "register",
+        "humor",
+        "art_style",
+        "theme",
+        "character",
+        "voice",
+        "bgm",
+        "caption_mode",
+        "caption_font",
+        "background",
+        "transition"
+      ],
+      "title": "LockKey",
+      "type": "string"
+    },
+    "Origin": {
+      "description": "Where a value came from. Precedence: user > reference > preset > card > llm > default.",
+      "enum": [
+        "user",
+        "reference",
+        "preset",
+        "card",
+        "llm",
+        "default",
+        "derived"
+      ],
+      "title": "Origin",
+      "type": "string"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Placement": {
+      "additionalProperties": false,
+      "properties": {
+        "anchor": {
+          "$ref": "#/$defs/PlacementAnchor"
+        },
+        "expression_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "motion": {
+          "$ref": "#/$defs/SceneMotion"
+        },
+        "pose_id": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "anchor",
+        "expression_id",
+        "pose_id",
+        "motion"
+      ],
+      "title": "Placement",
+      "type": "object"
+    },
+    "PlacementAnchor": {
+      "enum": [
+        "left",
+        "center",
+        "right"
+      ],
+      "title": "PlacementAnchor",
+      "type": "string"
+    },
+    "PlanWarning": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/WarningCode"
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "code",
+        "scene_id"
+      ],
+      "title": "PlanWarning",
+      "type": "object"
+    },
+    "RemoveSceneOp": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "remove_scene",
+          "title": "Op",
+          "type": "string"
+        },
+        "scene_id": {
+          "$ref": "#/$defs/EntityId"
+        }
+      },
+      "required": [
+        "op",
+        "scene_id"
+      ],
+      "title": "RemoveSceneOp",
+      "type": "object"
+    },
+    "ReorderOp": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "reorder",
+          "title": "Op",
+          "type": "string"
+        },
+        "order": {
+          "items": {
+            "$ref": "#/$defs/EntityId"
+          },
+          "maxItems": 30,
+          "title": "Order",
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "op",
+        "order"
+      ],
+      "title": "ReorderOp",
+      "type": "object"
+    },
+    "ReplaceSceneOp": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "replace_scene",
+          "title": "Op",
+          "type": "string"
+        },
+        "scene": {
+          "$ref": "#/$defs/Scene"
+        }
+      },
+      "required": [
+        "op",
+        "scene"
+      ],
+      "title": "ReplaceSceneOp",
+      "type": "object"
+    },
+    "Scene": {
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": {
+          "pattern": "^[a-z0-9_]{1,24}$",
+          "title": "Beat Id",
+          "type": "string"
+        },
+        "beat_label": {
+          "maxLength": 40,
+          "minLength": 1,
+          "title": "Beat Label",
+          "type": "string"
+        },
+        "id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "lines": {
+          "items": {
+            "$ref": "#/$defs/Line"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Lines",
+          "type": "array"
+        },
+        "visual": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SceneVisual"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "beat_id",
+        "beat_label",
+        "lines",
+        "visual"
+      ],
+      "title": "Scene",
+      "type": "object"
+    },
+    "SceneMotion": {
+      "enum": [
+        "none",
+        "pop",
+        "bob",
+        "move"
+      ],
+      "title": "SceneMotion",
+      "type": "string"
+    },
+    "SceneVisual": {
+      "additionalProperties": false,
+      "properties": {
+        "background_id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "characters": {
+          "items": {
+            "$ref": "#/$defs/Placement"
+          },
+          "maxItems": 1,
+          "title": "Characters",
+          "type": "array"
+        },
+        "elements": {
+          "items": {
+            "$ref": "#/$defs/Element"
+          },
+          "maxItems": 6,
+          "title": "Elements",
+          "type": "array"
+        },
+        "sfx": {
+          "items": {
+            "$ref": "#/$defs/SfxCue"
+          },
+          "maxItems": 2,
+          "title": "Sfx",
+          "type": "array"
+        },
+        "transition_in": {
+          "$ref": "#/$defs/TransitionIn"
+        }
+      },
+      "required": [
+        "background_id",
+        "characters",
+        "elements",
+        "sfx",
+        "transition_in"
+      ],
+      "title": "SceneVisual",
+      "type": "object"
+    },
+    "Script": {
+      "additionalProperties": false,
+      "properties": {
+        "raw_text": {
+          "anyOf": [
+            {
+              "maxLength": 20000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Raw Text"
+        },
+        "source": {
+          "$ref": "#/$defs/ScriptSource"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "maxLength": 80,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Title"
+        }
+      },
+      "required": [
+        "source",
+        "raw_text",
+        "title"
+      ],
+      "title": "Script",
+      "type": "object"
+    },
+    "ScriptSource": {
+      "enum": [
+        "user",
+        "llm"
+      ],
+      "title": "ScriptSource",
+      "type": "string"
+    },
+    "SetOp": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "set",
+          "title": "Op",
+          "type": "string"
+        },
+        "origin": {
+          "$ref": "#/$defs/Origin"
+        },
+        "path": {
+          "pattern": "^/(topic|material|settings(/[a-z_]+)+|scenes/[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}/(beat_label|lines|visual)(/[A-Za-z0-9_]+)*)$",
+          "title": "Path",
+          "type": "string"
+        },
+        "value": {
+          "title": "Value"
+        }
+      },
+      "required": [
+        "op",
+        "path",
+        "value",
+        "origin"
+      ],
+      "title": "SetOp",
+      "type": "object"
+    },
+    "SetScriptOp": {
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "const": "set_script",
+          "title": "Op",
+          "type": "string"
+        },
+        "scenes": {
+          "items": {
+            "$ref": "#/$defs/Scene"
+          },
+          "maxItems": 30,
+          "minItems": 1,
+          "title": "Scenes",
+          "type": "array"
+        },
+        "script": {
+          "$ref": "#/$defs/Script"
+        }
+      },
+      "required": [
+        "op",
+        "script",
+        "scenes"
+      ],
+      "title": "SetScriptOp",
+      "type": "object"
+    },
+    "SfxCue": {
+      "additionalProperties": false,
+      "properties": {
+        "at": {
+          "$ref": "#/$defs/CueAt"
+        },
+        "line_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "offset_ms": {
+          "maximum": 2000,
+          "minimum": -500,
+          "title": "Offset Ms",
+          "type": "integer"
+        },
+        "sfx_id": {
+          "$ref": "#/$defs/PinnedRef"
+        }
+      },
+      "required": [
+        "sfx_id",
+        "line_id",
+        "at",
+        "offset_ms"
+      ],
+      "title": "SfxCue",
+      "type": "object"
+    },
+    "Span": {
+      "additionalProperties": false,
+      "properties": {
+        "end": {
+          "minimum": 1,
+          "title": "End",
+          "type": "integer"
+        },
+        "start": {
+          "minimum": 0,
+          "title": "Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "start",
+        "end"
+      ],
+      "title": "Span",
+      "type": "object"
+    },
+    "Speaker": {
+      "enum": [
+        "narrator",
+        "character"
+      ],
+      "title": "Speaker",
+      "type": "string"
+    },
+    "Target": {
+      "additionalProperties": false,
+      "properties": {
+        "pointer": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "pattern": "^(/[A-Za-z0-9_]+)+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Pointer"
+        },
+        "scene_id": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EntityId"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "scene_id",
+        "pointer"
+      ],
+      "title": "Target",
+      "type": "object"
+    },
+    "Timestamp": {
+      "description": "ISO 8601 date-time with a timezone.",
+      "format": "date-time",
+      "type": "string"
+    },
+    "TransitionIn": {
+      "enum": [
+        "cut",
+        "fade"
+      ],
+      "title": "TransitionIn",
+      "type": "string"
+    },
+    "WarningCode": {
+      "enum": [
+        "stale_wording_in_neighbor",
+        "story_order_broken",
+        "weak_combination",
+        "asset_substituted"
+      ],
+      "title": "WarningCode",
+      "type": "string"
+    }
+  },
+  "$id": "https://app.invalid/schemas/change.schema.json",
+  "$ref": "#/$defs/ChangePlan",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Every edit becomes a plan against a base revision.",
+  "title": "Change plan"
+}

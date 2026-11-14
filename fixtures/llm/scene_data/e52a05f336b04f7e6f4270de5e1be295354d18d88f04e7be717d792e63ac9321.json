@@ -1,0 +1,29 @@
+{
+  "task": "scene_data",
+  "request": {
+    "task": "scene_data",
+    "route": "scene_data",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "장면 1: 고양이는 왜 컵을 쏟을까"
+      }
+    ],
+    "output_schema": {
+      "type": "object",
+      "properties": {
+        "background_id": {
+          "type": "string"
+        }
+      }
+    },
+    "max_output_tokens": 800
+  },
+  "text": "{\"background_id\":\"bg_village\",\"expression_id\":\"expr_happy\",\"pose_id\":\"pose_idle\"}",
+  "parsed": {
+    "background_id": "bg_village",
+    "expression_id": "expr_happy",
+    "pose_id": "pose_idle"
+  }
+}

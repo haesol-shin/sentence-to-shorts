@@ -1,0 +1,23 @@
+{
+  "task": "precheck",
+  "request": {
+    "task": "precheck",
+    "route": "precheck",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "고양이 컵 쏟기 대본"
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "{\"opening_promise\":\"고양이가 컵을 쏟는 이유\",\"ending_answer\":\"호기심과 관심 요구\",\"claims\":[],\"hypotheticals\":[]}",
+  "parsed": {
+    "opening_promise": "고양이가 컵을 쏟는 이유",
+    "ending_answer": "호기심과 관심 요구",
+    "claims": [],
+    "hypotheticals": []
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "c_0t2wvk16pb9s0a453j9s6540mg",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 1,
+  "created_at": "2026-11-14T12:00:00Z",
+  "source": "chat",
+  "target": {
+    "scene_id": null,
+    "pointer": null
+  },
+  "ops": [
+    {
+      "op": "reorder",
+      "order": [
+        "s_054rv8t7g08geaczsh1z15xe59",
+        "s_05e173a1am8qhaw9p4g8prkh0g",
+        "s_0gv16xq3n089nbs6wykgccs0zf",
+        "s_0yy2rmcgs4816a52axdfjcmeb1",
+        "s_0nzvrzf0tp9wba44f6yvh6nzpr"
+      ]
+    }
+  ],
+  "effects": {
+    "script": false,
+    "scene_ids_text": [],
+    "scene_ids_tts": [],
+    "scene_ids_render": [],
+    "mix": true,
+    "assemble": true,
+    "locked_keys": [],
+    "overwrites_user_values": []
+  },
+  "requires_confirmation": false,
+  "confirmation_reasons": [],
+  "warnings": [],
+  "unsupported": [],
+  "notes": [],
+  "status": "applied",
+  "applied_revision": 2
+}

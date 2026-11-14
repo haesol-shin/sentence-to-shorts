@@ -1,0 +1,457 @@
+{
+  "$defs": {
+    "Box": {
+      "additionalProperties": false,
+      "description": "Rectangle in output pixels of the 1080x1920 frame.",
+      "properties": {
+        "h": {
+          "maximum": 1920,
+          "minimum": 1,
+          "title": "H",
+          "type": "integer"
+        },
+        "w": {
+          "maximum": 1080,
+          "minimum": 1,
+          "title": "W",
+          "type": "integer"
+        },
+        "x": {
+          "maximum": 1080,
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "maximum": 1920,
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "w",
+        "h"
+      ],
+      "title": "Box",
+      "type": "object"
+    },
+    "CaptionMode": {
+      "enum": [
+        "sentence",
+        "phrase",
+        "typewriter"
+      ],
+      "title": "CaptionMode",
+      "type": "string"
+    },
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
+    "CharacterAnchors": {
+      "additionalProperties": false,
+      "properties": {
+        "center": {
+          "$ref": "#/$defs/Point"
+        },
+        "left": {
+          "$ref": "#/$defs/Point"
+        },
+        "right": {
+          "$ref": "#/$defs/Point"
+        }
+      },
+      "required": [
+        "left",
+        "center",
+        "right"
+      ],
+      "title": "CharacterAnchors",
+      "type": "object"
+    },
+    "Digest": {
+      "description": "Lowercase SHA-256 hex.",
+      "pattern": "^[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "EntityId": {
+      "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
+      "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+      "type": "string"
+    },
+    "LocalizedText": {
+      "additionalProperties": false,
+      "properties": {
+        "en": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "En",
+          "type": "string"
+        },
+        "ko": {
+          "maxLength": 200,
+          "minLength": 1,
+          "title": "Ko",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ko",
+        "en"
+      ],
+      "title": "LocalizedText",
+      "type": "object"
+    },
+    "PackageOrigin": {
+      "enum": [
+        "builtin",
+        "user",
+        "generated"
+      ],
+      "title": "PackageOrigin",
+      "type": "string"
+    },
+    "PackageStatus": {
+      "description": "Generated packages move draft -> validated -> ready. Only ready is listed.",
+      "enum": [
+        "draft",
+        "validated",
+        "ready"
+      ],
+      "title": "PackageStatus",
+      "type": "string"
+    },
+    "PinnedRef": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "revision": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "title": "PinnedRef",
+      "type": "object"
+    },
+    "Point": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "maximum": 1080,
+          "minimum": 0,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "maximum": 1920,
+          "minimum": 0,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "Provenance": {
+      "additionalProperties": false,
+      "description": "Generated package origin. Never contains prompts, URLs or user text.",
+      "properties": {
+        "job_id": {
+          "$ref": "#/$defs/EntityId"
+        },
+        "model": {
+          "maxLength": 80,
+          "title": "Model",
+          "type": "string"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "provider": {
+          "maxLength": 40,
+          "title": "Provider",
+          "type": "string"
+        },
+        "reference_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "request_digest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "request_digest",
+        "parent",
+        "reference_digest",
+        "job_id",
+        "provider",
+        "model"
+      ],
+      "title": "Provenance",
+      "type": "object"
+    },
+    "Regions": {
+      "additionalProperties": false,
+      "description": "caption must stay inside the vertical safe area checked by the registry validator.",
+      "properties": {
+        "caption": {
+          "$ref": "#/$defs/Box"
+        },
+        "progress": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Box"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "title": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Box"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "visual": {
+          "$ref": "#/$defs/Box"
+        }
+      },
+      "required": [
+        "title",
+        "progress",
+        "visual",
+        "caption"
+      ],
+      "title": "Regions",
+      "type": "object"
+    },
+    "RelPath": {
+      "description": "Relative path inside a package or data root. No absolute path, no parent segment, no backslash.",
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}$",
+      "type": "string"
+    },
+    "TemplateBuiltinRenderer": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "const": "builtin",
+          "title": "Kind",
+          "type": "string"
+        },
+        "module": {
+          "$ref": "#/$defs/CatalogId"
+        }
+      },
+      "required": [
+        "kind",
+        "module"
+      ],
+      "title": "TemplateBuiltinRenderer",
+      "type": "object"
+    },
+    "TemplateManifest": {
+      "additionalProperties": false,
+      "properties": {
+        "api_version": {
+          "const": 1,
+          "title": "Api Version",
+          "type": "integer"
+        },
+        "caption_modes": {
+          "items": {
+            "$ref": "#/$defs/CaptionMode"
+          },
+          "minItems": 1,
+          "title": "Caption Modes",
+          "type": "array",
+          "uniqueItems": true
+        },
+        "character_anchors": {
+          "$ref": "#/$defs/CharacterAnchors"
+        },
+        "dialog_box": {
+          "title": "Dialog Box",
+          "type": "boolean"
+        },
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "origin": {
+          "$ref": "#/$defs/PackageOrigin"
+        },
+        "provenance": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Provenance"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "regions": {
+          "$ref": "#/$defs/Regions"
+        },
+        "renderer": {
+          "discriminator": {
+            "mapping": {
+              "builtin": "#/$defs/TemplateBuiltinRenderer",
+              "sandbox": "#/$defs/TemplateSandboxRenderer"
+            },
+            "propertyName": "kind"
+          },
+          "oneOf": [
+            {
+              "$ref": "#/$defs/TemplateBuiltinRenderer"
+            },
+            {
+              "$ref": "#/$defs/TemplateSandboxRenderer"
+            }
+          ],
+          "title": "Renderer"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/PackageStatus"
+        },
+        "test": {
+          "$ref": "#/$defs/TemplateTest"
+        },
+        "version": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema_version",
+        "api_version",
+        "id",
+        "version",
+        "label",
+        "origin",
+        "status",
+        "renderer",
+        "regions",
+        "character_anchors",
+        "caption_modes",
+        "dialog_box",
+        "test",
+        "provenance"
+      ],
+      "title": "TemplateManifest",
+      "type": "object"
+    },
+    "TemplateSandboxRenderer": {
+      "additionalProperties": false,
+      "properties": {
+        "entry": {
+          "const": "render_layer",
+          "title": "Entry",
+          "type": "string"
+        },
+        "kind": {
+          "const": "sandbox",
+          "title": "Kind",
+          "type": "string"
+        },
+        "max_ms_per_scene": {
+          "maximum": 20000,
+          "minimum": 100,
+          "title": "Max Ms Per Scene",
+          "type": "integer"
+        },
+        "program": {
+          "$ref": "#/$defs/RelPath"
+        },
+        "program_digest": {
+          "$ref": "#/$defs/Digest"
+        },
+        "runtime_digest": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "kind",
+        "program",
+        "program_digest",
+        "runtime_digest",
+        "entry",
+        "max_ms_per_scene"
+      ],
+      "title": "TemplateSandboxRenderer",
+      "type": "object"
+    },
+    "TemplateTest": {
+      "additionalProperties": false,
+      "properties": {
+        "layer_digest": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Digest"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scene": {
+          "$ref": "#/$defs/RelPath"
+        }
+      },
+      "required": [
+        "scene",
+        "layer_digest"
+      ],
+      "title": "TemplateTest",
+      "type": "object"
+    }
+  },
+  "$id": "https://app.invalid/schemas/template-manifest.schema.json",
+  "$ref": "#/$defs/TemplateManifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A template is a layout that returns one RGBA layer per scene.",
+  "title": "Template manifest"
+}

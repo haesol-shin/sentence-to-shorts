@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "id": "v_0par6gpzwz995r49419ne1gwxd",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "owner_id": "owner",
+  "revision": 1,
+  "parent_revision": null,
+  "created_at": "2026-11-14T12:00:00Z",
+  "created_by": "create",
+  "change_id": null,
+  "stage": "draft",
+  "derived_from": null,
+  "topic": "만약 매일 한 권씩 읽는다면",
+  "material": [],
+  "reference": null,
+  "settings": {
+    "language": "ko",
+    "target_duration_s": 30,
+    "format": {
+      "card_id": "what_if",
+      "story_structure": "hypothetical",
+      "layout": {
+        "id": "full_stage",
+        "revision": "fed4c5d263c996ad961ef14effd2b72f9a181014d0929a83fc46798efe825c1a"
+      },
+      "character_role": "subject",
+      "register": "friendly",
+      "humor": "light",
+      "progress_mode": "phases",
+      "scene_count": 5
+    },
+    "visual": {
+      "art_style": {
+        "id": "pixel",
+        "revision": "da643660f6d0a1f9288ef9507c20feda104f56c3dbb2f344579a7ad99bcfa102"
+      },
+      "theme_id": "day",
+      "character": {
+        "preset_id": null,
+        "slots": {
+          "body": "body_hero",
+          "face": "face_neutral",
+          "hair": null,
+          "hat": null,
+          "outfit": null,
+          "prop": null
+        }
+      }
+    },
+    "audio": {
+      "voice": {
+        "id": "fixed_wav",
+        "revision": "ba110776c483d72203c4546080a8b32a277f4b22bf81af8781936685a226c768"
+      },
+      "bgm": {
+        "enabled": true,
+        "mood": "tense",
+        "entry": {
+          "id": "builtin_loop",
+          "revision": "1b4543fa99e396518be2bd4a2ff5ce0442470f8b253e4fbc9393a383ec1b0dad"
+        },
+        "gain_db_x10": -120,
+        "ducking": true
+      },
+      "sfx_enabled": true
+    },
+    "caption": {
+      "mode": "phrase",
+      "font_id": {"id": "galmuri11", "revision": "d92c304c2bc07f41810bf938c71bd8a9cab36e27fcb980bbb98a6ffb27098c75"},
+      "position": "bottom",
+      "highlight": true
+    },
+    "motion": {
+      "transition": "cut",
+      "character_motion": "none"
+    },
+    "locks": {},
+    "origins": {
+      "/format/card_id": "card",
+      "/visual/art_style": "default"
+    },
+    "extra_instructions": []
+  },
+  "script": {
+    "source": "llm",
+    "raw_text": "synthetic draft",
+    "title": null
+  },
+  "scene_order": [
+    "s_0dwky4wxht8qraax96tzhh4kgx",
+    "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+    "s_0yy2rmcgs4816a52axdfjcmeb1"
+  ],
+  "scenes": {
+    "s_0dwky4wxht8qraax96tzhh4kgx": {
+      "id": "s_0dwky4wxht8qraax96tzhh4kgx",
+      "beat_id": "hook",
+      "beat_label": "훅",
+      "lines": [
+        {
+          "id": "l_079jmk94bf8vj82ct90jqj44km",
+          "display_text": "커피를 고르는 기준은 세 가지뿐이다.",
+          "speech_text": "커피를 고르는 기준은 세 가지뿐이다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": null
+    },
+    "s_0nzvrzf0tp9wba44f6yvh6nzpr": {
+      "id": "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+      "beat_id": "first",
+      "beat_label": "첫 번째",
+      "lines": [
+        {
+          "id": "l_000tmxhafr8vjvyf2wzeb1fc9n",
+          "display_text": "첫째, 원두가 신선한지 본다.",
+          "speech_text": "첫째, 원두가 신선한지 본다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": null
+    },
+    "s_0yy2rmcgs4816a52axdfjcmeb1": {
+      "id": "s_0yy2rmcgs4816a52axdfjcmeb1",
+      "beat_id": "second",
+      "beat_label": "두 번째",
+      "lines": [
+        {
+          "id": "l_04tv9gfj5z81zagexeemmgpvxn",
+          "display_text": "둘째, 물의 온도를 지킨다.",
+          "speech_text": "둘째, 물의 온도를 지킨다.",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": null
+    }
+  }
+}

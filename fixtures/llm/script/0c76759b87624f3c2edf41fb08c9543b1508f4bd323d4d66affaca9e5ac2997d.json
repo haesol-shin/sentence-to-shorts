@@ -1,0 +1,18 @@
+{
+  "task": "script",
+  "request": {
+    "task": "script",
+    "route": "script.default",
+    "system": "Synthetic fixture prompt. Output JSON for the recorded task.",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "합성 주제: 고양이가 컵을 쏟는 이유"
+      }
+    ],
+    "output_schema": null,
+    "max_output_tokens": 800
+  },
+  "text": "고양이가 컵을 쏟는 데는 이유가 있다. 첫째, 호기심이다. 둘째, 주의를 끌고 싶다. 셋째, 표면이 재미있다.",
+  "parsed": null
+}
