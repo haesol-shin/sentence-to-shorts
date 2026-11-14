@@ -26,6 +26,7 @@
 - 제목은 영어 [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) 형식인 `type(scope): summary`입니다.
 - 본문에는 변경 이유를 반드시 씁니다. 버린 대안이 있으면 그 이유도 씁니다. 제목과 diff만으로 드러나지 않는 동작 변화만 추가합니다.
 - 제목과 본문 사이에는 빈 줄 하나를 둡니다. 본문은 `-` bullet이며 항목마다 한 줄, 최대 72자입니다. 이어 쓰는 줄, 항목 사이 빈 줄, trailer는 넣지 않습니다. 항목은 5개 이하이고 보통 2~4개입니다.
+- 따로 나눌 수 없는 큰 변경은 커밋마다 시험이 통과하는 단계로 나눠 주세요. 이런 PR은 단계 커밋을 남겨 병합합니다([관리 안내](MAINTAINING.md#병합)).
 - `git add <path>`로 정확한 경로만 stage합니다.
 
 PR 커밋은 `scripts/check_commit_messages.py`가 CI에서 검사합니다.
