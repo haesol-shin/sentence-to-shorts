@@ -15,6 +15,7 @@
 | [0011](0011-version-media-output-profiles.md) | 버전이 있는 미디어 profile을 제안한다 | Proposed |
 | [0012](0012-package-for-windows-and-linux.md) | Windows와 Linux 설치물을 제공한다 | Accepted |
 | [0013](0013-use-public-mainline-repository.md) | 공개 단일 main 저장소를 사용한다 | Accepted |
-| [0016](0016-use-selected-design-tokens.md) | 공통 디자인 token을 사용한다 | Accepted |
+| [0016](0016-use-selected-design-tokens.md) | 공통 디자인 token을 사용한다(대표색 이름은 [0023](0023-build-components-on-shadcn-base-ui.md)) | Accepted |
 | [0017](0017-build-react-components-with-gallery.md) | 실제 React 부품과 개발용 갤러리를 사용한다 | Accepted |
 | [0018](0018-store-prompts-as-files.md) | prompt를 코드 밖 파일로 분리한다 | Proposed |
+| [0023](0023-build-components-on-shadcn-base-ui.md) | shadcn/ui on Base UI로 화면 부품을 만든다 | Accepted |
