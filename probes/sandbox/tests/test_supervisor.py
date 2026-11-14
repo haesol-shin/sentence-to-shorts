@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -102,6 +103,38 @@ class SupervisorTests(unittest.TestCase):
     def test_supervisor_flags_two_protocol_lines(self):
         result = run_case("stub_two_lines", "reject")
         self.assertEqual(result["verdict"], "harness_error")
+
+    def test_supervisor_flags_malformed_response(self):
+        for run_id in (
+            "stub_list",
+            "stub_number",
+            "stub_string",
+            "stub_protocol",
+            "stub_run_id",
+            "stub_status",
+            "stub_error_shape",
+        ):
+            with self.subTest(run_id=run_id):
+                result = run_case(run_id, "reject")
+                self.assertEqual(result["verdict"], "harness_error")
+
+    @unittest.skipUnless(os.name == "posix", "process group cleanup is POSIX only")
+    def test_supervisor_kills_descendants_after_leader_exit(self):
+        request = json.dumps({"protocol": 1, "run_id": "stub_spawn_child"}).encode("utf-8")
+        with tempfile.TemporaryDirectory(prefix="probe-tree-") as workdir:
+            outcome = run_probe.supervise(
+                [sys.executable, str(STUB)],
+                request,
+                LIMITS,
+                Path(workdir),
+                None,
+                None,
+            )
+            marker = Path(workdir) / "probe-child-beat.txt"
+            self.assertTrue(marker.exists(), outcome.stderr.decode("utf-8", "replace"))
+            size = marker.stat().st_size
+            time.sleep(0.5)
+            self.assertEqual(marker.stat().st_size, size, "a descendant survived the leader exit")
 
     def test_supervisor_records_missing_protocol_line(self):
         result = run_case("stub_unknown", "reject")

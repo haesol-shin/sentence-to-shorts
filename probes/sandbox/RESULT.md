@@ -34,7 +34,9 @@ deno run --quiet --no-prompt --no-config --cached-only \
 ## 측정 규칙
 
 - 거절은 세 가지로만 적는다. 권한 오류는 `permission_denied`, 부모 종료는 `timeout`, `output_limit`, `memory_limit`, 부모 검증 실패는 `invalid_output`이다.
-- runner가 보낸 판정 문자열은 믿지 않는다. 부모는 stdout 한 줄만 받고 PNG와 WAV를 직접 검사한다. 정상 PNG는 signature, IHDR, 한 변 1920 이하, 8MiB 이하, IEND를 본다. 정상 WAV는 RIFF와 WAVE, PCM mono 44100Hz 16bit, 16초 이하, 1.5MiB 이하, fmt와 data 외 chunk 없음을 본다.
+- runner가 보낸 판정 문자열은 믿지 않는다. 부모는 stdout 한 줄의 `protocol`, `run_id`, `status`와 중첩 field 형태를 먼저 검사하고, 어긋나면 결과가 아니라 harness 오류로 적는다.
+- 정상 PNG는 signature, IHDR, 한 변 1920 이하, 8MiB 이하, IEND를 확인한 뒤 pixel 상한 안에서 decode하고 RGBA로 다시 encode한다. 이미지 데이터가 없거나 깨진 PNG는 decode 단계에서 거절한다. 부모는 이 검증에만 Pillow를 쓰고 probe workflow에서만 설치한다.
+- 정상 WAV는 RIFF와 WAVE, PCM mono 44100Hz 16bit, fmt와 data 외 chunk 없음, data chunk 존재와 비어 있지 않음, block align과 frame 정합성, 16초 이하, 1.5MiB 이하를 본다.
 - 프로토콜 line이 없거나 두 줄 이상이면 harness 오류다. 시험 대상의 실패는 결과이고 workflow는 성공으로 끝난다. workflow 실패는 harness 오류만 뜻한다.
 - 수치가 없는 칸은 비워 둔다. 추정값이나 다른 OS의 값을 옮겨 적지 않는다.
 - 각 실행은 새 Deno 프로세스다. 한 프로세스 안에서 두 코드 단위를 돌리는 `state_leak`만 module, 가상 FS, monkey patch가 다음 단위에 남는지 잰다.

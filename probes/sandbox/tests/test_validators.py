@@ -7,13 +7,31 @@ import unittest
 
 import validate
 
-from .fixtures import make_png, make_wav
+from .fixtures import (
+    make_png,
+    make_png_with_corrupt_data,
+    make_png_without_data,
+    make_wav,
+    make_wav_odd_data,
+    make_wav_without_frames,
+)
 
 
 class PngTests(unittest.TestCase):
     def test_png_accepts_contract_limits(self):
         accepted, detail = validate.check_png(make_png(1080, 1920))
         self.assertTrue(accepted, detail)
+        self.assertIn("re-encoded", detail)
+
+    def test_png_rejects_header_without_image_data(self):
+        accepted, detail = validate.check_png(make_png_without_data())
+        self.assertFalse(accepted)
+        self.assertIn("decode failed", detail)
+
+    def test_png_rejects_corrupt_image_data(self):
+        accepted, detail = validate.check_png(make_png_with_corrupt_data())
+        self.assertFalse(accepted)
+        self.assertIn("decode failed", detail)
 
     def test_png_rejects_signature_only(self):
         accepted, detail = validate.check_png(b"\x89PNG\r\n\x1a\n" + b"\x00" * 64)
@@ -54,6 +72,16 @@ class WavTests(unittest.TestCase):
         accepted, detail = validate.check_wav(extra)
         self.assertFalse(accepted)
         self.assertIn("chunk", detail)
+
+    def test_wav_rejects_missing_audio_frames(self):
+        accepted, detail = validate.check_wav(make_wav_without_frames())
+        self.assertFalse(accepted)
+        self.assertIn("data chunk", detail)
+
+    def test_wav_rejects_partial_frame(self):
+        accepted, detail = validate.check_wav(make_wav_odd_data())
+        self.assertFalse(accepted)
+        self.assertIn("whole number of frames", detail)
 
 
 if __name__ == "__main__":

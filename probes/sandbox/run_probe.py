@@ -239,6 +239,17 @@ def attach_job(handle, pid: int) -> str:
         return f"Job Object assignment failed: {error}"
 
 
+def close_windows_handle(handle) -> None:
+    if not handle or os.name != "nt":
+        return
+    try:
+        import ctypes
+
+        ctypes.WinDLL("kernel32").CloseHandle(handle)
+    except Exception:  # noqa: BLE001 - closing a handle must not mask results
+        pass
+
+
 def child_environment(cache_dir: Path) -> dict[str, str]:
     """A minimal environment. The sandbox denies env reads, so this only boots Deno."""
     environment = {
@@ -261,7 +272,7 @@ def supervise(
     limits: dict,
     workdir: Path,
     memory_prefix: list[str] | None,
-    job_handle,
+    cap_bytes: int | None,
 ) -> Outcome:
     cache_dir = workdir / "deno-cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
@@ -280,7 +291,16 @@ def supervise(
         start_new_session=os.name == "posix",
         creationflags=creationflags,
     )
-    job_detail = attach_job(job_handle, process.pid)
+    job_handle = None
+    job_detail = ""
+    if os.name == "nt" and cap_bytes:
+        job_handle, job_detail = windows_memory_job(cap_bytes)
+        if job_handle:
+            assignment = attach_job(job_handle, process.pid)
+            if assignment:
+                job_detail = assignment
+                close_windows_handle(job_handle)
+                job_handle = None
     stdout = Capture(process.stdout, int(limits["stdout_bytes"]))
     stderr = Capture(process.stderr, int(limits["stderr_bytes"]))
     stdout.start()
@@ -304,13 +324,27 @@ def supervise(
     except subprocess.TimeoutExpired:
         kill_tree(process)
         process.wait(timeout=30)
-    stdout.join(timeout=5)
-    stderr.join(timeout=5)
+
+    # The leader can exit before its children, so clean the whole containment
+    # unit after every run, not only after a timeout.
+    if os.name == "posix":
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    else:
+        close_windows_handle(job_handle)
+
+    # A surviving descendant can hold the pipes open, so close them on a deadline.
+    for capture in (stdout, stderr):
+        capture.join(timeout=2)
     for stream in (process.stdout, process.stderr):
         try:
             stream.close()
-        except OSError:
+        except (OSError, ValueError):
             pass
+    for capture in (stdout, stderr):
+        capture.join(timeout=1)
 
     wall_ms = int((time.monotonic() - started) * 1000)
     return Outcome(
@@ -340,8 +374,11 @@ def payload_detail(value: dict) -> tuple[str, str]:
         return "payload", json.dumps(value.get("value"), ensure_ascii=False, sort_keys=True)[:400]
     if kind not in ("png", "wav"):
         return "invalid_output", f"unknown payload kind {kind!r}"
+    encoded = value.get("base64")
+    if not isinstance(encoded, str) or not encoded:
+        return "invalid_output", "payload has no base64 string"
     try:
-        data = base64.b64decode(value.get("base64") or "", validate=True)
+        data = base64.b64decode(encoded, validate=True)
     except (ValueError, TypeError) as error:
         return "invalid_output", f"base64 decode failed: {error}"
     check = validate.check_png if kind == "png" else validate.check_wav
@@ -354,7 +391,7 @@ def run_program(
     flags: list[str],
     runtime_dir: Path,
     memory_prefix: list[str] | None,
-    job_handle,
+    cap_bytes: int | None,
     program: dict,
     limits: dict,
 ) -> dict:
@@ -379,7 +416,7 @@ def run_program(
     command = [str(deno), *flags, str(RUNNER), str(runtime_dir)]
     with tempfile.TemporaryDirectory(prefix="probe-run-") as workdir:
         outcome = supervise(
-            command, request, limits, Path(workdir), memory_prefix, job_handle
+            command, request, limits, Path(workdir), memory_prefix, cap_bytes
         )
     return {"outcome": outcome, "request_bytes": len(request)}
 
@@ -392,6 +429,36 @@ def describe_stderr(data: bytes) -> str:
 def last_line(text: str) -> str:
     lines = [line.strip() for line in text.strip().splitlines() if line.strip()]
     return lines[-1] if lines else ""
+
+
+def parse_response(line: str, run_id: str) -> tuple[dict | None, str]:
+    """Validate the envelope before any field is trusted."""
+    try:
+        response = json.loads(line)
+    except json.JSONDecodeError as error:
+        return None, f"response is not JSON: {error.msg}"
+    if not isinstance(response, dict):
+        return None, f"response is {type(response).__name__}, not a JSON object"
+    protocol = response.get("protocol")
+    if isinstance(protocol, bool) or protocol != PROTOCOL:
+        return None, f"protocol {protocol!r} does not match {PROTOCOL}"
+    if response.get("run_id") != run_id:
+        return None, f"run_id {response.get('run_id')!r} does not match {run_id!r}"
+    status = response.get("status")
+    if status == "ok":
+        value = response.get("value")
+        if not isinstance(value, dict) or not isinstance(value.get("kind"), str):
+            return None, "ok response has no value object with a string kind"
+    elif status == "error":
+        error = response.get("error")
+        if not isinstance(error, dict) or not isinstance(error.get("code"), str):
+            return None, "error response has no error object with a string code"
+        message = error.get("message")
+        if message is not None and not isinstance(message, str):
+            return None, "error message is not a string"
+    else:
+        return None, f"status {status!r} is not ok or error"
+    return response, ""
 
 
 def classify(program: dict, result: dict, memory_cap: dict) -> dict:
@@ -416,14 +483,14 @@ def classify(program: dict, result: dict, memory_cap: dict) -> dict:
         detail = f"{stream} passed the {stream} byte cap"
     else:
         lines = protocol_lines(outcome.stdout)
-        if len(lines) == 1:
-            try:
-                response = json.loads(lines[0])
-            except json.JSONDecodeError:
-                response = None
+        response = None
         if len(lines) > 1:
             verdict, detail = "harness_error", f"{len(lines)} protocol lines on stdout"
-        elif response is None:
+        elif len(lines) == 1:
+            response, problem = parse_response(lines[0], program["id"])
+            if response is None:
+                verdict, detail = "harness_error", problem
+        if response is None and not detail:
             if outcome.signal is not None and program.get("contain") == "memory":
                 verdict = "memory_limit"
                 detail = (
@@ -436,9 +503,9 @@ def classify(program: dict, result: dict, memory_cap: dict) -> dict:
             else:
                 verdict = "crashed"
                 detail = f"no protocol line; exit {outcome.exit_code}, stderr: {describe_stderr(outcome.stderr)}"
-        elif response.get("status") == "error":
-            code = (response.get("error") or {}).get("code")
-            message = ((response.get("error") or {}).get("message") or "").strip()
+        elif response is not None and response["status"] == "error":
+            code = response["error"]["code"]
+            message = (response["error"].get("message") or "").strip()
             error_message = message[:2000]
             summary = last_line(message)[:300]
             if code == "permission_denied":
@@ -449,8 +516,8 @@ def classify(program: dict, result: dict, memory_cap: dict) -> dict:
                 verdict, detail = "harness_error", f"{code}: {summary}"
             else:
                 verdict, detail = "crashed", f"{code or 'error'}: {summary}"
-        elif response.get("status") == "ok":
-            value = response.get("value") or {}
+        elif response is not None:
+            value = response["value"]
             kind, payload_text = payload_detail(value)
             if kind != "payload" or value.get("kind") != program["output"]:
                 verdict = "invalid_output"
@@ -463,8 +530,6 @@ def classify(program: dict, result: dict, memory_cap: dict) -> dict:
                 verdict, detail = "measured", payload_text
             else:
                 verdict, detail = "passed", payload_text
-        else:
-            verdict, detail = "harness_error", "protocol line without status"
 
     return {
         "verdict": verdict,
@@ -486,22 +551,24 @@ def classify(program: dict, result: dict, memory_cap: dict) -> dict:
     }
 
 
-def memory_cap_setup(enabled: bool) -> tuple[list[str] | None, dict, object]:
+def memory_cap_setup(enabled: bool) -> tuple[list[str] | None, dict, int | None]:
     if not enabled:
         return None, {"applied": False, "mechanism": "disabled", "detail": "disabled by flag"}, None
     if os.name == "nt":
         handle, detail = windows_memory_job(MEMORY_CAP_BYTES)
+        close_windows_handle(handle)
+        applied = handle is not None
         return None, {
-            "applied": handle is not None,
-            "mechanism": "job_object" if handle else "none",
+            "applied": applied,
+            "mechanism": "job_object" if applied else "none",
             "detail": detail,
-        }, handle
+        }, (MEMORY_CAP_BYTES if applied else None)
     prefix, detail = posix_memory_wrapper(MEMORY_CAP_BYTES)
     return prefix, {
         "applied": prefix is not None,
         "mechanism": "systemd-run" if prefix else "none",
         "detail": detail,
-    }, None
+    }, (MEMORY_CAP_BYTES if prefix else None)
 
 
 def peak_rss_bytes() -> int | None:
@@ -565,7 +632,7 @@ def main(argv: list[str] | None = None) -> int:
         "--deny-sys",
         "--deny-import",
     ]
-    memory_prefix, memory_cap, job_handle = memory_cap_setup(not args.no_memory_cap)
+    memory_prefix, memory_cap, cap_bytes = memory_cap_setup(not args.no_memory_cap)
 
     programs = manifest["programs"]
     if args.only:
@@ -585,7 +652,7 @@ def main(argv: list[str] | None = None) -> int:
             if key in program:
                 limits[key] = program[key]
         result = run_program(
-            deno, flags, runtime, memory_prefix, job_handle, program, limits
+            deno, flags, runtime, memory_prefix, cap_bytes, program, limits
         )
         record = classify(program, result, memory_cap)
         record["id"] = program["id"]
@@ -653,13 +720,6 @@ def main(argv: list[str] | None = None) -> int:
         with open(step_summary, "a", encoding="utf-8") as handle:
             handle.write(summary)
 
-    if job_handle and os.name == "nt":
-        try:
-            import ctypes
-
-            ctypes.WinDLL("kernel32").CloseHandle(job_handle)
-        except Exception:  # noqa: BLE001 - closing a handle must not mask results
-            pass
     return 3 if harness_errors else 0
 
 

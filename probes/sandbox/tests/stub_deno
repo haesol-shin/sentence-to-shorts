@@ -7,6 +7,7 @@ import base64
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 
@@ -43,6 +44,34 @@ elif run_id == "stub_escape":
 elif run_id == "stub_two_lines":
     sys.stdout.write("not json\n")
     emit({"protocol": 1, "run_id": run_id, "status": "ok", "value": {"kind": "json", "value": {}}})
+elif run_id == "stub_list":
+    sys.stdout.write("[]\n")
+elif run_id == "stub_number":
+    sys.stdout.write("123\n")
+elif run_id == "stub_string":
+    sys.stdout.write('"text"\n')
+elif run_id == "stub_protocol":
+    emit({"protocol": 999, "run_id": run_id, "status": "error", "error": {"code": "permission_denied", "message": "x"}})
+elif run_id == "stub_run_id":
+    emit({"protocol": 1, "run_id": "other-run", "status": "error", "error": {"code": "permission_denied", "message": "x"}})
+elif run_id == "stub_status":
+    emit({"protocol": 1, "run_id": run_id, "status": "weird", "value": {"kind": "json", "value": {}}})
+elif run_id == "stub_error_shape":
+    emit({"protocol": 1, "run_id": run_id, "status": "error", "error": {"message": "no code"}})
+elif run_id == "stub_spawn_child":
+    script = (
+        "import os, time\n"
+        "fd = os.open('probe-child-beat.txt', os.O_CREAT | os.O_WRONLY | os.O_APPEND)\n"
+        "while True:\n"
+        "    os.write(fd, b'x')\n"
+        "    time.sleep(0.02)\n"
+    )
+    subprocess.Popen([sys.executable, "-c", script])
+    for _ in range(100):
+        if os.path.exists("probe-child-beat.txt"):
+            break
+        time.sleep(0.01)
+    sys.exit(0)
 elif run_id == "stub_sleep":
     time.sleep(30)
 elif run_id == "stub_flood":
