@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "anthropic_api",
+  "label": {
+    "ko": "Anthropic API",
+    "en": "Anthropic API"
+  },
+  "profiles": ["release"],
+  "languages": ["ko", "en"],
+  "outputs": ["text", "parsed"],
+  "auth": "api_key"
+}

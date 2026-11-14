@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "claude_cli",
+  "label": {
+    "ko": "Claude CLI",
+    "en": "Claude CLI"
+  },
+  "profiles": ["dev"],
+  "languages": ["ko", "en"],
+  "outputs": ["text", "parsed"],
+  "auth": "cli_login"
+}

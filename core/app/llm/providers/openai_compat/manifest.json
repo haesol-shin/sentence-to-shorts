@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "openai_compat",
+  "label": {
+    "ko": "OpenAI 호환 endpoint",
+    "en": "OpenAI-compatible endpoint"
+  },
+  "profiles": ["dev"],
+  "languages": ["ko", "en"],
+  "outputs": ["text", "parsed"],
+  "auth": "optional_api_key"
+}

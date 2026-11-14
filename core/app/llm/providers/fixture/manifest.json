@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "fixture",
+  "label": {
+    "ko": "녹화 응답",
+    "en": "Recorded responses"
+  },
+  "profiles": ["fixture"],
+  "languages": ["ko", "en"],
+  "outputs": ["text", "parsed"],
+  "auth": "none"
+}

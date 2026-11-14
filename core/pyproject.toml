@@ -48,4 +48,12 @@ root_package = "app"
 [[tool.importlinter.contracts]]
 name = "application direction"
 type = "layers"
-layers = ["app.plugins", "app.ports", "app.schemas"]
+layers = [
+    "app.bootstrap",
+    "app.access",
+    "app.services.pipeline",
+    "app.services.project | app.services.story | app.services.reference | app.services.render | app.services.voice | app.services.sound | app.services.assemble | app.services.templates",
+    "app.jobs | app.storage | app.runtime | app.llm | app.tools | app.plugins",
+    "app.ports",
+    "app.schemas",
+]
