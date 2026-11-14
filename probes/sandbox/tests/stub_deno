@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""Stub runner used by the supervisor tests. It ignores the Deno arguments."""
+
+from __future__ import annotations
+
+import base64
+import json
+import os
+import signal
+import subprocess
+import sys
+import time
+
+from fixtures import make_png
+
+request = json.loads(sys.stdin.read() or "{}")
+run_id = request.get("run_id", "")
+
+
+def emit(payload: dict) -> None:
+    sys.stdout.write(json.dumps(payload) + "\n")
+    sys.stdout.flush()
+
+
+if run_id == "stub_pass":
+    emit({"protocol": 1, "run_id": run_id, "status": "ok", "value": {"kind": "json", "value": {"ok": True}}})
+elif run_id == "stub_png_ok":
+    data = base64.b64encode(make_png()).decode("ascii")
+    emit({"protocol": 1, "run_id": run_id, "status": "ok", "value": {"kind": "png", "base64": data}})
+elif run_id == "stub_png_bad":
+    data = base64.b64encode(b"\x89PNG\r\n\x1a\n" + b"\x00" * 32).decode("ascii")
+    emit({"protocol": 1, "run_id": run_id, "status": "ok", "value": {"kind": "png", "base64": data}})
+elif run_id == "stub_reject":
+    emit(
+        {
+            "protocol": 1,
+            "run_id": run_id,
+            "status": "error",
+            "error": {"code": "permission_denied", "message": "Requires read access to <runtime>", "name": "PermissionDenied"},
+        }
+    )
+elif run_id == "stub_escape":
+    emit({"protocol": 1, "run_id": run_id, "status": "ok", "value": {"kind": "json", "value": {"escaped": True}}})
+elif run_id == "stub_two_lines":
+    sys.stdout.write("not json\n")
+    emit({"protocol": 1, "run_id": run_id, "status": "ok", "value": {"kind": "json", "value": {}}})
+elif run_id == "stub_list":
+    sys.stdout.write("[]\n")
+elif run_id == "stub_number":
+    sys.stdout.write("123\n")
+elif run_id == "stub_string":
+    sys.stdout.write('"text"\n')
+elif run_id == "stub_protocol":
+    emit({"protocol": 999, "run_id": run_id, "status": "error", "error": {"code": "permission_denied", "message": "x"}})
+elif run_id == "stub_run_id":
+    emit({"protocol": 1, "run_id": "other-run", "status": "error", "error": {"code": "permission_denied", "message": "x"}})
+elif run_id == "stub_status":
+    emit({"protocol": 1, "run_id": run_id, "status": "weird", "value": {"kind": "json", "value": {}}})
+elif run_id == "stub_error_shape":
+    emit({"protocol": 1, "run_id": run_id, "status": "error", "error": {"message": "no code"}})
+elif run_id == "stub_spawn_child":
+    script = (
+        "import os, time\n"
+        "fd = os.open('probe-child-beat.txt', os.O_CREAT | os.O_WRONLY | os.O_APPEND)\n"
+        "while True:\n"
+        "    os.write(fd, b'x')\n"
+        "    time.sleep(0.02)\n"
+    )
+    subprocess.Popen([sys.executable, "-c", script])
+    for _ in range(100):
+        if os.path.exists("probe-child-beat.txt"):
+            break
+        time.sleep(0.01)
+    sys.exit(0)
+elif run_id == "stub_sleep":
+    time.sleep(30)
+elif run_id == "stub_flood":
+    chunk = b"x" * 65536
+    while True:
+        sys.stdout.write(chunk.decode())
+        sys.stdout.flush()
+elif run_id == "stub_memory":
+    os.kill(os.getpid(), signal.SIGKILL)
+else:
+    sys.stderr.write("stub: no behavior for " + run_id + "\n")
+    sys.exit(1)

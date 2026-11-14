@@ -1,0 +1,398 @@
+{
+  "schema": 1,
+  "limits": {
+    "wall_ms": 60000,
+    "stdout_bytes": 50331648,
+    "stderr_bytes": 65536,
+    "request_bytes": 12582912
+  },
+  "programs": [
+    {
+      "id": "style_parts_ok",
+      "file": "style_parts_ok.py",
+      "expect": "pass",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 1080,
+          "height": 1920
+        },
+        "seed": 7
+      },
+      "output": "png",
+      "wall_ms": 60000
+    },
+    {
+      "id": "bgm_loop_ok",
+      "file": "bgm_loop_ok.py",
+      "expect": "pass",
+      "entry": "render_loop",
+      "arg_names": [
+        "params",
+        "seed"
+      ],
+      "args": {
+        "params": {
+          "seconds": 2
+        },
+        "seed": 7
+      },
+      "output": "wav",
+      "wall_ms": 30000
+    },
+    {
+      "id": "js_bridge_sys",
+      "file": "js_bridge_sys.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000
+    },
+    {
+      "id": "file_read",
+      "file": "file_read.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000
+    },
+    {
+      "id": "file_write",
+      "file": "file_write.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000
+    },
+    {
+      "id": "network_fetch",
+      "file": "network_fetch.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000,
+      "async": true
+    },
+    {
+      "id": "env_read",
+      "file": "env_read.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000
+    },
+    {
+      "id": "subprocess",
+      "file": "subprocess.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000
+    },
+    {
+      "id": "ffi_dlopen",
+      "file": "ffi_dlopen.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000
+    },
+    {
+      "id": "permission_request",
+      "file": "permission_request.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000,
+      "async": true
+    },
+    {
+      "id": "remote_import",
+      "file": "remote_import.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 30000,
+      "async": true
+    },
+    {
+      "id": "infinite_loop",
+      "file": "infinite_loop.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 5000
+    },
+    {
+      "id": "memory_spike",
+      "file": "memory_spike.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 20000,
+      "contain": "memory"
+    },
+    {
+      "id": "stdout_flood",
+      "file": "stdout_flood.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "json",
+      "wall_ms": 10000,
+      "stdout_bytes": 1048576
+    },
+    {
+      "id": "bad_png",
+      "file": "bad_png.py",
+      "expect": "reject",
+      "entry": "build_assets",
+      "arg_names": [
+        "spec",
+        "character",
+        "canvas",
+        "seed"
+      ],
+      "args": {
+        "spec": {},
+        "character": {},
+        "canvas": {
+          "width": 64,
+          "height": 64
+        },
+        "seed": 7
+      },
+      "output": "png",
+      "wall_ms": 30000
+    },
+    {
+      "id": "bad_wav_header",
+      "file": "bad_wav_header.py",
+      "expect": "reject",
+      "entry": "render_loop",
+      "arg_names": [
+        "params",
+        "seed"
+      ],
+      "args": {
+        "params": {},
+        "seed": 7
+      },
+      "output": "wav",
+      "wall_ms": 30000
+    },
+    {
+      "id": "overlong_wav",
+      "file": "overlong_wav.py",
+      "expect": "reject",
+      "entry": "render_loop",
+      "arg_names": [
+        "params",
+        "seed"
+      ],
+      "args": {
+        "params": {},
+        "seed": 7
+      },
+      "output": "wav",
+      "wall_ms": 30000
+    },
+    {
+      "id": "state_leak",
+      "file": "state_leak.py",
+      "expect": "measure",
+      "entry": "run",
+      "arg_names": [],
+      "args": {},
+      "output": "json",
+      "wall_ms": 30000
+    }
+  ]
+}

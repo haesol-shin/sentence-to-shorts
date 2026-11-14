@@ -1,0 +1,73 @@
+name: Probe sandbox
+
+on:
+  pull_request:
+    paths:
+      - probes/sandbox/**
+      - .github/workflows/probe-sandbox.yml
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: Run the windows-latest matrix entry
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - id: plan
+        name: Build the run matrix
+        shell: bash
+        env:
+          DISPATCH: ${{ github.event_name == 'workflow_dispatch' }}
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          if [ "$DISPATCH" = "true" ] && [ "$WINDOWS" = "true" ]; then
+            matrix='{"include":[{"os":"linux","runner":"ubuntu-24.04"},{"os":"windows","runner":"windows-latest"}]}'
+          else
+            matrix='{"include":[{"os":"linux","runner":"ubuntu-24.04"}]}'
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
+  probe:
+    name: probe (${{ matrix.os }})
+    needs: plan
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - name: Install probe dependencies
+        run: python -m pip install pyyaml==6.0.2 pillow==13.0.0
+      - name: Unit checks
+        run: python -m unittest discover -s probes/sandbox/tests -t probes/sandbox -v
+      - name: Fetch pinned runtime
+        run: python probes/sandbox/fetch_runtime.py --dest "${{ runner.temp }}/probe-runtime"
+      - name: Run probe
+        run: >-
+          python probes/sandbox/run_probe.py
+          --runtime "${{ runner.temp }}/probe-runtime"
+          --out probes/sandbox/out
+          --os-label ${{ matrix.os }}
+      - name: Upload result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sandbox-probe-${{ matrix.os }}
+          path: probes/sandbox/out/result.json
+          if-no-files-found: warn
+          retention-days: 14
