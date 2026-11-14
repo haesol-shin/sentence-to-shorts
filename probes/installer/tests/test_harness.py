@@ -22,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from harness import HarnessError, run  # noqa: E402
 import launcher  # noqa: E402
 from launcher import default_port_file, parse_args, server_env  # noqa: E402
-from run_probe import shortcut_arguments, silent_flags, windows_user_env, windows_user_home  # noqa: E402
+from run_probe import shortcut_arguments, windows_installer_command, windows_user_env, windows_user_home  # noqa: E402
 
 from harness import (  # noqa: E402
     HarnessError,
@@ -195,18 +195,19 @@ class LaunchTest(unittest.TestCase):
 
 
 class WindowsCommandTest(unittest.TestCase):
-    def test_installer_silent_flags_follow_the_tool(self) -> None:
+    def test_windows_installer_command_keeps_tool_quoting(self) -> None:
+        installer = r"C:\setup files\setup.exe"
         self.assertEqual(
-            silent_flags("inno", Path("/work dir/install")),
-            ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", '/DIR="/work dir/install"'],
+            windows_installer_command("inno", installer, Path("/work dir/install")),
+            '"' + installer + '" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR="/work dir/install"',
         )
         self.assertEqual(
-            silent_flags("nsis", Path("/work dir/install")),
-            ["/S", "/D=/work dir/install"],
+            windows_installer_command("nsis", installer, Path("/work dir/install")),
+            "\"" + installer + "\" /S /D=/work dir/install",
         )
         self.assertEqual(
-            silent_flags("inno", None),
-            ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"],
+            windows_installer_command("inno", installer),
+            "\"" + installer + "\" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART",
         )
 
 

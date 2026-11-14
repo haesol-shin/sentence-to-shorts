@@ -54,6 +54,7 @@ from harness import (  # noqa: E402
     render_nsi,
     require,
     run,
+    run_windows_command,
     sha256_file,
     summary_markdown,
     synthetic_paths,
@@ -238,8 +239,8 @@ def pack_site_packages(session: Session, probe: Probe) -> None:
         shutil.copytree(packages, target)
         session.site_packages_rel = packages.relative_to(session.bundle).as_posix()
         session.site_packages_bytes = tree_bytes(target)
-        # The build environment holds absolute paths to this bundle. Ship only the package
-        # files and create a fresh environment at the install path.
+        # The build venv holds absolute paths to this bundle. Ship only its package files;
+        # the installed launcher passes that folder as PYTHONPATH.
         shutil.rmtree(session.bundle / "env")
         require(not (session.bundle / "env").exists(), "the build environment is still in the bundle")
         if session.args.dry_run:
@@ -541,18 +542,22 @@ def apply_install(session: Session, probe: Probe, check_id: str = "install.apply
     stage(probe, check_id, action, detail="silent install of the bundled interpreter, environment and app")
 
 
-def silent_flags(tool: str, install_path: Path | None) -> list[str]:
-    """Silent install switches for the built installer, with an optional directory override."""
+def windows_installer_command(tool: str, installer: str, install_path: Path | None = None) -> str:
+    """Build the command line with the quoting each setup tool parses.
+
+    Inno Setup wants a literal quoted /DIR value. NSIS wants /D as the last unquoted item.
+    Passing a list to subprocess would escape the Inno quotes and quote the NSIS path.
+    """
+    command = f'"{installer}"'
     if tool == "nsis":
-        flags = ["/S"]
+        command += " /S"
         if install_path is not None:
-            # NSIS wants /D last and unquoted; the probe records a failure to install there.
-            flags.append(f"/D={install_path}")
-        return flags
-    flags = ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"]
+            command += f" /D={install_path}"
+        return command
+    command += " /VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
     if install_path is not None:
-        flags.append(f'/DIR="{install_path}"')
-    return flags
+        command += f' /DIR="{install_path}"'
+    return command
 
 
 def run_windows_installer(session: Session) -> None:
@@ -562,7 +567,7 @@ def run_windows_installer(session: Session) -> None:
         task = f"installer-probe-{secrets.token_hex(4)}"
         # The default {localappdata} of the new account is the Korean profile path, so the
         # task needs no directory override and the command line stays short.
-        command = f'"{installer}" ' + " ".join(silent_flags(session.artifact["tool"], None))
+        command = windows_installer_command(session.artifact["tool"], installer)
         create = run(
             ["schtasks", "/Create", "/TN", task, "/RU", session.user["login"], "/RP", session.password, "/SC", "ONCE", "/ST", "23:59", "/TR", command, "/F"],
             timeout=TIMEOUTS["command"],
@@ -577,12 +582,14 @@ def run_windows_installer(session: Session) -> None:
         if result != 0:
             raise ProbeError(f"the installer exited {result} as {session.user['login']}")
         return
-    checked(
-        [installer, *silent_flags(session.artifact["tool"], install_path)],
+    completed = run_windows_command(
+        windows_installer_command(session.artifact["tool"], installer, install_path),
         env=windows_user_env(session.user),
         timeout=TIMEOUTS["install"],
         timeout_is_probe=True,
     )
+    if not completed.ok:
+        raise ProbeError(f"the installer exited {completed.returncode}: {completed.tail()}")
 
 
 def wait_windows_task(task: str, timeout: float) -> int:
@@ -805,7 +812,7 @@ def stop_windows_process(process: subprocess.Popen | None, record: dict) -> None
             run(["taskkill", "/PID", str(pid), "/T", "/F"], timeout=60)
 
 
-def windows_long_path(session: Session, probe: Probe) -> None:
+def windows_long_path(session: Session, probe: Probe, check_id: str = "path.long") -> None:
     """Install and start on the running Windows account at a path of 240 characters or more."""
 
     def action() -> dict:
@@ -813,12 +820,14 @@ def windows_long_path(session: Session, probe: Probe) -> None:
         target = deep_path(Path(session.user["install"]).parent, LONG_PATH_TARGET)
         environment = windows_user_env(session.user)
         started = time.monotonic()
-        checked(
-            [session.artifact["path"], *silent_flags(session.artifact["tool"], target)],
+        completed = run_windows_command(
+            windows_installer_command(session.artifact["tool"], session.artifact["path"], target),
             env=environment,
             timeout=TIMEOUTS["install"],
             timeout_is_probe=True,
         )
+        if not completed.ok:
+            raise ProbeError(f"the installer exited {completed.returncode}: {completed.tail()}")
         install_seconds = time.monotonic() - started
         require(target.is_dir(), f"the installer did not create the long path: {target}")
         interpreter = target / "python" / "pythonw.exe"
@@ -851,12 +860,12 @@ def windows_long_path(session: Session, probe: Probe) -> None:
             "note": "installed and started on the running account at a path of 240 characters or more",
         }
 
-    stage(probe, "path.long", action, detail="full Windows install and /health at a long install path")
+    stage(probe, check_id, action, detail="full Windows install and /health at a long install path")
 
 
-def long_path(session: Session, probe: Probe) -> None:
+def long_path(session: Session, probe: Probe, check_id: str = "path.long") -> None:
     if session.os_name == "windows":
-        windows_long_path(session, probe)
+        windows_long_path(session, probe, check_id)
         return
 
     def action() -> dict:
@@ -886,7 +895,7 @@ def long_path(session: Session, probe: Probe) -> None:
             "note": "installed and started at a path of 240 characters or more; paths above 260 depend on the OS policy",
         }
 
-    stage(probe, "path.long", action, detail="full install and /health at a long install path")
+    stage(probe, check_id, action, detail="full install and /health at a long install path")
 
 
 def stop_linux(session: Session, process: subprocess.Popen | None, record: dict) -> None:
@@ -946,7 +955,7 @@ def stop(session: Session, probe: Probe, check_id: str = "app.stop") -> None:
     stage(probe, check_id, action, detail="launcher and server stopped")
 
 
-INSTALL_FAILURE_IDS = {"install.apply", "shortcut.target", "app.start", "app.health", "python.not_from_path"}
+INSTALL_FAILURE_IDS = {"install.apply", "shortcut.target", "app.start", "app.health", "python.not_from_path", "path.long"}
 
 
 def run_nsis_retry(session: Session, probe: Probe) -> None:
@@ -997,6 +1006,7 @@ def run_nsis_retry(session: Session, probe: Probe) -> None:
         ("nsis.health", health),
         ("nsis.not_from_path", not_from_path),
         ("nsis.stop", stop),
+        ("nsis.path.long", long_path),
     ]
     for check_id, func in steps:
         if blocked:

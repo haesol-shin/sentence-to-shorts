@@ -498,6 +498,31 @@ def run(
     )
 
 
+def run_windows_command(
+    command_line: str,
+    *,
+    env: dict | None = None,
+    timeout: float = 600.0,
+    timeout_is_probe: bool = False,
+) -> Completed:
+    """Run a raw Windows command line so the probe controls the quoting the tool sees."""
+    try:
+        process = subprocess.run(
+            command_line,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        if timeout_is_probe:
+            raise ProbeError(f"the probe target timed out after {timeout:g}s: {command_line[:120]!r}") from exc
+        raise HarnessError(f"command timed out after {timeout:g}s: {command_line[:120]!r}") from exc
+    except OSError as exc:
+        raise HarnessError(f"cannot start {command_line[:120]!r}: {exc}") from exc
+    return Completed(command=[command_line], returncode=process.returncode, stdout=process.stdout, stderr=process.stderr)
+
+
 def checked(
     command: list[str],
     *,
