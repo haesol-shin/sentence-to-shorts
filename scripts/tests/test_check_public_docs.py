@@ -74,7 +74,7 @@ class CheckPublicDocsTest(unittest.TestCase):
     def test_public_text_checks_the_pr_template_and_workflows(self):
         found = self.problems(
             {
-                ".github/pull_request_template.md": f"## 무엇을 왜\n\n{TOOL}\n",
+                ".github/pull_request_template.md": f"## What and Why\n\n{TOOL}\n",
                 ".github/workflows/ci.yml": f"name: CI\n# {INTERNAL_PATH}\n",
                 "cubic.yaml": f"# {TOOL}\nversion: 1\n",
             }
