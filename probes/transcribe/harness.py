@@ -4,24 +4,23 @@
 This is probe code, not product code. It must not join the product
 dependencies or the product lockfile.
 
-The thing under test may fail. A model download, a model load or a
-transcription error is written to the result JSON as a result and the process
-still exits 0, so the workflow reports it instead of failing. Only a harness
-error writes status ``harness_error`` and exits 2.
+The thing under test may fail: a model load or a transcription error whose
+type is listed in ``SUBJECT_ERRORS`` is written to the result JSON as a result
+and the process still exits 0, so the workflow reports it instead of failing.
+Any other exception, a missing or out of range audio fixture, or a failed
+model download is a harness fault: it is written as ``harness_error`` and the
+process exits 2.
 """
 
 from __future__ import annotations
 
 import argparse
-import array
 import json
-import math
 import os
 import platform
-import random
 import re
+import subprocess
 import sys
-import threading
 import time
 import wave
 from dataclasses import dataclass
@@ -31,15 +30,17 @@ from typing import Callable, Sequence
 
 SCHEMA_VERSION = 1
 PROBE_NAME = "transcribe"
+MODEL_NAME = "small"
+COMPUTE_TYPE = "int8"
+BEAM_SIZE = 5
 DEFAULT_LANGUAGES = ("ko", "en")
-DEFAULT_MODEL = "small"
-DEFAULT_COMPUTE_TYPE = "int8"
-DEFAULT_FIXTURE_SECONDS = 24.0
-MIN_FIXTURE_SECONDS = 20.0
-MAX_FIXTURE_SECONDS = 40.0
 DEFAULT_DOWNLOAD_TIMEOUT_S = 1800.0
-SAMPLE_RATE = 16000
-LANGUAGE_SEEDS = {"ko": 20260101, "en": 20260102}
+DOWNLOAD_SUBCOMMAND = "_download"
+MIN_FIXTURE_MS = 20_000
+MAX_FIXTURE_MS = 40_000
+# Exception types that mean the thing under test failed. Anything else is a
+# harness fault, so a bookkeeping error never looks like a probe result.
+SUBJECT_ERRORS = (RuntimeError, ValueError)
 VERSION_PACKAGES = (
     "faster-whisper",
     "ctranslate2",
@@ -72,13 +73,8 @@ class Settings:
     out: Path
     languages: tuple[str, ...] = DEFAULT_LANGUAGES
     audio_dir: Path = Path("probes/transcribe/audio")
-    fixture_seconds: float = DEFAULT_FIXTURE_SECONDS
-    model: str = DEFAULT_MODEL
-    compute_type: str = DEFAULT_COMPUTE_TYPE
     threads: int = 1
     download_timeout_s: float = DEFAULT_DOWNLOAD_TIMEOUT_S
-    beam_size: int = 5
-    stub: bool = False
 
     @property
     def work_dir(self) -> Path:
@@ -223,135 +219,31 @@ def wav_duration_ms(path: Path) -> int:
     return int(round(frames * 1000.0 / rate))
 
 
-def _clip(value: float) -> int:
-    return max(-32767, min(32767, int(value)))
-
-
-def _formant_weight(frequency: float, f1: float, f2: float) -> float:
-    first = 1.2 / (1.0 + ((frequency - f1) / 200.0) ** 2)
-    second = 0.8 / (1.0 + ((frequency - f2) / 320.0) ** 2)
-    third = 0.1 / (1.0 + (frequency / 4000.0) ** 2)
-    return first + second + third
-
-
-def _syllable_table(f0: float, f1: float, f2: float) -> list[float]:
-    length = max(16, int(round(SAMPLE_RATE / f0)))
-    table = []
-    for index in range(length):
-        phase = 2.0 * math.pi * index / length
-        value = 0.0
-        for harmonic in range(1, 9):
-            value += _formant_weight(f0 * harmonic, f1, f2) * math.sin(harmonic * phase)
-        table.append(value)
-    peak = max(abs(value) for value in table) or 1.0
-    return [value / peak for value in table]
-
-
-def _render_syllable(
-    samples: array.array,
-    offset: int,
-    count: int,
-    rng: random.Random,
-    f0: float,
-    f1: float,
-    f2: float,
-) -> None:
-    table = _syllable_table(f0, f1, f2)
-    length = len(table)
-    attack = max(1, count // 5)
-    release = max(1, count // 3)
-    start_f0 = f0 * rng.uniform(0.92, 0.98)
-    end_f0 = f0 * rng.uniform(1.02, 1.12)
-    gain = rng.uniform(0.22, 0.36)
-    cursor = 0.0
-    for index in range(count):
-        progress = index / count
-        step = (start_f0 + (end_f0 - start_f0) * progress) / f0
-        cursor = (cursor + step) % length
-        position = int(cursor)
-        fraction = cursor - position
-        first = table[position]
-        second = table[(position + 1) % length]
-        value = first + (second - first) * fraction
-        envelope = min(1.0, index / attack, (count - index) / release)
-        noise = rng.uniform(-1.0, 1.0) * 0.04 if progress < 0.1 else 0.0
-        samples[offset + index] = _clip(32767.0 * gain * (value + noise) * envelope)
-
-
-def synthesize_tone(path: Path, *, seconds: float, seed: int) -> None:
-    """Write a deterministic speech shaped waveform.
-
-    It has syllables, pauses and formant like harmonics, but no words, so it
-    exercises the audio path and the model without claiming accuracy.
-    """
-    rng = random.Random(seed)
-    total = int(round(seconds * SAMPLE_RATE))
-    samples = array.array("h", bytes(2 * total))
-    position = int(0.4 * SAMPLE_RATE)
-    while position < total - 1:
-        utterance = int(rng.uniform(1.2, 2.2) * SAMPLE_RATE)
-        f0 = rng.uniform(95.0, 210.0)
-        f1 = rng.uniform(300.0, 780.0)
-        f2 = rng.uniform(900.0, 2100.0)
-        cursor = 0
-        while cursor < utterance - 1:
-            count = int(rng.uniform(0.10, 0.24) * SAMPLE_RATE)
-            room = min(utterance - cursor, total - position - cursor)
-            count = min(count, room)
-            if count <= 0:
-                break
-            _render_syllable(samples, position + cursor, count, rng, f0, f1, f2)
-            cursor += count + int(rng.uniform(0.0, 0.04) * SAMPLE_RATE)
-        position += utterance + int(rng.uniform(0.25, 0.55) * SAMPLE_RATE)
-    write_wav(path, samples)
-
-
-def write_wav(path: Path, samples: array.array) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if sys.byteorder == "big":
-        samples = array.array("h", samples)
-        samples.byteswap()
-    with wave.open(str(path), "wb") as handle:
-        handle.setnchannels(1)
-        handle.setsampwidth(2)
-        handle.setframerate(SAMPLE_RATE)
-        handle.writeframes(samples.tobytes())
-
-
 def prepare_fixture(settings: Settings, language: str) -> dict:
-    """Return the audio fixture for one language and its expected text."""
+    """Return the audio fixture for one language and its reference text."""
     speech = settings.audio_dir / f"{language}.wav"
-    if speech.is_file():
-        reference = settings.audio_dir / f"{language}.txt"
-        expected = reference.read_text(encoding="utf-8").strip() if reference.is_file() else None
-        try:
-            duration = wav_duration_ms(speech)
-        except (wave.Error, EOFError, OSError) as exc:
-            raise HarnessError(f"{speech.name}: not a readable WAV ({exc})") from exc
-        meta = {
-            "kind": "speech",
-            "source": "file",
-            "file": speech.name,
-            "duration_ms": duration,
-            "expected_text": expected,
-        }
-        return {"path": speech, "duration_ms": duration, "meta": meta}
-
-    generated = settings.work_dir / "fixtures" / f"{language}.wav"
-    synthesize_tone(
-        generated,
-        seconds=settings.fixture_seconds,
-        seed=LANGUAGE_SEEDS.get(language, 0),
-    )
-    duration = wav_duration_ms(generated)
+    if not speech.is_file():
+        raise HarnessError(
+            f"missing speech fixture {speech.name}; see probes/transcribe/audio/README.md"
+        )
+    reference = settings.audio_dir / f"{language}.txt"
+    expected = reference.read_text(encoding="utf-8").strip() if reference.is_file() else None
+    try:
+        duration = wav_duration_ms(speech)
+    except (wave.Error, EOFError, OSError) as exc:
+        raise HarnessError(f"{speech.name}: not a readable WAV ({exc})") from exc
+    if not MIN_FIXTURE_MS <= duration <= MAX_FIXTURE_MS:
+        raise HarnessError(
+            f"{speech.name}: {duration / 1000:.1f} s is outside "
+            f"{MIN_FIXTURE_MS // 1000} to {MAX_FIXTURE_MS // 1000} s"
+        )
     meta = {
-        "kind": "synthetic_tone",
-        "source": "generated",
-        "file": generated.name,
+        "kind": "speech",
+        "file": speech.name,
         "duration_ms": duration,
-        "expected_text": None,
+        "expected_text": expected,
     }
-    return {"path": generated, "duration_ms": duration, "meta": meta}
+    return {"path": speech, "duration_ms": duration, "meta": meta}
 
 
 def normalize_words(text: str) -> list[str]:
@@ -426,6 +318,63 @@ def _walk_model_files(root: Path) -> tuple[int, int, list[dict]]:
     return total, len(seen), entries
 
 
+def run_command(command: Sequence[str], timeout_s: float) -> subprocess.CompletedProcess | None:
+    """Run a command and kill it when the deadline passes.
+
+    The child is a separate process, so a library that joins its own worker
+    threads at interpreter exit cannot hold this process open.
+    """
+    try:
+        return subprocess.run(command, timeout=timeout_s, capture_output=True, text=True)
+    except subprocess.TimeoutExpired:
+        return None
+
+
+def download_model_to_cache(cache_dir: Path) -> int:
+    """Download the model in this process; the parent runs this as a child."""
+    try:
+        import faster_whisper
+    except ImportError as exc:
+        print(f"faster-whisper is not installed ({exc})", file=sys.stderr)
+        return 2
+    path = faster_whisper.download_model(MODEL_NAME, cache_dir=str(cache_dir))
+    print(path)
+    return 0
+
+
+def download_model(
+    settings: Settings,
+    runner: Callable[[Sequence[str], float], subprocess.CompletedProcess | None] = run_command,
+) -> tuple[Path, int]:
+    """Download the model under a hard deadline and return (path, elapsed ms)."""
+    cache_dir = settings.work_dir / "model-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    command = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        DOWNLOAD_SUBCOMMAND,
+        "--cache-dir",
+        str(cache_dir),
+    ]
+    started = time.monotonic()
+    completed = runner(command, settings.download_timeout_s)
+    elapsed_ms = _elapsed_ms(started)
+    if completed is None:
+        raise ModelUnavailable(
+            "model_download_timeout",
+            f"download did not finish within {settings.download_timeout_s:.0f} s",
+        )
+    if completed.returncode != 0:
+        raise HarnessError(
+            f"model download failed with exit code {completed.returncode}: "
+            f"{(completed.stderr or '').strip()[-300:]}"
+        )
+    lines = [line for line in completed.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise HarnessError("model download printed no path")
+    return Path(lines[-1].strip()), elapsed_ms
+
+
 def open_whisper_model(settings: Settings) -> LoadedModel:
     """Download and load the model. Raise HarnessError only for harness faults."""
     try:
@@ -434,34 +383,8 @@ def open_whisper_model(settings: Settings) -> LoadedModel:
         raise HarnessError(f"faster-whisper is not installed ({exc})") from exc
 
     cache_dir = settings.work_dir / "model-cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
     cache_hit = any(cache_dir.glob("models--*/snapshots/*"))
-    holder: dict[str, object] = {}
-
-    def download() -> None:
-        try:
-            holder["path"] = faster_whisper.download_model(settings.model, cache_dir=str(cache_dir))
-        except BaseException as exc:  # noqa: BLE001 - reported as a result
-            holder["error"] = exc
-
-    download_started = time.monotonic()
-    thread = threading.Thread(target=download, name="model-download", daemon=True)
-    thread.start()
-    thread.join(settings.download_timeout_s)
-    if thread.is_alive():
-        raise ModelUnavailable(
-            "model_download_timeout",
-            f"download did not finish within {settings.download_timeout_s:.0f} s",
-        )
-    download_ms = _elapsed_ms(download_started)
-    if "error" in holder:
-        error = holder["error"]
-        raise ModelUnavailable(
-            "model_download_failed",
-            f"{type(error).__name__}: {error}"[:400],
-        )
-
-    model_path = Path(str(holder["path"]))
+    model_path, download_ms = download_model(settings)
     revision = model_path.name if model_path.is_dir() else None
     try:
         model_bytes, file_count, files = _walk_model_files(model_path)
@@ -473,12 +396,12 @@ def open_whisper_model(settings: Settings) -> LoadedModel:
         model = faster_whisper.WhisperModel(
             str(model_path),
             device="cpu",
-            compute_type=settings.compute_type,
+            compute_type=COMPUTE_TYPE,
             cpu_threads=settings.threads,
             num_workers=1,
             local_files_only=True,
         )
-    except Exception as exc:
+    except SUBJECT_ERRORS as exc:
         raise ModelUnavailable(
             "model_load_failed",
             f"{type(exc).__name__}: {exc}"[:400],
@@ -489,7 +412,7 @@ def open_whisper_model(settings: Settings) -> LoadedModel:
         segments, info = model.transcribe(
             str(wav),
             language=language,
-            beam_size=settings.beam_size,
+            beam_size=BEAM_SIZE,
             vad_filter=False,
             condition_on_previous_text=False,
             word_timestamps=False,
@@ -509,10 +432,10 @@ def open_whisper_model(settings: Settings) -> LoadedModel:
         return collected, detected
 
     info = {
-        "name": settings.model,
+        "name": MODEL_NAME,
         "revision": revision,
         "device": "cpu",
-        "compute_type": settings.compute_type,
+        "compute_type": COMPUTE_TYPE,
         "cpu_threads": settings.threads,
         "num_workers": 1,
         "cache_hit": cache_hit,
@@ -538,7 +461,7 @@ def open_stub_model(settings: Settings) -> LoadedModel:
         )
 
     info = {
-        "name": settings.model,
+        "name": MODEL_NAME,
         "revision": None,
         "device": "cpu",
         "compute_type": "stub",
@@ -587,7 +510,7 @@ def _run_one(
     started = time.monotonic()
     try:
         segments, detected = model.transcribe(fixture["path"], language)
-    except Exception as exc:  # noqa: BLE001 - a subject failure is a result
+    except SUBJECT_ERRORS as exc:
         run["elapsed_ms"] = _elapsed_ms(started)
         run["failure"] = {
             "kind": "transcribe_failed",
@@ -618,13 +541,6 @@ def collect(settings: Settings, opener: Callable[[Settings], LoadedModel]) -> di
         model = opener(settings)
     except ModelUnavailable as exc:
         model_error = {"kind": exc.kind, "message": exc.message}
-    except HarnessError:
-        raise
-    except Exception as exc:  # noqa: BLE001 - a subject failure is a result
-        model_error = {
-            "kind": "model_unavailable",
-            "message": f"{type(exc).__name__}: {exc}"[:400],
-        }
 
     runs = [
         _run_one(settings, model, fixtures[language], language, model_error)
@@ -644,10 +560,7 @@ def collect(settings: Settings, opener: Callable[[Settings], LoadedModel]) -> di
 
     notes = []
     if any(fixture["meta"]["expected_text"] is None for fixture in fixtures.values()):
-        notes.append(
-            "word error is not measured: add probes/transcribe/audio/<language>.wav "
-            "and <language>.txt to measure it"
-        )
+        notes.append("word error is not measured: a reference text file is missing")
     notes.append(
         "peak RSS is the process peak so far, so a later run does not report less than an earlier run"
     )
@@ -660,24 +573,23 @@ def collect(settings: Settings, opener: Callable[[Settings], LoadedModel]) -> di
         "mode": "stub" if stub_mode else "whisper",
         "settings": {
             "languages": list(settings.languages),
-            "model": settings.model,
+            "model": MODEL_NAME,
             "device": "cpu",
-            "compute_type": settings.compute_type,
+            "compute_type": COMPUTE_TYPE,
             "cpu_threads": settings.threads,
             "num_workers": 1,
-            "beam_size": settings.beam_size,
+            "beam_size": BEAM_SIZE,
             "vad_filter": False,
             "condition_on_previous_text": False,
             "word_timestamps": False,
-            "fixture_seconds": settings.fixture_seconds,
         },
         "environment": environment(),
         "runtime": installed_versions(),
         "model": model.info if model is not None else {
-            "name": settings.model,
+            "name": MODEL_NAME,
             "revision": None,
             "device": "cpu",
-            "compute_type": settings.compute_type,
+            "compute_type": COMPUTE_TYPE,
             "cpu_threads": settings.threads,
             "num_workers": 1,
             "cache_hit": None,
@@ -825,9 +737,6 @@ def build_parser() -> argparse.ArgumentParser:
         default=Path(__file__).resolve().parent / "audio",
         help="directory holding <language>.wav and optional <language>.txt",
     )
-    run.add_argument("--fixture-seconds", type=float, default=DEFAULT_FIXTURE_SECONDS)
-    run.add_argument("--model", default=DEFAULT_MODEL)
-    run.add_argument("--compute-type", default=DEFAULT_COMPUTE_TYPE)
     run.add_argument("--threads", type=int, default=0, help="CPU threads; 0 uses os.cpu_count()")
     run.add_argument(
         "--download-timeout",
@@ -835,37 +744,29 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_DOWNLOAD_TIMEOUT_S,
         help="seconds allowed for the model download",
     )
-    run.add_argument("--beam-size", type=int, default=5)
     run.add_argument(
         "--stub",
         action="store_true",
         help="use a stub transcriber for a local dry run; the workflow never sets this",
     )
+    download = subcommands.add_parser(DOWNLOAD_SUBCOMMAND, help=argparse.SUPPRESS)
+    download.add_argument("--cache-dir", type=Path, required=True)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = build_parser()
-    args = parser.parse_args(argv)
-    if not MIN_FIXTURE_SECONDS <= args.fixture_seconds <= MAX_FIXTURE_SECONDS:
-        parser.error(
-            f"--fixture-seconds must be between {MIN_FIXTURE_SECONDS:.0f} and "
-            f"{MAX_FIXTURE_SECONDS:.0f}"
-        )
+    args = build_parser().parse_args(argv)
+    if args.command == DOWNLOAD_SUBCOMMAND:
+        return download_model_to_cache(args.cache_dir)
     threads = args.threads if args.threads > 0 else int(os.cpu_count() or 1)
     settings = Settings(
         out=args.out,
         languages=tuple(args.languages),
         audio_dir=args.audio_dir,
-        fixture_seconds=args.fixture_seconds,
-        model=args.model,
-        compute_type=args.compute_type,
         threads=threads,
         download_timeout_s=args.download_timeout,
-        beam_size=args.beam_size,
-        stub=args.stub,
     )
-    opener = open_stub_model if settings.stub else open_whisper_model
+    opener = open_stub_model if args.stub else open_whisper_model
     try:
         code, result = execute(settings, opener)
     except OSError as exc:

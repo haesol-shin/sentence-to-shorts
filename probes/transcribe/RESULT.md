@@ -1,6 +1,6 @@
 # 참고 영상 전사 결과
 
-faster-whisper small int8을 CPU에서 돌려 한영 전사 시간, peak RAM, 모델 bytes, 단어 오류를 잰다. 이 문서는 표 머리글과 측정 규칙만 둔다.
+faster-whisper small int8을 CPU에서 돌려 한영 전사 시간, peak RAM, 모델 bytes, 단어 오류를 잰다. 이 문서는 결과 표와 측정 규칙만 둔다.
 
 결과는 이 PR의 Actions 실행 artifact에서 채운다.
 
@@ -28,10 +28,7 @@ Windows 행은 설치 작업 전까지 비워 둔다. 같은 실행의 `result.j
 - 모델 bytes는 내려받은 snapshot의 실제 파일 크기 합이다. 같은 blob을 가리키는 link는 한 번만 센다. int8 양자화는 load 때 일어나므로 이 값은 배포 model 크기다.
 - RTF는 전사 시간을 오디오 길이로 나눈 값이다. 1보다 작으면 실시간보다 빠르다.
 - WER은 공백 단위 단어의 편집 거리를 기준 단어 수로 나눈 값이다. 문장부호는 지우고 비교한다.
-- 시험 음성은 harness가 만든 24초 합성 파형이다. `probes/transcribe/audio/<언어>.wav`와 같은 이름의 `.txt`가 있으면 그것을 시험 음성과 기준 글로 쓴다.
-- 합성 파형에는 기준 글이 없으므로 WER은 `미측정`이다. 정확도 수치는 실제 음성 fixture를 넣은 실행에서만 채운다.
-- WER을 재지 못하면 `word_error.reason`에 `reference text missing`, `transcription failed`, `model unavailable` 중 하나가 남는다.
-- 시험 대상의 실패는 `result.json`의 `failure`에 적고 workflow는 성공으로 끝난다. model download가 30분을 넘겨도 실패로 적고 workflow는 성공으로 끝난다. workflow 실패는 harness 오류만 뜻한다.
+- 입력 음성 선택, 결과 status, 실패 처리 규칙은 [probe 안내](README.md)를 따른다.
 - 개발 기기는 aarch64다. x64 수치는 pull request의 Actions 실행에서만 나온다.
 
 ## 결정 gate
@@ -48,5 +45,5 @@ Windows 행은 설치 작업 전까지 비워 둔다. 같은 실행의 `result.j
 
 ## 이 호스트에서 확인한 것과 못 한 것
 
-- 확인: harness 문법 검사, 단위 시험 8개, stub dry run, workflow YAML 검사, 저장소 검사 스크립트.
+- 확인: harness 문법 검사, 단위 시험 15개, stub dry run, workflow YAML 검사, 저장소 검사 스크립트.
 - 못 함: x64 CPU의 전사 시간과 peak RAM, 실제 model download와 load, Windows 실행. 모두 Actions 실행이 필요하다.

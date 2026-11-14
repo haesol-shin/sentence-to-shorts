@@ -15,9 +15,10 @@ python -m unittest discover -s probes/transcribe/tests -v
 
 ## 시험 음성
 
-- `probes/transcribe/audio/<언어>.wav`가 있으면 시험 음성으로 쓴다.
-- 같은 이름의 `.txt`가 있으면 기준 글로 쓰고 WER을 잰다.
-- 파일이 없으면 harness가 24초 합성 파형을 만든다. 음절 모양의 파형이고 단어가 없으므로 WER은 재지 않는다. 시간과 메모리 수치는 이 파형으로도 잰다.
+- `audio/ko.wav`와 `audio/en.wav`가 기본 입력이다. 길이가 20~40초가 아니거나 파일이 없으면 harness 오류다.
+- 같은 이름의 `.txt`가 기준 글이다. 없으면 전사만 하고 WER은 재지 않는다.
+- 두 파일의 출처와 라이선스는 [audio 안내](audio/README.md)에 있다.
+- 다른 음성으로 재려면 `--audio-dir`에 같은 이름의 `.wav`와 `.txt`를 둔다.
 
 ## 결과
 
@@ -25,23 +26,10 @@ python -m unittest discover -s probes/transcribe/tests -v
 
 - `ok`: 모든 언어의 전사가 끝났다.
 - `partial`: 일부 언어가 실패했다.
-- `failed`: 모든 언어가 실패했거나 model을 준비하지 못했다.
+- `failed`: 모든 언어가 실패했거나 model을 load하지 못했다.
 - `dry_run`: stub 실행이다.
 
-시험 대상의 실패는 `runs[].failure`에 적고 process는 0으로 끝난다. harness 오류는 `status`가 `harness_error`이고 process는 2로 끝나 workflow를 실패시킨다. [RESULT.md](RESULT.md)는 표 머리글과 측정 규칙만 두고 수치는 artifact에서 옮긴다.
-
-## 측정 항목
-
-| 필드 | 뜻 |
-| --- | --- |
-| `settings` | model, compute type, thread, beam, vad, fixture 길이 |
-| `environment` | OS, CPU 수, RAM, python, runner 정보, commit |
-| `runtime` | 설치된 package 버전 |
-| `model` | model bytes, revision, file 수, download 시간, load 시간 |
-| `runs[].elapsed_ms` | `transcribe` 호출 전체 시간, generator 소비 포함 |
-| `runs[].rtf` | 전사 시간을 오디오 길이로 나눈 값 |
-| `runs[].peak_rss_bytes` | 그 실행까지의 process 최대 상주 메모리 |
-| `runs[].word_error` | 기준 글과 전사의 단어 편집 거리와 비율, 못 재면 `reason` |
+시험 대상의 실패인 `RuntimeError`와 `ValueError`는 `runs[].failure`에 적고 process는 0으로 끝난다. 그 밖의 예외, 음성 파일 문제, model download 실패는 `status`가 `harness_error`이고 process는 2로 끝나 workflow를 실패시킨다. 수치는 [RESULT.md](RESULT.md)의 표에 옮긴다.
 
 ## 고정 버전
 
