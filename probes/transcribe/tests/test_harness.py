@@ -9,6 +9,7 @@ result while a harness fault is not.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -196,6 +197,74 @@ class ResultContractTests(unittest.TestCase):
             settings = make_settings(Path(temporary))
             with self.assertRaises(harness.HarnessError):
                 harness.download_model(settings, runner=lambda command, timeout_s: completed)
+
+    def test_download_connection_error_is_recorded_as_result(self) -> None:
+        payload = json.dumps(
+            {
+                "status": "failed",
+                "kind": "model_download_failed",
+                "message": "ConnectionResetError: connection reset",
+            }
+        )
+        completed = subprocess.CompletedProcess([], 0, stdout=payload, stderr="")
+        with tempfile.TemporaryDirectory() as temporary:
+            settings = make_settings(Path(temporary))
+            with self.assertRaises(harness.ModelUnavailable) as caught:
+                harness.download_model(settings, runner=lambda command, timeout_s: completed)
+            self.assertEqual(caught.exception.kind, "model_download_failed")
+            self.assertIn("connection reset", caught.exception.message)
+
+    def test_download_result_without_path_is_harness_error(self) -> None:
+        completed = subprocess.CompletedProcess([], 0, stdout="", stderr="")
+        with tempfile.TemporaryDirectory() as temporary:
+            settings = make_settings(Path(temporary))
+            with self.assertRaises(harness.HarnessError):
+                harness.download_model(settings, runner=lambda command, timeout_s: completed)
+
+
+class DownloadChildTests(unittest.TestCase):
+    def run_child(self, root: Path, source: str) -> subprocess.CompletedProcess:
+        package = root / "fake" / "faster_whisper"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text(source, encoding="utf-8")
+        environment = dict(os.environ, PYTHONPATH=str(root / "fake"))
+        return subprocess.run(
+            [
+                sys.executable,
+                str(Path(harness.__file__)),
+                harness.DOWNLOAD_SUBCOMMAND,
+                "--cache-dir",
+                str(root / "cache"),
+            ],
+            capture_output=True,
+            text=True,
+            env=environment,
+        )
+
+    def test_child_reports_connection_error_as_result(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            completed = self.run_child(
+                Path(temporary),
+                "def download_model(size_or_id, cache_dir=None):\n"
+                "    raise ConnectionError('connection reset')\n",
+            )
+
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            payload = json.loads(completed.stdout.strip().splitlines()[-1])
+            self.assertEqual(payload["status"], "failed")
+            self.assertEqual(payload["kind"], "model_download_failed")
+            self.assertIn("connection reset", payload["message"])
+
+    def test_child_reraises_unexpected_download_error(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            completed = self.run_child(
+                Path(temporary),
+                "def download_model(size_or_id, cache_dir=None):\n"
+                "    raise KeyError('bookkeeping key')\n",
+            )
+
+            self.assertNotEqual(completed.returncode, 0)
+            self.assertIn("KeyError", completed.stderr)
 
 
 class MeasurementTests(unittest.TestCase):

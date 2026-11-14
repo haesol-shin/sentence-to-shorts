@@ -26,10 +26,10 @@ python -m unittest discover -s probes/transcribe/tests -v
 
 - `ok`: 모든 언어의 전사가 끝났다.
 - `partial`: 일부 언어가 실패했다.
-- `failed`: 모든 언어가 실패했거나 model을 load하지 못했다.
+- `failed`: 모든 언어가 실패했거나 model을 받거나 load하지 못했다.
 - `dry_run`: stub 실행이다.
 
-시험 대상의 실패인 `RuntimeError`와 `ValueError`는 `runs[].failure`에 적고 process는 0으로 끝난다. 그 밖의 예외, 음성 파일 문제, model download 실패는 `status`가 `harness_error`이고 process는 2로 끝나 workflow를 실패시킨다. 수치는 [RESULT.md](RESULT.md)의 표에 옮긴다.
+시험 대상의 실패는 `runs[].failure`나 `model.error`에 적고 process는 0으로 끝난다. 여기에는 전사와 model load의 `RuntimeError`·`ValueError`, download의 30분 초과와 network·hub 오류가 포함된다. 그 밖의 예외, 음성 파일 문제, 예상 밖 download 오류는 `status`가 `harness_error`이고 process는 2로 끝나 workflow를 실패시킨다. 수치는 [RESULT.md](RESULT.md)의 표에 옮긴다.
 
 ## 고정 버전
 

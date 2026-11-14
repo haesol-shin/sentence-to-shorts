@@ -5,11 +5,12 @@ This is probe code, not product code. It must not join the product
 dependencies or the product lockfile.
 
 The thing under test may fail: a model load or a transcription error whose
-type is listed in ``SUBJECT_ERRORS`` is written to the result JSON as a result
+type is listed in ``SUBJECT_ERRORS``, or a model download that hits a network
+or hub error or passes its deadline, is written to the result JSON as a result
 and the process still exits 0, so the workflow reports it instead of failing.
-Any other exception, a missing or out of range audio fixture, or a failed
-model download is a harness fault: it is written as ``harness_error`` and the
-process exits 2.
+Any other exception, a missing or out of range audio fixture, or an unexpected
+model download failure is a harness fault: it is written as ``harness_error``
+and the process exits 2.
 """
 
 from __future__ import annotations
@@ -41,6 +42,11 @@ MAX_FIXTURE_MS = 40_000
 # Exception types that mean the thing under test failed. Anything else is a
 # harness fault, so a bookkeeping error never looks like a probe result.
 SUBJECT_ERRORS = (RuntimeError, ValueError)
+# Network and hub failures during the model download are an external failure
+# of the thing under test. Their modules raise these, and a bare connection or
+# timeout error has no module of its own.
+EXTERNAL_ERROR_MODULES = {"huggingface_hub", "requests", "urllib3", "httpx", "socket", "ssl", "http"}
+NETWORK_ERRORS = (TimeoutError, ConnectionError)
 VERSION_PACKAGES = (
     "faster-whisper",
     "ctranslate2",
@@ -330,16 +336,56 @@ def run_command(command: Sequence[str], timeout_s: float) -> subprocess.Complete
         return None
 
 
+def is_external_download_error(error: BaseException) -> bool:
+    """Return True for a network or hub failure, which is an external result."""
+    if isinstance(error, NETWORK_ERRORS):
+        return True
+    module = (type(error).__module__ or "").split(".")[0]
+    return module in EXTERNAL_ERROR_MODULES
+
+
 def download_model_to_cache(cache_dir: Path) -> int:
-    """Download the model in this process; the parent runs this as a child."""
+    """Download the model in this process; the parent runs this as a child.
+
+    A known network or hub failure prints one JSON line and exits 0 so the
+    parent can record it as a result. Any other error propagates and exits 1,
+    which the parent reports as a harness fault.
+    """
     try:
         import faster_whisper
     except ImportError as exc:
         print(f"faster-whisper is not installed ({exc})", file=sys.stderr)
         return 2
-    path = faster_whisper.download_model(MODEL_NAME, cache_dir=str(cache_dir))
-    print(path)
+    try:
+        path = faster_whisper.download_model(MODEL_NAME, cache_dir=str(cache_dir))
+    except Exception as error:  # noqa: BLE001 - classified below
+        if not is_external_download_error(error):
+            raise
+        print(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "kind": "model_download_failed",
+                    "message": f"{type(error).__name__}: {error}"[:400],
+                }
+            )
+        )
+        return 0
+    print(json.dumps({"status": "ok", "path": str(path)}))
     return 0
+
+
+def _last_json_object(stdout: str) -> dict | None:
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            value = json.loads(line)
+        except ValueError:
+            return None
+        return value if isinstance(value, dict) else None
+    return None
 
 
 def download_model(
@@ -369,10 +415,17 @@ def download_model(
             f"model download failed with exit code {completed.returncode}: "
             f"{(completed.stderr or '').strip()[-300:]}"
         )
-    lines = [line for line in completed.stdout.splitlines() if line.strip()]
-    if not lines:
+    payload = _last_json_object(completed.stdout or "")
+    if payload is None:
+        raise HarnessError("model download printed no result")
+    if payload.get("status") != "ok":
+        kind = str(payload.get("kind") or "model_download_failed")
+        message = str(payload.get("message") or "")[:400]
+        raise ModelUnavailable(kind, message)
+    path = payload.get("path")
+    if not isinstance(path, str) or not path:
         raise HarnessError("model download printed no path")
-    return Path(lines[-1].strip()), elapsed_ms
+    return Path(path), elapsed_ms
 
 
 def open_whisper_model(settings: Settings) -> LoadedModel:
