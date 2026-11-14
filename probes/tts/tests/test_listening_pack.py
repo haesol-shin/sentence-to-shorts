@@ -139,6 +139,42 @@ class ListeningPackTest(unittest.TestCase):
         key = self.build("pack", 11)
         self.assertNotIn("gamma", [item["candidate"] for item in key["assignments"]])
 
+    def test_cut_short_text_keeps_its_first_wav(self) -> None:
+        out = self.artifacts / "tts-delta-linux" / "probe-out"
+        (out / "wav").mkdir(parents=True)
+        (out / "wav" / "K1.wav").write_bytes((self.root / "tones" / "K1.wav").read_bytes())
+        payload = {
+            "candidate": "delta",
+            "status": "partial",
+            "host": {"os": "Linux"},
+            "github": {"runner_os": "Linux"},
+            "engine": {"speakers": {"ko": "delta-ko"}},
+            "stopped_early": {"stage": "synthesize", "code": "total_timeout"},
+            "texts": [
+                {
+                    "id": "K1",
+                    "language": "ko",
+                    "wav": "wav/K1.wav",
+                    "wav_ms": 1200.0,
+                    "failure": None,
+                    "skipped": {"stage": "synthesize", "code": "total_timeout"},
+                },
+                {
+                    "id": "E1",
+                    "language": "en",
+                    "wav": None,
+                    "wav_ms": None,
+                    "failure": None,
+                    "skipped": {"stage": "synthesize", "code": "total_timeout"},
+                },
+            ],
+        }
+        (out / "result.json").write_text(json.dumps(payload), encoding="utf-8")
+        key = self.build("cut-pack", 5)
+        letters = {item["candidate"]: item["letter"] for item in key["assignments"]}
+        self.assertIn("delta", letters)
+        self.assertTrue((self.root / "cut-pack" / letters["delta"] / "linux" / "K1.wav").is_file())
+
     def test_same_seed_maps_the_same_way(self) -> None:
         first = self.build("one", 42)
         second = self.build("two", 42)

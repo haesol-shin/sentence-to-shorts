@@ -28,9 +28,11 @@ On a runner with the candidate environment:
 python probes/tts/<candidate>/synth.py --texts probes/tts/texts.json --out out --threads 4
 ```
 
-The harness starts the model, synthesises the first text once as warmup, then every text three times, and writes `out/result.json` plus `out/wav/<text>.wav`. `cold_start_ms` runs from the measured process start to model ready. `first_wav_ms` runs from the same process start to the first finished WAV; `warmup_synth_ms` is the synthesis part alone. Engine failures are recorded in `result.json` and the script exits 0. Exit code 3 means a stage hit its timeout and the result holds the timeout failure. Any other non-zero exit is a harness error.
+The harness starts the model, synthesises the first text once as warmup, then every text three times, and writes `out/result.json` plus `out/wav/<text>.wav`. `cold_start_ms` runs from the measured process start to model ready. `first_wav_ms` runs from the same process start to the first finished WAV; `warmup_synth_ms` is the synthesis part alone. Engine failures are recorded in `result.json` and the script exits 0. Exit code 3 means a call hit its timeout or the synthesis budget ran out, and the result holds that failure. Any other non-zero exit is a harness error.
 
 `PROBE_START_MS` is the wall-clock start of the process in milliseconds. The workflow sets it before Python starts so cold start includes interpreter and import time. Without it the script falls back to its own start and records `cold_start_source`.
+
+`--timeout` bounds one synthesis call and `--synth-budget` bounds the wall time the stage spends, counting calls that failed. A call that overruns, or a budget that is already used up before the next call, is written to `result.json` and the process exits 3; a text that already wrote its first WAV keeps it, so the listening pack still receives it. The `common/harness.py` constants hold both defaults and the measurement behind the timeout; the workflow passes the budget left over from its own job limit.
 
 The listening pack consumes artifact directories:
 
@@ -65,10 +67,28 @@ Workflow syntax is checked with `actionlint` when it is available. Candidate env
 
 ## Requirements
 
-`requirements.txt` files are universal CPython 3.11 resolutions of the sibling `requirements.in`, with hashes for both Ubuntu and Windows wheels. Regenerate them from the repository root with:
+The MOSS, Chatterbox and pack files are universal CPython 3.11 resolutions of their sibling input, with hashes for both Ubuntu and Windows wheels. Regenerate them from the repository root with:
 
 ```sh
-uv pip compile probes/tts/<candidate>/requirements.in --python-version 3.11 --universal --generate-hashes --no-header -o probes/tts/<candidate>/requirements.txt
+uv pip compile probes/tts/<candidate>/requirements.in --python-version 3.11 --universal --generate-hashes -o probes/tts/<candidate>/requirements.txt
 ```
 
-The Qwen candidates also install CPU builds from the PyTorch CPU index; add `--emit-index-url --index https://download.pytorch.org/whl/cpu` to keep the extra index line. Their dependency tree is the one `qwen-tts` declares, including packages the probe does not call such as gradio, so the install cost in the artifact is the real package cost.
+The Qwen candidates install the CPU builds, so their input pins those two wheels by URL and every other package comes from PyPI alone: the file has no index directive, and pip fetches nothing from the PyTorch index except the two pinned wheels. Their files are resolved for the runner that installs them, CPython 3.11 on ubuntu-24.04 x64, because a universal resolution cannot carry correct hashes for them: when two indexes publish the same version, `uv` records the file of one platform only, and a macOS wheel hash then fails on the runner. Regenerate them with:
+
+```sh
+uv pip compile probes/tts/<candidate>/requirements.in \
+  --python-version 3.11 --python-platform x86_64-manylinux_2_28 \
+  --generate-hashes -o probes/tts/<candidate>/requirements.txt
+```
+
+Their dependency tree is the one `qwen-tts` declares, including packages the probe does not call such as gradio, so the install cost in the artifact is the real package cost. The wheel URLs name the CPython 3.11 manylinux wheels, so a Windows leg needs its own resolution and its own URLs.
+
+Check a rewritten file against the runner platform before committing. This downloads every file and verifies each hash:
+
+```sh
+uv pip install --require-hashes --python 3.11 \
+  --python-platform x86_64-manylinux_2_28 --target "$TMPDIR/lockcheck" \
+  -r probes/tts/<candidate>/requirements.txt
+```
+
+`uv pip install --dry-run --require-hashes` is not enough on its own: it resolves without downloading, so a hash pinned to another platform's wheel passes it and fails on the runner. The Windows legs wait for the installer work and need their own resolution of the two Qwen files.

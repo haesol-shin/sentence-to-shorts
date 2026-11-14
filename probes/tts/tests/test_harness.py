@@ -7,6 +7,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import numpy as np
 import soundfile as sf
@@ -32,13 +33,15 @@ class StubEngine:
 
     def __init__(self, mode: str) -> None:
         self.mode = mode
+        self.calls = 0
 
     def load(self) -> None:
         if self.mode == "load":
             raise RuntimeError("stub load failure")
 
     def synthesize(self, text: str, language: str, wav_path: Path) -> dict:
-        if self.mode == "synth":
+        self.calls += 1
+        if self.mode == "synth" or (self.mode == "synth_after_warmup" and self.calls > 1):
             raise RuntimeError("stub synthesis failure")
         frames = int(SAMPLE_RATE * 0.2)
         t = np.arange(frames) / SAMPLE_RATE
@@ -47,6 +50,18 @@ class StubEngine:
 
     def close(self) -> None:
         pass
+
+
+class FakeClock:
+    """Advance a fixed step on every read so a synthesis budget is deterministic."""
+
+    def __init__(self, step: float = 0.1) -> None:
+        self.step = step
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        self.now += self.step
+        return self.now
 
 
 class HarnessTest(unittest.TestCase):
@@ -58,7 +73,7 @@ class HarnessTest(unittest.TestCase):
         (self.root / "models.json").write_text(json.dumps({"models": []}), encoding="utf-8")
         (self.root / "models").mkdir()
 
-    def run_engine(self, mode: str = "ok") -> tuple[int, dict]:
+    def run_engine(self, mode: str = "ok", budget: float | None = None) -> tuple[int, dict]:
         out = self.root / "out"
         argv = [
             "--texts",
@@ -76,6 +91,8 @@ class HarnessTest(unittest.TestCase):
             "--timeout",
             "30",
         ]
+        if budget is not None:
+            argv += ["--synth-budget", str(budget)]
         code = harness.run_engine(lambda _threads: StubEngine(mode), argv)
         result = json.loads((out / "result.json").read_text(encoding="utf-8"))
         return code, result
@@ -125,6 +142,49 @@ class HarnessTest(unittest.TestCase):
         self.assertEqual(result["status"], "failed")
         self.assertEqual(result["failure"]["stage"], "synthesize")
         self.assertIn("stub synthesis failure", result["failure"]["message"])
+
+    def test_synth_budget_stops_with_a_partial_result(self) -> None:
+        clock = FakeClock()
+        with mock.patch.object(harness.time, "perf_counter", clock):
+            code, result = self.run_engine(budget=0.25)
+        self.assertEqual(code, 3)
+        self.assertEqual(result["status"], "partial")
+        self.assertEqual(result["synth_budget_s"], 0.25)
+        self.assertIsNone(result["failure"])
+        self.assertEqual(result["stopped_early"]["reason"], "synth_budget")
+        self.assertEqual([entry["id"] for entry in result["texts"]], ["K1", "E1"])
+        first, second = result["texts"]
+        self.assertIsNone(first["failure"])
+        self.assertIsNone(first["skipped"])
+        self.assertEqual(first["wav"], "wav/K1.wav")
+        self.assertTrue((self.root / "out" / first["wav"]).is_file())
+        self.assertIsNone(second["failure"])
+        self.assertEqual(second["skipped"]["code"], "total_timeout")
+        self.assertIsNone(second["wav"])
+        self.assertAlmostEqual(result["synth_spent_s"], 0.3, places=1)
+
+    def test_synth_budget_stops_before_the_first_measured_call(self) -> None:
+        clock = FakeClock()
+        with mock.patch.object(harness.time, "perf_counter", clock):
+            code, result = self.run_engine(budget=0.05)
+        self.assertEqual(code, 3)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual([entry["id"] for entry in result["texts"]], ["K1"])
+        self.assertEqual(result["failure"]["code"], "total_timeout")
+        self.assertEqual(result["texts"][0]["skipped"]["code"], "total_timeout")
+        self.assertIsNone(result["texts"][0]["runs"][0]["wall_ms"])
+        self.assertTrue((self.root / "out" / "wav" / "K1.warmup.wav").is_file())
+
+    def test_synth_budget_charges_a_failed_attempt(self) -> None:
+        clock = FakeClock()
+        with mock.patch.object(harness.time, "perf_counter", clock):
+            code, result = self.run_engine("synth_after_warmup", budget=0.15)
+        self.assertEqual(code, 3)
+        self.assertEqual(result["status"], "partial")
+        self.assertAlmostEqual(result["synth_spent_s"], 0.2, places=1)
+        self.assertEqual([entry["id"] for entry in result["texts"]], ["K1", "E1"])
+        self.assertEqual(result["texts"][0]["failure"]["code"], "synthesize_failed")
+        self.assertEqual(result["texts"][1]["skipped"]["code"], "total_timeout")
 
 
 if __name__ == "__main__":

@@ -28,8 +28,19 @@ from typing import Any, Protocol
 
 SCHEMA_VERSION = 1
 DEFAULT_REPEATS = 3
-DEFAULT_TIMEOUT_S = 120.0
+# One call can produce up to the engine's own audio cap, so the timeout follows
+# the slowest measured engine instead of the average. Chatterbox Multilingual V3
+# q4 trims at 1024 tokens, which is 40.96 s of audio at 24 kHz and 960 samples
+# per token, and it synthesised the 5.92 s warmup clip in 18.35 s, so a
+# full-length sentence needs about 127 s. Doubled for runner variance and
+# rounded up to a minute: 300 s.
+DEFAULT_TIMEOUT_S = 300.0
 DEFAULT_LOAD_TIMEOUT_S = 900.0
+# Zero means no budget. The workflow passes the value it can afford from its own
+# job limit, and that limit has to hold the install cap, the download cap, the
+# load timeout, this budget, one more call that started just under the budget
+# (the per-call timeout) and the closing steps together.
+DEFAULT_SYNTH_BUDGET_S = 0.0
 RSS_INTERVAL_S = 0.05
 
 
@@ -317,6 +328,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--repeats", default=DEFAULT_REPEATS, type=int)
     parser.add_argument("--timeout", default=DEFAULT_TIMEOUT_S, type=float)
+    parser.add_argument("--synth-budget", default=DEFAULT_SYNTH_BUDGET_S, type=float)
     parser.add_argument("--load-timeout", default=DEFAULT_LOAD_TIMEOUT_S, type=float)
     parser.add_argument("--result", default=None, type=Path)
     return parser.parse_args(argv)
@@ -363,6 +375,7 @@ def run_engine(
         "thread": args.threads,
         "repeats": args.repeats,
         "timeout_s": args.timeout,
+        "synth_budget_s": args.synth_budget,
         "revision": None,
         "models": load_models(models_spec, args.models),
         "model_bytes": 0,
@@ -371,6 +384,7 @@ def run_engine(
         "packages": package_versions(package_names),
         "cold_start_ms": None,
         "first_wav_ms": None,
+        "stopped_early": None,
         "sample_rate": None,
         "rtf": None,
         "peak_rss_bytes": None,
@@ -401,6 +415,11 @@ def run_engine(
                 result["failure"] = failure
             measured = [entry for entry in result["texts"] if not entry.get("warmup")]
             failures = [entry for entry in measured if entry["failure"] is not None]
+            measured_any = [
+                entry
+                for entry in measured
+                if any(run.get("rtf") is not None for run in entry.get("runs", []))
+            ]
             if result["failure"] is not None or result["texts"] and not measured:
                 result["status"] = "failed"
             elif failures and len(failures) == len(measured):
@@ -409,6 +428,10 @@ def run_engine(
             elif failures:
                 result["status"] = "partial"
                 result["failure"] = failures[0]["failure"]
+            elif result["stopped_early"] is not None:
+                result["status"] = "partial" if measured_any else "failed"
+                if not measured_any:
+                    result["failure"] = result["stopped_early"]
             else:
                 result["status"] = "ok"
             result["peak_rss_bytes"] = sampler.stop()
@@ -436,6 +459,24 @@ def run_engine(
             "traceback": traceback.format_exc(limit=8)[-4000:],
         }
 
+    spent_s = 0.0
+    exhausted = False
+
+    def budget_left() -> bool:
+        return args.synth_budget <= 0 or spent_s < args.synth_budget
+
+    def budget_failure() -> dict[str, Any]:
+        return {
+            "stage": "synthesize",
+            "code": "total_timeout",
+            "message": (
+                f"synthesis budget of {args.synth_budget:g} s is used up; "
+                f"{spent_s:.1f} s spent"
+            ),
+            "budget_s": args.synth_budget,
+            "spent_s": round(spent_s, 1),
+        }
+
     try:
         watchdog.arm(args.load_timeout, "load")
         engine.load()
@@ -461,6 +502,7 @@ def run_engine(
         result["first_wav_ms"] = round(time.time() * 1000.0 - started_at_ms, 1)
         result["sample_rate"] = wav_facts(warmup_path)["sample_rate"]
         watchdog.disarm()
+        spent_s = result["warmup_synth_ms"] / 1000.0
     except BaseException as exc:  # noqa: BLE001 - engine failures are results
         watchdog.disarm()
         failure = record("synthesize", exc)
@@ -494,14 +536,22 @@ def run_engine(
             "runs": [],
             "rtf": None,
             "failure": None,
+            "skipped": None,
         }
         for repeat in range(1, args.repeats + 1):
             keep = repeat == 1
             target = wav_dir / f"{item['id']}.wav" if keep else scratch_dir / f"{item['id']}-{repeat}.wav"
             run: dict[str, Any] = {"repeat": repeat, "wall_ms": None, "wav_ms": None, "rtf": None}
+            if not budget_left():
+                stop = budget_failure()
+                run["skipped"] = stop
+                entry["skipped"] = stop
+                entry["runs"].append(run)
+                exhausted = True
+                break
+            started = time.perf_counter()
             try:
                 watchdog.arm(args.timeout, "synthesize")
-                started = time.perf_counter()
                 extra = engine.synthesize(item["text"], item["language"], target)
                 wall_ms = (time.perf_counter() - started) * 1000.0
                 watchdog.disarm()
@@ -513,6 +563,7 @@ def run_engine(
                     run["engine"] = extra
                 total_wall += wall_ms
                 total_audio += duration_ms
+                spent_s += wall_ms / 1000.0
                 if keep:
                     facts = wav_facts(target)
                     entry["wav"] = f"wav/{target.name}"
@@ -524,6 +575,9 @@ def run_engine(
                     target.unlink(missing_ok=True)
             except BaseException as exc:  # noqa: BLE001 - engine failures are results
                 watchdog.disarm()
+                failed_ms = (time.perf_counter() - started) * 1000.0
+                spent_s += failed_ms / 1000.0
+                run["wall_ms"] = round(failed_ms, 1)
                 run["failure"] = record("synthesize", exc)
                 entry["failure"] = run["failure"]
                 target.unlink(missing_ok=True)
@@ -540,7 +594,19 @@ def run_engine(
             )
         result["texts"].append(entry)
         _write_json(result_path, result)
+        if exhausted:
+            break
 
+    result["synth_spent_s"] = round(spent_s, 1)
+    if exhausted:
+        result["stopped_early"] = {
+            "stage": "synthesize",
+            "code": "total_timeout",
+            "reason": "synth_budget",
+            "budget_s": args.synth_budget,
+            "spent_s": round(spent_s, 1),
+            "message": f"synthesis budget of {args.synth_budget:g} s is used up",
+        }
     if total_audio > 0:
         result["rtf"] = round(total_wall / total_audio, 4)
     try:
@@ -548,7 +614,7 @@ def run_engine(
     except Exception as exc:  # noqa: BLE001 - close failures do not invalidate measurements
         result["close_failure"] = record("close", exc)
     finish()
-    return 0
+    return 3 if exhausted else 0
 
 
 def main(

@@ -2,6 +2,9 @@ name: Probe font
 
 on:
   pull_request:
+    paths:
+      - "probes/font/**"
+      - ".github/workflows/probe-font.yml"
   workflow_dispatch:
     inputs:
       windows:
