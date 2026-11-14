@@ -43,19 +43,28 @@ deno run --quiet --no-prompt --no-config --cached-only \
 
 ## 결과 표
 
-결과는 이 PR의 Actions 실행 artifact에서 채운다.
+결과는 Actions 실행 `43604123592`(2026-11-14)의 `sandbox-probe-linux` artifact에서 옮겼다. Windows는 R1 뒤에 채운다.
 
 | 항목 | linux (ubuntu-24.04) | windows (R1 뒤) |
 | --- | --- | --- |
-| cold start (ms) | | |
-| bootstrap (ms) | | |
-| 1080x1920 이하 PNG 왕복 (ms) | | |
-| peak RSS (bytes) | | |
-| read 회수 확인 | | |
-| memory hard cap 적용 | | |
-| 정상 프로그램 2개 통과 | | |
-| 공격 프로그램 거절 | | |
-| gate | | |
+| cold start (ms) | 3063 | |
+| bootstrap (ms) | 2733 (첫 실행) | |
+| 1080x1920 이하 PNG 왕복 (ms) | 264 | |
+| peak RSS (bytes) | 4471373824 (4.16 GiB) | |
+| read 회수 확인 | 확인 (보고된 16개 모두, read `prompt` 뒤 거절) | |
+| memory hard cap 적용 | 미적용 | |
+| 정상 프로그램 2개 통과 | 2/2 | |
+| 공격 프로그램 거절 | 12/12 | |
+| gate | `proceed_with_timeout_and_output_caps` | |
+
+- `cold_start_ms` 3063 ms는 첫 실행(`style_parts_ok`)의 wall time이고, bootstrap 2733 ms와 PNG 왕복 264 ms는 그 안의 구간이다.
+- bootstrap은 실행마다 2497~3078 ms였고, 중단으로 응답을 받지 못한 2개는 값이 없다.
+- peak RSS는 `getrusage(RUSAGE_CHILDREN)`의 최댓값이며 hard cap의 증거가 아니다.
+- memory hard cap은 적용되지 않았다. `systemd-run --user --scope`가 `Failed to connect to bus: No medium found`로 실패해서 timeout과 출력 상한만 쓴다.
+- 공격 12개는 모두 거절됐다: permission_denied 9, timeout 1, memory_limit 1, output_limit 1. 잘못된 출력 3개(`bad_png`, `bad_wav_header`, `overlong_wav`)도 `invalid_output`으로 거절됐다. `summary`는 total 18, met 18, escapes 0, harness errors 0이다.
+- `memory_spike`는 hard cap이 아니라 wasm 할당 실패(`MemoryError`, `memory_limit`)로 끝났다.
+- `state_leak`은 `{"file": true, "module": true, "patch": true}`였으므로 Gate 절에 따라 warmer를 만들지 않고 실행마다 process를 폐기한다.
+- artifact의 `verified_files` 세 SHA-256은 위 고정 파일 표와 같다.
 
 `result.json`의 `runs`가 프로그램별 판정과 근거이고, `gate`가 결정 gate다. artifact 이름은 `sandbox-probe-linux`와 `sandbox-probe-windows`다.
 
@@ -99,4 +108,4 @@ deno run --quiet --no-prompt --no-config --cached-only \
 
 - 확인: Python 문법, harness 단위 시험, manifest와 프로그램 검사, workflow YAML과 actionlint, 이름과 공개 문서 검사.
 - 확인: aarch64 Linux에서 runner 기동, read 회수, 정상 PNG 생성, 파일 read와 write 거절. 이 실행은 harness 확인용이고 결과 표에 적지 않는다.
-- 못 함: x64 러너의 양 OS 측정과 Windows Job Object. 이 호스트는 aarch64이고 Windows 실행은 R1 뒤로 미룬다. 측정은 PR을 연 뒤 Actions artifact에서만 채운다.
+- 못 함: 이 호스트에서 x64 러너의 측정과 Windows Job Object. 이 호스트는 aarch64이고 Windows 실행은 R1 뒤로 미룬다. x64 Linux 측정은 위 결과 표에 있고, 측정은 Actions artifact에서만 옮겨 적는다.
