@@ -1,4 +1,4 @@
 qwen-tts==0.1.1
-torch==2.7.1+cpu
-torchaudio==2.7.1+cpu
+torch @ https://download.pytorch.org/whl/cpu/torch-2.7.1%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl
+torchaudio @ https://download.pytorch.org/whl/cpu/torchaudio-2.7.1%2Bcpu-cp311-cp311-manylinux_2_28_x86_64.whl
 psutil==7.2.2

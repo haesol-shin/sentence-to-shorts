@@ -61,7 +61,10 @@ jobs:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    # Setup is capped at 30 minutes per step, the synthesis budget below is
+    # 50 minutes and the summary and artifact upload take about 5 minutes, so a
+    # slow candidate ends with a written result well inside this limit.
+    timeout-minutes: 120
     env:
       CANDIDATE: ${{ matrix.candidate }}
       PROBE_THREADS: ${{ github.event_name == 'workflow_dispatch' && inputs.threads || '4' }}
@@ -69,6 +72,7 @@ jobs:
       PROBE_MODELS_DIR: ${{ github.workspace }}/.local/probe/models
       HF_HOME: ${{ github.workspace }}/.local/probe/hf
       PROBE_SETUP_TIMEOUT: "1800"
+      PROBE_SYNTH_BUDGET: "3000"
       HF_HUB_DISABLE_PROGRESS_BARS: "1"
       PIP_DISABLE_PIP_VERSION_CHECK: "1"
     steps:
@@ -160,7 +164,8 @@ jobs:
           PROBE_START_MS="$started" "$PY" "probes/tts/$CANDIDATE/synth.py" \
             --texts probes/tts/texts.json \
             --out probe-out \
-            --threads "$PROBE_THREADS" > synth.log 2>&1
+            --threads "$PROBE_THREADS" \
+            --synth-budget "$PROBE_SYNTH_BUDGET" > synth.log 2>&1
           code=$?
           set -e
           tail -n 80 synth.log

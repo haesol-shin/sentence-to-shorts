@@ -33,11 +33,13 @@ DEFAULT_REPEATS = 3
 # q4 trims at 1024 tokens, which is 40.96 s of audio at 24 kHz and 960 samples
 # per token, and it synthesised the 5.92 s warmup clip in 18.35 s, so a
 # full-length sentence needs about 127 s. Doubled for runner variance and
-# rounded up to a minute: 300 s. The probe job keeps a 90 minute limit because
-# setup is capped at 30 minutes per step and a timeout ends the run after one
-# recorded result.
+# rounded up to a minute: 300 s.
 DEFAULT_TIMEOUT_S = 300.0
 DEFAULT_LOAD_TIMEOUT_S = 900.0
+# Zero means no budget. The workflow passes the value it can afford from its own
+# job limit, so one slow candidate ends with a written result instead of a job
+# that the runner kills while the result still says "running".
+DEFAULT_SYNTH_BUDGET_S = 0.0
 RSS_INTERVAL_S = 0.05
 
 
@@ -325,6 +327,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--repeats", default=DEFAULT_REPEATS, type=int)
     parser.add_argument("--timeout", default=DEFAULT_TIMEOUT_S, type=float)
+    parser.add_argument("--synth-budget", default=DEFAULT_SYNTH_BUDGET_S, type=float)
     parser.add_argument("--load-timeout", default=DEFAULT_LOAD_TIMEOUT_S, type=float)
     parser.add_argument("--result", default=None, type=Path)
     return parser.parse_args(argv)
@@ -371,6 +374,7 @@ def run_engine(
         "thread": args.threads,
         "repeats": args.repeats,
         "timeout_s": args.timeout,
+        "synth_budget_s": args.synth_budget,
         "revision": None,
         "models": load_models(models_spec, args.models),
         "model_bytes": 0,
@@ -444,6 +448,24 @@ def run_engine(
             "traceback": traceback.format_exc(limit=8)[-4000:],
         }
 
+    spent_s = 0.0
+    exhausted = False
+
+    def budget_left() -> bool:
+        return args.synth_budget <= 0 or spent_s < args.synth_budget
+
+    def budget_failure() -> dict[str, Any]:
+        return {
+            "stage": "synthesize",
+            "code": "total_timeout",
+            "message": (
+                f"synthesis budget of {args.synth_budget:g} s is used up; "
+                f"{spent_s:.1f} s spent"
+            ),
+            "budget_s": args.synth_budget,
+            "spent_s": round(spent_s, 1),
+        }
+
     try:
         watchdog.arm(args.load_timeout, "load")
         engine.load()
@@ -469,6 +491,7 @@ def run_engine(
         result["first_wav_ms"] = round(time.time() * 1000.0 - started_at_ms, 1)
         result["sample_rate"] = wav_facts(warmup_path)["sample_rate"]
         watchdog.disarm()
+        spent_s = result["warmup_synth_ms"] / 1000.0
     except BaseException as exc:  # noqa: BLE001 - engine failures are results
         watchdog.disarm()
         failure = record("synthesize", exc)
@@ -507,6 +530,12 @@ def run_engine(
             keep = repeat == 1
             target = wav_dir / f"{item['id']}.wav" if keep else scratch_dir / f"{item['id']}-{repeat}.wav"
             run: dict[str, Any] = {"repeat": repeat, "wall_ms": None, "wav_ms": None, "rtf": None}
+            if not budget_left():
+                run["failure"] = budget_failure()
+                entry["failure"] = run["failure"]
+                entry["runs"].append(run)
+                exhausted = True
+                break
             try:
                 watchdog.arm(args.timeout, "synthesize")
                 started = time.perf_counter()
@@ -521,6 +550,7 @@ def run_engine(
                     run["engine"] = extra
                 total_wall += wall_ms
                 total_audio += duration_ms
+                spent_s += wall_ms / 1000.0
                 if keep:
                     facts = wav_facts(target)
                     entry["wav"] = f"wav/{target.name}"
@@ -548,7 +578,10 @@ def run_engine(
             )
         result["texts"].append(entry)
         _write_json(result_path, result)
+        if exhausted:
+            break
 
+    result["synth_spent_s"] = round(spent_s, 1)
     if total_audio > 0:
         result["rtf"] = round(total_wall / total_audio, 4)
     try:
@@ -556,7 +589,7 @@ def run_engine(
     except Exception as exc:  # noqa: BLE001 - close failures do not invalidate measurements
         result["close_failure"] = record("close", exc)
     finish()
-    return 0
+    return 3 if exhausted else 0
 
 
 def main(

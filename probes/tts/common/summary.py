@@ -37,6 +37,8 @@ def render(result: dict) -> str:
         f"| first wav | {_number(result.get('first_wav_ms'))} ms |",
         f"| rtf | {_number(result.get('rtf'), 3)} |",
         f"| peak rss | {_mib(result.get('peak_rss_bytes'))} MiB |",
+        f"| synth time | {_number(result.get('synth_spent_s'))} s of "
+        f"{_number(result.get('synth_budget_s'), 0)} s |",
         f"| model bytes | {_mib(result.get('model_bytes'))} MiB |",
         f"| env bytes | {_mib(result.get('env_bytes'))} MiB |",
     ]
