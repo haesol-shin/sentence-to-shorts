@@ -1,0 +1,16 @@
+{
+  "error.revision_conflict": "Something changed elsewhere first. The newest version is loaded.",
+  "error.unauthenticated": "The connection ended. Open it again with the connection code.",
+  "error.forbidden_origin": "Only requests from this screen are accepted.",
+  "error.forbidden_host": "This address cannot connect.",
+  "error.rate_limited": "Try again in a moment.",
+  "error.job_running": "The same job is already running.",
+  "error.job_terminal": "That job has already ended.",
+  "error.not_found": "It could not be found.",
+  "error.validation_failed": "A sent value does not fit.",
+  "error.llm_auth_required": "Check the model connection first.",
+  "error.runtime_not_ready": "The files this needs are not ready yet.",
+  "error.internal": "The server hit a problem.",
+  "error.network": "The server could not be reached.",
+  "error.unknown": "An unknown problem happened."
+}

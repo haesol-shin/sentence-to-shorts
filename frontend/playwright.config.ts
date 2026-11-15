@@ -39,7 +39,9 @@ if (isCI) {
 }
 
 export default defineConfig({
-  testDir: './e2e',
+  testDir: '.',
+  // Only `*.spec.ts` files run here; the vitest suites keep their `.test.ts` names.
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
@@ -53,5 +55,6 @@ export default defineConfig({
     command: 'npm run dev',
     url: baseURL,
     reuseExistingServer: !isCI,
+    env: { VITE_API_MODE: 'mock' },
   },
 });
