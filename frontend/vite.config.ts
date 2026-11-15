@@ -15,6 +15,10 @@ export default defineConfig({
     host: '127.0.0.1',
     port: 4173,
     strictPort: true,
+    fs: {
+      // A mock run serves the recorded answers from `fixtures/api/` one level up.
+      allow: ['..'],
+    },
   },
   test: {
     environment: 'jsdom',

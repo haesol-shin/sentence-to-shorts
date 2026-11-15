@@ -10,8 +10,17 @@ if (root === null) {
   throw new Error('root element is missing');
 }
 
-createRoot(root).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
+async function start(): Promise<void> {
+  if (import.meta.env.VITE_API_MODE === 'mock') {
+    // Kept out of the real build by this branch: only a mock run loads fixtures.
+    const { installMockApi } = await import('@/shared/api/mock');
+    installMockApi();
+  }
+  createRoot(root as HTMLElement).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  );
+}
+
+void start();

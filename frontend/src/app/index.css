@@ -1,2 +1,26 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "../shared/ui/tokens.css";
+
+html {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+/* The shell keeps its own height so the composer can sit at the bottom edge. */
+#root {
+  height: 100dvh;
+}

@@ -1,0 +1,52 @@
+/*
+ * Neutral shell tokens. The design track owns the full token set; this file
+ * keeps the greys, the video corner radius and the shell measurements in one
+ * place so a skin or layout change touches a single file. The shell draws no
+ * colour and no font of its own until the design track lands.
+ */
+:root {
+  --gray-0: #ffffff;
+  --gray-50: #f2f4f6;
+  --gray-100: #e5e8eb;
+  --gray-200: #d1d6db;
+  --gray-300: #b0b8c1;
+  --gray-500: #6b7684;
+  --gray-700: #333d4b;
+  --gray-900: #191f28;
+
+  --surface: var(--gray-0);
+  --surface-muted: var(--gray-50);
+  --surface-sunken: var(--gray-100);
+  --line: var(--gray-100);
+  --text-strong: var(--gray-900);
+  --text: var(--gray-700);
+  --text-muted: var(--gray-500);
+  --text-disabled: var(--gray-300);
+
+  /* Video corner radius: rounded while editing, square when played or exported. */
+  --radius-video: 12px;
+  --radius-panel: 16px;
+  --radius-input: 24px;
+  --radius-card: 36px;
+  --radius-capsule: 999px;
+
+  --touch-target: 48px;
+  --motion-short: 200ms;
+
+  --layout-sidebar-w: 72px;
+  --layout-sidebar-w-sm: 56px;
+  --layout-topbar-h: 64px;
+  --layout-first-w: 576px;
+  --layout-scene-col-w: 152px;
+  --layout-scene-panel-max-w: 520px;
+  --layout-conversation-aspect: 380 / 796;
+  --layout-preview-aspect: 9 / 16;
+  --layout-mobile-preview-h: 40dvh;
+  --layout-thumb-h: 56px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-short: 0ms;
+  }
+}
