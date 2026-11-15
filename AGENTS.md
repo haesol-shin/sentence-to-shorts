@@ -14,7 +14,7 @@ uv run --with markdown-it-py==3.0.0 python scripts/check_public_docs.py
 ## 저장소 규칙
 
 - 작업이 허용한 경로 밖은 고치지 않는다.
-- 공통 계약(`schemas/`, `core/app/schemas/`, `core/app/ports.py`, `core/config/`, `fixtures/`)은 [docs/CONTRACTS.md](docs/CONTRACTS.md)가 기준이다. 계약 변경은 계약 변경 PR에서만 한다.
+- 공통 계약(`schemas/`, `core/app/schemas/`, `core/app/ports.py`, `core/config/`, `fixtures/`)은 [docs/CONTRACTS.md](docs/CONTRACTS.md)가 기준이다. 현재 작업을 막는 계약 공백은 그 작업에서 고치고, 막지 않는 변경은 `contract` 라벨 이슈로 남긴다. 절차는 [CONTRIBUTING.md의 Pull request 절](CONTRIBUTING.md#pull-request)을 따른다.
 - 디자인 부품(`frontend/src/components/`, `frontend/src/gallery/`, `frontend/tests/gallery/`)은 디자인 작업만 바꾼다.
 - 이름 규칙은 [CONTRIBUTING.md의 이름 절](CONTRIBUTING.md#이름)을 따른다.
 - 대화 내용과 반복 작업 이력, 작업 ID, 리뷰 기록을 코드 주석과 커밋과 PR 글에 옮기지 않는다.
