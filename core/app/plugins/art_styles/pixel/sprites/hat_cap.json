@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "hat_cap",
+  "width": 10,
+  "height": 2,
+  "scale": 10,
+  "origin": {
+    "x": 0,
+    "y": 0
+  },
+  "palette": {
+    "R": [196, 44, 56]
+  },
+  "rows": [
+    "..RRRRRR..",
+    ".RRRRRRRRR"
+  ]
+}

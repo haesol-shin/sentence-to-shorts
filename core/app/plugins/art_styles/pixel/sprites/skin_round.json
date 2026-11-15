@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "skin_round",
+  "width": 9,
+  "height": 9,
+  "scale": 20,
+  "palette": {
+    "N": [24, 32, 72],
+    "W": [200, 204, 255]
+  },
+  "rows": [
+    "..WWWWW..",
+    ".WNNNNNW.",
+    "WNNNNNNNW",
+    "WNNNNNNNW",
+    "WNNNNNNNW",
+    "WNNNNNNNW",
+    "WNNNNNNNW",
+    ".WNNNNNW.",
+    "..WWWWW.."
+  ]
+}

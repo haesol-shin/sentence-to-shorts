@@ -5,6 +5,8 @@ description = "Contracts and execution skeleton for the local video studio backe
 requires-python = ">=3.11,<3.12"
 dependencies = [
     "fastapi==0.162.7",
+    "fonttools==4.68.0",
+    "pillow==13.0.0",
     "pydantic==2.14.3",
     "python-multipart==0.0.33",
     "pyyaml==6.0.3",

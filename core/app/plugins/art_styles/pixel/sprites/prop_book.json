@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "prop_book",
+  "width": 10,
+  "height": 3,
+  "scale": 10,
+  "origin": {
+    "x": 0,
+    "y": 9
+  },
+  "palette": {
+    "D": [120, 70, 30],
+    "W": [245, 245, 245]
+  },
+  "rows": [
+    "......DDDD",
+    "......DWWD",
+    "......DDDD"
+  ]
+}

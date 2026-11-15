@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "outfit_scarf",
+  "width": 10,
+  "height": 4,
+  "scale": 10,
+  "origin": {
+    "x": 0,
+    "y": 6
+  },
+  "palette": {
+    "A": [255, 120, 150]
+  },
+  "rows": [
+    ".AAAAAAAA.",
+    "..AAAAAA..",
+    ".......A..",
+    ".......A.."
+  ]
+}

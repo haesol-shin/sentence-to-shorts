@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "skin_bevel",
+  "width": 9,
+  "height": 9,
+  "scale": 20,
+  "palette": {
+    "K": [20, 20, 28],
+    "P": [42, 10, 60],
+    "R": [255, 79, 163],
+    "Y": [255, 214, 74]
+  },
+  "rows": [
+    "YYYYYYYYY",
+    "YRRRRRRRY",
+    "YRKKKKKRY",
+    "YRKPPPKRY",
+    "YRKPPPKRY",
+    "YRKPPPKRY",
+    "YRKKKKKRY",
+    "YRRRRRRRY",
+    "YYYYYYYYY"
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "id": "hat_crown",
+  "width": 10,
+  "height": 2,
+  "scale": 10,
+  "origin": {
+    "x": 0,
+    "y": 0
+  },
+  "palette": {
+    "Y": [250, 204, 60]
+  },
+  "rows": [
+    ".Y.Y..Y.Y.",
+    ".YYYYYYYY."
+  ]
+}
