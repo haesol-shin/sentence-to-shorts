@@ -44,6 +44,7 @@ from app.schemas.common import (
 from app.schemas.scene import ElementKind, Scene
 from app.schemas.settings import (
     ORIGIN_POINTER_PATTERN,
+    ORIGIN_RANK,
     Audio,
     BgmSettings,
     Caption,
@@ -61,18 +62,9 @@ from app.schemas.settings import (
     Settings,
     Transition,
     Visual,
+    higher_origin_pointers,
 )
 from app.schemas.video import STAGE_ORDER, Video, VideoStage, stage_after_script_rewrite
-
-ORIGIN_RANK: dict[Origin, int] = {
-    Origin.user: 5,
-    Origin.reference: 4,
-    Origin.preset: 3,
-    Origin.card: 2,
-    Origin.llm: 1,
-    Origin.default: 0,
-    Origin.derived: 0,
-}
 
 SOURCE_ORIGIN: dict[ChangeSource, Origin] = {
     ChangeSource.direct: Origin.user,
@@ -257,11 +249,6 @@ def _put(doc: Any, pointer: str, value: Any) -> None:
         raise AppError("invalid_op", detail={"pointer": pointer})
 
 
-def _related(a: str, b: str) -> bool:
-    """True when one pointer equals or contains the other."""
-    return a == b or a.startswith(b + "/") or b.startswith(a + "/")
-
-
 def _covers(ancestor: str, pointer: str) -> bool:
     return pointer == ancestor or pointer.startswith(ancestor + "/")
 
@@ -434,12 +421,8 @@ class _Guard:
     def origins(self, path: str, origin: Origin) -> None:
         """One op against the state before it: a lower origin keeps higher values."""
         rel = path[len(SETTINGS) :]
-        rank = ORIGIN_RANK[origin]
         origins: dict[str, str] = self.before["settings"]["origins"]
-        higher = sorted(
-            key for key, value in origins.items()
-            if _related(key, rel) and ORIGIN_RANK[Origin(value)] > rank
-        )
+        higher = higher_origin_pointers(origins, rel, origin)
         for key in higher:
             pointer = SETTINGS + key
             if self.changed(pointer) and not self.confirmed.allows_overwrite(pointer):

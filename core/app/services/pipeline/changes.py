@@ -83,20 +83,23 @@ def run_reference_job(
     if stored.video_id != video.id:
         raise AppError("not_found", detail={"change_id": stored.id})
     if stored.status is not ChangeStatus.proposed or stored.base_revision != video.revision:
-        return settle_plan(stored, video, services)
-    # The analysis stores only its ops; effects and confirmation come from keys.
-    planned = plan_change(video, list(stored.ops), stored.source.value, stored.target, services)
-    plan = planned.model_copy(
-        update={
-            "id": stored.id,
-            "base_revision": stored.base_revision,
-            "created_at": stored.created_at,
-            "notes": stored.notes,
-            "unsupported": stored.unsupported,
-        }
-    )
-    services.project.projects.put_change(plan)
-    return settle_plan(plan, video, services)
+        result = settle_plan(stored, video, services)
+    else:
+        # The analysis stores only its ops; effects and confirmation come from keys.
+        planned = plan_change(video, list(stored.ops), stored.source.value, stored.target, services)
+        plan = planned.model_copy(
+            update={
+                "id": stored.id,
+                "base_revision": stored.base_revision,
+                "created_at": stored.created_at,
+                "notes": stored.notes,
+                "unsupported": stored.unsupported,
+            }
+        )
+        services.project.projects.put_change(plan)
+        result = settle_plan(plan, video, services)
+    result["reference"] = _plain(outcome.reference)
+    return result
 
 
 def run_bgm_code(body: dict[str, Any], ctx: JobContext, services: Services) -> dict[str, object]:

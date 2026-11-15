@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Literal
 
@@ -139,6 +140,33 @@ class LockState(StrEnum):
 ORIGIN_POINTER_PATTERN = (
     r"^/(language|target_duration_s|format|visual|audio|caption|motion)(/[a-z_]+)*$"
 )
+
+ORIGIN_RANK: dict[Origin, int] = {
+    Origin.user: 5,
+    Origin.reference: 4,
+    Origin.preset: 3,
+    Origin.card: 2,
+    Origin.llm: 1,
+    Origin.default: 0,
+    Origin.derived: 0,
+}
+
+
+def higher_origin_pointers(
+    origins: Mapping[str, Origin | str], pointer: str, incoming: Origin
+) -> list[str]:
+    """Higher-origin settings pointers equal to, containing or contained by a write.
+
+    Pointers are relative to settings. Slash boundaries keep sibling field names
+    distinct; sorting preserves the project guard's restoration order.
+    """
+    rank = ORIGIN_RANK[incoming]
+    return sorted(
+        key for key, value in origins.items()
+        if (key == pointer or key.startswith(pointer + "/") or pointer.startswith(key + "/"))
+        and ORIGIN_RANK[Origin(value)] > rank
+    )
+
 
 LockMap = dict[LockKey, LockState]
 OriginMap = Annotated[

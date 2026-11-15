@@ -5,19 +5,24 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.ports import AppSettings, CancelToken, Segment
+from app.tools.asr.faster_whisper.adapter import FasterWhisperTranscriber
+from app.tools.asr.faster_whisper.adapter import create as create_faster_whisper
 
-
-class TranscriberAdapter:
-    def transcribe(
-        self, wav: Path, language: str | None, *, cancel: CancelToken
-    ) -> list[Segment]:
-        raise NotImplementedError
+TranscriberAdapter = FasterWhisperTranscriber
 
 
 def create(settings: AppSettings) -> TranscriberAdapter:
-    raise NotImplementedError("tools/asr")
+    return create_faster_whisper(settings)
 
 
-def create_skeleton(settings: AppSettings) -> TranscriberAdapter:
-    """Fixture-profile placeholder; every call still reports not implemented."""
-    return TranscriberAdapter()
+class SkeletonTranscriberAdapter:
+    """Fixture-profile placeholder: every call reports not implemented."""
+
+    def transcribe(
+        self, wav: Path, language: str | None, *, cancel: CancelToken
+    ) -> list[Segment]:
+        raise NotImplementedError("tools/asr skeleton")
+
+
+def create_skeleton(settings: AppSettings) -> SkeletonTranscriberAdapter:
+    return SkeletonTranscriberAdapter()
