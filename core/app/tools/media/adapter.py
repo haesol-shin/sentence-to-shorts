@@ -37,6 +37,9 @@ AUDIO_BITRATE = "192k"
 ANALYSIS_RATE = 16000
 DUCK_FILTER = "sidechaincompress=threshold=0.05:ratio=8:attack=20:release=300"
 LOUDNORM_LRA = 11
+AUDIO_FORMATS = "wav,mp3,ogg,mov"
+"""Demuxers an audio upload or a builtin BGM may open: the formats the bundled-binary
+probe decoded (WAV, MP3, Ogg, and M4A through the mov demuxer)."""
 
 
 def _file(path: Path) -> str:
@@ -209,11 +212,13 @@ class MediaAdapter:
         else:
             mixed = [f"[{label}]" for label in voices + ducked]
         chains.append(f"{''.join(mixed)}amix=inputs={len(mixed)}:normalize=0[mix]")
+        # Float premix: the sum may pass full scale before the loudness step brings
+        # it under the peak target, so nothing is clipped on the way.
         staged = out.with_name(out.stem + ".premix.wav")
         self._run(
             "mix",
             [*inputs, "-filter_complex", ";".join(chains), "-map", "[mix]",
-             "-c:a", "pcm_s16le", "-ar", str(plan.sample_rate), _file(staged)],
+             "-c:a", "pcm_f32le", "-ar", str(plan.sample_rate), _file(staged)],
             cancel=cancel,
         )
         try:
@@ -279,7 +284,13 @@ class MediaAdapter:
         max_ms: int,
         cancel: CancelToken,
     ) -> MediaInfo:
-        source = self.probe(src)
+        """Decode an audio file with a fixed demuxer list to PCM16 WAV.
+
+        Only ``AUDIO_FORMATS`` open, so a file never reaches a demuxer outside
+        the measured list. The decode stops just past ``max_ms``, so a header
+        that understates the length cannot pass a long file.
+        """
+        source = self._probe(src, "-format_whitelist", AUDIO_FORMATS)
         if source.sample_rate is None:
             raise AppError("media_unreadable", detail={"reason": "no_audio"})
         if source.duration_ms is None:
@@ -288,11 +299,16 @@ class MediaAdapter:
             raise AppError("media_too_long", detail={"max_ms": max_ms})
         self._run(
             "decode_audio",
-            [*_input(_file(src)), "-vn", "-ac", str(channels), "-ar", str(sample_rate),
+            [*_input(_file(src), "-format_whitelist", AUDIO_FORMATS), "-vn",
+             "-t", _seconds(max_ms + 1), "-ac", str(channels), "-ar", str(sample_rate),
              "-c:a", "pcm_s16le", _file(out)],
             cancel=cancel,
         )
-        return self.probe(out)
+        decoded = self.probe(out)
+        if decoded.duration_ms is None or decoded.duration_ms > max_ms:
+            out.unlink(missing_ok=True)
+            raise AppError("media_too_long", detail={"max_ms": max_ms})
+        return decoded
 
     def extract_frames(
         self,
@@ -334,8 +350,11 @@ class MediaAdapter:
         return self.probe(out)
 
     def probe(self, src: Path) -> MediaInfo:
+        return self._probe(src)
+
+    def _probe(self, src: Path, *options: str) -> MediaInfo:
         result = self._run(
-            "probe", [*_input(_file(src)), "-f", "null", "-"], cancel=None
+            "probe", [*_input(_file(src), *options), "-f", "null", "-"], cancel=None
         )
         found = parse_streams(result.stderr.decode("utf-8", "replace"))
         if not found:
