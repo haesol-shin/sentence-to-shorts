@@ -55,33 +55,33 @@ class ProjectService:
         return project
 
     def create_video(self, project_id: str, req: CreateVideoRequest) -> Video:
-        """First revision of a new video with a copy of the project defaults.
-
-        Deriving from a previous video or a preset is a separate module.
-        """
+        """Create revision one through the shared validation and append path."""
         if req.from_video_id is not None or req.preset_id is not None:
-            raise AppError("not_implemented")
-        project = self.projects.get_project(project_id)
-        video = Video(
-            schema_version=1,
-            id=self.projects.new_id("v"),
-            project_id=project.id,
-            owner_id=project.owner_id,
-            revision=1,
-            parent_revision=None,
-            created_at=revision.now(),
-            created_by=CreatedBy.create,
-            change_id=None,
-            stage=VideoStage.draft,
-            derived_from=None,
-            topic="",
-            material=[],
-            reference=None,
-            settings=project.defaults.model_copy(deep=True),
-            script=None,
-            scene_order=[],
-            scenes={},
-        )
+            from app.services.project import derive
+
+            video = derive.create_video(self, project_id, req)
+        else:
+            project = self.projects.get_project(project_id)
+            video = Video(
+                schema_version=1,
+                id=self.projects.new_id("v"),
+                project_id=project.id,
+                owner_id=project.owner_id,
+                revision=1,
+                parent_revision=None,
+                created_at=revision.now(),
+                created_by=CreatedBy.create,
+                change_id=None,
+                stage=VideoStage.draft,
+                derived_from=None,
+                topic="",
+                material=[],
+                reference=None,
+                settings=project.defaults.model_copy(deep=True),
+                script=None,
+                scene_order=[],
+                scenes={},
+            )
         issues = self.validate(video)
         if issues:
             codes = {issue.code for issue in issues}
@@ -176,10 +176,14 @@ class ProjectService:
     def pick_varied(
         self, project: Project, previous: list[Video], seed: int
     ) -> Settings:
-        raise NotImplementedError
+        from app.services.project import derive
+
+        return derive.pick_varied(self.catalog, project, previous, seed)
 
     def save_preset(self, project_id: str, req: PresetRequest) -> Preset:
-        raise NotImplementedError
+        from app.services.project import presets
+
+        return presets.save_preset(self, project_id, req)
 
     def _advance(self, head: Video, stage: VideoStage) -> Video:
         return self._append(head.model_copy(update={"stage": stage}), head, CreatedBy.confirm)
