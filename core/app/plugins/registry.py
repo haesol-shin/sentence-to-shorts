@@ -1,7 +1,9 @@
 """Manifest registry: the only loader of builtin and generated catalog packages.
 
 The registry reads data files only. It never imports or executes code from a
-package, and it rejects an item before registration when a rule fails.
+package, and it rejects an item before registration when a rule fails. Code BGM
+packages validate both WAV and program digests and share the immutable package
+storage and persistent index used by generated styles and templates.
 """
 
 from __future__ import annotations
@@ -19,7 +21,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
-from app.schemas.bgm_entry import BuiltinBgm, SfxEntry
+from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry
 from app.schemas.common import LocalizedText, PackageOrigin, PinnedRef
 from app.schemas.font_manifest import FontManifest
 from app.schemas.format_card import FormatCard, StoryStructure
@@ -58,6 +60,13 @@ MODELS: dict[str, type[BaseModel]] = {
 }
 
 
+def _manifest_model(kind: str, raw: Any) -> type[BaseModel]:
+    """Use the same BGM source discriminator for package loading and index restore."""
+    if kind == "bgm" and isinstance(raw, dict) and raw.get("source") == "code":
+        return CodeBgm
+    return MODELS[kind]
+
+
 class RegistryError(Exception):
     """A package failed validation. The item is rejected before registration."""
 
@@ -94,6 +103,8 @@ def _referenced_files(manifest: BaseModel) -> list[str]:
         return _style_like_files(manifest)
     if isinstance(manifest, (BuiltinBgm, SfxEntry)):
         return [manifest.file, manifest.license.license_file]
+    if isinstance(manifest, CodeBgm):
+        return [manifest.file, manifest.program]
     return []
 
 
@@ -139,6 +150,11 @@ def _digest_files(manifest: BaseModel) -> list[tuple[str, str]]:
         return [(manifest.sample.file, manifest.sample.sha256)]
     if isinstance(manifest, FontManifest):
         return [(manifest.file, manifest.sha256)]
+    if isinstance(manifest, CodeBgm):
+        return [
+            (manifest.file, manifest.sha256),
+            (manifest.program, manifest.program_digest),
+        ]
     if isinstance(manifest, (BuiltinBgm, SfxEntry)):
         return [(manifest.file, manifest.sha256)]
     return []
@@ -190,7 +206,7 @@ def validate_package(
     raw: dict[str, Any],
 ) -> BaseModel:
     """Validate one manifest and its files. Raises RegistryError before registration."""
-    model_type = MODELS[kind]
+    model_type = _manifest_model(kind, raw)
     if raw.get("schema_version") != 1:
         raise RegistryError("unsupported_version", expected_id, package_dir, "schema_version")
     if kind in ("art_style", "template") and raw.get("api_version") != 1:
@@ -379,7 +395,8 @@ class Registry:
             if not package.is_relative_to(root) or package.is_symlink():
                 raise RegistryError("path_escape", str(item_id), path)
             try:
-                manifest = MODELS[kind].model_validate(record.get("manifest"))
+                raw = record.get("manifest")
+                manifest = _manifest_model(kind, raw).model_validate(raw)
             except ValidationError as error:
                 raise RegistryError(
                     "invalid_manifest", str(item_id), path, str(error)
@@ -500,7 +517,7 @@ class Registry:
         return entry.package_dir
 
     def register_generated(self, kind: str, staged_dir: Path) -> PinnedRef:
-        if kind not in ("art_style", "template"):
+        if kind not in ("art_style", "template", "bgm"):
             raise ValueError(f"generated packages are not supported for {kind}")
         if self.data_dir is None:
             raise RuntimeError("registry has no data directory")
@@ -514,6 +531,8 @@ class Registry:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise RegistryError("invalid_manifest", staged_dir.name, manifest_path)
+        if kind == "bgm" and raw.get("source") != "code":
+            raise RegistryError("invalid_manifest", staged_dir.name, manifest_path, "source")
         manifest = validate_package(kind, staged_dir, staged_dir.name, raw)
         revision = file_list_revision(staged_dir)
         item_id = manifest.id  # type: ignore[attr-defined]
