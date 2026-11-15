@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator
 
@@ -9,11 +11,16 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import Scope
 
+from app.access import SECURITY_HEADERS
+from app.access.idempotency import IdempotencyGate, IdempotencyMiddleware, keyed_routes
+from app.access.middleware import AccessMiddleware
 from app.bootstrap import AppDeclaration, AppRuntime, build_runtime, declare
 from app.ports import AppError, UnknownCatalogId
 from app.routers import artifacts, catalog, changes, jobs, media, projects, system, videos
 from app.schemas.api import ApiErrorCode, ErrorItem, Problem
+from app.storage.paths import Layout
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 API_TITLE = "Video studio API"
@@ -104,7 +111,14 @@ def problem(
         status_code=status,
         content=body.model_dump(mode="json"),
         media_type=PROBLEM_MEDIA_TYPE,
+        headers=SECURITY_HEADERS,
     )
+
+
+def _reject(scope: Scope, code: str, detail: str) -> JSONResponse:
+    """Problem response for a request refused before routing."""
+    error = ApiErrorCode(code)
+    return problem(Request(scope), STATUS_BY_CODE[error.value], error, detail)
 
 
 def _use_problem_media_type(document: dict[str, Any]) -> None:
@@ -124,8 +138,25 @@ def _use_problem_media_type(document: dict[str, Any]) -> None:
                     content[PROBLEM_MEDIA_TYPE] = content.pop("application/json")
 
 
+def _display_pairing_url(url: str) -> None:
+    """Show pairing on a local screen, not on a redirected logging stream."""
+    if sys.stdout.isatty():
+        print(f"Pair this browser: {url}")
+        return
+    try:
+        with open("/dev/tty", "w", encoding="utf-8") as terminal:
+            terminal.write(f"Pair this browser: {url}\n")
+    except OSError as error:
+        raise RuntimeError(
+            "Pairing requires a local terminal or a launcher pairing_display callback."
+        ) from error
+
+
 def create_app(
-    runtime: AppRuntime | None = None, *, declaration: AppDeclaration | None = None
+    runtime: AppRuntime | None = None,
+    *,
+    declaration: AppDeclaration | None = None,
+    pairing_display: Callable[[str], None] | None = None,
 ) -> FastAPI:
     """Declare the app. Adapters and packages are built in the lifespan, not here."""
     declared = declaration or declare(runtime.settings if runtime is not None else None)
@@ -133,10 +164,26 @@ def create_app(
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         active = runtime if runtime is not None else build_runtime(declared.settings)
-        app.state.runtime = active
+        settings = active.settings
+        gate = None
         try:
+            gate = IdempotencyGate.open(
+                Layout.from_settings(settings).state_db,
+                ttl_hours=settings.app.limits.idempotency_key_ttl_hours,
+            )
+            app.state.runtime = active
+            app.state.idempotency = gate
+            code = active.access.issue_pairing_code()
+            host = settings.bind_host if settings.lan else "127.0.0.1"
+            if ":" in host and not host.startswith("["):
+                host = f"[{host}]"
+            display = pairing_display if pairing_display is not None else _display_pairing_url
+            display(f"http://{host}:{settings.port}/#pair={code}")
             yield
         finally:
+            if gate is not None:
+                gate.close()
+            app.state.idempotency = None
             active.close()
             if runtime is None:
                 app.state.runtime = None
@@ -173,6 +220,17 @@ def create_app(
         media.router,
     ):
         app.include_router(router, prefix="/api/v1")
+
+    uploads = declared.settings.app.uploads
+    upload_limits = {
+        "/api/v1/videos/{vid}/references": uploads.reference_max_bytes,
+        "/api/v1/bgm/uploads": uploads.bgm_max_bytes,
+    }
+    # The last middleware added runs first: access checks precede body reads.
+    app.add_middleware(
+        IdempotencyMiddleware, routes=keyed_routes(app.openapi(), upload_limits), reject=_reject
+    )
+    app.add_middleware(AccessMiddleware, reject=_reject)
 
     @app.exception_handler(NotImplementedError)
     async def not_implemented(request: Request, exc: NotImplementedError) -> JSONResponse:

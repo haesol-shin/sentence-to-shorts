@@ -20,7 +20,10 @@ def test_openapi_does_not_build_a_runtime(monkeypatch) -> None:  # type: ignore[
 
 
 def test_lifespan_acquires_and_releases_the_runtime(app_settings) -> None:  # type: ignore[no-untyped-def]
-    app = main.create_app(declaration=declare(app_settings))
+    pairing_urls: list[str] = []
+    app = main.create_app(
+        declaration=declare(app_settings), pairing_display=pairing_urls.append
+    )
     with TestClient(app) as client:
         assert client.app.state.runtime is not None  # type: ignore[attr-defined]
     assert app.state.runtime is None

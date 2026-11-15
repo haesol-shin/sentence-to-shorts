@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from app.ports import AppError
 from app.schemas.api import CsrfResponse
 from app.schemas.job import Job
-from tests.conftest import load_json
+from tests.conftest import browser_client, load_json, pair
 
 
 def test_health_is_real(client: TestClient) -> None:
@@ -149,7 +149,9 @@ def test_unhandled_error_returns_problem_500(
         raise RuntimeError("synthetic failure")
 
     monkeypatch.setattr(store, "list_projects", boom)
-    raw = TestClient(client.app, raise_server_exceptions=False)  # type: ignore[arg-type]
+    settings = client.app.state.runtime.settings  # type: ignore[attr-defined]
+    raw = browser_client(client.app, settings.port, raise_server_exceptions=False)
+    pair(raw)
     response = raw.get("/api/v1/projects")
     assert response.status_code == 500
     assert response.headers["content-type"].startswith("application/problem+json")
