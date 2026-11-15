@@ -51,6 +51,9 @@ class UnavailableProjectStore:
     def get_change(self, change_id: str) -> ChangePlan:
         raise NotImplementedError("storage")
 
+    def list_changes(self, video_id: str) -> list[ChangePlan]:
+        raise NotImplementedError("storage")
+
     def put_preset(self, preset: Preset) -> None:
         raise NotImplementedError("storage")
 

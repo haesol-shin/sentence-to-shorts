@@ -186,6 +186,18 @@ class SqliteProjectStore:
                     video.change_id,
                 ),
             )
+            if row is None:
+                # Read membership only after acquiring the database write lock:
+                # another creator may have read the same project defaults.
+                project = self._load_project(video.project_id)
+                if video.id not in project.video_ids:
+                    updated = project.model_copy(
+                        update={
+                            "video_ids": [*project.video_ids, video.id],
+                            "updated_at": max(project.updated_at, video.created_at),
+                        }
+                    )
+                    write_atomic(self._layout.project_file(project.id), _encode(updated))
         return video
 
     def get_video(self, video_id: str, revision: int | None = None) -> Video:
@@ -240,6 +252,15 @@ class SqliteProjectStore:
         if row is None:
             raise _not_found()
         return ChangePlan.model_validate(upgrade_document(json.loads(row[0])))
+
+    def list_changes(self, video_id: str) -> list[ChangePlan]:
+        with self._db.read() as conn:
+            if not _exists(conn, "videos", video_id):
+                raise _not_found()
+            rows = conn.execute(
+                "SELECT doc FROM changes WHERE video_id = ? ORDER BY id", (video_id,)
+            ).fetchall()
+        return [ChangePlan.model_validate(upgrade_document(json.loads(row[0]))) for row in rows]
 
     def put_preset(self, preset: Preset) -> None:
         with self._db.write() as conn:
