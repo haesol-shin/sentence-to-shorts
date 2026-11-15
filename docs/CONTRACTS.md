@@ -443,6 +443,7 @@ class MediaPort(Protocol):
 - 음량 목표는 -16 LUFS, true peak -1 dBTP다. 계약 값은 `loudness_lufs_x10: -160`과 `true_peak_dbtp_x10: -10`이다. BGM ducking은 sidechain으로 한다.
 - 장면 clip은 무음 영상이다. 소리는 최종 mux에서 한 번 넣는다.
 - 내장 BGM은 `core/app/plugins/bgm/<id>/`의 WAV 또는 Ogg Vorbis 파일을 그대로 보관하고, mix 전에 `MediaPort.decode_audio`로 44.1kHz PCM으로 푼다. 내장 BGM의 `file`은 `.wav`와 `.ogg`를 받는다.
+- 내장 BGM은 원본 master를 그대로 보관하므로 true peak가 0 dBTP를 넘을 수 있고, `true_peak_dbtp_x10`은 -1000에서 100까지 받는다.
 
 ## 13. 설정, profile, 접근 제어
 

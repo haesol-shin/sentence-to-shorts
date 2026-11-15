@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import wave
 from pathlib import Path
 
@@ -131,17 +132,38 @@ def test_audio_file_header_matches_the_manifest(
                 assert channels == manifest.channels, audio
 
 
+def _source_original_ms(package: Path) -> int:
+    """Duration of the downloaded original recorded in the package SOURCE.txt."""
+    for line in (package / "SOURCE.txt").read_text(encoding="utf-8").splitlines():
+        if line.startswith("Original: "):
+            match = re.search(r"([0-9]+(?:\.[0-9]+)?) s$", line)
+            assert match is not None, (package, line)
+            return round(float(match.group(1)) * 1000)
+    raise AssertionError(f"{package} has no Original line")
+
+
 def test_bgm_full_length_is_stored_as_ogg_vorbis(bgm_entries: list[BuiltinBgm]) -> None:
     for entry in bgm_entries:
         extension = ".wav" if entry.id == "builtin_loop" else ".ogg"
         assert entry.file.endswith(extension), entry.id
 
 
-def test_bgm_full_length_is_longer_than_30_seconds(bgm_entries: list[BuiltinBgm]) -> None:
-    # curious_stage_select keeps its full 21.33 s original, so it is the only short track.
-    short = {"builtin_loop", "curious_stage_select"}
+def test_bgm_full_length_keeps_the_original_duration(
+    bgm_entries: list[BuiltinBgm],
+) -> None:
     for entry in bgm_entries:
-        if entry.id in short:
+        if entry.id == "builtin_loop":
+            continue
+        original_ms = _source_original_ms(_package("bgm", entry))
+        assert entry.duration_ms == pytest.approx(original_ms, abs=100), entry.id
+
+
+def test_bgm_full_length_is_longer_than_30_seconds(bgm_entries: list[BuiltinBgm]) -> None:
+    # Only an original longer than 30 s can pass; curious_stage_select lasts 21.33 s.
+    for entry in bgm_entries:
+        if entry.id == "builtin_loop":
+            continue
+        if _source_original_ms(_package("bgm", entry)) <= 30_000:
             continue
         assert entry.duration_ms > 30_000, entry.id
 

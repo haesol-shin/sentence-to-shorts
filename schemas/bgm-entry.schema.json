@@ -106,7 +106,7 @@
         "true_peak_dbtp_x10": {
           "anyOf": [
             {
-              "maximum": 0,
+              "maximum": 100,
               "minimum": -1000,
               "type": "integer"
             },
