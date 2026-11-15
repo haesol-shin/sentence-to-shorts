@@ -349,6 +349,13 @@
         "title": "BgmCodeRequest",
         "type": "object"
       },
+      "BgmRelPath": {
+        "not": {
+          "pattern": "\\.\\.|//"
+        },
+        "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}\\.(wav|ogg)$",
+        "type": "string"
+      },
       "BgmSettings": {
         "additionalProperties": false,
         "properties": {
@@ -505,7 +512,7 @@
             "type": "integer"
           },
           "file": {
-            "$ref": "#/components/schemas/WavRelPath"
+            "$ref": "#/components/schemas/BgmRelPath"
           },
           "id": {
             "$ref": "#/components/schemas/CatalogId"

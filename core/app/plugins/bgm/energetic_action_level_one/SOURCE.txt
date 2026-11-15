@@ -6,7 +6,6 @@ Retrieved: 2026-11-15
 License: CC0 1.0 Universal, see LICENSE.txt
 License page: https://creativecommons.org/publicdomain/zero/1.0/
 Original: mp3, 44100 Hz, 2 channel(s), 80.40 s
-Stored: PCM 16 bit, 44100 Hz, mono, 30.00 s
-Loop: last 0.25 s crossfaded into the start, so the seam repeats
-Gain: -0.9 dB to keep the true peak below 0 dBTP
-Measured: -12.1 LUFS integrated, -0.3 dBTP
+Stored: Ogg Vorbis, 44100 Hz, 2 channel(s), 80.37 s
+Gain: -2.3 dB to keep the true peak below 0 dBTP
+Measured: -10.0 LUFS integrated, 0.0 dBTP
