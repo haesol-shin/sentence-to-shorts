@@ -1,0 +1,3 @@
+{"id": "precheck-ko-friendly", "language": "ko", "register": "friendly", "input": {"scenes": ["장면 1. 커피를 고르는 기준은 세 가지뿐이다.", "장면 2. 둘째, 물의 온도를 90도로 지킨다."], "materials": ["물은 90도에서 우린다"]}}
+{"id": "precheck-ko-neutral", "language": "ko", "register": "neutral", "input": {"scenes": ["장면 1. 만약 매일 한 권씩 읽는다면?", "장면 2. 1년이면 365권이 된다."], "materials": []}}
+{"id": "precheck-en-neutral", "language": "en", "register": "neutral", "input": {"scenes": ["Scene 1. What if you read one book every day?", "Scene 2. After a year that is 365 books."], "materials": []}}
