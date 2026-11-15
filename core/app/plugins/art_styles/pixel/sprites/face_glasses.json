@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "face_glasses",
+  "width": 10,
+  "height": 6,
+  "scale": 10,
+  "origin": {
+    "x": 0,
+    "y": 0
+  },
+  "palette": {
+    "A": [255, 120, 150],
+    "G": [120, 124, 136],
+    "H": [92, 58, 36],
+    "K": [20, 20, 28],
+    "S": [246, 200, 160]
+  },
+  "rows": [
+    "..HHHHHH..",
+    ".HHHHHHHH.",
+    ".HSSSSSSH.",
+    ".SGKGGKGS.",
+    ".SSSSSSSS.",
+    "..SSAASS.."
+  ]
+}

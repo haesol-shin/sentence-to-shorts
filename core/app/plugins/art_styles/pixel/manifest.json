@@ -2,7 +2,7 @@
   "schema_version": 1,
   "api_version": 1,
   "id": "pixel",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "label": {
     "ko": "픽셀",
     "en": "Pixel"
@@ -21,12 +21,12 @@
   },
   "rig": {
     "slots": {
-      "body": ["body_hero"],
-      "face": ["face_neutral"],
-      "hair": [],
-      "hat": [],
-      "outfit": [],
-      "prop": []
+      "body": ["body_hero", "body_round"],
+      "face": ["face_neutral", "face_glasses"],
+      "hair": ["hair_short", "hair_long"],
+      "hat": ["hat_cap", "hat_crown"],
+      "outfit": ["outfit_tie", "outfit_scarf"],
+      "prop": ["prop_book", "prop_mug"]
     },
     "expressions": ["expr_happy", "expr_surprised"],
     "poses": ["pose_idle", "pose_wave"],
@@ -47,7 +47,39 @@
         "caption_box": "#14141c"
       },
       "skin_id": "skin_plain",
-      "backgrounds": ["bg_village", "bg_stars"]
+      "backgrounds": ["bg_village", "bg_stars", "bg_park", "bg_classroom"]
+    },
+    {
+      "id": "moonlight",
+      "label": {
+        "ko": "달밤",
+        "en": "Moonlight"
+      },
+      "palette": {
+        "bg": "#0b1026",
+        "ink": "#e8ecff",
+        "accent": "#7fd6ff",
+        "caption_text": "#f2f4ff",
+        "caption_box": "#182048"
+      },
+      "skin_id": "skin_round",
+      "backgrounds": ["bg_city_night", "bg_moon_hill", "bg_bedroom_night"]
+    },
+    {
+      "id": "arcade",
+      "label": {
+        "ko": "오락실",
+        "en": "Arcade"
+      },
+      "palette": {
+        "bg": "#1a0628",
+        "ink": "#fff6d6",
+        "accent": "#ff4fa3",
+        "caption_text": "#fff6d6",
+        "caption_box": "#2a0a3c"
+      },
+      "skin_id": "skin_bevel",
+      "backgrounds": ["bg_arcade_grid", "bg_castle", "bg_space"]
     }
   ],
   "assets": [
@@ -72,7 +104,7 @@
       "kind": "expression",
       "slot": null,
       "file": "sprites/expr_happy.json",
-      "sha256": "4ab47cbccec96b7c70a85946d031ff2f551de6d29db435785db11fb78ba72039",
+      "sha256": "c1346c116ffc26c047c37a2f3fc726d347aed676d294f880db1c6dfeaaeb8ce3",
       "license_id": "apache"
     },
     {
@@ -80,7 +112,7 @@
       "kind": "expression",
       "slot": null,
       "file": "sprites/expr_surprised.json",
-      "sha256": "078114fcb510abbc874793500db1e58760b4514afb24e252513b222edcac4d84",
+      "sha256": "f50664e146a17f1f7a33d38cc1c8c9e253d0dacf7ee9a971a21e92c6bdd87cb6",
       "license_id": "apache"
     },
     {
@@ -88,7 +120,7 @@
       "kind": "pose",
       "slot": null,
       "file": "sprites/pose_idle.json",
-      "sha256": "7b30e5cd86b409f2bb3b7489ccffad554526fe8e1462b49bb683e24006bc854a",
+      "sha256": "734a6d39451b5d782cb03f7c204cf122e40f2f0207031a9498872efed8568aab",
       "license_id": "apache"
     },
     {
@@ -96,7 +128,7 @@
       "kind": "pose",
       "slot": null,
       "file": "sprites/pose_wave.json",
-      "sha256": "b4aa4ad537ffcaf0df06371797b95a63646c98807b29f3f3ea07bcbb4cf15a76",
+      "sha256": "1aff641f707d5221b080406ff7d664f4c7d667fc7951d095f00afbf601e43155",
       "license_id": "apache"
     },
     {
@@ -129,6 +161,166 @@
       "slot": null,
       "file": "sprites/icon_arrow.json",
       "sha256": "3a50beb8bbd5f7093802f5d1edffa93ebefb246eae264002115b974d4977e1a1",
+      "license_id": "apache"
+    },
+    {
+      "id": "body_round",
+      "kind": "part",
+      "slot": "body",
+      "file": "sprites/body_round.json",
+      "sha256": "2dc0617a3f96c548c1fb9b73f6fbc07c8bb8a97a4cceab5929083c5818ba3e75",
+      "license_id": "apache"
+    },
+    {
+      "id": "face_glasses",
+      "kind": "part",
+      "slot": "face",
+      "file": "sprites/face_glasses.json",
+      "sha256": "b261b2bf2dd8935d346350ac4292f2b17f9e89263500ad1239af099e73193945",
+      "license_id": "apache"
+    },
+    {
+      "id": "hair_short",
+      "kind": "part",
+      "slot": "hair",
+      "file": "sprites/hair_short.json",
+      "sha256": "de57a5199e73c97b6d51feffcf8528e02d4071e0fdf11b90ca4f4e7da71cd257",
+      "license_id": "apache"
+    },
+    {
+      "id": "hair_long",
+      "kind": "part",
+      "slot": "hair",
+      "file": "sprites/hair_long.json",
+      "sha256": "15e7028b9473d7f5d89f6d0a69c22024aad6983487601b3946d430710f771f65",
+      "license_id": "apache"
+    },
+    {
+      "id": "hat_cap",
+      "kind": "part",
+      "slot": "hat",
+      "file": "sprites/hat_cap.json",
+      "sha256": "e30e5f2864b56cacf937e036103a1fc44036ed3fd69137847e77b9dde9ae9370",
+      "license_id": "apache"
+    },
+    {
+      "id": "hat_crown",
+      "kind": "part",
+      "slot": "hat",
+      "file": "sprites/hat_crown.json",
+      "sha256": "92045f44f813d26d50d55e1178014609e09d50fae666b56d35ee6545e2e2667e",
+      "license_id": "apache"
+    },
+    {
+      "id": "outfit_tie",
+      "kind": "part",
+      "slot": "outfit",
+      "file": "sprites/outfit_tie.json",
+      "sha256": "5bd3c92ca0a3494647f62b90bef27cdc303a2ef82984ee7dc4da4c5355ea16df",
+      "license_id": "apache"
+    },
+    {
+      "id": "outfit_scarf",
+      "kind": "part",
+      "slot": "outfit",
+      "file": "sprites/outfit_scarf.json",
+      "sha256": "0639b889f9ef8e7fc0b318213aab2f5936f0e611f5f039b348d86aadef2bc889",
+      "license_id": "apache"
+    },
+    {
+      "id": "prop_book",
+      "kind": "part",
+      "slot": "prop",
+      "file": "sprites/prop_book.json",
+      "sha256": "ea1bd4403ac2522a9b9f773a8053648385ca244982a81b22e04374b1892c129a",
+      "license_id": "apache"
+    },
+    {
+      "id": "prop_mug",
+      "kind": "part",
+      "slot": "prop",
+      "file": "sprites/prop_mug.json",
+      "sha256": "d4df572760621f0a0741b7b57fd94b4e88b34ac369fd2bfc5348ae084ba8614d",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_park",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_park.json",
+      "sha256": "baeff6e9cd723dc977185e3a42c71c52cef8244d1f14955ca95f41dfbafbb5ec",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_classroom",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_classroom.json",
+      "sha256": "e77972ce8c7882d492c073443fdb9f432b8cebc299d455d1391458c497c3abe4",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_city_night",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_city_night.json",
+      "sha256": "a993cfc5b74d17f184f92f9b98e72041316ce93398639ce75ca028133209d56c",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_moon_hill",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_moon_hill.json",
+      "sha256": "b50060a574876c538c6383dfae281f32f44ae125894d7f33128bfad35f61cd2b",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_bedroom_night",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_bedroom_night.json",
+      "sha256": "f0b9f0dbc8f607b17f2d84ab2eef392593347c33f3844fbc8f2ff412d32ecce7",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_arcade_grid",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_arcade_grid.json",
+      "sha256": "e85a6282844148604f4c99b3ac76b8242c674545484c309a3141e28757cb2b87",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_castle",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_castle.json",
+      "sha256": "3efe9436bc47d84ff43e94abad01f4876ce39fd7ffc618c61d996282ce16bc9b",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_space",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_space.json",
+      "sha256": "dbd1f086b66dcbaedcab973dac9d920c1406302973255ac09a52d5fc1c3c9333",
+      "license_id": "apache"
+    },
+    {
+      "id": "skin_round",
+      "kind": "skin",
+      "slot": null,
+      "file": "sprites/skin_round.json",
+      "sha256": "5922875885772e3b5b946254ac7c4292b406f5c40bdbca9bf6999870d9f386ae",
+      "license_id": "apache"
+    },
+    {
+      "id": "skin_bevel",
+      "kind": "skin",
+      "slot": null,
+      "file": "sprites/skin_bevel.json",
+      "sha256": "834369ad4cd042e2f0d1a7f709e213d18a34f6c14c9a8fcc7a89441a3a4e45cf",
       "license_id": "apache"
     }
   ],

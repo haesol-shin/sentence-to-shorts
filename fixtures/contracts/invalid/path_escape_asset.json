@@ -11,7 +11,7 @@
   "status": "ready",
   "extends": {
     "id": "pixel",
-    "revision": "da643660f6d0a1f9288ef9507c20feda104f56c3dbb2f344579a7ad99bcfa102"
+    "revision": "6996966228988901a42e3e3f5d19ddc19ffd005bd3c9f1047ca979fcd3a98e20"
   },
   "renderer": {
     "kind": "sandbox",
@@ -96,7 +96,7 @@
     "request_digest": "0000000000000000000000000000000000000000000000000000000000000000",
     "parent": {
       "id": "pixel",
-      "revision": "da643660f6d0a1f9288ef9507c20feda104f56c3dbb2f344579a7ad99bcfa102"
+      "revision": "6996966228988901a42e3e3f5d19ddc19ffd005bd3c9f1047ca979fcd3a98e20"
     },
     "reference_digest": null,
     "job_id": "j_08c71zekrt8ceaqnmy5jjy5zvn",

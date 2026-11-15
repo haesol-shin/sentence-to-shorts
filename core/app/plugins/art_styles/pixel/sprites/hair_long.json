@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "hair_long",
+  "width": 10,
+  "height": 7,
+  "scale": 10,
+  "origin": {
+    "x": 0,
+    "y": 0
+  },
+  "palette": {
+    "O": [214, 140, 60]
+  },
+  "rows": [
+    "..OOOOOO..",
+    ".OOOOOOOO.",
+    "OOOOOOOOOO",
+    "OO......OO",
+    "O........O",
+    "O........O",
+    "O........O"
+  ]
+}
