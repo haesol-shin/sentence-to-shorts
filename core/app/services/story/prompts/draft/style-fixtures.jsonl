@@ -1,0 +1,4 @@
+{"id": "draft-ko-plain", "data": {"message": "커피를 고르는 기준 세 가지만 알려 줘", "language": "ko", "target_duration_s": 30, "card_id": null, "topic": ""}}
+{"id": "draft-ko-explicit", "data": {"message": "캐시를 책상 서랍에 비유해서 1분짜리로, 차분하게 만들어 줘", "language": "ko", "target_duration_s": 30, "card_id": null, "topic": "캐시"}}
+{"id": "draft-en-card", "data": {"message": "Explain a cache like a desk drawer in one minute", "language": "en", "target_duration_s": 60, "card_id": "its_like", "topic": ""}}
+{"id": "draft-en-terse", "data": {"message": "what if plants could talk, 30 seconds", "language": "en", "target_duration_s": 30, "card_id": null, "topic": "plants"}}
