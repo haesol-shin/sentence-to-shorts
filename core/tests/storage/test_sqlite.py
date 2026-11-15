@@ -12,7 +12,6 @@ from app.storage.artifacts import FileArtifactStore
 from app.storage.paths import Layout
 from app.storage.projects import SqliteProjectStore
 from app.storage.sqlite import (
-    SCHEMA_V1,
     Database,
     Migration,
     MigrationFailed,
@@ -22,6 +21,7 @@ from tests.storage.conftest import next_revision, staged
 
 CACHE_KEY = "c" * 64
 WRITE_VERBS = ("INSERT", "UPDATE", "DELETE", "REPLACE")
+LATEST = registered_migrations()[-1].version
 
 
 def _rows(path: Path) -> list[tuple[str, str]]:
@@ -38,17 +38,19 @@ def test_migration_failure_keeps_original_and_backup(layout: Layout, project) ->
     database.close()
     before = _rows(layout.state_db)
 
-    broken = Migration(2, "ALTER TABLE projects ADD COLUMN note TEXT;\nSELECT * FROM missing;")
+    broken = Migration(
+        LATEST + 1, "ALTER TABLE projects ADD COLUMN note TEXT;\nSELECT * FROM missing;"
+    )
     with pytest.raises(MigrationFailed):
         Database.open(layout.state_db, migrations=[*registered_migrations(), broken])
 
-    backup = layout.state_db.with_name("state.db.bak-1")
+    backup = layout.state_db.with_name(f"state.db.bak-{LATEST}")
     assert backup.is_file()
     assert _rows(backup) == before
     assert _rows(layout.state_db) == before
     conn = sqlite3.connect(layout.state_db)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
         columns = [row[1] for row in conn.execute("PRAGMA table_info(projects)")]
     finally:
         conn.close()
@@ -57,13 +59,13 @@ def test_migration_failure_keeps_original_and_backup(layout: Layout, project) ->
 
 def test_migration_applies_pending_versions_in_order(layout: Layout) -> None:
     Database.open(layout.state_db).close()
-    added = Migration(2, "ALTER TABLE projects ADD COLUMN note TEXT;")
+    added = Migration(LATEST + 1, "ALTER TABLE projects ADD COLUMN note TEXT;")
     database = Database.open(layout.state_db, migrations=[*registered_migrations(), added])
     try:
-        assert database.user_version == 2
+        assert database.user_version == LATEST + 1
     finally:
         database.close()
-    assert layout.state_db.with_name("state.db.bak-1").is_file()
+    assert layout.state_db.with_name(f"state.db.bak-{LATEST}").is_file()
 
 
 def test_migration_failure_rolls_back_every_pending_step(layout: Layout, project) -> None:
@@ -74,8 +76,8 @@ def test_migration_failure_rolls_back_every_pending_step(layout: Layout, project
 
     steps = [
         *registered_migrations(),
-        Migration(2, "DELETE FROM projects;"),
-        Migration(3, "SELECT * FROM missing;"),
+        Migration(LATEST + 1, "DELETE FROM projects;"),
+        Migration(LATEST + 2, "SELECT * FROM missing;"),
     ]
     with pytest.raises(MigrationFailed):
         Database.open(layout.state_db, migrations=steps)
@@ -83,14 +85,15 @@ def test_migration_failure_rolls_back_every_pending_step(layout: Layout, project
     assert _rows(layout.state_db) == before
     conn = sqlite3.connect(layout.state_db)
     try:
-        assert conn.execute("PRAGMA user_version").fetchone()[0] == 1
+        assert conn.execute("PRAGMA user_version").fetchone()[0] == LATEST
     finally:
         conn.close()
 
 
 
 def test_migration_refuses_newer_database(layout: Layout) -> None:
-    Database.open(layout.state_db, migrations=[Migration(1, SCHEMA_V1), Migration(2, "")]).close()
+    newer = [*registered_migrations(), Migration(LATEST + 1, "")]
+    Database.open(layout.state_db, migrations=newer).close()
     with pytest.raises(MigrationFailed):
         Database.open(layout.state_db)
 
