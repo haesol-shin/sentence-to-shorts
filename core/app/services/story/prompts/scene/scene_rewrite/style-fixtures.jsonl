@@ -1,0 +1,3 @@
+{"id": "scene_rewrite-ko-friendly", "language": "ko", "register": "friendly", "input": {"instruction": "3번 장면을 더 짧게", "scene": "장면 3. 둘째, 물의 온도를 90도로 지킨다."}}
+{"id": "scene_rewrite-ko-casual", "language": "ko", "register": "casual", "input": {"instruction": "비유를 요리에서 게임으로 바꿔 줘", "scene": "장면 2. 커피 고르는 건 게임 아이템 고르기랑 비슷하다."}}
+{"id": "scene_rewrite-en-neutral", "language": "en", "register": "neutral", "input": {"instruction": "make the example shorter", "scene": "Scene 3. Think of it like choosing coffee beans at a market."}}
