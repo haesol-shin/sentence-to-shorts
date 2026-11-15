@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "impact_soft",
+  "label": {
+    "ko": "쿵 부드럽게",
+    "en": "Soft impact"
+  },
+  "kind": "impact",
+  "file": "effect.wav",
+  "sha256": "2d29a6efc984e839ccdc8909b1096445a55b591f59142b3325dc626ccfb1f690",
+  "duration_ms": 115,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/impact-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

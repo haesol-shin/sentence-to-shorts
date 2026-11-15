@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "tense_mysterious_ambience",
+  "label": {
+    "ko": "긴장 신비 앰비언스",
+    "en": "Tense mystery ambience"
+  },
+  "mood": "tense",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "38cd1d89eef1b2fdadb8417b314b10c48f66dd9722803f7ce45544ca44d91aff",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -188,
+  "true_peak_dbtp_x10": -29,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/mysterious-ambience-song21",
+    "author": "cynicmusic",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

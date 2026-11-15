@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "typing_keys",
+  "label": {
+    "ko": "타자 기본",
+    "en": "Typing"
+  },
+  "kind": "typing",
+  "file": "effect.wav",
+  "sha256": "98920fda24f5db88879950936f8c5a78b867bbc6688874b868b10abd10312d1c",
+  "duration_ms": 1559,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

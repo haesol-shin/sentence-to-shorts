@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "curious_stage_one",
+  "label": {
+    "ko": "궁금증 스테이지",
+    "en": "Curious stage"
+  },
+  "mood": "curious",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "a0b2b7e3a170af7be6c5b1c743e96dfe8d65e8246973905232bcb5a32105f1b2",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -157,
+  "true_peak_dbtp_x10": -3,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/4-chiptunes-adventure",
+    "author": "SubspaceAudio (Juhani Junkala)",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

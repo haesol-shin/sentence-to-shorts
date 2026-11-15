@@ -1,0 +1,11 @@
+Title: Impact Sounds impactSoft_medium_000
+Author: Kenney
+Page: https://kenney.nl/assets/impact-sounds
+Download: https://kenney.nl/download-link/6173736574732f696d706163742d736f756e6473 (archive kenney_impact-sounds.zip)
+File: kenney_impact-sounds.zip / Audio/impactSoft_medium_000.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 0.12 s
+Stored: PCM 16 bit, 44100 Hz, mono, 0.12 s
+Measured: -1.0 dBTP (too short for integrated loudness)

@@ -1,0 +1,11 @@
+Title: Chiptune Adventures 4. Stage Select
+Author: SubspaceAudio (Juhani Junkala)
+Page: https://opengameart.org/content/4-chiptunes-adventure
+File: https://opengameart.org/sites/default/files/Juhani%20Junkala%20%5BChiptune%20Adventures%5D%204.%20Stage%20Select.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 21.33 s
+Stored: PCM 16 bit, 44100 Hz, mono, 21.08 s
+Loop: last 0.25 s crossfaded into the start, so the seam repeats
+Measured: -17.0 LUFS integrated, -0.2 dBTP

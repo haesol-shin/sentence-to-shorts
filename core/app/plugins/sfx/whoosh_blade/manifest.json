@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "whoosh_blade",
+  "label": {
+    "ko": "휙 칼날",
+    "en": "Blade swish"
+  },
+  "kind": "whoosh",
+  "file": "effect.wav",
+  "sha256": "64f5ace200670f50db255a22ec869c977d83b295a59475b8e2ebc6ff2abb63d9",
+  "duration_ms": 407,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/rpg-audio",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

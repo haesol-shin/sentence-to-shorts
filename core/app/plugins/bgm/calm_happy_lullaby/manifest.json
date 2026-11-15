@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "calm_happy_lullaby",
+  "label": {
+    "ko": "차분한 자장가",
+    "en": "Calm lullaby"
+  },
+  "mood": "calm",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "8b32ca6d89a2295a0a49180a77b416d57912d9bd902285f8d521686603d4d677",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -163,
+  "true_peak_dbtp_x10": -31,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/happy-lullaby-song17",
+    "author": "cynicmusic",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

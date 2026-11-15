@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "tense_vampire_piano",
+  "label": {
+    "ko": "긴장 피아노",
+    "en": "Tense piano"
+  },
+  "mood": "tense",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "84bcd6536f236f1682627a43834395d37b79606c56986b26fb7d565079eb3a11",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -230,
+  "true_peak_dbtp_x10": -62,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/vampires-piano",
+    "author": "TAD",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

@@ -1,0 +1,11 @@
+Title: Digital Audio phaserUp5
+Author: Kenney
+Page: https://kenney.nl/assets/digital-audio
+Download: https://kenney.nl/download-link/6173736574732f6469676974616c2d617564696f (archive kenney_digital-audio.zip)
+File: kenney_digital-audio.zip / Audio/phaserUp5.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 0.31 s
+Stored: PCM 16 bit, 44100 Hz, mono, 0.25 s
+Measured: -5.2 dBTP (too short for integrated loudness)

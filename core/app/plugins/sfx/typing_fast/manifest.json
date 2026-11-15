@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "typing_fast",
+  "label": {
+    "ko": "타자 빠름",
+    "en": "Fast typing"
+  },
+  "kind": "typing",
+  "file": "effect.wav",
+  "sha256": "df9fed8d46faf12e5e919227f83ca6943f9fccf3f3cc31acd65346ff51cb5a23",
+  "duration_ms": 1566,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

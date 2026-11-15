@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "whoosh_page",
+  "label": {
+    "ko": "휙 종이",
+    "en": "Paper swish"
+  },
+  "kind": "whoosh",
+  "file": "effect.wav",
+  "sha256": "69e7bcc07bd1bd106573979dc6178e36561597cec021f6876c7eec2192f90b7a",
+  "duration_ms": 678,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/rpg-audio",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

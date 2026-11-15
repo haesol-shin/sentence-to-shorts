@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "impact_wood",
+  "label": {
+    "ko": "쿵 나무",
+    "en": "Wood impact"
+  },
+  "kind": "impact",
+  "file": "effect.wav",
+  "sha256": "afca3e1c72dc2a3b53b8583112d7d95fec288324b728ca53bc8d749141cb8e82",
+  "duration_ms": 310,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/impact-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

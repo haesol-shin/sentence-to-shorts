@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "energetic_action_level_one",
+  "label": {
+    "ko": "활기 액션 1",
+    "en": "Energetic action 1"
+  },
+  "mood": "energetic",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "cd5351c8341ec3200130c01f9dc73ec98ad723ea1984eec9042016c8f595d3ae",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -121,
+  "true_peak_dbtp_x10": -3,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/5-chiptunes-action",
+    "author": "SubspaceAudio (Juhani Junkala)",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "click_select",
+  "label": {
+    "ko": "딸깍 선택",
+    "en": "Select click"
+  },
+  "kind": "click",
+  "file": "effect.wav",
+  "sha256": "f32208829dbee4a781ad5ae03435862f71a5fe23f2af36bdde75951242d6bc0b",
+  "duration_ms": 40,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}
