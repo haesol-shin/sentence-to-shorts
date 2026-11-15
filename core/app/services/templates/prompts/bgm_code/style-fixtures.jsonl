@@ -1,0 +1,3 @@
+{"id": "bgm-calm-ko", "data": {"mood": "calm", "instruction": "잔잔한 피아노 느낌, 느리게", "limits": {"max_loop_ms": 16000, "sample_rate": 44100, "channels": 1, "sample_bits": 16, "beats_per_bar": 4}, "previous_code": null, "failure": null}}
+{"id": "bgm-energetic-en", "data": {"mood": "energetic", "instruction": "Chiptune arpeggio with a steady kick", "limits": {"max_loop_ms": 16000, "sample_rate": 44100, "channels": 1, "sample_bits": 16, "beats_per_bar": 4}, "previous_code": null, "failure": null}}
+{"id": "bgm-tense-none", "data": {"mood": "tense", "instruction": null, "limits": {"max_loop_ms": 16000, "sample_rate": 44100, "channels": 1, "sample_bits": 16, "beats_per_bar": 4}, "previous_code": null, "failure": null}}
