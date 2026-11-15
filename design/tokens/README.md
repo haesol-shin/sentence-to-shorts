@@ -1,0 +1,112 @@
+# 디자인 token
+
+D3 전까지 이 폴더가 token의 작업 자리다. `tokens.json`이 값의 유일한 원본이고 나머지는 여기서 만든다. 부품과 화면은 역할 token만 읽는다.
+
+## 파일
+
+| 파일 | 역할 |
+| --- | --- |
+| `tokens.json` | 값의 유일한 원본. 색 두 층, 글자, 간격, 크기, 반경, 그림자, 겹침 순서, 포커스, 아이콘, 움직임, 대비 예외, 상태 행렬과 상태 색표, 글꼴 기록 |
+| `build.mjs` | 원본에서 아래 세 파일과 `frontend/src/components/tokens.local.css`를 만든다 |
+| `tokens.css` | 만든 CSS 변수 초안. `tokens.local.css`와 같은 값이다 |
+| `contrast.md` | 만든 대비 표. 글자와 바탕의 모든 조합, 그림 위의 면, 포커스 표시와 아이콘, 금지 목록 |
+| `states.md` | 만든 상태 행렬, 상태 색표, 조합 색표 |
+| `fonts/` | Pretendard 정적 파일 400과 700, SIL OFL 1.1 원문 |
+| `tests/` | 수락 시험 |
+
+## 명령
+
+저장소 root에서 실행한다.
+
+```sh
+node design/tokens/build.mjs
+node design/tokens/build.mjs --check
+cd frontend && npx vitest run --root ../design/tokens --environment node
+```
+
+값을 고칠 때는 `tokens.json`만 고치고 `build.mjs`를 실행한다. 만든 파일은 직접 고치지 않는다. `--check`는 만든 파일이 원본과 같은지만 본다.
+
+## 색 두 층
+
+`--palette-*`는 실제 색 값이고 `--*` 역할 token은 팔레트만 가리킨다. 역할 이름은 shadcn/ui의 CSS 변수 이름을 따른다: `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--input`, `--ring`과 각 짝의 `-foreground`.
+
+shadcn/ui 이름에 없는 역할을 다섯 가지 더 둔다. 값은 모두 결정표의 색이다.
+
+- `--primary-pressed`와 `--accent-pressed`: 표에 있는 눌린 면 두 값을 눌림 상태에 쓴다.
+- `--emphasis`: 강조 단어와 안 본 변경 표시에 쓰는 파랑이다. `--ring`과 같은 값을 쓰지만 포커스 선과 쓰임이 달라 이름을 나눈다.
+- `--disabled-foreground`: 쓸 수 없는 글자 색이다.
+- `--overlay-*` 네 가지: 그림 위에 놓는 반투명 면이다.
+
+성공 상태 색은 결정표에 값이 없어 만들지 않았다. 지금 상태 목록도 성공 색을 쓰지 않는다.
+
+`--palette-gray-1`, `--palette-gray-7`, `--palette-blue-light`은 지금 역할이 없다. 팔레트는 정한 색의 목록이고 역할은 쓰는 곳이 생길 때 붙인다.
+
+## 작은 글자 규칙
+
+모든 글자 크기가 24px 아래이므로 글자 조합은 4.5:1을 넘어야 한다. 계산 결과가 표를 정한다.
+
+- 뜻 색(`--muted-foreground`, `--destructive`, `--warning`, `--emphasis`)을 작은 글자로 쓰려면 흰 면(`--card`, `--popover`)이어야 한다. 회색 면 위에서 `--muted-foreground`와 `--destructive`는 4.38로 4.5에 못 미친다.
+- 회색 면과 강조 면 위의 글자는 `--foreground`를 쓴다. 이 조합은 11을 넘는다.
+- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 뜻 색은 제목 글자가 아니라 아이콘에만 쓴다. 뜻 색을 글자로 쓰면 회색 바탕에서 기준에 못 미쳐 소유자 결정으로 올렸다.
+- 작은 파랑 글자는 흰 면에서 3.71이고 이 조합만 감수한다. 진한 파랑 변형은 만들지 않는다.
+- 쓸 수 없는 글자는 WCAG 예외로 두고 `contrast.md`에 따로 적는다.
+
+## 상태
+
+`states.md`의 상태 행렬이 부품마다 받는 상태, 함께 켜지는 조합, 우선순위를 정한다. 상태 색표는 상태마다, 조합 색표는 함께 켜지는 상태마다 바탕, 글자, 아이콘, 테두리를 역할 token으로 적는다. 조합에서 같은 칸을 두 상태가 다투면 우선순위가 높은 상태가 이긴다. 표에 없는 조합은 쓰지 않는다.
+
+## 직접 색 금지
+
+부품과 화면은 `--palette-*` 이름이나 hex, rgb, hsl 같은 색 값을 직접 쓰지 않고 역할 token만 쓴다. 시험이 `frontend/src`의 `.ts`, `.tsx`, `.css`에서 팔레트 이름과 색 값을 찾는다. 이 규칙을 ESLint나 stylelint로 옮기려면 `frontend/eslint.config.js`를 고쳐야 하고, 그전까지는 시험이 같은 자리를 맡는다.
+
+## 글자
+
+Pretendard 정적 파일 두 개(400, 700)를 동봉하고 외부 CDN을 쓰지 않는다. 굵기는 둘뿐이다. 먼저 Pretendard를 쓰고 없으면 system-ui, 그다음 일반 산세리프를 쓴다. 크기와 줄 높이는 큰 문장 34/46, 제목 22/30, 본문 17/26, 보조 15/22이고 그림 위 장면 번호 13, 그림 위 길이 표시 12는 크기만 둔다. `tokens.json`의 `fonts`가 파일 경로와 SHA-256과 라이선스를 기록하고 시험이 파일 해시를 견준다.
+
+`@font-face`의 파일 경로는 CSS 파일 위치를 기준으로 만든다. 그래서 `tokens.css`는 `./fonts/`, `frontend/src/components/tokens.local.css`는 `../../../design/tokens/fonts/`를 가리킨다. 두 파일의 변수 값은 같다. `tokens.local.css`를 옮기면 다시 만든다.
+
+## 반경
+
+반경은 부품 묶음마다 하나다.
+
+| token | 값 | 쓰는 곳 |
+| --- | --- | --- |
+| `--radius-column` | 36px | 대화 칸, 작업 칸 |
+| `--radius-surface` | 24px | 입력창, 메뉴, 창, 판, 끌어다 놓는 칸 |
+| `--radius-dialogue` | 20px | 대사 줄 |
+| `--radius-row` | 18px | 메뉴와 목록의 줄 |
+| `--radius-content` | 16px | 안내 문장, 파일 칩, 두 줄 이상 tooltip |
+| `--radius-media` | 12px | 편집 미리보기, 장면 썸네일, 카드 그림, 진행 막대 |
+| `--radius-inset` | 8px | 칩 속 그림 |
+| `--radius-pill` | 999px | 원 단추, 알약 단추, 꼬리표, 한 줄 tooltip |
+| `--radius-none` | 0 | 전체 영상 플레이어 |
+
+## 겹침 순서
+
+`--z-tooltip` 20, `--z-picker` 30, `--z-menu` 40, `--z-panel` 45, `--z-card-over-panel` 50, `--z-toast` 60, `--z-description` 70, `--z-dialog` 90, `--z-file-drop` 95다.
+
+바탕 면과 고정된 상단바와 사이드바는 z-index를 쓰지 않는다. 상단바와 사이드바는 sticky나 fixed로 두어 스크롤하는 내용 위에 그려지고, 겹치는 면은 모두 이 아홉 단계 안에서 연다. 떠 있는 면 하나가 하나의 겹침 문맥이 된다. 창이나 판 안에서 연 메뉴와 tooltip은 그 창의 문맥 안에서 같은 token을 쓰므로 창보다 위에 그려진다. 부품은 숫자를 직접 쓰지 않고 `--z-*`만 쓴다.
+
+## 포커스와 아이콘
+
+포커스는 `--ring` 2px이고 바깥 간격은 기본 2px, 메뉴와 목록의 줄은 안쪽 -2px, 그림 카드는 바깥 6px이다. 키보드로 왔을 때만 보인다. 포커스 선이 보이는 동안 누름 바탕은 칠하지 않는다. 안쪽 선을 쓰는 줄에서 파랑이 눌린 면과 2.73:1이라 3:1을 넘지 못하기 때문이다.
+
+아이콘 크기는 14(칩 안 닫기), 16(줄 안 재생, 도움말), 20(기본), 22(제목 옆), 32(그림 자리표시)이고 선 두께는 2px다. 채운 아이콘이 기본이고 선 아이콘은 채운 짝이 없는 조작 기호와 사이드바에만 쓴다.
+
+## 움직임
+
+세 종류다. 상태 변화 120ms, 판 열고 닫기 200ms, 화면 전환 0ms다. 미리보기 바탕이 바뀔 때만 240ms를 쓴다. easing은 모두 `ease`다. `prefers-reduced-motion: reduce`에서 네 길이를 모두 0ms로 바꾸며 이 처리는 `tokens.css` 한 곳에 있다.
+
+## 다크 모드
+
+만들지 않았다. 같은 역할 이름을 `.dark` 선택자로 덮어쓸 자리만 CSS 주석으로 두었다. 지금 값은 밝은 테마 하나뿐이다.
+
+## 결정표에 없는 값
+
+아래 값은 결정표에 없어 만들지 않았다. 필요한 화면이 생기면 값을 먼저 정한다.
+
+- 대표색 단추의 올림 색. 지금은 올림에서 바탕이 그대로이고 눌림만 진해진다.
+- 성공 상태 색과 다크 모드 색.
+- 확인 창 뒤 막 색. 판 뒤 막과 같은 `--overlay-scrim`을 쓴다.
+- 켜기와 끄기의 스위치 손잡이 색. 지금은 켜짐이 회색 바탕으로 남는 단추 모양이다.
+- 회색 바탕에 뜻 색 글자를 쓰는 조합. 지금은 글자를 `--foreground`로 두고 뜻 색을 아이콘에만 쓴다.
