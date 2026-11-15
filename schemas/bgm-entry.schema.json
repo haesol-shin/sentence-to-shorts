@@ -27,6 +27,13 @@
       "title": "BgmParams",
       "type": "object"
     },
+    "BgmRelPath": {
+      "not": {
+        "pattern": "\\.\\.|//"
+      },
+      "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]{0,127}\\.(wav|ogg)$",
+      "type": "string"
+    },
     "BuiltinBgm": {
       "additionalProperties": false,
       "properties": {
@@ -45,7 +52,7 @@
           "type": "integer"
         },
         "file": {
-          "$ref": "#/$defs/WavRelPath"
+          "$ref": "#/$defs/BgmRelPath"
         },
         "id": {
           "$ref": "#/$defs/CatalogId"
@@ -99,7 +106,7 @@
         "true_peak_dbtp_x10": {
           "anyOf": [
             {
-              "maximum": 0,
+              "maximum": 100,
               "minimum": -1000,
               "type": "integer"
             },

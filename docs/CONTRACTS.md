@@ -115,7 +115,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | DELETE `/credentials/llm` | 없음 | 204 | 403 `loopback_only` | 아니오 |
 | GET `/catalog/{kind}` | `?video_id=&q=&cursor=&limit=` | 200 `{items: CatalogItem[], next_cursor}` | 404 `not_found` | 아니오 |
 | GET `/catalog/{kind}/{id}` | 없음 | 200 manifest | 404 `not_found` | 아니오 |
-| GET `/catalog/{kind}/{id}/media/{name}` | 없음 | 200 썸네일 PNG 또는 샘플 WAV | 404 | 아니오 |
+| GET `/catalog/{kind}/{id}/media/{name}` | 없음 | 200 썸네일 PNG, 샘플 WAV 또는 내장 BGM 오디오 | 404 | 아니오 |
 | POST `/projects` | `CreateProjectRequest` | 201 Project | 400 | 예 |
 | GET `/projects` | `?cursor=&limit=` | 200 `{items: Project 요약[], next_cursor}` | 없음 | 아니오 |
 | GET `/projects/{pid}` | 없음 | 200 Project | 404 | 아니오 |
@@ -145,7 +145,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | POST `/templates` | `TemplateRequest` | 202 Job `template` | 409, 503 | 예 |
 | POST `/bgm/code` | `BgmCodeRequest` | 202 Job `bgm_code` | 503 | 예 |
 | POST `/bgm/uploads` | multipart `file`, `project_id` | 202 Job `bgm_upload` | 413 `payload_too_large`, 415 `unsupported_media` | 예 |
-| GET `/bgm/{id}/audio` | 없음 | 200 WAV | 404 | 아니오 |
+| GET `/bgm/{id}/audio` | 없음 | 200 내장 BGM 오디오(WAV, Ogg Vorbis) | 404 | 아니오 |
 | POST `/projects/{pid}/presets` | `PresetRequest` | 201 Preset | 404 | 예 |
 | GET `/projects/{pid}/presets` | `?cursor=&limit=` | 200 `{items: Preset[], next_cursor}` | 404 | 아니오 |
 | GET `/jobs` | `?video_id=&state=&cursor=&limit=` | 200 `{items: Job[], next_cursor}` | 없음 | 아니오 |
@@ -442,6 +442,8 @@ class MediaPort(Protocol):
 - 자막 줄바꿈과 배치는 1080×1920 기준으로 실제 glyph 폭을 재서 한 번 계산한다. 미리보기는 같은 배치를 축소한다.
 - 음량 목표는 -16 LUFS, true peak -1 dBTP다. 계약 값은 `loudness_lufs_x10: -160`과 `true_peak_dbtp_x10: -10`이다. BGM ducking은 sidechain으로 한다.
 - 장면 clip은 무음 영상이다. 소리는 최종 mux에서 한 번 넣는다.
+- 내장 BGM은 `core/app/plugins/bgm/<id>/`의 WAV 또는 Ogg Vorbis 파일을 그대로 보관하고, mix 전에 `MediaPort.decode_audio`로 44.1kHz PCM으로 푼다. 내장 BGM의 `file`은 `.wav`와 `.ogg`를 받는다.
+- 내장 BGM은 원본 master를 그대로 보관하므로 true peak가 0 dBTP를 넘을 수 있고, `true_peak_dbtp_x10`은 -1000에서 100까지 받는다.
 
 ## 13. 설정, profile, 접근 제어
 
@@ -749,7 +751,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 | `style-manifest.schema.json` | 그림체 package | 기본 `core/app/plugins/art_styles/<id>/`, 생성 `DATA_DIR/s/<digest16>/` |
 | `template-manifest.schema.json` | 화면 틀 template | 기본 `core/app/plugins/templates/<id>/`, 생성 `DATA_DIR/s/<digest16>/` |
 | `voice-manifest.schema.json` | 목소리 | `core/app/plugins/voices/<id>/` |
-| `bgm-entry.schema.json` | BGM 내장·업로드·코드, `SfxEntry` | 내장 `core/app/plugins/bgm/<id>/`, 업로드 `DATA_DIR/p/<pid>/u/`, 코드 `DATA_DIR/s/<digest16>/`, 효과음 `core/app/plugins/sfx/<id>/` |
+| `bgm-entry.schema.json` | BGM 내장·업로드·코드, `SfxEntry` | 내장 `core/app/plugins/bgm/<id>/`(WAV, Ogg Vorbis), 업로드 `DATA_DIR/p/<pid>/u/`, 코드 `DATA_DIR/s/<digest16>/`, 효과음 `core/app/plugins/sfx/<id>/` |
 | `font-manifest.schema.json` | 자막 글꼴 | `core/app/plugins/fonts/<id>/` |
 | `job.schema.json` | job과 오류 | state.db `jobs` |
 | `artifact.schema.json` | artifact index와 `Timing` | state.db `artifacts`, 파일은 6절 |

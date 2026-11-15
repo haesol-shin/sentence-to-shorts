@@ -16,7 +16,7 @@ from app.schemas.voice_manifest import VoiceManifest
 
 router = APIRouter()
 
-MEDIA_TYPES = {".png": "image/png", ".wav": "audio/wav"}
+MEDIA_TYPES = {".png": "image/png", ".wav": "audio/wav", ".ogg": "audio/ogg"}
 
 
 def _media_file(manifest: object, name: str) -> tuple[Path, str] | None:
@@ -96,4 +96,5 @@ def get_bgm_audio(request: Request, item_id: str) -> FileResponse:
         raise HTTPException(status_code=404, detail="bgm audio not found")
     ref = app.catalog.pin("bgm", item_id)
     path = app.catalog.package_dir("bgm", ref) / manifest.file
-    return FileResponse(path, media_type="audio/wav")
+    media_type = MEDIA_TYPES.get(Path(manifest.file).suffix, "application/octet-stream")
+    return FileResponse(path, media_type=media_type)

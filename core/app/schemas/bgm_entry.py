@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from pydantic import Field
 
 from app.schemas.common import (
+    BgmRelPath,
     CatalogId,
     ContractModel,
     Digest,
@@ -50,6 +51,8 @@ class ReviewStatus(StrEnum):
 
 class BuiltinBgm(BgmCommon):
     source: Literal["builtin"]
+    file: BgmRelPath
+    true_peak_dbtp_x10: Annotated[int, Field(ge=-1000, le=100)] | None
     license: License
     review_status: ReviewStatus
 

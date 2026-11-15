@@ -99,6 +99,17 @@ WavRelPath = TypeAliasType(
         AfterValidator(_safe_relative),
     ],
 )
+BgmRelPath = TypeAliasType(
+    "BgmRelPath",
+    Annotated[
+        str,
+        Field(
+            pattern=rf"^{REL_PATH_PATTERN[1:-1]}\.(wav|ogg)$",
+            json_schema_extra=REL_PATH_NOT,
+        ),
+        AfterValidator(_safe_relative),
+    ],
+)
 AssetRelPath = TypeAliasType(
     "AssetRelPath",
     Annotated[

@@ -901,6 +901,7 @@ export interface components {
             /** Seed */
             seed: number | null;
         };
+        BgmRelPath: string;
         /** BgmSettings */
         BgmSettings: {
             /** Ducking */
@@ -956,7 +957,7 @@ export interface components {
             channels: 1 | 2;
             /** Duration Ms */
             duration_ms: number;
-            file: components["schemas"]["WavRelPath"];
+            file: components["schemas"]["BgmRelPath"];
             id: components["schemas"]["CatalogId"];
             label: components["schemas"]["LocalizedText"];
             license: components["schemas"]["License"];
