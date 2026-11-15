@@ -17,6 +17,7 @@ from app.schemas.api import (
     RevisionList,
     VideoView,
 )
+from app.schemas.change import ChangeStatus
 from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.video import Video
@@ -82,7 +83,7 @@ def get_project(request: Request, pid: str) -> Project:
     status_code=204,
 )
 def delete_project(request: Request, pid: str) -> None:
-    runtime(request).project_store.delete_project(pid)
+    runtime(request).submitter.delete_project(pid)
 
 
 @router.post(
@@ -105,7 +106,17 @@ def get_video(request: Request, vid: str) -> VideoView:
     app = runtime(request)
     video = app.services.project.view(vid)
     build = build_view(video, app.services)
-    return VideoView(video=video, build=build, open_jobs=[], pending_change=None)
+    proposed = [
+        plan
+        for plan in app.project_store.list_changes(vid)
+        if plan.status is ChangeStatus.proposed and plan.base_revision == video.revision
+    ]
+    return VideoView(
+        video=video,
+        build=build,
+        open_jobs=[job.id for job in app.submitter.open_for_video(vid)],
+        pending_change=max(proposed, key=lambda plan: plan.created_at).id if proposed else None,
+    )
 
 
 @router.get(

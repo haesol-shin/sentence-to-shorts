@@ -181,10 +181,15 @@ def create_app(
             display(f"http://{host}:{settings.port}/#pair={code}")
             yield
         finally:
-            if gate is not None:
-                gate.close()
             app.state.idempotency = None
-            active.close()
+            try:
+                # The gate holds the instance lock. Release it last, after the
+                # workers and the state database have stopped, so a second server
+                # cannot recover jobs that are still running here.
+                active.close()
+            finally:
+                if gate is not None:
+                    gate.close()
             if runtime is None:
                 app.state.runtime = None
 
