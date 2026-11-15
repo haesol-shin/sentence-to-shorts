@@ -1,14 +1,16 @@
 """Scene still and clip rendering contract.
 
 A still is laid out once on the 1080x1920 output frame and then reduced to the
-540x960 preview, so the preview shows the same caption lines as the output.
+540x960 preview, so the preview shows the same caption lines as the output. A
+clip draws every frame with the same function, posed by the scene's timing.
 """
 
 from __future__ import annotations
 
 import json
 import math
-from dataclasses import dataclass
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -26,11 +28,21 @@ from app.ports import (
 )
 from app.schemas.artifact import Timing
 from app.schemas.common import Box, CaptionMode, CharacterRole
-from app.schemas.scene import Anchor, Element, ElementKind, Scene
+from app.schemas.scene import Anchor, Element, ElementKind, PlacementAnchor, Scene
+from app.schemas.script import Span
 from app.schemas.settings import ProgressMode
 from app.schemas.style_manifest import AssetKind, Palette, Theme
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
+from app.services.render.motion import (
+    FPS,
+    OPAQUE,
+    SCALE_STEP,
+    CaptionState,
+    Pose,
+    poses,
+    rest_pose,
+)
 from app.services.render.pixel import (
     PART_LAYERS,
     StylePackage,
@@ -38,7 +50,14 @@ from app.services.render.pixel import (
     open_style,
 )
 from app.services.render.sprites import rasterize
-from app.services.render.text import CaptionFont, draw_block, fit, open_font
+from app.services.render.text import (
+    CaptionFont,
+    TextBlock,
+    TextLine,
+    draw_block,
+    fit,
+    open_font,
+)
 
 OUTPUT = (1080, 1920)
 PREVIEW = (540, 960)
@@ -54,6 +73,7 @@ ELEMENT_OUTLINE = 6
 ICON_CELL = 12
 PROGRESS_FALLBACK = (24, 24, 312, 72)
 STILL_DIR = "still"
+CLIP_DIR = "clip"
 LABEL_MAX_LINES = 3
 CODE_MAX_LINES = 8
 
@@ -75,6 +95,44 @@ def _contains(outer: Box, inner: Box) -> bool:
     )
 
 
+def _composite(dst: Image.Image, src: Image.Image, x: int, y: int) -> None:
+    """``alpha_composite`` that also takes a position left of or above ``dst``."""
+    left, top = max(0, -x), max(0, -y)
+    if left >= src.width or top >= src.height:
+        return
+    if left or top:
+        src = src.crop((left, top, src.width, src.height))
+    dst.alpha_composite(src, (x + left, y + top))
+
+
+def _phrase_text(
+    text: str, highlight: list[Span], start: int, end: int
+) -> tuple[str, list[Span]]:
+    """One phrase of a line without its edge spaces, with highlights moved onto it."""
+    while start < end and text[start].isspace():
+        start += 1
+    while end > start and text[end - 1].isspace():
+        end -= 1
+    spans = [
+        Span(start=max(span.start, start) - start, end=min(span.end, end) - start)
+        for span in highlight
+        if span.start < end and span.end > start
+    ]
+    return text[start:end], spans
+
+
+def _typed(block: TextBlock, count: int) -> TextBlock:
+    """The first ``count`` graphemes of a laid-out block. Lines keep their full
+    width, so typed text stays where the finished line will be."""
+    lines: list[TextLine] = []
+    remaining = count
+    for line in block.lines:
+        shown = line.units[:max(0, remaining)]
+        remaining -= len(line.units)
+        lines.append(TextLine(units=shown, width=line.width))
+    return TextBlock(size=block.size, line_height=block.line_height, lines=tuple(lines))
+
+
 @dataclass(frozen=True)
 class Resolved:
     """Catalog entries a still needs, resolved from the video's pinned refs."""
@@ -87,6 +145,36 @@ class Resolved:
     @property
     def palette(self) -> Palette:
         return self.theme.palette
+
+
+def _caption_inner(res: Resolved) -> Box:
+    region = res.template.regions.caption
+    return _inset(region, DIALOG_CAPTION_INSET if res.template.dialog_box else CAPTION_INSET)
+
+
+@dataclass(frozen=True)
+class PlacedElement:
+    image: Image.Image
+    x: int
+    y: int
+
+
+@dataclass
+class ScenePlan:
+    """Parts of a scene frame that stay the same while its clip plays."""
+
+    video: Video
+    scene: Scene
+    res: Resolved
+    framed: bool
+    base: Image.Image
+    figure: Image.Image | None
+    figure_at: tuple[int, int]
+    elements: list[PlacedElement | None]
+    skipped: list[str]
+    top: Image.Image | None
+    top_at: tuple[int, int]
+    blocks: dict[tuple[int, tuple[int, int] | None], TextBlock] = field(default_factory=dict)
 
 
 def _estimated_timing(scene: Scene) -> dict[str, Any]:
@@ -163,12 +251,13 @@ class RenderService:
         )
         frame.alpha_composite(crop, (region.x, region.y))
 
-    def _character(
-        self, frame: Image.Image, video: Video, scene: Scene, parts: dict[str, bytes], res: Resolved
-    ) -> None:
+    def _figure(
+        self, video: Video, scene: Scene, parts: dict[str, bytes], res: Resolved
+    ) -> tuple[Image.Image | None, tuple[int, int]]:
+        """The scaled character and its rest position on the visual region."""
         assert scene.visual is not None
         if not scene.visual.characters:
-            return
+            return None, (0, 0)
         if video.settings.format.character_role == CharacterRole.none:
             raise AppError("role_none_character", detail={"scene_id": scene.id})
         layers = [decode_png(parts[name], name) for name in PART_LAYERS if name in parts]
@@ -187,11 +276,24 @@ class RenderService:
             (figure.width * factor, figure.height * factor), Image.Resampling.NEAREST
         )
         anchor = getattr(res.template.character_anchors, scene.visual.characters[0].anchor)
+        rest = (anchor.x - figure.width // 2 - region.x, anchor.y - figure.height - region.y)
+        return figure, rest
+
+    def _paste_figure(self, frame: Image.Image, plan: ScenePlan, pose: Pose) -> None:
+        """Draw the character clipped to the visual region, scaled from its feet."""
+        if plan.figure is None or pose.figure_scale <= 0:
+            return
+        figure = plan.figure
+        x, y = plan.figure_at
+        if pose.figure_scale != SCALE_STEP:
+            width = max(1, figure.width * pose.figure_scale // SCALE_STEP)
+            height = max(1, figure.height * pose.figure_scale // SCALE_STEP)
+            x += (figure.width - width) // 2
+            y += figure.height - height
+            figure = figure.resize((width, height), Image.Resampling.NEAREST)
+        region = plan.res.template.regions.visual
         clip = Image.new("RGBA", (region.w, region.h), (0, 0, 0, 0))
-        clip.alpha_composite(
-            figure,
-            (anchor.x - figure.width // 2 - region.x, anchor.y - figure.height - region.y),
-        )
+        _composite(clip, figure, x + pose.figure_dx, y + pose.figure_dy)
         frame.alpha_composite(clip, (region.x, region.y))
 
     def _element_image(self, element: Element, res: Resolved, width: int) -> Image.Image:
@@ -242,16 +344,16 @@ class RenderService:
         )
         return image
 
-    def _elements(self, frame: Image.Image, scene: Scene, res: Resolved) -> list[str]:
-        """Draw label, code and icon elements; return the ids that are not drawn."""
+    def _place_elements(self, scene: Scene, res: Resolved) -> list[PlacedElement | None]:
+        """Lay out label, code and icon elements; ``None`` marks an element not drawn."""
         assert scene.visual is not None
         region = res.template.regions.visual
         cursors: dict[Anchor, int] = {}
-        skipped: list[str] = []
+        placed_all: list[PlacedElement | None] = []
         width = region.w * 3 // 4
         for element in scene.visual.elements:
             if element.kind == ElementKind.material:
-                skipped.append(element.id)
+                placed_all.append(None)
                 continue
             image = self._element_image(element, res, width)
             anchor = element.anchor
@@ -274,8 +376,22 @@ class RenderService:
             placed = Box(x=max(0, x), y=max(0, y), w=image.width, h=image.height)
             if x < 0 or y < 0 or not _contains(region, placed):
                 raise AppError("layout_overflow", detail={"element": element.id})
-            frame.alpha_composite(image, (x, y))
-        return skipped
+            placed_all.append(PlacedElement(image=image, x=x, y=y))
+        return placed_all
+
+    def _paste_elements(self, frame: Image.Image, plan: ScenePlan, pose: Pose) -> None:
+        """Draw shown elements; a popping element grows from its own centre."""
+        for placed, scale in zip(plan.elements, pose.elements, strict=True):
+            if placed is None or scale is None or scale <= 0:
+                continue
+            image, x, y = placed.image, placed.x, placed.y
+            if scale != SCALE_STEP:
+                width = max(1, image.width * scale // SCALE_STEP)
+                height = max(1, image.height * scale // SCALE_STEP)
+                x += (image.width - width) // 2
+                y += (image.height - height) // 2
+                image = image.resize((width, height), Image.Resampling.NEAREST)
+            _composite(frame, image, x, y)
 
     def _progress(self, frame: Image.Image, video: Video, scene: Scene, res: Resolved) -> None:
         if video.settings.format.progress_mode == ProgressMode.none:
@@ -335,35 +451,57 @@ class RenderService:
             color=_rgb(res.palette.ink), highlight_color=_rgb(res.palette.accent),
         )
 
-    def _caption(
-        self, frame: Image.Image, video: Video, scene: Scene, res: Resolved, framed: bool
-    ) -> dict[str, Any]:
-        caption = video.settings.caption
-        region = res.template.regions.caption
-        palette = res.palette
-        draw = ImageDraw.Draw(frame)
-        draw.fontmode = "1"
-        if not framed:
-            draw.rectangle(
-                (region.x, region.y, region.x + region.w - 1, region.y + region.h - 1),
-                fill=palette.caption_box,
-            )
-        inner = _inset(region, DIALOG_CAPTION_INSET if res.template.dialog_box else CAPTION_INSET)
-        line = scene.lines[0]
+    def _caption_block(
+        self, plan: ScenePlan, line_index: int, phrase: tuple[int, int] | None
+    ) -> TextBlock:
+        """Lay out a whole line or one phrase of it once per clip."""
+        key = (line_index, phrase)
+        block = plan.blocks.get(key)
+        if block is not None:
+            return block
+        res = plan.res
+        line = plan.scene.lines[line_index]
+        text = line.display_text
+        highlight = list(line.highlight) if plan.video.settings.caption.highlight else []
+        if phrase is not None:
+            text, highlight = _phrase_text(text, highlight, *phrase)
+        inner = _caption_inner(res)
         pixel = res.font.pixel_size or 12
         block = fit(
             res.font,
-            line.display_text,
-            line.highlight if caption.highlight else None,
+            text,
+            highlight or None,
             width=inner.w,
             height=inner.h,
             max_lines=CAPTION_MAX_LINES,
             sizes=res.font.sizes(pixel * 6, pixel * 2),
             where=f"caption:{line.id}",
         )
+        plan.blocks[key] = block
+        return block
+
+    def _caption(self, frame: Image.Image, plan: ScenePlan, state: CaptionState) -> dict[str, Any]:
+        caption = plan.video.settings.caption
+        res = plan.res
+        region = res.template.regions.caption
+        palette = res.palette
+        draw = ImageDraw.Draw(frame)
+        draw.fontmode = "1"
+        if not plan.framed:
+            draw.rectangle(
+                (region.x, region.y, region.x + region.w - 1, region.y + region.h - 1),
+                fill=palette.caption_box,
+            )
+        line = plan.scene.lines[state.line]
+        phrase = state.phrase
+        if phrase is not None and not line.display_text[phrase[0]:phrase[1]].strip():
+            phrase = None
+        block = self._caption_block(plan, state.line, phrase)
+        if state.typed is not None:
+            block = _typed(block, state.typed)
         valign = {"top": "top", "middle": "middle", "bottom": "bottom"}[caption.position.value]
         boxes = draw_block(
-            draw, res.font, block, inner,
+            draw, res.font, block, _caption_inner(res),
             color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
             valign=valign,
         )
@@ -381,6 +519,65 @@ class RenderService:
             ],
         }
 
+    def _plan(
+        self,
+        video: Video,
+        scene_id: str,
+        parts: dict[str, bytes],
+        layer: bytes | None,
+    ) -> ScenePlan:
+        """Draw the layers that stay still for the whole scene once."""
+        scene = video.scenes.get(scene_id)
+        if scene is None:
+            raise AppError("scene_not_found", detail={"scene_id": scene_id})
+        if scene.visual is None:
+            raise AppError("scene_visual_missing", detail={"scene_id": scene_id})
+        res = self._resolve(video)
+        base = Image.new("RGBA", OUTPUT, (*_rgb(res.palette.bg), 255))
+        self._background(base, scene, res)
+        if layer is not None:
+            overlay = decode_png(layer, "layer")
+            if overlay.size != OUTPUT:
+                raise AppError("render_input_invalid", detail={"input": "layer", "reason": "size"})
+            base.alpha_composite(overlay)
+        figure, figure_at = self._figure(video, scene, parts, res)
+        elements = self._place_elements(scene, res)
+        top = Image.new("RGBA", OUTPUT, (0, 0, 0, 0))
+        self._progress(top, video, scene, res)
+        self._title(top, video, res)
+        bbox = top.getbbox()
+        return ScenePlan(
+            video=video,
+            scene=scene,
+            res=res,
+            framed=layer is not None,
+            base=base,
+            figure=figure,
+            figure_at=figure_at,
+            elements=elements,
+            skipped=[
+                element.id
+                for element, placed in zip(scene.visual.elements, elements, strict=True)
+                if placed is None
+            ],
+            top=top.crop(bbox) if bbox else None,
+            top_at=(bbox[0], bbox[1]) if bbox else (0, 0),
+        )
+
+    def _draw(self, plan: ScenePlan, pose: Pose) -> tuple[Image.Image, dict[str, Any]]:
+        """One 1080x1920 frame in the still's layer order: background and layer,
+        character, elements, progress and title, caption, then the fade."""
+        frame = plan.base.copy()
+        self._paste_figure(frame, plan, pose)
+        self._paste_elements(frame, plan, pose)
+        if plan.top is not None:
+            frame.alpha_composite(plan.top, plan.top_at)
+        caption = self._caption(frame, plan, pose.caption)
+        if pose.fade < OPAQUE:
+            black = Image.new("RGBA", OUTPUT, (0, 0, 0, 255))
+            frame = Image.blend(black, frame, pose.fade / OPAQUE)
+        return frame, caption
+
     def compose(
         self,
         video: Video,
@@ -388,30 +585,14 @@ class RenderService:
         parts: dict[str, bytes],
         layer: bytes | None,
     ) -> tuple[Image.Image, dict[str, Any]]:
-        """The 1080x1920 frame of a scene and its layout record."""
-        scene = video.scenes.get(scene_id)
-        if scene is None:
-            raise AppError("scene_not_found", detail={"scene_id": scene_id})
-        if scene.visual is None:
-            raise AppError("scene_visual_missing", detail={"scene_id": scene_id})
-        res = self._resolve(video)
-        frame = Image.new("RGBA", OUTPUT, (*_rgb(res.palette.bg), 255))
-        self._background(frame, scene, res)
-        if layer is not None:
-            overlay = decode_png(layer, "layer")
-            if overlay.size != OUTPUT:
-                raise AppError("render_input_invalid", detail={"input": "layer", "reason": "size"})
-            frame.alpha_composite(overlay)
-        self._character(frame, video, scene, parts, res)
-        skipped = self._elements(frame, scene, res)
-        self._progress(frame, video, scene, res)
-        self._title(frame, video, res)
-        caption = self._caption(frame, video, scene, res, framed=layer is not None)
+        """The 1080x1920 rest frame of a scene and its layout record."""
+        plan = self._plan(video, scene_id, parts, layer)
+        frame, caption = self._draw(plan, rest_pose(plan.scene))
         record = {
-            "scene_id": scene.id,
+            "scene_id": plan.scene.id,
             "layout_size": list(OUTPUT),
             "caption": caption,
-            "elements_not_drawn": skipped,
+            "elements_not_drawn": plan.skipped,
         }
         return frame, record
 
@@ -463,8 +644,58 @@ class RenderService:
         *,
         ctx: JobContext,
     ) -> Path:
-        """Write a silent mp4 clip to the job folder."""
-        raise NotImplementedError
+        """Write a silent 1080x1920 30 fps mp4 of the scene to the job folder.
+
+        Frames come from the still's drawing function, one pose per frame, and
+        stream to the encoder one at a time; a frame equal to the previous one
+        is sent again without drawing. The clip has ``frame_count`` frames of
+        the timing's length and no audio track: sound joins at the final mux.
+        """
+        ctx.cancel.raise_if_set()
+        plan = self._plan(video, scene_id, parts, layer)
+        scene = plan.scene
+        _artifact_timing(scene, timing)
+        if any(line.end_ms > timing.duration_ms for line in timing.lines):
+            raise AppError("timing_mismatch", detail={"scene_id": scene.id})
+        # Lay out only what the clip shows, before encoding starts: a phrase line
+        # shows its phrases, never the whole line, so a long line whose phrases
+        # fit renders. A blank phrase falls back to the whole line.
+        typed_units = []
+        for index, line in enumerate(timing.lines):
+            text = scene.lines[index].display_text
+            spans = [(phrase.start_char, phrase.end_char) for phrase in line.caption.phrases]
+            phrased = line.caption.mode_used == CaptionMode.phrase and bool(spans)
+            shown = [span for span in spans if text[span[0]:span[1]].strip()] if phrased else []
+            for span in shown:
+                self._caption_block(plan, index, span)
+            if phrased and len(shown) == len(spans):
+                typed_units.append(0)
+                continue
+            block = self._caption_block(plan, index, None)
+            typed_units.append(sum(len(text_line.units) for text_line in block.lines))
+        region = plan.res.template.regions.visual
+        assert scene.visual is not None
+        anchor = scene.visual.characters[0].anchor if scene.visual.characters else None
+        travel = region.w if anchor == PlacementAnchor.right else -region.w
+
+        def frames() -> Iterator[bytes]:
+            previous: Pose | None = None
+            data = b""
+            for pose in poses(scene, timing, typed_units, travel):
+                ctx.cancel.raise_if_set()
+                if pose != previous:
+                    image, _ = self._draw(plan, pose)
+                    data = image.convert("RGB").tobytes()
+                    previous = pose
+                yield data
+
+        out_dir = ctx.job_dir / CLIP_DIR
+        out_dir.mkdir(parents=True, exist_ok=True)
+        path = out_dir / f"{scene_id}.mp4"
+        self.media.encode_frames(
+            frames(), width=OUTPUT[0], height=OUTPUT[1], fps=FPS, out=path, cancel=ctx.cancel
+        )
+        return path
 
 
 def create(settings: AppSettings, deps: ServiceDeps) -> RenderService:
