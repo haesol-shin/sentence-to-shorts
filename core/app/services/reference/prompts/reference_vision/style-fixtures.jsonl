@@ -1,0 +1,3 @@
+{"id": "reference-ko-friendly", "data": {"transcript": "첫 번째는 물의 온도예요.\n두 번째는 원두를 가는 굵기예요.\n마지막은 내리는 시간이에요.", "allowed": {"story_structures": ["numbered_three", "hypothetical", "single_analogy"], "layouts": ["fixed_stage", "dialog_stage", "full_stage"]}}}
+{"id": "reference-en-neutral", "data": {"transcript": "Three things decide a good cup of coffee. First, water temperature. Second, grind size.", "allowed": {"story_structures": ["numbered_three", "hypothetical", "single_analogy"], "layouts": ["fixed_stage", "dialog_stage", "full_stage"]}}}
+{"id": "reference-silent", "data": {"transcript": "", "allowed": {"story_structures": ["numbered_three", "hypothetical", "single_analogy"], "layouts": ["fixed_stage", "dialog_stage", "full_stage"]}}}
