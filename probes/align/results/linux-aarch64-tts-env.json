@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "host": {
+    "platform": "Linux-6.18.34+rpt-rpi-2712-aarch64-with-glibc2.41",
+    "machine": "aarch64",
+    "release": "6.18.34+rpt-rpi-2712",
+    "python": "3.11.15",
+    "python_build": "main",
+    "processors": 4
+  },
+  "packages": {
+    "whisperx": null,
+    "torch": null,
+    "torchaudio": null,
+    "torchcodec": null,
+    "transformers": null,
+    "faster-whisper": null,
+    "ctranslate2": null,
+    "pyannote-audio": null,
+    "onnxruntime": "1.32.0",
+    "numpy": "2.4.4"
+  },
+  "environment_bytes": 155302657,
+  "model_cache_bytes": {},
+  "model_cache_total_bytes": 0
+}

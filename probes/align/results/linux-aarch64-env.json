@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "host": {
+    "platform": "Linux-6.18.34+rpt-rpi-2712-aarch64-with-glibc2.41",
+    "machine": "aarch64",
+    "release": "6.18.34+rpt-rpi-2712",
+    "python": "3.11.15",
+    "python_build": "main",
+    "processors": 4
+  },
+  "packages": {
+    "whisperx": "3.8.6",
+    "torch": "2.8.0",
+    "torchaudio": "2.8.0",
+    "torchcodec": "0.17.0",
+    "transformers": "4.57.6",
+    "faster-whisper": "1.2.1",
+    "ctranslate2": "4.9.0",
+    "pyannote-audio": "4.0.7",
+    "onnxruntime": "1.32.0",
+    "numpy": "2.4.6"
+  },
+  "environment_bytes": 1343734188,
+  "model_cache_bytes": {
+    "kresnik/wav2vec2-large-xlsr-korean": 1266768843,
+    "wav2vec2_fairseq_base_ls960_asr_ls960.pth": 377664473
+  },
+  "model_cache_total_bytes": 1644433316
+}
