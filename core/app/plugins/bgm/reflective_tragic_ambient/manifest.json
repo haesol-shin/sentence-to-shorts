@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "reflective_tragic_ambient",
+  "label": {
+    "ko": "사색 앰비언스",
+    "en": "Reflective ambience"
+  },
+  "mood": "reflective",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "5663cc3561de0007ff6cec54f730f9f35f02eb315b0c4ff3e98cd9a7e3517349",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -201,
+  "true_peak_dbtp_x10": -36,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/tragic-ambient-main-menu",
+    "author": "HaelDB",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

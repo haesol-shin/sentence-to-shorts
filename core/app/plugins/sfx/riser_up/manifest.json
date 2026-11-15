@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "riser_up",
+  "label": {
+    "ko": "라이저 1",
+    "en": "Riser 1"
+  },
+  "kind": "riser",
+  "file": "effect.wav",
+  "sha256": "7d4214ed399ddeacf8661cb6d8292991487367936be8305db359cd2d2fdb41ff",
+  "duration_ms": 451,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/digital-audio",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

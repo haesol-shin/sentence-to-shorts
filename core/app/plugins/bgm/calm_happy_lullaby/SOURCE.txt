@@ -1,0 +1,11 @@
+Title: Happy Lullaby (song17)
+Author: cynicmusic
+Page: https://opengameart.org/content/happy-lullaby-song17
+File: https://opengameart.org/sites/default/files/song17.mp3
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: mp3, 32000 Hz, 2 channel(s), 39.56 s
+Stored: PCM 16 bit, 44100 Hz, mono, 30.00 s
+Loop: last 0.25 s crossfaded into the start, so the seam repeats
+Measured: -16.3 LUFS integrated, -3.1 dBTP

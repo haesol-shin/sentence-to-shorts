@@ -1,0 +1,11 @@
+Title: A Band of Jellyfish
+Author: 3xBlast
+Page: https://opengameart.org/content/7-pop-punk-chiptune-tracks
+File: https://opengameart.org/sites/default/files/3xblast_-_7_pop-punk_chiptune_tracks_0.zip (3xBlast - A Band of Jellyfish (Looped).ogg)
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 44.44 s
+Stored: PCM 16 bit, 44100 Hz, mono, 30.00 s
+Loop: last 0.25 s crossfaded into the start, so the seam repeats
+Measured: -15.4 LUFS integrated, -5.5 dBTP

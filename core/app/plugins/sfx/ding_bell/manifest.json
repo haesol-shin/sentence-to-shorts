@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "ding_bell",
+  "label": {
+    "ko": "딩 종",
+    "en": "Bell ding"
+  },
+  "kind": "ding",
+  "file": "effect.wav",
+  "sha256": "4e0b7c05907d656d74bb1f95bb6701b974f321875675ae5442ecb2fcb195f5c4",
+  "duration_ms": 120,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

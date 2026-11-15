@@ -1,0 +1,12 @@
+Title: Chiptune Adventures 1. Stage 1
+Author: SubspaceAudio (Juhani Junkala)
+Page: https://opengameart.org/content/4-chiptunes-adventure
+File: https://opengameart.org/sites/default/files/Juhani%20Junkala%20%5BChiptune%20Adventures%5D%201.%20Stage%201.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 41.14 s
+Stored: PCM 16 bit, 44100 Hz, mono, 30.00 s
+Loop: last 0.25 s crossfaded into the start, so the seam repeats
+Gain: -0.4 dB to keep the true peak below 0 dBTP
+Measured: -15.7 LUFS integrated, -0.3 dBTP

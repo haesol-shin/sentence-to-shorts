@@ -1,0 +1,11 @@
+Title: Vampire's Piano
+Author: TAD
+Page: https://opengameart.org/content/vampires-piano
+File: https://opengameart.org/sites/default/files/vampires_piano_1.wav
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: pcm_s16le, 44100 Hz, 2 channel(s), 89.38 s
+Stored: PCM 16 bit, 44100 Hz, mono, 30.00 s
+Loop: last 0.25 s crossfaded into the start, so the seam repeats
+Measured: -23.0 LUFS integrated, -6.2 dBTP

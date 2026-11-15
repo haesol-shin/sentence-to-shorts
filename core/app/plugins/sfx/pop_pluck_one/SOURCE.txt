@@ -1,0 +1,12 @@
+Title: Interface Sounds pluck_001
+Author: Kenney
+Page: https://kenney.nl/assets/interface-sounds
+Download: https://kenney.nl/download-link/6173736574732f696e746572666163652d736f756e6473 (archive kenney_interface-sounds.zip)
+File: kenney_interface-sounds.zip / Audio/pluck_001.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 0.10 s
+Stored: PCM 16 bit, 44100 Hz, mono, 0.10 s
+Gain: -0.3 dB to keep the true peak below 0 dBTP
+Measured: -0.3 dBTP (too short for integrated loudness)

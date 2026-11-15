@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "reflective_lofi_chill",
+  "label": {
+    "ko": "사색 로파이",
+    "en": "Reflective lo-fi"
+  },
+  "mood": "reflective",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "2f27af15a144294a65cc965b3bfe082c5dd67c4da9b445220108e8a3263b1962",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -261,
+  "true_peak_dbtp_x10": -56,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/chill-lofi-inspired",
+    "author": "omfgdude",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

@@ -1,0 +1,12 @@
+Title: Typing pattern built from Interface Sounds tick and click samples
+Author: Kenney
+Page: https://kenney.nl/assets/interface-sounds
+Download: https://kenney.nl/download-link/6173736574732f696e746572666163652d736f756e6473 (archive kenney_interface-sounds.zip)
+File: kenney_interface-sounds.zip / Audio/tick_001.ogg, Audio/tick_002.ogg, Audio/tick_004.ogg, Audio/click_001.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 1 channel(s)
+Built: 20 keystrokes, 55 to 90 ms spacing, per-stroke gain -7 to -1 dB and pitch 0.92 to 1.08, seed 20261116
+Stored: PCM 16 bit, 44100 Hz, mono, 1.57 s
+Measured: -22.6 LUFS integrated, -0.7 dBTP

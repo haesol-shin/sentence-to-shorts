@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "pop_pluck_one",
+  "label": {
+    "ko": "톡 1",
+    "en": "Pop 1"
+  },
+  "kind": "pop",
+  "file": "effect.wav",
+  "sha256": "30b77f2d82fad1159b8cb6a4632bf0b7908627d78be82f0281a1ace663b43099",
+  "duration_ms": 100,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

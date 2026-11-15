@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "ding_confirm",
+  "label": {
+    "ko": "딩 확인",
+    "en": "Confirm ding"
+  },
+  "kind": "ding",
+  "file": "effect.wav",
+  "sha256": "1f2990b7e4a72e6b3028ca492daf03383591587f47f95a00126a79eaf73f507d",
+  "duration_ms": 490,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}

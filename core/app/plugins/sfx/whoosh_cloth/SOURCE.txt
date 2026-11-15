@@ -1,0 +1,11 @@
+Title: RPG Audio cloth1
+Author: Kenney
+Page: https://kenney.nl/assets/rpg-audio
+Download: https://kenney.nl/download-link/6173736574732f7270672d617564696f (archive kenney_rpg-audio.zip)
+File: kenney_rpg-audio.zip / Audio/cloth1.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 1 channel(s)
+Stored: PCM 16 bit, 44100 Hz, mono, 0.63 s
+Measured: -27.4 LUFS integrated, -4.0 dBTP

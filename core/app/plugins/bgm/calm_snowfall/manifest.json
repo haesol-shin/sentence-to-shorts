@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "calm_snowfall",
+  "label": {
+    "ko": "차분한 눈 내림",
+    "en": "Calm snowfall"
+  },
+  "mood": "calm",
+  "source": "builtin",
+  "file": "loop.wav",
+  "sha256": "e580536f0c4e35c8907b53854003aec25d35a3d563dedf07b2e968be1e0258dc",
+  "duration_ms": 30000,
+  "sample_rate": 44100,
+  "channels": 1,
+  "loudness_lufs_x10": -264,
+  "true_peak_dbtp_x10": -102,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://opengameart.org/content/snowfall",
+    "author": "Kistol",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  },
+  "review_status": "verified"
+}

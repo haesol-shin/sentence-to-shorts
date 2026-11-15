@@ -1,0 +1,11 @@
+Title: Tragic ambient main menu
+Author: HaelDB
+Page: https://opengameart.org/content/tragic-ambient-main-menu
+File: https://opengameart.org/sites/default/files/ambientmain_0.ogg
+Retrieved: 2026-11-15
+License: CC0 1.0 Universal, see LICENSE.txt
+License page: https://creativecommons.org/publicdomain/zero/1.0/
+Original: vorbis, 44100 Hz, 2 channel(s), 100.00 s
+Stored: PCM 16 bit, 44100 Hz, mono, 30.00 s
+Loop: last 0.25 s crossfaded into the start, so the seam repeats
+Measured: -20.1 LUFS integrated, -3.6 dBTP

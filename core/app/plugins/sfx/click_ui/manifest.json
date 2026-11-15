@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "click_ui",
+  "label": {
+    "ko": "딸깍 기본",
+    "en": "Click"
+  },
+  "kind": "click",
+  "file": "effect.wav",
+  "sha256": "99ab313ff56f804bf167b5f971baf22de720adb26cc59e983eec60f39e40da21",
+  "duration_ms": 97,
+  "license": {
+    "spdx": "CC0-1.0",
+    "source_url": "https://kenney.nl/assets/interface-sounds",
+    "author": "Kenney",
+    "commercial_ok": true,
+    "attribution": null,
+    "license_file": "LICENSE.txt"
+  }
+}
