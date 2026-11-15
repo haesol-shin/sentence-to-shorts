@@ -1,0 +1,439 @@
+{
+  "schema": 1,
+  "candidate": "moss-tts-nano-100m",
+  "status": "ok",
+  "failure": null,
+  "host": {
+    "os": "Debian GNU/Linux 13 (trixie)",
+    "os_family": "Linux",
+    "os_version": "#1 SMP PREEMPT Debian 1:6.18.34-1+rpt1 (2026-06-09)",
+    "machine": "aarch64",
+    "cpu": "aarch64",
+    "cpus": 4,
+    "ram_bytes": 8454012928,
+    "python": "3.11.15"
+  },
+  "thread": 4,
+  "repeats": 1,
+  "timeout_s": 300.0,
+  "synth_budget_s": 0.0,
+  "revision": "f52645cb467506d8e18e746ddd59482685b74e58",
+  "models": [
+    {
+      "repo_id": "OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX",
+      "revision": "f52645cb467506d8e18e746ddd59482685b74e58",
+      "local_dir": "MOSS-TTS-Nano-100M-ONNX",
+      "present": true,
+      "bytes": 672631743
+    },
+    {
+      "repo_id": "OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX",
+      "revision": "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae",
+      "local_dir": "MOSS-Audio-Tokenizer-Nano-ONNX",
+      "present": true,
+      "bytes": 90581890
+    }
+  ],
+  "model_bytes": 763213633,
+  "env_bytes": 221658110,
+  "engine": {
+    "backend": "onnxruntime",
+    "model_dir": "MOSS-TTS-Nano-100M-ONNX",
+    "codec_dir": "MOSS-Audio-Tokenizer-Nano-ONNX",
+    "sample_mode": "fixed",
+    "do_sample": true,
+    "max_new_frames": 1500,
+    "text_normalizer": "none",
+    "speaker_note": "no Korean preset ships; the same preset reads Korean",
+    "voice_clone_reference": "built-in preset codes from the manifest",
+    "speakers": {
+      "ko": "Ava",
+      "en": "Ava"
+    }
+  },
+  "packages": {
+    "onnxruntime": "1.32.0",
+    "numpy": "2.4.4",
+    "sentencepiece": "0.2.3",
+    "soundfile": "0.14.0"
+  },
+  "cold_start_ms": 9488.7,
+  "first_wav_ms": 45471.1,
+  "stopped_early": null,
+  "sample_rate": 48000,
+  "rtf": 7.6573,
+  "peak_rss_bytes": 2503901184,
+  "texts": [
+    {
+      "id": "K1",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "안녕하세요. 오늘은 인공지능이 영상을 만드는 과정을 짧게 설명할게요.",
+      "wav": "wav/K1.wav",
+      "wav_ms": 7120.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 48815.3,
+          "wav_ms": 7120.0,
+          "rtf": 6.8561,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 89,
+            "truncated": false,
+            "text_tokens": 43,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 6.8561,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 683564
+    },
+    {
+      "id": "K2",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "값이 작아질수록 오차가 줄지만, 항상 좋은 결과가 나오는 것은 아닙니다.",
+      "wav": "wav/K2.wav",
+      "wav_ms": 6960.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 50057.3,
+          "wav_ms": 6960.0,
+          "rtf": 7.1921,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 87,
+            "truncated": false,
+            "text_tokens": 45,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 7.1921,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 668204
+    },
+    {
+      "id": "K3",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "이천이십육년 십일월 십삼일 오후 세 시 이십오 분에 학생 이십오 명이 모였습니다.",
+      "wav": "wav/K3.wav",
+      "wav_ms": 7600.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 45540.2,
+          "wav_ms": 7600.0,
+          "rtf": 5.9921,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 95,
+            "truncated": false,
+            "text_tokens": 48,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 5.9921,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 729644
+    },
+    {
+      "id": "K4",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "가격은 만 이천오백 원이고, 성공률은 구십칠 점 삼 퍼센트입니다.",
+      "wav": "wav/K4.wav",
+      "wav_ms": 6640.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 37221.6,
+          "wav_ms": 6640.0,
+          "rtf": 5.6057,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 83,
+            "truncated": false,
+            "text_tokens": 45,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 5.6057,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 637484
+    },
+    {
+      "id": "K5",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "씨 피 유와 지 피 유의 차이를 알고 있나요? 파이썬 에이 피 아이로 더블유 에이 브이 파일을 저장해 보세요.",
+      "wav": "wav/K5.wav",
+      "wav_ms": 12160.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 74148.9,
+          "wav_ms": 12160.0,
+          "rtf": 6.0978,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 152,
+            "truncated": false,
+            "text_tokens": 66,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 6.0978,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 1167404
+    },
+    {
+      "id": "K6",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "정말 이 방법이 더 빠를까요? 잠깐만요. 결과를 먼저 확인해 봅시다.",
+      "wav": "wav/K6.wav",
+      "wav_ms": 6880.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 54117.6,
+          "wav_ms": 6880.0,
+          "rtf": 7.8659,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 86,
+            "truncated": false,
+            "text_tokens": 49,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 7.8659,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 660524
+    },
+    {
+      "id": "K7",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "네. 아니요. 좋아요. 다시 해 볼게요.",
+      "wav": "wav/K7.wav",
+      "wav_ms": 4560.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 41840.6,
+          "wav_ms": 4560.0,
+          "rtf": 9.1756,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 57,
+            "truncated": false,
+            "text_tokens": 23,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 9.1756,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 437804
+    },
+    {
+      "id": "K8",
+      "language": "ko",
+      "speaker": "Ava",
+      "text": "모델은 문장을 읽고 음성을 만듭니다. 프로그램은 그 음성에 맞춰 자막과 도형을 배치합니다. 마지막으로 장면을 연결해 하나의 설명 영상을 저장합니다.",
+      "wav": "wav/K8.wav",
+      "wav_ms": 15200.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 119756.9,
+          "wav_ms": 15200.0,
+          "rtf": 7.8787,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 190,
+            "truncated": false,
+            "text_tokens": 93,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 7.8787,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 1459244
+    },
+    {
+      "id": "E1",
+      "language": "en",
+      "speaker": "Ava",
+      "text": "Today, we turn one sentence into a short narrated video on your own laptop.",
+      "wav": "wav/E1.wav",
+      "wav_ms": 6320.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 73487.6,
+          "wav_ms": 6320.0,
+          "rtf": 11.6278,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 79,
+            "truncated": false,
+            "text_tokens": 20,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 11.6278,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 606764
+    },
+    {
+      "id": "E2",
+      "language": "en",
+      "speaker": "Ava",
+      "text": "The price is twelve dollars and fifty cents.",
+      "wav": "wav/E2.wav",
+      "wav_ms": 3360.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 38171.1,
+          "wav_ms": 3360.0,
+          "rtf": 11.3604,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 42,
+            "truncated": false,
+            "text_tokens": 13,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 11.3604,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 322604
+    },
+    {
+      "id": "E3",
+      "language": "en",
+      "speaker": "Ava",
+      "text": "Is the C P U version fast enough?",
+      "wav": "wav/E3.wav",
+      "wav_ms": 3040.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 21393.3,
+          "wav_ms": 3040.0,
+          "rtf": 7.0373,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 38,
+            "truncated": false,
+            "text_tokens": 9,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 7.0373,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 291884
+    },
+    {
+      "id": "E4",
+      "language": "en",
+      "speaker": "Ava",
+      "text": "Let's check the result first.",
+      "wav": "wav/E4.wav",
+      "wav_ms": 1920.0,
+      "runs": [
+        {
+          "repeat": 1,
+          "wall_ms": 21510.4,
+          "wav_ms": 1920.0,
+          "rtf": 11.2033,
+          "engine": {
+            "sample_rate": 48000,
+            "channels": 2,
+            "frames": 24,
+            "truncated": false,
+            "text_tokens": 8,
+            "decode_path": "full"
+          }
+        }
+      ],
+      "rtf": 11.2033,
+      "failure": null,
+      "skipped": null,
+      "sample_rate": 48000,
+      "channels": 1,
+      "wav_bytes": 184364
+    }
+  ],
+  "started_at_ms": 1794766952740,
+  "cold_start_source": "script_start",
+  "github": {
+    "run_id": null,
+    "run_attempt": null,
+    "runner_os": null,
+    "runner_name": null,
+    "event": null
+  },
+  "warmup_synth_ms": 35981.5,
+  "synth_spent_s": 662.0
+}

@@ -1,0 +1,1330 @@
+{
+  "schema": 1,
+  "host": {
+    "platform": "Linux-6.18.34+rpt-rpi-2712-aarch64-with-glibc2.41",
+    "machine": "aarch64",
+    "python": "3.11.15",
+    "processors": 4
+  },
+  "tool": {
+    "whisperx": "3.8.6",
+    "torch": "2.8.0",
+    "transformers": "4.57.6",
+    "numpy": "2.4.6"
+  },
+  "audio": {
+    "sample_rate_hz": 16000,
+    "directory": "wav"
+  },
+  "models": [
+    {
+      "language": "en",
+      "model": "WAV2VEC2_ASR_BASE_960H",
+      "kind": "torchaudio",
+      "load_ms": 36878.7,
+      "downloaded_bytes": 0
+    },
+    {
+      "language": "ko",
+      "model": "kresnik/wav2vec2-large-xlsr-korean",
+      "kind": "huggingface",
+      "load_ms": 7095.0,
+      "downloaded_bytes": 0
+    }
+  ],
+  "model_download_bytes": 0,
+  "peak_rss_bytes": 1782693888,
+  "wall_ms": 413446.5,
+  "gate": "fail",
+  "summary": {
+    "en": {
+      "lines": 4,
+      "ok": 4,
+      "failures": {},
+      "align_ms": 34397.1,
+      "model_load_ms": 36878.7
+    },
+    "ko": {
+      "lines": 8,
+      "ok": 7,
+      "failures": {
+        "align_low_confidence": 1
+      },
+      "align_ms": 331570.3,
+      "model_load_ms": 7095.0
+    }
+  },
+  "lines": [
+    {
+      "id": "K1",
+      "language": "ko",
+      "display_text": "안녕하세요. 오늘은 인공지능이 영상을 만드는 과정을 짧게 설명할게요.",
+      "speech_text": "안녕하세요. 오늘은 인공지능이 영상을 만드는 과정을 짧게 설명할게요.",
+      "speech_ms": 7120,
+      "align_ms": 32080.9,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 2,
+      "speech_phrases": 2,
+      "scores": {
+        "count": 8,
+        "min": 0.824,
+        "median": 0.912
+      },
+      "silence_ms": {
+        "leading_ms": 30,
+        "trailing_ms": 20
+      },
+      "first_word_ms": 20,
+      "last_word_ms": 7120,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 6,
+          "start_ms": 20,
+          "end_ms": 1745,
+          "display": "안녕하세요."
+        },
+        {
+          "start_char": 7,
+          "end_char": 38,
+          "start_ms": 1905,
+          "end_ms": 7120,
+          "display": "오늘은 인공지능이 영상을 만드는 과정을 짧게 설명할게요."
+        }
+      ],
+      "words": [
+        {
+          "word": "안녕하세요.",
+          "start": 0.02,
+          "end": 1.745,
+          "score": 0.898
+        },
+        {
+          "word": "오늘은",
+          "start": 1.905,
+          "end": 2.246,
+          "score": 0.933
+        },
+        {
+          "word": "인공지능이",
+          "start": 2.447,
+          "end": 3.329,
+          "score": 0.894
+        },
+        {
+          "word": "영상을",
+          "start": 3.65,
+          "end": 4.192,
+          "score": 0.933
+        },
+        {
+          "word": "만드는",
+          "start": 4.332,
+          "end": 4.713,
+          "score": 0.926
+        },
+        {
+          "word": "과정을",
+          "start": 5.034,
+          "end": 5.495,
+          "score": 0.942
+        },
+        {
+          "word": "짧게",
+          "start": 5.716,
+          "end": 6.117,
+          "score": 0.896
+        },
+        {
+          "word": "설명할게요.",
+          "start": 6.258,
+          "end": 7.12,
+          "score": 0.824
+        }
+      ],
+      "wav": "K1.wav"
+    },
+    {
+      "id": "K2",
+      "language": "ko",
+      "display_text": "값이 작아질수록 오차가 줄지만, 항상 좋은 결과가 나오는 것은 아닙니다.",
+      "speech_text": "값이 작아질수록 오차가 줄지만, 항상 좋은 결과가 나오는 것은 아닙니다.",
+      "speech_ms": 6960,
+      "align_ms": 33103.6,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 2,
+      "speech_phrases": 2,
+      "scores": {
+        "count": 10,
+        "min": 0.719,
+        "median": 0.929
+      },
+      "silence_ms": {
+        "leading_ms": 60,
+        "trailing_ms": 0
+      },
+      "first_word_ms": 60,
+      "last_word_ms": 6960,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 17,
+          "start_ms": 60,
+          "end_ms": 3169,
+          "display": "값이 작아질수록 오차가 줄지만,"
+        },
+        {
+          "start_char": 18,
+          "end_char": 40,
+          "start_ms": 4012,
+          "end_ms": 6960,
+          "display": "항상 좋은 결과가 나오는 것은 아닙니다."
+        }
+      ],
+      "words": [
+        {
+          "word": "값이",
+          "start": 0.06,
+          "end": 0.501,
+          "score": 0.96
+        },
+        {
+          "word": "작아질수록",
+          "start": 0.642,
+          "end": 1.424,
+          "score": 0.922
+        },
+        {
+          "word": "오차가",
+          "start": 1.905,
+          "end": 2.407,
+          "score": 0.963
+        },
+        {
+          "word": "줄지만,",
+          "start": 2.527,
+          "end": 3.169,
+          "score": 0.719
+        },
+        {
+          "word": "항상",
+          "start": 4.012,
+          "end": 4.413,
+          "score": 0.936
+        },
+        {
+          "word": "좋은",
+          "start": 4.653,
+          "end": 4.974,
+          "score": 0.84
+        },
+        {
+          "word": "결과가",
+          "start": 5.095,
+          "end": 5.596,
+          "score": 0.917
+        },
+        {
+          "word": "나오는",
+          "start": 5.676,
+          "end": 5.997,
+          "score": 0.946
+        },
+        {
+          "word": "것은",
+          "start": 6.077,
+          "end": 6.318,
+          "score": 1.0
+        },
+        {
+          "word": "아닙니다.",
+          "start": 6.398,
+          "end": 6.96,
+          "score": 0.8
+        }
+      ],
+      "wav": "K2.wav"
+    },
+    {
+      "id": "K3",
+      "language": "ko",
+      "display_text": "2026년 11월 13일 오후 3시 25분에 학생 25명이 모였습니다.",
+      "speech_text": "이천이십육년 십일월 십삼일 오후 세 시 이십오 분에 학생 이십오 명이 모였습니다.",
+      "speech_ms": 7600,
+      "align_ms": 35961.8,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 1,
+      "speech_phrases": 1,
+      "scores": {
+        "count": 12,
+        "min": 0.812,
+        "median": 0.894
+      },
+      "silence_ms": {
+        "leading_ms": 50,
+        "trailing_ms": 50
+      },
+      "first_word_ms": 40,
+      "last_word_ms": 7600,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 39,
+          "start_ms": 40,
+          "end_ms": 7600,
+          "display": "2026년 11월 13일 오후 3시 25분에 학생 25명이 모였습니다."
+        }
+      ],
+      "words": [
+        {
+          "word": "이천이십육년",
+          "start": 0.04,
+          "end": 1.223,
+          "score": 0.909
+        },
+        {
+          "word": "십일월",
+          "start": 1.684,
+          "end": 2.266,
+          "score": 0.907
+        },
+        {
+          "word": "십삼일",
+          "start": 2.426,
+          "end": 3.068,
+          "score": 0.82
+        },
+        {
+          "word": "오후",
+          "start": 3.088,
+          "end": 3.409,
+          "score": 0.812
+        },
+        {
+          "word": "세",
+          "start": 3.569,
+          "end": 3.69,
+          "score": 0.999
+        },
+        {
+          "word": "시",
+          "start": 3.81,
+          "end": 3.97,
+          "score": 0.888
+        },
+        {
+          "word": "이십오",
+          "start": 4.392,
+          "end": 4.753,
+          "score": 0.9
+        },
+        {
+          "word": "분에",
+          "start": 4.853,
+          "end": 5.113,
+          "score": 0.834
+        },
+        {
+          "word": "학생",
+          "start": 5.515,
+          "end": 5.875,
+          "score": 0.998
+        },
+        {
+          "word": "이십오",
+          "start": 5.896,
+          "end": 6.317,
+          "score": 0.904
+        },
+        {
+          "word": "명이",
+          "start": 6.417,
+          "end": 6.698,
+          "score": 0.846
+        },
+        {
+          "word": "모였습니다.",
+          "start": 6.798,
+          "end": 7.6,
+          "score": 0.818
+        }
+      ],
+      "wav": "K3.wav"
+    },
+    {
+      "id": "K4",
+      "language": "ko",
+      "display_text": "가격은 12,500원이고, 성공률은 97.3퍼센트입니다.",
+      "speech_text": "가격은 만 이천오백 원이고, 성공률은 구십칠 점 삼 퍼센트입니다.",
+      "speech_ms": 6640,
+      "align_ms": 33570.0,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 2,
+      "speech_phrases": 2,
+      "scores": {
+        "count": 9,
+        "min": 0.692,
+        "median": 0.841
+      },
+      "silence_ms": {
+        "leading_ms": 70,
+        "trailing_ms": 10
+      },
+      "first_word_ms": 80,
+      "last_word_ms": 6640,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 14,
+          "start_ms": 80,
+          "end_ms": 2869,
+          "display": "가격은 12,500원이고,"
+        },
+        {
+          "start_char": 15,
+          "end_char": 31,
+          "start_ms": 3531,
+          "end_ms": 6640,
+          "display": "성공률은 97.3퍼센트입니다."
+        }
+      ],
+      "words": [
+        {
+          "word": "가격은",
+          "start": 0.08,
+          "end": 0.542,
+          "score": 0.999
+        },
+        {
+          "word": "만",
+          "start": 1.404,
+          "end": 1.565,
+          "score": 0.988
+        },
+        {
+          "word": "이천오백",
+          "start": 1.645,
+          "end": 2.167,
+          "score": 0.826
+        },
+        {
+          "word": "원이고,",
+          "start": 2.427,
+          "end": 2.869,
+          "score": 0.99
+        },
+        {
+          "word": "성공률은",
+          "start": 3.531,
+          "end": 4.112,
+          "score": 0.692
+        },
+        {
+          "word": "구십칠",
+          "start": 4.353,
+          "end": 4.875,
+          "score": 0.928
+        },
+        {
+          "word": "점",
+          "start": 5.035,
+          "end": 5.196,
+          "score": 0.75
+        },
+        {
+          "word": "삼",
+          "start": 5.637,
+          "end": 5.757,
+          "score": 0.824
+        },
+        {
+          "word": "퍼센트입니다.",
+          "start": 5.858,
+          "end": 6.64,
+          "score": 0.841
+        }
+      ],
+      "wav": "K4.wav"
+    },
+    {
+      "id": "K5",
+      "language": "ko",
+      "display_text": "CPU와 GPU의 차이를 알고 있나요? Python API로 WAV 파일을 저장해 보세요.",
+      "speech_text": "씨 피 유와 지 피 유의 차이를 알고 있나요? 파이썬 에이 피 아이로 더블유 에이 브이 파일을 저장해 보세요.",
+      "speech_ms": 12160,
+      "align_ms": 56005.8,
+      "repeat_stable": true,
+      "verdict": "align_low_confidence",
+      "reasons": [
+        "word score below 0.25: 씨 피 지"
+      ],
+      "display_phrases": 2,
+      "speech_phrases": 2,
+      "scores": {
+        "count": 19,
+        "min": 0.0,
+        "median": 0.75
+      },
+      "silence_ms": {
+        "leading_ms": 50,
+        "trailing_ms": 30
+      },
+      "first_word_ms": 1282,
+      "last_word_ms": 12160,
+      "phrases": [],
+      "words": [
+        {
+          "word": "씨",
+          "start": 1.282,
+          "end": 1.302,
+          "score": 0.0
+        },
+        {
+          "word": "피",
+          "start": 1.322,
+          "end": 1.342,
+          "score": 0.0
+        },
+        {
+          "word": "유와",
+          "start": 3.085,
+          "end": 3.305,
+          "score": 0.714
+        },
+        {
+          "word": "지",
+          "start": 3.325,
+          "end": 3.346,
+          "score": 0.0
+        },
+        {
+          "word": "피",
+          "start": 3.706,
+          "end": 3.906,
+          "score": 0.997
+        },
+        {
+          "word": "유의",
+          "start": 4.147,
+          "end": 5.729,
+          "score": 0.806
+        },
+        {
+          "word": "차이를",
+          "start": 5.85,
+          "end": 6.23,
+          "score": 0.843
+        },
+        {
+          "word": "알고",
+          "start": 6.31,
+          "end": 6.551,
+          "score": 0.925
+        },
+        {
+          "word": "있나요?",
+          "start": 6.591,
+          "end": 6.951,
+          "score": 0.75
+        },
+        {
+          "word": "파이썬",
+          "start": 7.192,
+          "end": 7.552,
+          "score": 0.951
+        },
+        {
+          "word": "에이",
+          "start": 7.633,
+          "end": 7.753,
+          "score": 0.417
+        },
+        {
+          "word": "피",
+          "start": 8.013,
+          "end": 8.173,
+          "score": 0.75
+        },
+        {
+          "word": "아이로",
+          "start": 8.294,
+          "end": 8.734,
+          "score": 0.956
+        },
+        {
+          "word": "더블유",
+          "start": 9.215,
+          "end": 9.596,
+          "score": 0.639
+        },
+        {
+          "word": "에이",
+          "start": 9.736,
+          "end": 9.876,
+          "score": 0.812
+        },
+        {
+          "word": "브이",
+          "start": 10.016,
+          "end": 10.177,
+          "score": 0.74
+        },
+        {
+          "word": "파일을",
+          "start": 10.317,
+          "end": 10.858,
+          "score": 0.868
+        },
+        {
+          "word": "저장해",
+          "start": 11.018,
+          "end": 11.499,
+          "score": 0.989
+        },
+        {
+          "word": "보세요.",
+          "start": 11.599,
+          "end": 12.16,
+          "score": 0.746
+        }
+      ],
+      "wav": "K5.wav"
+    },
+    {
+      "id": "K6",
+      "language": "ko",
+      "display_text": "정말 이 방법이 더 빠를까요? 잠깐만요. 결과를 먼저 확인해 봅시다.",
+      "speech_text": "정말 이 방법이 더 빠를까요? 잠깐만요. 결과를 먼저 확인해 봅시다.",
+      "speech_ms": 6880,
+      "align_ms": 31599.5,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 3,
+      "speech_phrases": 3,
+      "scores": {
+        "count": 10,
+        "min": 0.709,
+        "median": 0.936
+      },
+      "silence_ms": {
+        "leading_ms": 60,
+        "trailing_ms": 50
+      },
+      "first_word_ms": 80,
+      "last_word_ms": 6880,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 16,
+          "start_ms": 80,
+          "end_ms": 2888,
+          "display": "정말 이 방법이 더 빠를까요?"
+        },
+        {
+          "start_char": 17,
+          "end_char": 22,
+          "start_ms": 3330,
+          "end_ms": 4072,
+          "display": "잠깐만요."
+        },
+        {
+          "start_char": 23,
+          "end_char": 38,
+          "start_ms": 5015,
+          "end_ms": 6880,
+          "display": "결과를 먼저 확인해 봅시다."
+        }
+      ],
+      "words": [
+        {
+          "word": "정말",
+          "start": 0.08,
+          "end": 0.401,
+          "score": 0.997
+        },
+        {
+          "word": "이",
+          "start": 1.364,
+          "end": 1.424,
+          "score": 1.0
+        },
+        {
+          "word": "방법이",
+          "start": 1.524,
+          "end": 1.926,
+          "score": 0.979
+        },
+        {
+          "word": "더",
+          "start": 2.046,
+          "end": 2.206,
+          "score": 0.888
+        },
+        {
+          "word": "빠를까요?",
+          "start": 2.387,
+          "end": 2.888,
+          "score": 0.949
+        },
+        {
+          "word": "잠깐만요.",
+          "start": 3.33,
+          "end": 4.072,
+          "score": 0.924
+        },
+        {
+          "word": "결과를",
+          "start": 5.015,
+          "end": 5.556,
+          "score": 0.998
+        },
+        {
+          "word": "먼저",
+          "start": 5.656,
+          "end": 5.917,
+          "score": 0.847
+        },
+        {
+          "word": "확인해",
+          "start": 5.997,
+          "end": 6.338,
+          "score": 0.809
+        },
+        {
+          "word": "봅시다.",
+          "start": 6.399,
+          "end": 6.88,
+          "score": 0.709
+        }
+      ],
+      "wav": "K6.wav"
+    },
+    {
+      "id": "K7",
+      "language": "ko",
+      "display_text": "네. 아니요. 좋아요. 다시 해 볼게요.",
+      "speech_text": "네. 아니요. 좋아요. 다시 해 볼게요.",
+      "speech_ms": 4560,
+      "align_ms": 28822.0,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 4,
+      "speech_phrases": 4,
+      "scores": {
+        "count": 6,
+        "min": 0.496,
+        "median": 0.857
+      },
+      "silence_ms": {
+        "leading_ms": 60,
+        "trailing_ms": 150
+      },
+      "first_word_ms": 121,
+      "last_word_ms": 4560,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 2,
+          "start_ms": 121,
+          "end_ms": 341,
+          "display": "네."
+        },
+        {
+          "start_char": 3,
+          "end_char": 7,
+          "start_ms": 1426,
+          "end_ms": 1908,
+          "display": "아니요."
+        },
+        {
+          "start_char": 8,
+          "end_char": 12,
+          "start_ms": 2591,
+          "end_ms": 3013,
+          "display": "좋아요."
+        },
+        {
+          "start_char": 13,
+          "end_char": 22,
+          "start_ms": 3194,
+          "end_ms": 4560,
+          "display": "다시 해 볼게요."
+        }
+      ],
+      "words": [
+        {
+          "word": "네.",
+          "start": 0.121,
+          "end": 0.341,
+          "score": 0.496
+        },
+        {
+          "word": "아니요.",
+          "start": 1.426,
+          "end": 1.908,
+          "score": 0.885
+        },
+        {
+          "word": "좋아요.",
+          "start": 2.591,
+          "end": 3.013,
+          "score": 0.858
+        },
+        {
+          "word": "다시",
+          "start": 3.194,
+          "end": 3.556,
+          "score": 0.937
+        },
+        {
+          "word": "해",
+          "start": 3.756,
+          "end": 3.877,
+          "score": 0.856
+        },
+        {
+          "word": "볼게요.",
+          "start": 3.998,
+          "end": 4.56,
+          "score": 0.728
+        }
+      ],
+      "wav": "K7.wav"
+    },
+    {
+      "id": "K8",
+      "language": "ko",
+      "display_text": "모델은 문장을 읽고 음성을 만듭니다. 프로그램은 그 음성에 맞춰 자막과 도형을 배치합니다. 마지막으로 장면을 연결해 하나의 설명 영상을 저장합니다.",
+      "speech_text": "모델은 문장을 읽고 음성을 만듭니다. 프로그램은 그 음성에 맞춰 자막과 도형을 배치합니다. 마지막으로 장면을 연결해 하나의 설명 영상을 저장합니다.",
+      "speech_ms": 15200,
+      "align_ms": 80426.7,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 3,
+      "speech_phrases": 3,
+      "scores": {
+        "count": 19,
+        "min": 0.616,
+        "median": 0.883
+      },
+      "silence_ms": {
+        "leading_ms": 90,
+        "trailing_ms": 0
+      },
+      "first_word_ms": 140,
+      "last_word_ms": 15200,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 20,
+          "start_ms": 140,
+          "end_ms": 3585,
+          "display": "모델은 문장을 읽고 음성을 만듭니다."
+        },
+        {
+          "start_char": 21,
+          "end_char": 50,
+          "start_ms": 4085,
+          "end_ms": 10454,
+          "display": "프로그램은 그 음성에 맞춰 자막과 도형을 배치합니다."
+        },
+        {
+          "start_char": 51,
+          "end_char": 82,
+          "start_ms": 10794,
+          "end_ms": 15200,
+          "display": "마지막으로 장면을 연결해 하나의 설명 영상을 저장합니다."
+        }
+      ],
+      "words": [
+        {
+          "word": "모델은",
+          "start": 0.14,
+          "end": 0.501,
+          "score": 0.616
+        },
+        {
+          "word": "문장을",
+          "start": 0.681,
+          "end": 1.101,
+          "score": 0.869
+        },
+        {
+          "word": "읽고",
+          "start": 1.222,
+          "end": 1.682,
+          "score": 0.891
+        },
+        {
+          "word": "음성을",
+          "start": 1.702,
+          "end": 2.263,
+          "score": 0.828
+        },
+        {
+          "word": "만듭니다.",
+          "start": 2.343,
+          "end": 3.585,
+          "score": 0.768
+        },
+        {
+          "word": "프로그램은",
+          "start": 4.085,
+          "end": 4.746,
+          "score": 0.947
+        },
+        {
+          "word": "그",
+          "start": 5.788,
+          "end": 6.168,
+          "score": 0.964
+        },
+        {
+          "word": "음성에",
+          "start": 6.649,
+          "end": 7.45,
+          "score": 0.925
+        },
+        {
+          "word": "맞춰",
+          "start": 7.65,
+          "end": 7.95,
+          "score": 0.982
+        },
+        {
+          "word": "자막과",
+          "start": 8.031,
+          "end": 8.691,
+          "score": 0.927
+        },
+        {
+          "word": "도형을",
+          "start": 8.872,
+          "end": 9.252,
+          "score": 0.925
+        },
+        {
+          "word": "배치합니다.",
+          "start": 9.352,
+          "end": 10.454,
+          "score": 0.811
+        },
+        {
+          "word": "마지막으로",
+          "start": 10.794,
+          "end": 11.375,
+          "score": 0.883
+        },
+        {
+          "word": "장면을",
+          "start": 11.475,
+          "end": 11.996,
+          "score": 0.919
+        },
+        {
+          "word": "연결해",
+          "start": 12.857,
+          "end": 13.237,
+          "score": 0.825
+        },
+        {
+          "word": "하나의",
+          "start": 13.297,
+          "end": 13.618,
+          "score": 0.882
+        },
+        {
+          "word": "설명",
+          "start": 13.718,
+          "end": 14.018,
+          "score": 0.886
+        },
+        {
+          "word": "영상을",
+          "start": 14.058,
+          "end": 14.479,
+          "score": 0.716
+        },
+        {
+          "word": "저장합니다.",
+          "start": 14.559,
+          "end": 15.2,
+          "score": 0.621
+        }
+      ],
+      "wav": "K8.wav"
+    },
+    {
+      "id": "E1",
+      "language": "en",
+      "display_text": "Today, we turn 1 sentence into a short narrated video on your own laptop.",
+      "speech_text": "Today, we turn one sentence into a short narrated video on your own laptop.",
+      "speech_ms": 6320,
+      "align_ms": 12691.6,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 2,
+      "speech_phrases": 2,
+      "scores": {
+        "count": 14,
+        "min": 0.633,
+        "median": 0.831
+      },
+      "silence_ms": {
+        "leading_ms": 60,
+        "trailing_ms": 40
+      },
+      "first_word_ms": 80,
+      "last_word_ms": 6260,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 6,
+          "start_ms": 80,
+          "end_ms": 662,
+          "display": "Today,"
+        },
+        {
+          "start_char": 7,
+          "end_char": 73,
+          "start_ms": 782,
+          "end_ms": 6260,
+          "display": "we turn 1 sentence into a short narrated video on your own laptop."
+        }
+      ],
+      "words": [
+        {
+          "word": "Today,",
+          "start": 0.08,
+          "end": 0.662,
+          "score": 0.769
+        },
+        {
+          "word": "we",
+          "start": 0.782,
+          "end": 0.923,
+          "score": 0.984
+        },
+        {
+          "word": "turn",
+          "start": 0.963,
+          "end": 1.244,
+          "score": 0.799
+        },
+        {
+          "word": "one",
+          "start": 1.425,
+          "end": 1.585,
+          "score": 0.659
+        },
+        {
+          "word": "sentence",
+          "start": 1.685,
+          "end": 2.227,
+          "score": 0.825
+        },
+        {
+          "word": "into",
+          "start": 2.448,
+          "end": 2.769,
+          "score": 0.811
+        },
+        {
+          "word": "a",
+          "start": 2.829,
+          "end": 2.849,
+          "score": 0.998
+        },
+        {
+          "word": "short",
+          "start": 2.949,
+          "end": 3.25,
+          "score": 0.789
+        },
+        {
+          "word": "narrated",
+          "start": 3.391,
+          "end": 3.953,
+          "score": 0.837
+        },
+        {
+          "word": "video",
+          "start": 4.033,
+          "end": 4.514,
+          "score": 0.9
+        },
+        {
+          "word": "on",
+          "start": 4.936,
+          "end": 4.996,
+          "score": 0.999
+        },
+        {
+          "word": "your",
+          "start": 5.036,
+          "end": 5.196,
+          "score": 0.916
+        },
+        {
+          "word": "own",
+          "start": 5.337,
+          "end": 5.538,
+          "score": 0.633
+        },
+        {
+          "word": "laptop.",
+          "start": 5.618,
+          "end": 6.26,
+          "score": 0.967
+        }
+      ],
+      "wav": "E1.wav"
+    },
+    {
+      "id": "E2",
+      "language": "en",
+      "display_text": "The price is $12.50.",
+      "speech_text": "The price is twelve dollars and fifty cents.",
+      "speech_ms": 3360,
+      "align_ms": 9104.2,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 1,
+      "speech_phrases": 1,
+      "scores": {
+        "count": 8,
+        "min": 0.697,
+        "median": 0.829
+      },
+      "silence_ms": {
+        "leading_ms": 50,
+        "trailing_ms": 70
+      },
+      "first_word_ms": 40,
+      "last_word_ms": 3199,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 20,
+          "start_ms": 40,
+          "end_ms": 3199,
+          "display": "The price is $12.50."
+        }
+      ],
+      "words": [
+        {
+          "word": "The",
+          "start": 0.04,
+          "end": 0.141,
+          "score": 0.735
+        },
+        {
+          "word": "price",
+          "start": 0.181,
+          "end": 0.523,
+          "score": 0.957
+        },
+        {
+          "word": "is",
+          "start": 0.583,
+          "end": 0.704,
+          "score": 0.697
+        },
+        {
+          "word": "twelve",
+          "start": 0.825,
+          "end": 1.147,
+          "score": 0.887
+        },
+        {
+          "word": "dollars",
+          "start": 1.187,
+          "end": 1.61,
+          "score": 0.77
+        },
+        {
+          "word": "and",
+          "start": 2.213,
+          "end": 2.314,
+          "score": 0.74
+        },
+        {
+          "word": "fifty",
+          "start": 2.414,
+          "end": 2.817,
+          "score": 0.928
+        },
+        {
+          "word": "cents.",
+          "start": 2.877,
+          "end": 3.199,
+          "score": 0.936
+        }
+      ],
+      "wav": "E2.wav"
+    },
+    {
+      "id": "E3",
+      "language": "en",
+      "display_text": "Is the CPU version fast enough?",
+      "speech_text": "Is the C P U version fast enough?",
+      "speech_ms": 3040,
+      "align_ms": 6651.1,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 1,
+      "speech_phrases": 1,
+      "scores": {
+        "count": 8,
+        "min": 0.783,
+        "median": 0.896
+      },
+      "silence_ms": {
+        "leading_ms": 40,
+        "trailing_ms": 240
+      },
+      "first_word_ms": 141,
+      "last_word_ms": 2879,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 31,
+          "start_ms": 141,
+          "end_ms": 2879,
+          "display": "Is the CPU version fast enough?"
+        }
+      ],
+      "words": [
+        {
+          "word": "Is",
+          "start": 0.141,
+          "end": 0.262,
+          "score": 0.783
+        },
+        {
+          "word": "the",
+          "start": 0.322,
+          "end": 0.403,
+          "score": 0.97
+        },
+        {
+          "word": "C",
+          "start": 0.483,
+          "end": 0.705,
+          "score": 0.83
+        },
+        {
+          "word": "P",
+          "start": 0.765,
+          "end": 1.047,
+          "score": 0.943
+        },
+        {
+          "word": "U",
+          "start": 1.268,
+          "end": 1.349,
+          "score": 1.0
+        },
+        {
+          "word": "version",
+          "start": 1.429,
+          "end": 1.913,
+          "score": 0.871
+        },
+        {
+          "word": "fast",
+          "start": 2.074,
+          "end": 2.456,
+          "score": 0.919
+        },
+        {
+          "word": "enough?",
+          "start": 2.537,
+          "end": 2.879,
+          "score": 0.873
+        }
+      ],
+      "wav": "E3.wav"
+    },
+    {
+      "id": "E4",
+      "language": "en",
+      "display_text": "Let's check the result first.",
+      "speech_text": "Let's check the result first.",
+      "speech_ms": 1920,
+      "align_ms": 5950.2,
+      "repeat_stable": true,
+      "verdict": "ok",
+      "reasons": [],
+      "display_phrases": 1,
+      "speech_phrases": 1,
+      "scores": {
+        "count": 5,
+        "min": 0.832,
+        "median": 0.889
+      },
+      "silence_ms": {
+        "leading_ms": 40,
+        "trailing_ms": 0
+      },
+      "first_word_ms": 81,
+      "last_word_ms": 1819,
+      "phrases": [
+        {
+          "start_char": 0,
+          "end_char": 29,
+          "start_ms": 81,
+          "end_ms": 1819,
+          "display": "Let's check the result first."
+        }
+      ],
+      "words": [
+        {
+          "word": "Let's",
+          "start": 0.081,
+          "end": 0.323,
+          "score": 0.846
+        },
+        {
+          "word": "check",
+          "start": 0.404,
+          "end": 0.667,
+          "score": 0.889
+        },
+        {
+          "word": "the",
+          "start": 0.707,
+          "end": 0.808,
+          "score": 0.832
+        },
+        {
+          "word": "result",
+          "start": 0.849,
+          "end": 1.293,
+          "score": 0.909
+        },
+        {
+          "word": "first.",
+          "start": 1.435,
+          "end": 1.819,
+          "score": 0.902
+        }
+      ],
+      "wav": "E4.wav"
+    }
+  ]
+}

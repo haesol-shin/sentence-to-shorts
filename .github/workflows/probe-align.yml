@@ -1,0 +1,190 @@
+name: Probe alignment
+
+on:
+  pull_request:
+    paths:
+      - "probes/align/**"
+      - ".github/workflows/probe-align.yml"
+  workflow_dispatch:
+    inputs:
+      windows:
+        description: "Also run the windows-latest leg"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: probe-align-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.matrix.outputs.value }}
+    steps:
+      # The Windows leg waits for the installer work: pull request runs use
+      # ubuntu-24.04 only and the dispatch input adds windows-latest.
+      - name: Choose the matrix
+        id: matrix
+        shell: bash
+        env:
+          WINDOWS: ${{ inputs.windows }}
+        run: |
+          if [ "$WINDOWS" = "true" ]; then
+            echo 'value={"include":[{"os":"ubuntu-24.04","platform":"x86_64-manylinux_2_28","artifact":"probe-align-ubuntu-24.04"},{"os":"windows-latest","platform":"x86_64-pc-windows-msvc","artifact":"probe-align-windows-latest"}]}' >> "$GITHUB_OUTPUT"
+          else
+            echo 'value={"include":[{"os":"ubuntu-24.04","platform":"x86_64-manylinux_2_28","artifact":"probe-align-ubuntu-24.04"}]}' >> "$GITHUB_OUTPUT"
+          fi
+
+  probe:
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    env:
+      PROBE_THREADS: "4"
+      PROBE_ROOT: ${{ github.workspace }}/.local/probe
+      PROBE_MODELS_DIR: ${{ github.workspace }}/.local/probe/models
+      HF_HOME: ${{ github.workspace }}/.local/probe/hf
+      TORCH_HOME: ${{ github.workspace }}/.local/probe/torch
+      NLTK_DATA: ${{ github.workspace }}/.local/probe/nltk
+      HF_HUB_DISABLE_PROGRESS_BARS: "1"
+      PIP_DISABLE_PIP_VERSION_CHECK: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Run the mapping tests
+        shell: bash
+        run: python -m unittest discover -s probes/align/tests -v
+      - name: Install WhisperX
+        shell: bash
+        run: |
+          python -m venv "$PROBE_ROOT/align-venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            PY="$PROBE_ROOT/align-venv/Scripts/python.exe"
+          else
+            PY="$PROBE_ROOT/align-venv/bin/python"
+          fi
+          echo "PROBE_PY=$PY" >> "$GITHUB_ENV"
+          started=$(date +%s)
+          # The CPU index keeps the CUDA build and its nvidia packages out of
+          # the measured environment. WhisperX accepts 2.8.0+cpu for ~=2.8.0.
+          "$PY" -m pip install --no-cache-dir --no-input \
+            --index-url https://download.pytorch.org/whl/cpu \
+            --extra-index-url https://pypi.org/simple \
+            torch==2.8.0 torchaudio==2.8.0 torchvision==0.23.0
+          "$PY" -m pip install --no-cache-dir --no-input whisperx==3.8.6
+          echo "ALIGN_INSTALL_SECONDS=$(( $(date +%s) - started ))" >> "$GITHUB_ENV"
+      - name: Resolve candidate environments
+        shell: bash
+        run: |
+          python -m pip install --quiet uv==0.11.15
+          python probes/align/install_matrix.py \
+            --platform "${{ matrix.platform }}" \
+            --out "$PROBE_ROOT/install-matrix.json"
+      - name: Install the speech engine and download its models
+        shell: bash
+        run: |
+          python -m venv "$PROBE_ROOT/tts-venv"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            TTS_PY="$PROBE_ROOT/tts-venv/Scripts/python.exe"
+          else
+            TTS_PY="$PROBE_ROOT/tts-venv/bin/python"
+          fi
+          "$TTS_PY" -m pip install --no-cache-dir --no-input --require-hashes \
+            -r probes/tts/moss-tts-nano-100m/requirements.txt
+          "$TTS_PY" probes/tts/common/fetch_models.py \
+            --spec probes/tts/moss-tts-nano-100m/models.json \
+            --root "$PROBE_MODELS_DIR"
+          echo "TTS_PY=$TTS_PY" >> "$GITHUB_ENV"
+      - name: Synthesize the alignment script
+        shell: bash
+        run: |
+          "$TTS_PY" probes/tts/moss-tts-nano-100m/synth.py \
+            --texts probes/align/texts.json \
+            --out "$PROBE_ROOT/audio" \
+            --threads "$PROBE_THREADS" \
+            --repeats 1 \
+            --timeout 300 \
+            --synth-budget 1800
+      - name: Run the forced alignment
+        shell: bash
+        run: |
+          "$PROBE_PY" probes/align/align_probe.py \
+            --audio-dir "$PROBE_ROOT/audio/wav" \
+            --out "$PROBE_ROOT/align-result.json" \
+            --repeats 2
+      - name: Measure the aligner environment and models
+        shell: bash
+        run: |
+          "$PROBE_PY" probes/align/measure_env.py \
+            --env "$PROBE_ROOT/align-venv" \
+            --cache "$HF_HOME" --cache "$TORCH_HOME" \
+            --out "$PROBE_ROOT/env.json"
+          "$PROBE_PY" - "$PROBE_ROOT/env.json" <<'PY'
+          import json
+          import os
+          import sys
+
+          path = sys.argv[1]
+          data = json.load(open(path, encoding="utf-8"))
+          data["install_seconds"] = int(os.environ["ALIGN_INSTALL_SECONDS"])
+          with open(path, "w", encoding="utf-8") as handle:
+              json.dump(data, handle, ensure_ascii=False, indent=2)
+              handle.write("\n")
+          PY
+      - name: Write the job summary
+        shell: bash
+        run: |
+          python - "$PROBE_ROOT" <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import pathlib
+          import sys
+
+          root = pathlib.Path(sys.argv[1])
+          result = json.loads((root / "align-result.json").read_text(encoding="utf-8"))
+          env = json.loads((root / "env.json").read_text(encoding="utf-8"))
+          matrix = json.loads((root / "install-matrix.json").read_text(encoding="utf-8"))
+          print("## Alignment probe\n")
+          print(f"- gate: {result['gate']}")
+          print(f"- platform: {result['host']['platform']} ({result['host']['machine']})")
+          print(f"- peak RSS: {result['peak_rss_bytes']} bytes")
+          print(f"- environment: {env['environment_bytes']} bytes in {env['install_seconds']} s")
+          print(f"- models: {result['model_download_bytes']} bytes\n")
+          print("| language | lines | ok | failures | align ms | model load ms |")
+          print("| --- | --- | --- | --- | --- | --- |")
+          for language, summary in result["summary"].items():
+              failures = ", ".join(f"{key}: {value}" for key, value in summary["failures"].items()) or "-"
+              print(
+                  f"| {language} | {summary['lines']} | {summary['ok']} | {failures} | "
+                  f"{summary['align_ms']} | {summary['model_load_ms']} |"
+              )
+          print("\n| candidate | status | reason |")
+          print("| --- | --- | --- |")
+          for record in matrix["records"]:
+              if record["variant"] != "published":
+                  continue
+              print(f"| {record['scenario']} | {record['status']} | {record['reason'] or '-'} |")
+          PY
+      - name: Upload the probe results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            .local/probe/env.json
+            .local/probe/install-matrix.json
+            .local/probe/align-result.json
+            .local/probe/audio/result.json
+          if-no-files-found: error
+          retention-days: 14

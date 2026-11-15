@@ -1,0 +1,216 @@
+{
+  "schema": 1,
+  "python": "3.11",
+  "platforms": [
+    "x86_64-manylinux_2_28",
+    "aarch64-manylinux_2_28"
+  ],
+  "records": [
+    {
+      "scenario": "whisperx",
+      "variant": "aligner",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "resolved",
+      "pins": {
+        "huggingface-hub": "0.36.2",
+        "onnxruntime": "1.32.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "torchaudio": "2.8.0",
+        "torchcodec": "0.7.0",
+        "transformers": "4.57.6"
+      },
+      "reason": ""
+    },
+    {
+      "scenario": "qwen3-tts-0.6b",
+      "variant": "published",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "qwen3-tts-0.6b",
+      "variant": "shared_pins_relaxed",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "qwen3-tts-1.7b",
+      "variant": "published",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "qwen3-tts-1.7b",
+      "variant": "shared_pins_relaxed",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "moss-tts-nano-100m",
+      "variant": "published",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because whisperx==3.8.6 depends on huggingface-hub<1.0.0 and you require huggingface-hub==2.4.0, we can conclude that your requirements and whisperx==3.8.6 are incompatible. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "moss-tts-nano-100m",
+      "variant": "shared_pins_relaxed",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "resolved",
+      "pins": {
+        "huggingface-hub": "0.36.2",
+        "onnxruntime": "1.32.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "torchaudio": "2.8.0",
+        "torchcodec": "0.7.0",
+        "transformers": "4.57.6"
+      },
+      "reason": ""
+    },
+    {
+      "scenario": "chatterbox-multilingual-v3",
+      "variant": "published",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because whisperx==3.8.6 depends on huggingface-hub<1.0.0 and you require huggingface-hub==2.4.0, we can conclude that your requirements and whisperx==3.8.6 are incompatible. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "chatterbox-multilingual-v3",
+      "variant": "shared_pins_relaxed",
+      "platform": "x86_64-manylinux_2_28",
+      "status": "resolved",
+      "pins": {
+        "huggingface-hub": "0.36.2",
+        "onnxruntime": "1.32.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "torchaudio": "2.8.0",
+        "torchcodec": "0.7.0",
+        "transformers": "4.57.6"
+      },
+      "reason": ""
+    },
+    {
+      "scenario": "whisperx",
+      "variant": "aligner",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "resolved",
+      "pins": {
+        "huggingface-hub": "0.36.2",
+        "onnxruntime": "1.32.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "torchaudio": "2.8.0",
+        "torchcodec": "0.17.0",
+        "transformers": "4.57.6"
+      },
+      "reason": ""
+    },
+    {
+      "scenario": "qwen3-tts-0.6b",
+      "variant": "published",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "qwen3-tts-0.6b",
+      "variant": "shared_pins_relaxed",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "qwen3-tts-1.7b",
+      "variant": "published",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "qwen3-tts-1.7b",
+      "variant": "shared_pins_relaxed",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because only the following versions of torch are available: torch<2.8.0 torch>=2.9.dev0 and whisperx==3.8.6 depends on torch>=2.8.0,<2.9.dev0, we can conclude that whisperx==3.8.6 cannot be used. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "moss-tts-nano-100m",
+      "variant": "published",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because whisperx==3.8.6 depends on huggingface-hub<1.0.0 and you require huggingface-hub==2.4.0, we can conclude that your requirements and whisperx==3.8.6 are incompatible. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "moss-tts-nano-100m",
+      "variant": "shared_pins_relaxed",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "resolved",
+      "pins": {
+        "huggingface-hub": "0.36.2",
+        "onnxruntime": "1.32.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "torchaudio": "2.8.0",
+        "torchcodec": "0.17.0",
+        "transformers": "4.57.6"
+      },
+      "reason": ""
+    },
+    {
+      "scenario": "chatterbox-multilingual-v3",
+      "variant": "published",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "failed",
+      "pins": {},
+      "reason": "No solution found when resolving dependencies: ╰─▶ Because whisperx==3.8.6 depends on huggingface-hub<1.0.0 and you require huggingface-hub==2.4.0, we can conclude that your requirements and whisperx==3.8.6 are incompatible. And because you require whisperx==3.8.6, we can conclude that your requirements are unsatisfiable."
+    },
+    {
+      "scenario": "chatterbox-multilingual-v3",
+      "variant": "shared_pins_relaxed",
+      "platform": "aarch64-manylinux_2_28",
+      "status": "resolved",
+      "pins": {
+        "huggingface-hub": "0.36.2",
+        "onnxruntime": "1.32.0",
+        "tokenizers": "0.22.2",
+        "torch": "2.8.0",
+        "torchaudio": "2.8.0",
+        "torchcodec": "0.17.0",
+        "transformers": "4.57.6"
+      },
+      "reason": ""
+    }
+  ],
+  "summary": {
+    "x86_64-manylinux_2_28": {
+      "qwen3-tts-0.6b": "failed",
+      "qwen3-tts-1.7b": "failed",
+      "moss-tts-nano-100m": "failed",
+      "chatterbox-multilingual-v3": "failed"
+    },
+    "aarch64-manylinux_2_28": {
+      "qwen3-tts-0.6b": "failed",
+      "qwen3-tts-1.7b": "failed",
+      "moss-tts-nano-100m": "failed",
+      "chatterbox-multilingual-v3": "failed"
+    }
+  }
+}
