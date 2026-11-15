@@ -4,9 +4,12 @@ version = "0.1.0"
 description = "Contracts and execution skeleton for the local video studio backend"
 requires-python = ">=3.11,<3.12"
 dependencies = [
+    "anthropic==2.8.0",
     "fastapi==0.162.7",
     "fonttools==4.68.0",
     "pillow==13.0.0",
+    "jsonschema==4.26.0",
+    "keyring==25.7.0",
     "pydantic==2.14.3",
     "python-multipart==0.0.33",
     "pyyaml==6.0.3",
@@ -20,7 +23,6 @@ package-mode = false
 [tool.poetry.group.dev.dependencies]
 httpx2 = "2.16.0"
 import-linter = "2.16"
-jsonschema = "4.26.0"
 pytest = "9.2.0"
 ruff = "0.17.5"
 
