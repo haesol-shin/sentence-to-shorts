@@ -1,6 +1,7 @@
 @import '../base.css';
 
 .chip {
+  position: relative;
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
@@ -14,6 +15,18 @@
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
+}
+
+.chip__spinner {
+  position: absolute;
+  left: var(--space-12);
+  top: 50%;
+  color: var(--muted-foreground);
+  translate: 0 -50%;
+}
+
+.chip[data-no-lead][data-state='loading'] .chip__label {
+  visibility: hidden;
 }
 
 .chip--removable {

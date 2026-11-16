@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
 
 import './Chip.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
 
 export type ChipState = 'default' | 'loading' | 'error';
 
@@ -22,10 +22,7 @@ export type ChipProps = {
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** A file or value chip. The surface is not a button, so it never nests one. */
 export function Chip({ children, state = 'default', lead, remove, forceState, className }: ChipProps) {
@@ -36,9 +33,12 @@ export function Chip({ children, state = 'default', lead, remove, forceState, cl
     <div
       className={cn('chip', 'focus-ring', hasRemove && 'chip--removable', className)}
       data-state={state}
+      data-no-lead={lead === undefined ? '' : undefined}
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
     >
-      {lead === undefined && state !== 'loading' ? null : (
+      {lead === undefined ? (
+        state === 'loading' ? <span className="chip__spinner spinner" aria-hidden="true" /> : null
+      ) : (
         <span className="chip__lead" aria-hidden="true">
           {state === 'loading' ? <span className="spinner" /> : lead}
         </span>

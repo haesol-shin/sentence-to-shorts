@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/utils';
 
 import './TextField.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
 
 export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'aria-label' | 'children'> & {
   /** The visible label, also the accessible name. */
@@ -17,10 +17,7 @@ export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'aria-l
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** A one-line input. The error sentence is wired to the input, not only drawn. */
 export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function TextField(

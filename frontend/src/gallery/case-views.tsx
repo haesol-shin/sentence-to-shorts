@@ -29,6 +29,12 @@ const TAB_ITEMS = [
   { value: 'voice', label: '목소리' },
 ];
 
+const LATIN_TABS = [
+  { value: 'bgm', label: 'BGM' },
+  { value: 'api', label: 'API key' },
+  { value: 'mix', label: '믹스' },
+];
+
 const RADIO_OPTIONS = [
   { value: 'vertical', label: '세로' },
   { value: 'square', label: '정사각' },
@@ -170,12 +176,13 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         </div>
       );
     case 'chip': {
+      const noLead = entry.slug.startsWith('no-lead');
       const chipState = state === 'loading' || state === 'error' ? state : 'default';
       return (
         <Chip
           state={chipState}
           forceState={state}
-          lead={<FileText aria-hidden="true" />}
+          lead={noLead ? undefined : <FileText aria-hidden="true" />}
           remove={<CloseButton label="파일 지우기" size="sm" />}
         >
           대본_최종_수정본.md
@@ -213,17 +220,22 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         </Notice>
       );
     }
-    case 'tabs':
-      return (
-        <Tabs
-          label="영상 값"
-          items={TAB_ITEMS.map((item, index) =>
-            index === 0 && state === 'disabled' ? { ...item, disabled: true } : item,
-          )}
-          defaultValue={state === 'selected' ? 'script' : undefined}
-          forceState={state}
-        />
+    case 'tabs': {
+      const latin = entry.slug.startsWith('latin');
+      const items = (latin ? LATIN_TABS : TAB_ITEMS).map((item, index) =>
+        index === 0 && state === 'disabled' ? { ...item, disabled: true } : item,
       );
+      const defaultValue = latin
+        ? entry.slug === 'latin-selected'
+          ? 'bgm'
+          : null
+        : state === 'selected'
+          ? 'script'
+          : null;
+      return (
+        <Tabs label="영상 값" items={items} defaultValue={defaultValue} forceState={state} />
+      );
+    }
     case 'radio':
       return (
         <RadioGroup
@@ -235,7 +247,8 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           forceState={state}
         />
       );
-    case 'switch':
+    case 'switch': {
+      const children = entry.slug === 'label-element' ? <span>자동 저장</span> : '자동 저장';
       return (
         <Switch
           label="자동 저장"
@@ -243,9 +256,10 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           forceState={state}
           disabled={state === 'disabled'}
         >
-          자동 저장
+          {children}
         </Switch>
       );
+    }
     case 'menu': {
       const forced = forceItem(entry.slug);
       const isOpen = entry.portal;

@@ -5,7 +5,8 @@ import { cn } from '@/shared/lib/utils';
 
 import './Switch.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
+import { LabelBox } from '../LabelBox';
 
 export type SwitchProps = {
   children: ReactNode;
@@ -20,10 +21,7 @@ export type SwitchProps = {
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** An on/off pill. The selected look is a grey fill with bold text from the state table. */
 export function Switch({
@@ -49,9 +47,7 @@ export function Switch({
       onCheckedChange={(next) => onCheckedChange?.(next)}
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
     >
-      <span className="switch-option__label" data-label={typeof children === 'string' ? children : undefined}>
-        {children}
-      </span>
+      <LabelBox>{children}</LabelBox>
     </SwitchPrimitive.Root>
   );
 }

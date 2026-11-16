@@ -4,7 +4,7 @@ import { cn } from '@/shared/lib/utils';
 
 import './IconButton.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
 
 export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> & {
   /** The accessible name. An icon alone carries no text. */
@@ -14,10 +14,7 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
   children: ReactNode;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** A 44x44 icon control. The box is the hit area, so the icon never shrinks it. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(

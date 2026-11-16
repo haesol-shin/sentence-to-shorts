@@ -17,6 +17,13 @@ export type TooltipProps = {
   className?: string;
 };
 
+function existingDescriptionOf(element: ReactElement): string | undefined {
+  const props: unknown = element.props;
+  if (props === null || typeof props !== 'object' || !('aria-describedby' in props)) return undefined;
+  const value = props['aria-describedby'];
+  return typeof value === 'string' ? value : undefined;
+}
+
 /**
  * A short reason on hover and on keyboard focus. One line is a pill; two lines
  * or more use the content radius, both from the token set.
@@ -27,6 +34,8 @@ export function Tooltip({ content, children, side = 'top', forceOpen, className 
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
   const popupId = useId();
   const shown = forceOpen ?? open;
+  const describedBy =
+    [existingDescriptionOf(children), shown ? popupId : undefined].filter(Boolean).join(' ') || undefined;
 
   useEffect(() => {
     if (forceOpen !== undefined) setOpen(forceOpen);
@@ -50,7 +59,7 @@ export function Tooltip({ content, children, side = 'top', forceOpen, className 
       }}
     >
       <TooltipPrimitive.Trigger
-        render={cloneElement(children, { 'aria-describedby': shown ? popupId : undefined })}
+        render={cloneElement(children, { 'aria-describedby': describedBy })}
       />
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Positioner side={side} sideOffset={8} collisionPadding={8} className="tooltip-positioner">

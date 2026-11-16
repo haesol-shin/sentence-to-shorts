@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode } from 'react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { Check, ChevronDown } from 'lucide-react';
 
@@ -6,9 +6,9 @@ import { cn } from '@/shared/lib/utils';
 
 import './ValueField.css';
 
-export type ForceState = string | readonly string[];
-
-type Fade = 'none' | 'bottom' | 'both' | 'top';
+import { statesOf, type ForceState } from '../force-state';
+import { Tooltip } from '../Tooltip/Tooltip';
+import { useOverflowFade } from '../use-overflow-fade';
 
 export type ValueFieldItem = {
   value: string;
@@ -36,10 +36,7 @@ export type ValueFieldProps = {
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /**
  * A grey value field whose menu opens below it with the same width. Base UI
@@ -61,40 +58,8 @@ export function ValueField({
 }: ValueFieldProps) {
   const noteId = useId();
   const [list, setList] = useState<HTMLDivElement | null>(null);
-  const [fade, setFade] = useState<Fade>('none');
+  const fade = useOverflowFade(list, '.field-item');
   const forced = statesOf(forceState);
-
-  useEffect(() => {
-    if (list === null) return;
-    const update = () => {
-      if (list.scrollHeight <= list.clientHeight + 8) {
-        list.style.maxHeight = '';
-        setFade('none');
-        return;
-      }
-      const items = list.querySelectorAll<HTMLElement>('.field-item');
-      const pitch = items.length > 1 ? items[1].offsetTop - items[0].offsetTop : 0;
-      const available = list.clientHeight;
-      if (pitch > 0) {
-        const snapped = Math.floor((available - pitch / 2) / pitch) * pitch + pitch / 2;
-        if (snapped >= pitch && snapped < available) list.style.maxHeight = `${snapped}px`;
-      }
-      const atTop = list.scrollTop <= 1;
-      const atBottom = list.scrollTop + list.clientHeight >= list.scrollHeight - 1;
-      setFade(atTop ? 'bottom' : atBottom ? 'top' : 'both');
-    };
-    update();
-    list.addEventListener('scroll', update, { passive: true });
-    if (typeof ResizeObserver === 'undefined') {
-      return () => list.removeEventListener('scroll', update);
-    }
-    const observer = new ResizeObserver(update);
-    observer.observe(list);
-    return () => {
-      list.removeEventListener('scroll', update);
-      observer.disconnect();
-    };
-  }, [list]);
 
   const resolvedNote = items.some((item) => item.unavailable)
     ? '곧 지원 항목은 다음 단계에서 열려요.'
@@ -134,23 +99,34 @@ export function ValueField({
           <SelectPrimitive.Popup className="field-menu" data-fade={fade === 'none' ? undefined : fade}>
             <div className="field-menu__body">
               <SelectPrimitive.List className="field-menu__list" ref={setList}>
-                {items.map((item) => (
-                  <SelectPrimitive.Item
-                    key={item.value}
-                    value={item.value}
-                    disabled={item.disabled === true || item.unavailable === true}
-                    className="field-item hit-area"
-                    data-unavailable={item.unavailable === true ? '' : undefined}
-                    aria-label={item.unavailable === true ? `${item.label} 곧 지원` : item.label}
-                    aria-describedby={item.unavailable === true && resolvedNote !== undefined ? noteId : undefined}
-                  >
-                    <SelectPrimitive.ItemText className="field-item__text">{item.label}</SelectPrimitive.ItemText>
-                    {item.tag === undefined ? null : <span className="field-item__tag">{item.tag}</span>}
-                    <SelectPrimitive.ItemIndicator className="field-item__indicator">
-                      <Check aria-hidden="true" />
-                    </SelectPrimitive.ItemIndicator>
-                  </SelectPrimitive.Item>
-                ))}
+                {items.map((item) => {
+                  const row = (
+                    <SelectPrimitive.Item
+                      key={item.value}
+                      value={item.value}
+                      disabled={item.disabled === true || item.unavailable === true}
+                      className="field-item hit-area"
+                      data-unavailable={item.unavailable === true ? '' : undefined}
+                      aria-label={item.unavailable === true ? `${item.label} 곧 지원` : item.label}
+                      aria-describedby={
+                        item.unavailable === true && resolvedNote !== undefined ? noteId : undefined
+                      }
+                    >
+                      <SelectPrimitive.ItemText className="field-item__text">{item.label}</SelectPrimitive.ItemText>
+                      {item.tag === undefined ? null : <span className="field-item__tag">{item.tag}</span>}
+                      <SelectPrimitive.ItemIndicator className="field-item__indicator">
+                        <Check aria-hidden="true" />
+                      </SelectPrimitive.ItemIndicator>
+                    </SelectPrimitive.Item>
+                  );
+                  return item.unavailable === true && resolvedNote !== undefined ? (
+                    <Tooltip key={item.value} content={resolvedNote} side="right">
+                      {row}
+                    </Tooltip>
+                  ) : (
+                    row
+                  );
+                })}
               </SelectPrimitive.List>
             </div>
             {resolvedNote === undefined ? null : (

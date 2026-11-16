@@ -1,4 +1,4 @@
-import { useId, type ReactElement, type ReactNode } from 'react';
+import { useId, useState, type ReactElement, type ReactNode } from 'react';
 import { Menu as MenuPrimitive } from '@base-ui/react/menu';
 import { Check } from 'lucide-react';
 
@@ -6,7 +6,9 @@ import { cn } from '@/shared/lib/utils';
 
 import './MenuButton.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
+import { Tooltip } from '../Tooltip/Tooltip';
+import { useOverflowFade } from '../use-overflow-fade';
 
 export type MenuItemSpec = {
   value: string;
@@ -38,14 +40,11 @@ export type MenuButtonProps = {
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /**
  * A dropdown menu. The trigger and the unavailable tag are composed by the
- * caller, so the menu never imports another part.
+ * caller; the unavailable reason uses the shared tooltip part.
  */
 export function MenuButton({
   trigger,
@@ -62,6 +61,8 @@ export function MenuButton({
   className,
 }: MenuButtonProps) {
   const noteId = useId();
+  const [list, setList] = useState<HTMLDivElement | null>(null);
+  const fade = useOverflowFade(list, '.menu-item');
   const forced = statesOf(forceItemState);
   const forcedAttr = forced.length > 0 ? forced.join(' ') : undefined;
   const resolvedNote =
@@ -69,7 +70,7 @@ export function MenuButton({
 
   const rows = items.map((item) => {
     const forcedItem = item.value === (forceItemValue ?? items[0]?.value);
-    return (
+    const row = (
       <MenuPrimitive.Item
         key={item.value}
         className="menu-item hit-area focus-ring focus-ring--inset"
@@ -86,6 +87,13 @@ export function MenuButton({
         {item.selected === true ? <Check className="menu-item__check" aria-hidden="true" /> : null}
       </MenuPrimitive.Item>
     );
+    return item.unavailable === true && resolvedNote !== undefined ? (
+      <Tooltip key={item.value} content={resolvedNote} side="right">
+        {row}
+      </Tooltip>
+    ) : (
+      row
+    );
   });
 
   return (
@@ -99,15 +107,23 @@ export function MenuButton({
           collisionPadding={8}
           className="menu-positioner"
         >
-          <MenuPrimitive.Popup className={cn('menu-surface', className)} aria-label={label}>
-            {heading === undefined ? (
-              rows
-            ) : (
-              <MenuPrimitive.Group>
-                <MenuPrimitive.GroupLabel className="menu-label">{heading}</MenuPrimitive.GroupLabel>
-                {rows}
-              </MenuPrimitive.Group>
-            )}
+          <MenuPrimitive.Popup
+            className={cn('menu-surface', className)}
+            aria-label={label}
+            data-fade={fade === 'none' ? undefined : fade}
+          >
+            <div className="menu-body">
+              <div className="menu-scroll" ref={setList}>
+                {heading === undefined ? (
+                  rows
+                ) : (
+                  <MenuPrimitive.Group>
+                    <MenuPrimitive.GroupLabel className="menu-label">{heading}</MenuPrimitive.GroupLabel>
+                    {rows}
+                  </MenuPrimitive.Group>
+                )}
+              </div>
+            </div>
             {resolvedNote === undefined ? null : (
               <div className="menu-note" id={noteId}>
                 {resolvedNote}

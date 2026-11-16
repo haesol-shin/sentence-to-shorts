@@ -72,6 +72,49 @@ test('test_10a_gallery_lists_every_part_and_numbered_case_in_order', async ({ pa
   }
 });
 
+test('test_10a_visible_box_stays_equal_across_states', async ({ page }) => {
+  const widthsOf = async (partId: string, labels: readonly string[], selector: string): Promise<number[]> => {
+    await galleryReady(page, partId);
+    const frame = await frameOf(page, `iframe[data-frame-group="${partId}"][width="390"]`);
+    const widths: number[] = [];
+    for (const label of labels) {
+      const width = await frame
+        .locator(`[data-case="${label}"] ${selector}`)
+        .first()
+        .evaluate((element) => element.getBoundingClientRect().width);
+      widths.push(Math.round(width * 10) / 10);
+    }
+    return widths;
+  };
+  const equal = (widths: number[]) => expect(new Set(widths).size).toBe(1);
+
+  equal(
+    await widthsOf(
+      'button-primary',
+      ['1-1-default', '1-2-hover', '1-3-pressed', '1-4-disabled', '1-5-loading', '1-6-focus-visible'],
+      'button',
+    ),
+  );
+  equal(await widthsOf('chip', ['6-1-default', '6-2-loading', '6-3-error', '6-4-focus-visible'], '.chip'));
+  equal(await widthsOf('chip', ['6-5-no-lead', '6-6-no-lead-loading'], '.chip'));
+  equal(
+    await widthsOf(
+      'tabs',
+      ['10-1-default', '10-2-hover', '10-3-pressed', '10-4-selected', '10-5-disabled', '10-6-focus-visible'],
+      '[role=tab]',
+    ),
+  );
+  equal(await widthsOf('tabs', ['10-7-latin-default', '10-8-latin-selected'], '[role=tab]'));
+  equal(
+    await widthsOf(
+      'switch',
+      ['12-1-default', '12-2-hover', '12-3-pressed', '12-4-selected', '12-5-disabled', '12-6-focus-visible'],
+      '.switch-option',
+    ),
+  );
+  equal(await widthsOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option'));
+});
+
 test('test_10a_tabs_radio_and_switch_change_with_the_keyboard', async ({ page }) => {
   await galleryReady(page, 'tabs');
   const tabs = await frameOf(page, 'iframe[data-frame-group="tabs"][width="390"]');
@@ -174,6 +217,18 @@ test('test_10a_tooltip_opens_on_hover_and_keyboard_focus', async ({ page }) => {
   await expect(page.getByRole('tooltip')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('tooltip')).toHaveCount(0);
+});
+
+test('test_10a_unavailable_menu_row_shows_its_reason_on_hover', async ({ page }) => {
+  await galleryReady(page, 'menu');
+  const frame = await frameOf(page, 'iframe[data-frame-case="13-12-item-unavailable"][width="390"]');
+  const row = frame.locator('[role=menuitem][aria-disabled=true]').first();
+  await row.hover();
+  const tooltip = frame.getByRole('tooltip');
+  await expect(tooltip).toBeVisible();
+  expect(await tooltip.textContent()).toContain('곧 지원 항목은 다음 단계에서 열려요.');
+  const describedBy = (await row.getAttribute('aria-describedby')) ?? '';
+  expect(describedBy.split(' ')).toContain(await tooltip.getAttribute('id'));
 });
 
 test('test_10a_keyboard_focus_draws_the_token_ring', async ({ page }) => {

@@ -261,6 +261,8 @@ const SPECS: readonly PartSpec[] = [
       { state: 'loading', slug: 'loading', width: 420 },
       { state: 'error', slug: 'error', width: 420 },
       { state: 'focus-visible', slug: 'focus-visible', width: 420 },
+      { state: 'default', slug: 'no-lead', width: 420 },
+      { state: 'loading', slug: 'no-lead-loading', width: 420 },
     ],
   },
   {
@@ -323,6 +325,8 @@ const SPECS: readonly PartSpec[] = [
       { state: 'selected', slug: 'selected', width: 420 },
       { state: 'disabled', slug: 'disabled', width: 420 },
       { state: 'focus-visible', slug: 'focus-visible', width: 420 },
+      { state: 'default', slug: 'latin-default', width: 420 },
+      { state: 'selected', slug: 'latin-selected', width: 420 },
     ],
   },
   {
@@ -357,6 +361,7 @@ const SPECS: readonly PartSpec[] = [
       { state: 'selected', slug: 'selected' },
       { state: 'disabled', slug: 'disabled' },
       { state: 'focus-visible', slug: 'focus-visible' },
+      { state: 'selected', slug: 'label-element' },
     ],
   },
   {

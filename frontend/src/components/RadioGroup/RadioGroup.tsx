@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 
 import './RadioGroup.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
 
 export type RadioOption = {
   value: string;
@@ -25,10 +25,7 @@ export type RadioGroupProps = {
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** One choice out of a few. Arrow keys move the choice; the dot marks it. */
 export function RadioGroup({

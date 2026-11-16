@@ -5,7 +5,8 @@ import { cn } from '@/shared/lib/utils';
 
 import './Tabs.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
+import { LabelBox } from '../LabelBox';
 
 export type TabItem = {
   value: string;
@@ -17,18 +18,15 @@ export type TabsProps = {
   items: readonly TabItem[];
   /** The accessible name of the tab list. */
   label: string;
-  defaultValue?: string;
-  value?: string;
+  defaultValue?: string | null;
+  value?: string | null;
   onValueChange?: (value: string) => void;
   /** Forces a state on the first tab for the gallery. */
   forceState?: ForceState;
   className?: string;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** A tab list. Arrow keys move and select, so no pointer is needed. */
 export function Tabs({
@@ -48,7 +46,9 @@ export function Tabs({
       className={cn('tabs', className)}
       defaultValue={defaultValue}
       value={value}
-      onValueChange={(next) => onValueChange?.(String(next))}
+      onValueChange={(next) => {
+        if (next !== null) onValueChange?.(String(next));
+      }}
     >
       <TabsPrimitive.List className="tabs__list" aria-label={label}>
         {items.map((item, index) => (
@@ -59,7 +59,7 @@ export function Tabs({
             className="tab hit-area focus-ring focus-ring--inset"
             data-force-state={index === 0 ? forcedAttr : undefined}
           >
-            {item.label}
+            <LabelBox>{item.label}</LabelBox>
           </TabsPrimitive.Tab>
         ))}
       </TabsPrimitive.List>

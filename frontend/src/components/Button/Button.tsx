@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import './Button.css';
 
 /** The states a part receives. Gallery-only forcing; interactions use CSS. */
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'trigger';
 
@@ -22,10 +22,7 @@ export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   forceState?: ForceState;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /**
  * One button for every screen. It forwards its ref so Base UI triggers can

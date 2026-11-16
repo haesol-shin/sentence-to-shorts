@@ -63,6 +63,10 @@
   font-weight: var(--font-weight-bold);
 }
 
+.tab[data-force-state~='selected'] .label-box__text[data-weight='bold'] {
+  visibility: hidden;
+}
+
 .tab[data-active]::before,
 .tab[data-force-state~='selected']::before {
   background: var(--foreground);

@@ -464,7 +464,7 @@ export function renderContrast(tokens) {
   lines.push('여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.');
   lines.push('');
   lines.push(
-    `회색 바탕의 뜻 색 글자는 \`--warning\`만 ${pair(pairRatio(tokens, '--warning', '--muted'))}로 통과하고 \`--muted-foreground\`와 \`--destructive\`는 ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}로 못 미친다. 그래서 꼬리표와 안내 문장은 뜻 색을 아이콘에만 쓴다.`,
+    `회색 바탕의 뜻 색 글자는 \`--warning\`만 ${pair(pairRatio(tokens, '--warning', '--muted'))}로 통과하고 \`--muted-foreground\`와 \`--destructive\`는 ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 꼬리표와 안내 문장은 뜻 색을 아이콘에만 쓴다.`,
   );
   lines.push('');
   const byText = new Map();

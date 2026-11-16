@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 
 import './CloseButton.css';
 
-export type ForceState = string | readonly string[];
+import { statesOf, type ForceState } from '../force-state';
 
 export type CloseButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label' | 'children'> & {
   /** The accessible name, for example "닫기" or "파일 지우기". */
@@ -15,10 +15,7 @@ export type CloseButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ar
   forceState?: ForceState;
 };
 
-function statesOf(value?: ForceState): readonly string[] {
-  if (value === undefined) return [];
-  return typeof value === 'string' ? value.split(/\s+/).filter(Boolean) : value;
-}
+
 
 /** One close x for panels, windows and file chips; only the visible size changes. */
 export const CloseButton = forwardRef<HTMLButtonElement, CloseButtonProps>(function CloseButton(

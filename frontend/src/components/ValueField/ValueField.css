@@ -203,6 +203,10 @@
   background: var(--state-selected);
 }
 
+.field-item:active:not([data-disabled]) {
+  background: var(--state-pressed-white);
+}
+
 .field-item[data-disabled],
 .field-item[data-unavailable] {
   color: var(--disabled-foreground);

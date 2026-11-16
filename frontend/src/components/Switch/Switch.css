@@ -29,25 +29,6 @@
   border-color: var(--state-hover-white);
 }
 
-.switch-option__label {
-  display: inline-grid;
-}
-
-.switch-option__label::before,
-.switch-option__label::after {
-  content: attr(data-label);
-  height: 0;
-  visibility: hidden;
-}
-
-.switch-option__label::before {
-  font-weight: var(--font-weight-bold);
-}
-
-.switch-option__label::after {
-  font-weight: var(--font-weight-regular);
-}
-
 .switch-option:active:not(:disabled),
 .switch-option[data-force-state~='pressed']:not(:disabled) {
   background: var(--state-pressed-white);

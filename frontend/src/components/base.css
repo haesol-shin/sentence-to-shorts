@@ -47,6 +47,27 @@
   outline-offset: var(--focus-offset-inset);
 }
 
+.label-box {
+  display: inline-grid;
+}
+
+.label-box__text {
+  grid-area: 1 / 1;
+}
+
+.label-box__text[aria-hidden='true'] {
+  visibility: hidden;
+  height: 0;
+}
+
+.label-box__text[data-weight='bold'] {
+  font-weight: var(--font-weight-bold);
+}
+
+.label-box__text[data-weight='regular'] {
+  font-weight: var(--font-weight-regular);
+}
+
 .spinner {
   box-sizing: border-box;
   display: inline-block;
