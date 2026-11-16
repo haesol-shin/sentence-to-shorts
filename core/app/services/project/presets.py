@@ -142,7 +142,7 @@ def _ops(preset: Preset) -> list[SetOp]:
 def _draft(settings: Settings) -> Video:
     """Throwaway draft used to reuse the pure op guards in ``state``."""
     return Video(
-        schema_version=1,
+        schema_version=2,
         id=_DRAFT_VIDEO,
         project_id=_DRAFT_PROJECT,
         owner_id="owner",
@@ -216,7 +216,7 @@ def apply_preset(
     # Pure preview: report the values the guards keep, without confirming them.
     kept = state.apply(head, ops, state.SOURCE_ORIGIN[ChangeSource.direct])
     plan = ChangePlan(
-        schema_version=1,
+        schema_version=2,
         id=service.projects.new_id("c"),
         video_id=head.id,
         base_revision=head.revision,

@@ -13,6 +13,7 @@ import pytest
 
 from app.ports import AppError, MediaInfo
 from app.schemas.artifact import Timing
+from app.schemas.text import clusters
 from app.services.render import RenderService
 from app.services.render.motion import (
     SCALE_STEP,
@@ -59,7 +60,7 @@ def timing_for(
         cursor = start + speech_ms
     return Timing.model_validate(
         {
-            "schema_version": 1,
+            "schema_version": 2,
             "scene_id": scene["id"],
             "voice": load("timing_sentence_fallback.json")["voice"],
             "duration_ms": cursor + tail_ms,
@@ -242,17 +243,31 @@ def test_29_phrase_caption_follows_the_aligned_phrase_times() -> None:
 
 def test_29_typewriter_types_whole_graphemes_only(studio: Studio) -> None:
     scene = copy.deepcopy(load("scene_dialog_stage_typewriter.json"))
-    text = unicodedata.normalize("NFD", "타자 효과는 글자 단위")
+    text = unicodedata.normalize("NFD", "타자효과는글자단위")
     scene["lines"][0]["display_text"] = text
     built = studio.video(scene, layout="dialog_stage", mode="typewriter")
     res = studio.service._resolve(built)
     block = fit(res.font, text, None, width=900, height=400, max_lines=2,
                 sizes=res.font.sizes(96, 24), where="test")
     total = sum(len(line.units) for line in block.lines)
-    timing = timing_for(scene, mode="typewriter")
+    spans = clusters(text)
+    assert len(spans) == total
+    phrases = [
+        {
+            "start_char": start,
+            "end_char": end,
+            "start_ms": index * 600 // len(spans),
+            "end_ms": (index + 1) * 600 // len(spans),
+        }
+        for index, (start, end) in enumerate(spans)
+    ]
+    timing = timing_for(scene, mode="typewriter", phrases=[phrases])
     typed = [caption_state(timing.lines, t, [total]).typed for t in range(0, 801, 10)]
-    assert typed[0] == 0 and typed[-1] == total
+    assert typed[0] == 1 and typed[-1] == total
     assert typed == sorted(typed)
+    for index, phrase in enumerate(phrases):
+        shown = caption_state(timing.lines, phrase["start_ms"], [total]).typed
+        assert shown == index + 1
     glyphs = [unit.text for unit in units(text) if not unit.space]
     for count in range(total + 1):
         shown = [

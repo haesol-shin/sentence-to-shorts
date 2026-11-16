@@ -31,9 +31,10 @@ from app.schemas.artifact import (
     TimingCaption,
     TimingLine,
 )
-from app.schemas.common import ArtifactRef, CaptionMode, PinnedRef
+from app.schemas.common import ArtifactRef, CaptionMode, Language, PinnedRef
 from app.schemas.scene import Scene
 from app.schemas.script import Line
+from app.schemas.text import clusters
 from app.schemas.voice_manifest import VoiceManifest
 
 LINE_GAP_MS = 200
@@ -99,6 +100,30 @@ def _estimate_text_ms(text: str, language: str) -> int:
 
 def _sentence(reason: AlignFallback | None = None) -> TimingCaption:
     return TimingCaption(mode_used=CaptionMode.sentence, fallback_reason=reason, phrases=[])
+
+
+def typewriter_phrases(
+    display_text: str, start_ms: int, shown_ms: int
+) -> list[CaptionPhrase]:
+    """One display span per grapheme cluster of ``display_text`` (CONTRACTS 11.2).
+
+    The nth span starts at ``start_ms + floor(n * shown_ms / N)``. These spans are
+    the display schedule, not an alignment result, so the render and the sound mix
+    read the same character times.
+    """
+    spans = clusters(display_text)
+    count = len(spans)
+    if count == 0:
+        return []
+    return [
+        CaptionPhrase(
+            start_char=start,
+            end_char=end,
+            start_ms=start_ms + index * shown_ms // count,
+            end_ms=start_ms + (index + 1) * shown_ms // count,
+        )
+        for index, (start, end) in enumerate(spans)
+    ]
 
 
 def _validated_phrases(
@@ -185,17 +210,16 @@ class VoiceService:
         voice: PinnedRef,
         tts: Mapping[str, ArtifactRef],
         caption_mode: str,
+        language: Language,
         *,
         ctx: JobContext,
-        language: str | None = None,
     ) -> Timing:
         """Measure line times from the published TTS WAVs and pick each caption.
 
         ``voice`` and ``tts`` are copied into the timing, so preview and mp4 read
-        the same artifact. ``language`` is not part of the contract call yet:
-        without it the aligner cannot run, so that line keeps a sentence caption
-        with ``align_unavailable``, and a typewriter line runs for its speech
-        length. The pipeline should pass the video language.
+        the same artifact. ``language`` is the video language every caller passes:
+        the aligner needs it for phrase captions, and typewriter lines use it for
+        their display length and character spans.
         """
         mode = CaptionMode(caption_mode)
         lines: list[TimingLine] = []
@@ -211,10 +235,14 @@ class VoiceService:
             wav = self._wav(ref)
             speech_ms = wav_duration_ms(wav)
             start_ms = 0 if index == 0 else cursor + LINE_GAP_MS
-            caption = self._caption(line, wav, mode, language, speech_ms, start_ms, ctx)
             shown_ms = speech_ms
-            if mode is CaptionMode.typewriter and language is not None:
-                shown_ms = max(speech_ms, _estimate_text_ms(line.display_text, language))
+            if mode is CaptionMode.typewriter:
+                shown_ms = max(
+                    speech_ms, _estimate_text_ms(line.display_text, language)
+                )
+            caption = self._caption(
+                line, wav, mode, language, speech_ms, start_ms, shown_ms, ctx
+            )
             end_ms = start_ms + shown_ms
             lines.append(
                 TimingLine(
@@ -229,7 +257,7 @@ class VoiceService:
             cursor = end_ms
         ctx.cancel.raise_if_set()
         return Timing(
-            schema_version=1,
+            schema_version=2,
             scene_id=scene.id,
             voice=voice,
             duration_ms=cursor + SCENE_TAIL_MS,
@@ -251,19 +279,20 @@ class VoiceService:
         line: Line,
         wav: Path,
         mode: CaptionMode,
-        language: str | None,
+        language: Language,
         speech_ms: int,
         start_ms: int,
+        shown_ms: int,
         ctx: JobContext,
     ) -> TimingCaption:
         if mode is CaptionMode.sentence:
             return _sentence()
         if mode is CaptionMode.typewriter:
             return TimingCaption(
-                mode_used=CaptionMode.typewriter, fallback_reason=None, phrases=[]
+                mode_used=CaptionMode.typewriter,
+                fallback_reason=None,
+                phrases=typewriter_phrases(line.display_text, start_ms, shown_ms),
             )
-        if language is None:
-            return _sentence(AlignFallback.align_unavailable)
         result = self.aligner.align(
             wav,
             line.speech_text,
@@ -292,5 +321,6 @@ __all__ = [
     "SCENE_TAIL_MS",
     "VoiceService",
     "create",
+    "typewriter_phrases",
     "wav_duration_ms",
 ]

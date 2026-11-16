@@ -7,10 +7,9 @@ while a changed scene rebuilds only the artifacts whose keys moved.
 
 from __future__ import annotations
 
-import inspect
 import io
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from PIL import Image
 from pydantic import ValidationError
@@ -593,9 +592,6 @@ class _Builder:
             line_id: _ref(artifact)
             for line_id, artifact in self._tts[scene_id].items()
         }
-        kwargs: dict[str, Any] = {"ctx": self.run.ctx}
-        if _takes_language(self.services.voice.timing):
-            kwargs["language"] = self.video.settings.language.value
         with self.run.building(ArtifactKind.timing_json, key, scene_id):
             check_context(self.video, self.run.ctx, self.services)
             timing = self.services.voice.timing(
@@ -603,7 +599,8 @@ class _Builder:
                 self.video.settings.audio.voice,
                 tts,
                 self.video.settings.caption.mode.value,
-                **kwargs,
+                self.video.settings.language,
+                ctx=self.run.ctx,
             )
             check_context(self.video, self.run.ctx, self.services)
             artifact = self.run.publish(
@@ -716,14 +713,6 @@ def _load_timing(run: RunState, artifact: Artifact, scene_id: str) -> Timing:
         return Timing.model_validate_json(run.store.path(artifact.id).read_bytes())
     except ValidationError as error:
         raise AppError("timing_mismatch", detail={"scene_id": scene_id}) from error
-
-
-def _takes_language(method: Callable[..., Any]) -> bool:
-    try:
-        parameters = inspect.signature(method).parameters
-    except (TypeError, ValueError):
-        return False
-    return "language" in parameters
 
 
 def _transparent_layer() -> bytes:

@@ -186,6 +186,8 @@ class MediaAdapter:
         """
         if not plan.items:
             raise ValueError("a mix needs at least one item")
+        if plan.duration_ms <= 0:
+            raise ValueError("a mix needs a positive duration_ms")
         inputs: list[str] = []
         chains: list[str] = []
         voices: list[str] = []
@@ -228,7 +230,16 @@ class MediaAdapter:
             )
             first = self._run(
                 "loudnorm_measure",
-                [*_input(_file(staged)), "-af", f"{target}:print_format=json", "-f", "null", "-"],
+                [
+                    *_input(_file(staged)),
+                    "-af",
+                    f"{target}:print_format=json",
+                    "-t",
+                    _seconds(plan.duration_ms),
+                    "-f",
+                    "null",
+                    "-",
+                ],
                 cancel=cancel,
             )
             m = _loudnorm_block(first.stderr.decode("utf-8", "replace"))
@@ -239,8 +250,18 @@ class MediaAdapter:
             )
             self._run(
                 "loudnorm_apply",
-                [*_input(_file(staged)), "-af", second, "-ar", str(plan.sample_rate),
-                 "-c:a", "pcm_s16le", _file(out)],
+                [
+                    *_input(_file(staged)),
+                    "-af",
+                    second,
+                    "-ar",
+                    str(plan.sample_rate),
+                    "-t",
+                    _seconds(plan.duration_ms),
+                    "-c:a",
+                    "pcm_s16le",
+                    _file(out),
+                ],
                 cancel=cancel,
             )
         finally:

@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from app.schemas.bgm_entry import BuiltinBgm, SfxEntry
+from app.schemas.bgm_entry import BuiltinBgm, SfxEntry, TypingSoundEntry
 from app.schemas.change import Op, Target
 from app.schemas.common import (
     CatalogId,
@@ -81,6 +81,9 @@ class SemanticCode(StrEnum):
     incompatible_part = "incompatible_part"
     highlight_range = "highlight_range"
     reveal_line_unknown = "reveal_line_unknown"
+    typing_sound_mode = "typing_sound_mode"
+    typing_sound_kind = "typing_sound_kind"
+    typing_cue = "typing_cue"
     revision_conflict = "revision_conflict"
 
 
@@ -382,6 +385,7 @@ CatalogManifest = (
     | VoiceManifest
     | BuiltinBgm
     | SfxEntry
+    | TypingSoundEntry
     | FontManifest
     | FormatCard
     | StoryStructure

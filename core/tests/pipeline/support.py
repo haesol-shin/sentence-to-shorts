@@ -288,9 +288,9 @@ class FakeVoice:
         voice: PinnedRef,
         tts: Mapping[str, ArtifactRef],
         caption_mode: str,
+        language: str,
         *,
         ctx: JobContext,
-        language: str | None = None,
     ) -> Timing:
         self.timing_calls.append(scene.id)
         mode = CaptionMode(caption_mode)
@@ -300,7 +300,7 @@ class FakeVoice:
             ref = tts.get(line.id)
             if ref is None:
                 raise AppError("tts_failed", detail={"reason": "tts_missing"})
-            speech = max(1, self.estimate_ms(line, language or "ko"))
+            speech = max(1, self.estimate_ms(line, language))
             start = cursor
             end = start + speech
             lines.append(
@@ -317,7 +317,7 @@ class FakeVoice:
             )
             cursor = end
         return Timing(
-            schema_version=1,
+            schema_version=2,
             scene_id=scene.id,
             voice=voice,
             duration_ms=cursor + 400,

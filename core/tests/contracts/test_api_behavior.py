@@ -91,6 +91,18 @@ def test_runtime_items_need_their_own_files(client: TestClient) -> None:
     assert states["pyodide-pillow"] == "ready"
 
 
+def test_catalog_serves_the_first_typing_key_as_the_sample(client: TestClient) -> None:
+    manifest = client.get("/api/v1/catalog/sfx/typing_keys")
+    assert manifest.status_code == 200
+    keys = manifest.json()["keys"]
+    first = keys[0]["file"]
+    response = client.get(f"/api/v1/catalog/sfx/typing_keys/media/{first}")
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "audio/wav"
+    missing = client.get(f"/api/v1/catalog/sfx/typing_keys/media/{keys[1]['file']}")
+    assert missing.status_code == 404
+
+
 def test_catalog_returns_a_real_manifest(client: TestClient) -> None:
     response = client.get("/api/v1/catalog/template/fixed_stage")
     assert response.status_code == 200

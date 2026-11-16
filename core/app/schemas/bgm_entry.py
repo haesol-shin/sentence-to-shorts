@@ -99,6 +99,8 @@ class SfxKind(StrEnum):
 
 
 class SfxEntry(ContractModel):
+    """One effect sound. A typing kind here is a legacy document, not a new cue."""
+
     schema_version: Literal[1]
     id: CatalogId
     label: LocalizedText
@@ -106,4 +108,24 @@ class SfxEntry(ContractModel):
     file: WavRelPath
     sha256: Digest
     duration_ms: Annotated[int, Field(ge=20, le=5000)]
+    license: License
+
+
+class KeySound(ContractModel):
+    """One key press of a typing sound entry."""
+
+    file: WavRelPath
+    sha256: Digest
+    duration_ms: Annotated[int, Field(ge=20, le=1000)]
+
+
+class TypingSoundEntry(ContractModel):
+    """A set of key presses for typewriter captions. The ``keys`` member is the
+    discriminator that keeps legacy ``SfxEntry`` manifests readable."""
+
+    schema_version: Literal[1]
+    id: CatalogId
+    label: LocalizedText
+    kind: Literal["typing"]
+    keys: Annotated[list[KeySound], Field(min_length=1, max_length=64)]
     license: License

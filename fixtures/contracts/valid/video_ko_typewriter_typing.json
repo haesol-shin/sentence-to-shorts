@@ -1,0 +1,126 @@
+{
+  "schema_version": 2,
+  "id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "project_id": "p_06pxfteaw88hs93kkckw5j51ng",
+  "owner_id": "owner",
+  "revision": 1,
+  "parent_revision": null,
+  "created_at": "2026-11-14T12:00:00Z",
+  "created_by": "create",
+  "change_id": null,
+  "stage": "draft",
+  "derived_from": null,
+  "topic": "타자음",
+  "material": [],
+  "reference": null,
+  "settings": {
+    "language": "ko",
+    "target_duration_s": 30,
+    "format": {
+      "card_id": "just_three",
+      "story_structure": "numbered_three",
+      "layout": {
+        "id": "dialog_stage",
+        "revision": "9e35982704c63533aff840097bc1dd80ecb19149ff7231287ab95e3ac2a62ea0"
+      },
+      "character_role": "presenter",
+      "register": "friendly",
+      "humor": "none",
+      "progress_mode": "numbered",
+      "scene_count": 5
+    },
+    "visual": {
+      "art_style": {
+        "id": "pixel",
+        "revision": "6996966228988901a42e3e3f5d19ddc19ffd005bd3c9f1047ca979fcd3a98e20"
+      },
+      "theme_id": "day",
+      "character": {
+        "preset_id": null,
+        "slots": {
+          "body": "body_hero",
+          "face": "face_neutral",
+          "hair": null,
+          "hat": null,
+          "outfit": null,
+          "prop": null
+        }
+      }
+    },
+    "audio": {
+      "voice": {
+        "id": "fixed_wav",
+        "revision": "ba110776c483d72203c4546080a8b32a277f4b22bf81af8781936685a226c768"
+      },
+      "bgm": {
+        "enabled": true,
+        "mood": "curious",
+        "entry": {
+          "id": "builtin_loop",
+          "revision": "147cce67e7a15cb62266dc400510271e9109d3cba1163456574de556a1776d09"
+        },
+        "gain_db_x10": -120,
+        "ducking": true
+      },
+      "sfx_enabled": true
+    },
+    "caption": {
+      "mode": "typewriter",
+      "font_id": {
+        "id": "galmuri11",
+        "revision": "d92c304c2bc07f41810bf938c71bd8a9cab36e27fcb980bbb98a6ffb27098c75"
+      },
+      "position": "bottom",
+      "highlight": true,
+      "typing_sound": {
+        "id": "typing_keys",
+        "revision": "4ddd85f0a119db3aefefdc9b12ff02d22431e8c3e28db4e767f5b167a9281409"
+      }
+    },
+    "motion": {
+      "transition": "cut",
+      "character_motion": "none"
+    },
+    "locks": {},
+    "origins": {
+      "/format/card_id": "card",
+      "/visual/art_style": "default",
+      "/caption/typing_sound": "user"
+    },
+    "extra_instructions": []
+  },
+  "script": null,
+  "scene_order": [
+    "s_0nzvrzf0tp9wba44f6yvh6nzpr"
+  ],
+  "scenes": {
+    "s_0nzvrzf0tp9wba44f6yvh6nzpr": {
+      "id": "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+      "beat_id": "hook",
+      "beat_label": "훅",
+      "lines": [
+        {
+          "id": "l_079jmk94bf8vj82ct90jqj44km",
+          "display_text": "타자!",
+          "speech_text": "타자!",
+          "speaker": "narrator",
+          "highlight": []
+        }
+      ],
+      "visual": {
+        "background_id": "bg_village",
+        "characters": [
+          {
+            "anchor": "center",
+            "expression_id": "expr_happy",
+            "pose_id": "pose_idle",
+            "motion": "none"
+          }
+        ],
+        "elements": [],
+        "sfx": [],
+        "transition_in": "cut"
+      }
+    }
+  }
+}

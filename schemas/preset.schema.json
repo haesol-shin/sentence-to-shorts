@@ -78,6 +78,17 @@
         },
         "position": {
           "$ref": "#/$defs/CaptionPosition"
+        },
+        "typing_sound": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

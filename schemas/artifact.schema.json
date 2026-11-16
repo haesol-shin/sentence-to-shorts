@@ -266,7 +266,7 @@
           "$ref": "#/$defs/EntityId"
         },
         "schema_version": {
-          "const": 1,
+          "const": 2,
           "title": "Schema Version",
           "type": "integer"
         },

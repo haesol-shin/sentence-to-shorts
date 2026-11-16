@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 
 from app.routers.deps import runtime
 from app.schemas.api import CatalogItem, CatalogList, CatalogManifest
-from app.schemas.bgm_entry import BuiltinBgm, SfxEntry
+from app.schemas.bgm_entry import BuiltinBgm, SfxEntry, TypingSoundEntry
 from app.schemas.style_manifest import StyleManifest
 from app.schemas.voice_manifest import VoiceManifest
 
@@ -25,6 +25,8 @@ def _media_file(manifest: object, name: str) -> tuple[Path, str] | None:
         relative = manifest.sample.file
     elif isinstance(manifest, StyleManifest):
         relative = manifest.preview
+    elif isinstance(manifest, TypingSoundEntry):
+        relative = manifest.keys[0].file
     elif isinstance(manifest, (BuiltinBgm, SfxEntry)):
         relative = manifest.file
     if relative is None or Path(relative).name != name:

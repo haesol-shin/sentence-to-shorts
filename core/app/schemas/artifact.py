@@ -94,7 +94,7 @@ class TimingLine(ContractModel):
 class Timing(ContractModel):
     """timing_json artifact. Times are integer milliseconds from scene start."""
 
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     scene_id: EntityId
     voice: PinnedRef
     duration_ms: Annotated[int, Field(ge=1)]

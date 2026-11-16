@@ -108,7 +108,7 @@ class ReferenceSummary(ContractModel):
 
 
 class Video(ContractModel):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     id: EntityId
     project_id: EntityId
     owner_id: OwnerId

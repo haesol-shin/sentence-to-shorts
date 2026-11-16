@@ -41,6 +41,9 @@ MODELS = {
     "presenter_without_character": settings.Settings,
     "highlight_out_of_range": script.Line,
     "reveal_line_unknown": scene.Scene,
+    "typing_sound_mode": settings.Settings,
+    "typing_sound_kind": settings.Settings,
+    "typing_cue": scene.Scene,
 }
 SEMANTIC_CODES = {
     "unknown_catalog_id",
@@ -52,6 +55,9 @@ SEMANTIC_CODES = {
     "incompatible_part",
     "highlight_range",
     "reveal_line_unknown",
+    "typing_sound_mode",
+    "typing_sound_kind",
+    "typing_cue",
     "revision_conflict",
 }
 SCHEMA_CODES = {"validation_failed", "unsupported_version"}

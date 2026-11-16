@@ -84,11 +84,11 @@ def test_revision_newer_document_is_refused(
     projects.put_project(project)
     projects.append_revision(video)
     path = layout.revision_file(project.id, video.id, 1)
-    path.write_bytes(path.read_bytes().replace(b'"schema_version":1', b'"schema_version":2'))
+    path.write_bytes(path.read_bytes().replace(b'"schema_version":2', b'"schema_version":3'))
     with pytest.raises(AppError) as refused:
         projects.get_video(video.id)
     assert refused.value.code == "unsupported_version"
-    assert refused.value.detail == {"found": 2, "supported": 1}
+    assert refused.value.detail == {"found": 3, "supported": 2}
 
 
 def test_revision_newer_project_is_refused(
@@ -104,6 +104,7 @@ def test_revision_newer_project_is_refused(
         with pytest.raises(AppError) as refused:
             read()
         assert refused.value.code == "unsupported_version"
+        assert refused.value.detail == {"found": 2, "supported": 1}
 
 
 @pytest.mark.skipif(

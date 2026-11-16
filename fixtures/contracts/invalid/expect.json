@@ -67,6 +67,18 @@
     "reveal_line_unknown.json": {
       "level": "semantic",
       "code": "reveal_line_unknown"
+    },
+    "typing_sound_mode.json": {
+      "level": "semantic",
+      "code": "typing_sound_mode"
+    },
+    "typing_sound_kind.json": {
+      "level": "semantic",
+      "code": "typing_sound_kind"
+    },
+    "typing_cue.json": {
+      "level": "semantic",
+      "code": "typing_cue"
     }
   }
 }

@@ -169,6 +169,17 @@
         },
         "position": {
           "$ref": "#/$defs/CaptionPosition"
+        },
+        "typing_sound": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -1258,7 +1269,7 @@
           "type": "object"
         },
         "schema_version": {
-          "const": 1,
+          "const": 2,
           "title": "Schema Version",
           "type": "integer"
         },

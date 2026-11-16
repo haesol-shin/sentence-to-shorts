@@ -169,7 +169,7 @@ DOCUMENTS = [
         filename="bgm-entry",
         title="BGM entry",
         description="One BGM source: builtin, uploaded or generated loop.",
-        models=(bgm_entry.SfxEntry,),
+        models=(bgm_entry.SfxEntry, bgm_entry.TypingSoundEntry),
         adapter=TypeAdapter(bgm_entry.BgmEntry),
     ),
     Document(

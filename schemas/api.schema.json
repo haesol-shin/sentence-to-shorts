@@ -453,6 +453,17 @@
         },
         "position": {
           "$ref": "#/$defs/CaptionPosition"
+        },
+        "typing_sound": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -2950,6 +2961,9 @@
         "incompatible_part",
         "highlight_range",
         "reveal_line_unknown",
+        "typing_sound_mode",
+        "typing_sound_kind",
+        "typing_cue",
         "revision_conflict"
       ],
       "title": "SemanticCode",
@@ -3555,7 +3569,7 @@
           "type": "object"
         },
         "schema_version": {
-          "const": 1,
+          "const": 2,
           "title": "Schema Version",
           "type": "integer"
         },

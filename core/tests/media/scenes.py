@@ -72,7 +72,7 @@ def timings(built: Video, *, speech_ms: int = 1000, tail_ms: int = 400) -> list[
         result.append(
             Timing.model_validate(
                 {
-                    "schema_version": 1,
+                    "schema_version": 2,
                     "scene_id": scene_id,
                     "voice": voice,
                     "duration_ms": cursor + tail_ms,

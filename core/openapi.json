@@ -657,6 +657,16 @@
           },
           "position": {
             "$ref": "#/components/schemas/CaptionPosition"
+          },
+          "typing_sound": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PinnedRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -932,7 +942,7 @@
             "type": "boolean"
           },
           "schema_version": {
-            "const": 1,
+            "const": 2,
             "title": "Schema Version",
             "type": "integer"
           },
@@ -2159,6 +2169,31 @@
         ],
         "title": "JobState",
         "type": "string"
+      },
+      "KeySound": {
+        "additionalProperties": false,
+        "description": "One key press of a typing sound entry.",
+        "properties": {
+          "duration_ms": {
+            "maximum": 1000.0,
+            "minimum": 20.0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "file": {
+            "$ref": "#/components/schemas/WavRelPath"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Digest"
+          }
+        },
+        "required": [
+          "file",
+          "sha256",
+          "duration_ms"
+        ],
+        "title": "KeySound",
+        "type": "object"
       },
       "Language": {
         "enum": [
@@ -4018,6 +4053,9 @@
           "incompatible_part",
           "highlight_range",
           "reveal_line_unknown",
+          "typing_sound_mode",
+          "typing_sound_kind",
+          "typing_cue",
           "revision_conflict"
         ],
         "title": "SemanticCode",
@@ -4187,6 +4225,7 @@
       },
       "SfxEntry": {
         "additionalProperties": false,
+        "description": "One effect sound. A typing kind here is a legacy document, not a new cue.",
         "properties": {
           "duration_ms": {
             "maximum": 5000.0,
@@ -4938,6 +4977,50 @@
         "title": "TransitionIn",
         "type": "string"
       },
+      "TypingSoundEntry": {
+        "additionalProperties": false,
+        "description": "A set of key presses for typewriter captions. The ``keys`` member is the\ndiscriminator that keeps legacy ``SfxEntry`` manifests readable.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CatalogId"
+          },
+          "keys": {
+            "items": {
+              "$ref": "#/components/schemas/KeySound"
+            },
+            "maxItems": 64,
+            "minItems": 1,
+            "title": "Keys",
+            "type": "array"
+          },
+          "kind": {
+            "const": "typing",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "license": {
+            "$ref": "#/components/schemas/License"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "schema_version",
+          "id",
+          "label",
+          "kind",
+          "keys",
+          "license"
+        ],
+        "title": "TypingSoundEntry",
+        "type": "object"
+      },
       "Usage": {
         "additionalProperties": false,
         "properties": {
@@ -5132,7 +5215,7 @@
             "type": "object"
           },
           "schema_version": {
-            "const": 1,
+            "const": 2,
             "title": "Schema Version",
             "type": "integer"
           },
@@ -6082,6 +6165,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/SfxEntry"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TypingSoundEntry"
                     },
                     {
                       "$ref": "#/components/schemas/FontManifest"

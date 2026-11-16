@@ -21,7 +21,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
-from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry
+from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry
 from app.schemas.common import LocalizedText, PackageOrigin, PinnedRef
 from app.schemas.font_manifest import FontManifest
 from app.schemas.format_card import FormatCard, StoryStructure
@@ -61,9 +61,11 @@ MODELS: dict[str, type[BaseModel]] = {
 
 
 def _manifest_model(kind: str, raw: Any) -> type[BaseModel]:
-    """Use the same BGM source discriminator for package loading and index restore."""
+    """Use the same BGM source and sfx keys discriminator for loading and restore."""
     if kind == "bgm" and isinstance(raw, dict) and raw.get("source") == "code":
         return CodeBgm
+    if kind == "sfx" and isinstance(raw, dict) and "keys" in raw:
+        return TypingSoundEntry
     return MODELS[kind]
 
 
@@ -101,6 +103,8 @@ def _sha256(path: Path) -> str:
 def _referenced_files(manifest: BaseModel) -> list[str]:
     if isinstance(manifest, (StyleManifest, TemplateManifest, VoiceManifest, FontManifest)):
         return _style_like_files(manifest)
+    if isinstance(manifest, TypingSoundEntry):
+        return [key.file for key in manifest.keys] + [manifest.license.license_file]
     if isinstance(manifest, (BuiltinBgm, SfxEntry)):
         return [manifest.file, manifest.license.license_file]
     if isinstance(manifest, CodeBgm):
@@ -155,6 +159,8 @@ def _digest_files(manifest: BaseModel) -> list[tuple[str, str]]:
             (manifest.file, manifest.sha256),
             (manifest.program, manifest.program_digest),
         ]
+    if isinstance(manifest, TypingSoundEntry):
+        return [(key.file, key.sha256) for key in manifest.keys]
     if isinstance(manifest, (BuiltinBgm, SfxEntry)):
         return [(manifest.file, manifest.sha256)]
     return []

@@ -367,7 +367,7 @@ def _embed(name: str, data: dict[str, Any]) -> Video:
         lines = [Line.model_validate(data), *scene.lines[1:]]
         edited = scene.model_copy(update={"lines": lines})
         return base.model_copy(update={"scenes": {**base.scenes, first: edited}})
-    if name in {"unknown_asset_id", "duplicate_line_id", "reveal_line_unknown"}:
+    if name in {"unknown_asset_id", "duplicate_line_id", "reveal_line_unknown", "typing_cue"}:
         scene = Scene.model_validate(data)
         return base.model_copy(update={"scenes": {**base.scenes, scene.id: scene}})
     if "scene_order" in data:
@@ -398,3 +398,35 @@ def test_4_semantic_fixture_returns_expected_code(name: str, catalog: Registry) 
 def test_4_valid_videos_have_no_semantic_issue(name: str, catalog: Registry) -> None:
     video = Video.model_validate(load_json(f"contracts/valid/{name}.json"))
     assert state.validate(current_bgm(video, catalog), catalog) == []
+
+
+def test_4_leaving_typewriter_requires_clearing_the_typing_sound(
+    catalog: Registry,
+) -> None:
+    video = current_bgm(
+        Video.model_validate(load_json("contracts/valid/video_ko_typewriter_typing.json")),
+        catalog,
+    )
+    assert state.validate(video, catalog) == []
+    mode = SetOp(
+        op="set", path="/settings/caption/mode", value="sentence", origin=Origin.user
+    )
+    kept = state.apply(video, [mode], Origin.user).video
+    assert [(issue.pointer, issue.code) for issue in state.validate(kept, catalog)] == [
+        ("/settings/caption/typing_sound", "typing_sound_mode")
+    ]
+    cleared = state.apply(
+        video,
+        [
+            mode,
+            SetOp(
+                op="set",
+                path="/settings/caption/typing_sound",
+                value=None,
+                origin=Origin.user,
+            ),
+        ],
+        Origin.user,
+    ).video
+    assert cleared.settings.caption.typing_sound is None
+    assert state.validate(cleared, catalog) == []

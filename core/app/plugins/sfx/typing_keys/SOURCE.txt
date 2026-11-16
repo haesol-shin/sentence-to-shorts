@@ -1,12 +1,13 @@
-Title: Typing pattern built from Interface Sounds tick and click samples
-Author: Kenney
-Page: https://kenney.nl/assets/interface-sounds
-Download: https://kenney.nl/download-link/6173736574732f696e746572666163652d736f756e6473 (archive kenney_interface-sounds.zip)
-File: kenney_interface-sounds.zip / Audio/tick_001.ogg, Audio/tick_002.ogg, Audio/tick_004.ogg, Audio/click_001.ogg
-Retrieved: 2026-11-15
+Title: Keyboard Soundpack #1 (Typing and Single Keystrokes), single keys
+Author: unicaegames
+Page: https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes
+Download: the CC0 pack attached to the page (keyboard_soundpack.zip)
+Pack sha256: 96507fc9aeec34cdff0e7c558dabb96afec4156c06532a38d7006b9acdf31f06
+Files: Single Keys/keypress-001.wav, keypress-004.wav, keypress-006.wav, keypress-007.wav, keypress-008.wav, keypress-010.wav, keypress-013.wav, keypress-017.wav
+Retrieved: 2026-11-16
 License: CC0 1.0 Universal, see LICENSE.txt
 License page: https://creativecommons.org/publicdomain/zero/1.0/
-Original: vorbis, 44100 Hz, 1 channel(s)
-Built: 14 keystrokes, 80 to 130 ms spacing, per-stroke gain -7 to -1 dB and pitch 0.92 to 1.08, seed 20261115
-Stored: PCM 16 bit, 44100 Hz, mono, 1.56 s
-Measured: -26.5 LUFS integrated, -1.2 dBTP
+Original: PCM 16 bit, 44100 Hz, mono, 250 ms per key
+Built: ffmpeg atrim around the first and last sample above -50 dBFS, 8 ms fade out, cap 200 ms per key, volume 0dB
+Stored: PCM 16 bit, 44100 Hz, mono, one WAV per key
+Checksums: the sha256 of every key in manifest.json

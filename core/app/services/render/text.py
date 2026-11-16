@@ -19,9 +19,8 @@ from app.ports import AppError, CatalogPort, UnknownCatalogId
 from app.schemas.common import Box, PinnedRef
 from app.schemas.font_manifest import FontManifest
 from app.schemas.script import Span
+from app.schemas.text import clusters
 
-HANGUL_MEDIAL = range(0x1160, 0x11A8)
-HANGUL_FINAL = range(0x11A8, 0x1200)
 UNDERLINE_GAP_FONT_PX = 1
 
 
@@ -37,32 +36,25 @@ class Unit:
         return self.text.isspace()
 
 
-def _joins_previous(char: str) -> bool:
-    code = ord(char)
-    return unicodedata.combining(char) != 0 or code in HANGUL_MEDIAL or code in HANGUL_FINAL
-
-
 def units(text: str, highlight: list[Span] | None = None) -> list[Unit]:
     """Split into graphemes, compose each to NFC and keep highlight offsets of ``text``.
 
-    Highlight spans index the stored display text, so composition happens per
-    grapheme after the spans are mapped.
+    The cluster boundaries are the contract's display schedule (CONTRACTS 11.2),
+    so a typewriter span and a drawn unit cover the same code points. Highlight
+    spans index the stored display text, so composition happens per grapheme
+    after the spans are mapped.
     """
     covered = [False] * len(text)
     for span in highlight or []:
         for index in range(span.start, min(span.end, len(text))):
             covered[index] = True
-    result: list[Unit] = []
-    start = 0
-    for index in range(1, len(text) + 1):
-        if index < len(text) and _joins_previous(text[index]):
-            continue
-        piece = text[start:index]
-        result.append(
-            Unit(unicodedata.normalize("NFC", piece), any(covered[start:index]))
+    return [
+        Unit(
+            unicodedata.normalize("NFC", text[start:end]),
+            any(covered[start:end]),
         )
-        start = index
-    return result
+        for start, end in clusters(text)
+    ]
 
 
 @dataclass

@@ -25,6 +25,7 @@ from app.schemas.scene import Scene
 from app.schemas.settings import CharacterSpec
 from app.schemas.style_manifest import StyleManifest, Theme
 from app.schemas.template_manifest import TemplateManifest
+from app.schemas.text import voiced_clusters
 from app.schemas.video import Video
 from app.schemas.voice_manifest import VoiceManifest
 
@@ -32,6 +33,9 @@ if TYPE_CHECKING:
     from app.services.pipeline.types import Services
 
 API_VERSION = 1
+TIMING_API_VERSION = 2
+"""Typewriter lines carry display spans from version 2, so old timing_json is not reused."""
+
 SPEED_DECIMALS = 2
 
 PART_SEED = 0
@@ -348,7 +352,9 @@ class Graph:
             "scene_id": scene.id,
             "voice": _ref(self.video.settings.audio.voice),
         }
-        return cache_key(ArtifactKind.timing_json.value, inputs)
+        return cache_key(
+            ArtifactKind.timing_json.value, inputs, api_version=TIMING_API_VERSION
+        )
 
     def _part_keys(self, scene: Scene, character: CharacterSpec | None) -> dict[str, str]:
         """Keys of every PNG the renderer or layer drawer consumes.
@@ -442,6 +448,8 @@ class Graph:
         template = self._template()
         font = self._font()
         caption = self.video.settings.caption
+        caption_inputs = _model(caption)
+        caption_inputs.pop("typing_sound", None)
         highlight = bool(caption.highlight)
         lines = [
             {
@@ -454,7 +462,7 @@ class Graph:
         if template.regions.title is not None and self.video.script is not None:
             title = self.video.script.title
         return {
-            "caption": _model(caption),
+            "caption": caption_inputs,
             "font": {
                 "pixel_size": font.pixel_size,
                 "ref": _ref(caption.font_id),
@@ -585,6 +593,7 @@ class Graph:
                         self._dependency(keys.tts[line.id])
                         for line in scene.lines
                     ],
+                    "typing": self._typing_input(scene),
                 }
             )
         bgm = audio.bgm
@@ -607,6 +616,28 @@ class Graph:
             "true_peak_dbtp_x10": MIX_TRUE_PEAK_DBTP_X10,
         }
         return cache_key(ArtifactKind.mix_wav.value, inputs)
+
+    def _typing_input(self, scene: Scene) -> dict[str, Any]:
+        """Typing sound ref and the spans that make a sound, per scene.
+
+        A silent cluster change does not alter the typewriter character count but
+        does alter which spans sound, so the mix key moves with it.
+        """
+        caption = self.video.settings.caption
+        if (
+            not self.video.settings.audio.sfx_enabled
+            or caption.mode.value != "typewriter"
+            or caption.typing_sound is None
+        ):
+            return {"sound": None, "spans": []}
+        return {
+            "sound": _ref(caption.typing_sound),
+            "spans": [
+                {"line_id": line.id, "start_char": start}
+                for line in scene.lines
+                for start, _ in voiced_clusters(line.display_text)
+            ],
+        }
 
     def _final_key(self) -> str:
         clips = [
@@ -647,6 +678,7 @@ __all__ = [
     "LAYER_CANVAS",
     "PART_SEED",
     "SPEED_DECIMALS",
+    "TIMING_API_VERSION",
     "SceneKeys",
     "cache_key",
     "canonical_json",
