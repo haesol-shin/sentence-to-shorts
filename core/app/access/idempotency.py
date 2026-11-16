@@ -30,6 +30,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.access.instance import acquire_instance_lock
 from app.access.middleware import DETAILS, Reject
 from app.ports import AppError, canonical_digest, canonical_json
+from app.schemas.common import Mood
 from app.storage.idempotency import (
     KEY_PATTERN,
     IdempotencyInProgress,
@@ -52,6 +53,7 @@ class KeyedRoute:
     methods: frozenset[str]
     path: re.Pattern[str]
     upload_limit: int | None
+    bgm_upload: bool = False
 
 
 class IdempotencyGate:
@@ -169,9 +171,14 @@ class _MultipartDigest:
             self._fields[self._part] = bytes(self._buffer).decode("utf-8", errors="strict")
         self._part = None
 
-    def digest(self) -> str:
+    def digest(self, *, bgm_upload: bool = False) -> str:
         if self._file is None or not self._finished:
             raise AppError("validation_failed")
+        if bgm_upload:
+            try:
+                self._fields["mood"] = Mood(self._fields.get("mood", Mood.calm)).value
+            except ValueError as error:
+                raise AppError("validation_failed") from error
         text = self._file.hexdigest() + canonical_json(self._fields).decode("utf-8")
         return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -189,7 +196,8 @@ async def _chunks(receive: Receive) -> AsyncIterator[bytes]:
 
 
 async def _multipart_digest(
-    receive: Receive, headers: Headers, spool: IO[bytes], file_limit: int
+    receive: Receive, headers: Headers, spool: IO[bytes], file_limit: int,
+    *, bgm_upload: bool = False,
 ) -> str:
     raw_limit = file_limit + FORM_OVERHEAD_BYTES
     length = headers.get("content-length", "")
@@ -212,7 +220,7 @@ async def _multipart_digest(
         parser.finalize()
     except (MultipartParseError, UnicodeDecodeError) as error:
         raise AppError("validation_failed") from error
-    return state.digest()
+    return state.digest(bgm_upload=bgm_upload)
 
 
 def _reject_constant(text: str) -> Any:
@@ -318,7 +326,9 @@ class IdempotencyMiddleware:
         if content_type.startswith("multipart/form-data"):
             if route.upload_limit is None:
                 raise AppError("validation_failed")
-            return await _multipart_digest(receive, headers, spool, route.upload_limit)
+            return await _multipart_digest(
+                receive, headers, spool, route.upload_limit, bgm_upload=route.bgm_upload
+            )
         return await _json_digest(receive, spool)
 
     async def _reject(self, scope: Scope, receive: Receive, send: Send, code: str) -> None:
@@ -385,6 +395,7 @@ def keyed_routes(
                     methods=frozenset(methods),
                     path=compile_path(path)[0],
                     upload_limit=upload_limits.get(path),
+                    bgm_upload=path == "/api/v1/bgm/uploads",
                 )
             )
     return found

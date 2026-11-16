@@ -11,13 +11,10 @@ import math
 from collections.abc import Iterator
 from dataclasses import dataclass
 
-from app.ports import AppError
+from app.ports import FPS, AppError, frame_count
 from app.schemas.artifact import Timing, TimingLine
 from app.schemas.common import CaptionMode
 from app.schemas.scene import Scene, SceneMotion, TransitionIn
-
-FPS = 30
-"""Output frame rate (CONTRACTS 12)."""
 
 POP_MS = 400
 """Length of the character pop, from nothing to a short overshoot and back to rest."""
@@ -41,15 +38,6 @@ SCALE_STEP = 50
 """Scales are kept as multiples of 1/50, so nearby frames reuse one resized image."""
 
 OPAQUE = 255
-
-
-def frame_count(duration_ms: int) -> int:
-    """Frames of a clip of ``duration_ms``, rounded to the nearest frame.
-
-    The sound and assemble services place scenes with the same rule, so the
-    audio and the subtitles stay on the frames the clips really have.
-    """
-    return max(1, (duration_ms * FPS + 500) // 1000)
 
 
 def frame_time_ms(index: int) -> int:
@@ -192,11 +180,9 @@ def poses(
 
 
 __all__ = [
-    "FPS",
     "CaptionState",
     "Pose",
     "caption_state",
-    "frame_count",
     "frame_time_ms",
     "poses",
     "rest_pose",

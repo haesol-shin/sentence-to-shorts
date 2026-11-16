@@ -9,12 +9,10 @@ from typing import Any
 import pytest
 
 from app.plugins.registry import Registry
-from app.ports import AppError, MediaInfo
-from app.schemas.bgm_entry import BuiltinBgm
+from app.ports import AppError, MediaInfo, scene_starts_ms
+from app.schemas.bgm_entry import BuiltinBgm, TypingSoundEntry
 from app.schemas.common import Language
-from app.services.assemble import AssembleService, scene_starts_ms
-from app.services.render.motion import FPS, frame_count
-from app.services.sound import scene_starts_ms as sound_scene_starts_ms
+from app.services.assemble import AssembleService
 from tests.fixtures.media import tone_wav
 from tests.media import ffmpeg
 from tests.media.scenes import Ctx, Token, load, timings, video
@@ -39,9 +37,10 @@ def test_29_srt_times_and_text_follow_the_timings(registry: Registry) -> None:
     built = video(registry)
     scene_timings = timings(built, speech_ms=1234, tail_ms=401)
     cues = SRT_CUE.findall(AssembleService(None).srt(built, scene_timings))  # type: ignore[arg-type]
+    starts, _ = scene_starts_ms(scene_timings)
     expected = [
         (start + line.start_ms, start + line.end_ms, built.scenes[timing.scene_id].lines[index])
-        for start, timing in zip(scene_starts_ms(scene_timings), scene_timings, strict=True)
+        for start, timing in zip(starts, scene_timings, strict=True)
         for index, line in enumerate(timing.lines)
     ]
     assert len(cues) == len(expected)
@@ -55,24 +54,8 @@ def test_29_srt_scene_starts_follow_the_clip_frames(registry: Registry) -> None:
     built = video(registry)
     scene_timings = timings(built, speech_ms=1000, tail_ms=11)
     # 1011 ms is 30.33 frames: each clip has 30 frames, so scene k starts at k * 1000 ms.
-    assert scene_starts_ms(scene_timings) == [index * 1000 for index in range(len(scene_timings))]
-
-
-@pytest.mark.parametrize("tail_ms", [0, 1, 16, 17, 33, 401, 999])
-def test_29_clip_audio_and_subtitle_clocks_use_one_frame_rule(
-    registry: Registry, tail_ms: int
-) -> None:
-    # The rule lives in render, sound and assemble because services cannot share
-    # code; this keeps the three copies from drifting apart.
-    built = video(registry)
-    scene_timings = timings(built, speech_ms=1000 + 7 * tail_ms, tail_ms=tail_ms)
-    clip_starts, frames = [], 0
-    for timing in scene_timings:
-        clip_starts.append((frames * 1000 + FPS // 2) // FPS)
-        frames += frame_count(timing.duration_ms)
-    sound_starts, total_ms = sound_scene_starts_ms(scene_timings)
-    assert scene_starts_ms(scene_timings) == sound_starts == clip_starts
-    assert total_ms == (frames * 1000 + FPS // 2) // FPS
+    starts, _ = scene_starts_ms(scene_timings)
+    assert starts == [index * 1000 for index in range(len(scene_timings))]
 
 
 def test_29_srt_rejects_timings_out_of_scene_order(registry: Registry) -> None:
@@ -101,6 +84,32 @@ def test_14_attribution_lists_cc_by_tracks_only() -> None:
     assert len(lines) == 2
     assert service.attributions([cc_by], Language.ko) == ["곡 출처 문구"]
     assert service.attributions([cc0], Language.en) == []
+
+
+@pytest.mark.parametrize("language", [Language.ko, Language.en])
+def test_14_attribution_includes_cc_by_typing_sounds_in_first_use_order(
+    language: Language,
+) -> None:
+    raw = load("typing_keys.json")
+    raw["license"]["spdx"] = "cc-by-4.0"
+    raw["license"]["attribution"] = {"ko": "키 소리 출처", "en": "Key sound credit"}
+    typing = TypingSoundEntry.model_validate(raw)
+    cc0 = typing.model_copy(
+        update={"license": typing.license.model_copy(update={"spdx": "CC0-1.0"})}
+    )
+    fallback = typing.model_copy(
+        update={"license": typing.license.model_copy(update={"attribution": None})}
+    )
+    track = _bgm("CC-BY-4.0", {"ko": "곡 출처", "en": "Track credit"})
+    title = getattr(typing.label, language.value)
+    license_ = typing.license
+    expected = [
+        getattr(license_.attribution, language.value),
+        getattr(track.license.attribution, language.value),
+        f'"{title}" - {license_.author}, {license_.spdx}, {license_.source_url}',
+    ]
+    service = AssembleService(None)  # type: ignore[arg-type]
+    assert service.attributions([cc0, typing, track, fallback, typing], language) == expected
 
 
 class ProbeOnly:

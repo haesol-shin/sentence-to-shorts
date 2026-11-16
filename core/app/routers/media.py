@@ -9,6 +9,7 @@ from fastapi import APIRouter, File, Form, Header, Request, UploadFile
 from app.ports import UploadSource
 from app.routers.deps import request_digest, runtime
 from app.schemas.api import BgmCodeRequest, Job, StyleRequest, TemplateRequest
+from app.schemas.common import Mood
 from app.schemas.job import JobKind
 
 router = APIRouter()
@@ -102,11 +103,13 @@ async def upload_bgm(
     request: Request,
     project_id: Annotated[str, Form()],
     file: UploadFile = File(...),
+    mood: Mood = Form(
+        default_factory=lambda: Mood.calm,
+        description="Defaults to calm when omitted.",
+    ),
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    """Multipart digest: SHA-256 of the file part, then canonical JSON of the other
-    fields sorted by name (CONTRACTS 3). Streaming and hashing land with the jobs lane.
-    """
+    """Validate upload metadata; submission integration is tracked separately."""
     return runtime(request).services.sound.submit_upload(
         project_id, UploadSource(file.filename, file.content_type, file.file), idempotency_key
     )

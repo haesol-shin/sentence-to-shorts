@@ -49,8 +49,7 @@ export interface paths {
         put?: never;
         /**
          * Upload Bgm
-         * @description Multipart digest: SHA-256 of the file part, then canonical JSON of the other
-         *     fields sorted by name (CONTRACTS 3). Streaming and hashing land with the jobs lane.
+         * @description Validate upload metadata; submission integration is tracked separately.
          */
         post: operations["uploadBgm"];
         delete?: never;
@@ -916,6 +915,8 @@ export interface components {
         Body_uploadBgm: {
             /** File */
             file: string;
+            /** @description Defaults to calm when omitted. */
+            mood?: components["schemas"]["Mood"];
             /** Project Id */
             project_id: string;
         };

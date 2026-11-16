@@ -34,6 +34,7 @@ from app.ports import (
     UnknownCatalogId,
     UploadSource,
     canonical_digest,
+    scene_starts_ms,
 )
 from app.schemas.artifact import Timing
 from app.schemas.bgm_entry import (
@@ -54,9 +55,6 @@ from app.schemas.video import Video
 
 SAMPLE_RATE = 44100
 """Internal audio rate (CONTRACTS 12)."""
-
-FPS = 30
-"""Clip frame rate; scene starts follow the clip frame rule of the render service."""
 
 CROSSFADE_MS = 500
 """Equal-power crossfade at each BGM loop seam, as the bundled-binary probe measured."""
@@ -115,16 +113,6 @@ def _upload_id() -> str:
     value |= rand & ((1 << 62) - 1)
     body = "".join(_CROCKFORD32[(value >> (5 * index)) & 0x1F] for index in range(25, -1, -1))
     return f"u_{body}"
-
-
-def scene_starts_ms(timings: list[Timing]) -> tuple[list[int], int]:
-    """Start of each scene and the video length on the clip frame clock, in ms."""
-    starts: list[int] = []
-    frames = 0
-    for timing in timings:
-        starts.append((frames * 1000 + FPS // 2) // FPS)
-        frames += max(1, (timing.duration_ms * FPS + 500) // 1000)
-    return starts, (frames * 1000 + FPS // 2) // FPS
 
 
 def loop_samples(source: array, total: int, crossfade: int) -> array:
@@ -527,7 +515,6 @@ __all__ = [
     "SoundService",
     "create",
     "loop_samples",
-    "scene_starts_ms",
     "typing_gain_db_x10",
     "typing_key_index",
 ]

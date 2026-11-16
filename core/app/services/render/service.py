@@ -17,6 +17,7 @@ from typing import Any
 from PIL import Image, ImageDraw, PngImagePlugin
 
 from app.ports import (
+    FPS,
     AppError,
     AppSettings,
     ArtifactStore,
@@ -35,7 +36,6 @@ from app.schemas.style_manifest import AssetKind, Palette, Theme
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
 from app.services.render.motion import (
-    FPS,
     OPAQUE,
     SCALE_STEP,
     CaptionState,

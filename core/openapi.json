@@ -404,6 +404,10 @@
             "title": "File",
             "type": "string"
           },
+          "mood": {
+            "$ref": "#/components/schemas/Mood",
+            "description": "Defaults to calm when omitted."
+          },
           "project_id": {
             "title": "Project Id",
             "type": "string"
@@ -5871,7 +5875,7 @@
     },
     "/api/v1/bgm/uploads": {
       "post": {
-        "description": "Multipart digest: SHA-256 of the file part, then canonical JSON of the other\nfields sorted by name (CONTRACTS 3). Streaming and hashing land with the jobs lane.",
+        "description": "Validate upload metadata; submission integration is tracked separately.",
         "operationId": "uploadBgm",
         "parameters": [
           {
