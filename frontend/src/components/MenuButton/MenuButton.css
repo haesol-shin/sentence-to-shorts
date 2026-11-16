@@ -27,42 +27,6 @@
     transform var(--motion-panel-duration) var(--motion-ease);
 }
 
-.menu-body {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.menu-body::before,
-.menu-body::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  left: 0;
-  height: calc(var(--part-menu-row) / 2);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.menu-body::before {
-  top: 0;
-  background: linear-gradient(to bottom, var(--popover), transparent);
-}
-
-.menu-body::after {
-  bottom: 0;
-  background: linear-gradient(to bottom, transparent, var(--popover));
-}
-
-.menu-surface[data-fade='bottom'] .menu-body::after,
-.menu-surface[data-fade='both'] .menu-body::before,
-.menu-surface[data-fade='both'] .menu-body::after,
-.menu-surface[data-fade='top'] .menu-body::before {
-  opacity: 1;
-}
-
 .menu-scroll {
   flex: 1 1 auto;
   min-height: 0;

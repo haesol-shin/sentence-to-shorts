@@ -64,6 +64,17 @@ const TIGHT_VOICES: readonly ValueFieldItem[] = [
 ];
 
 function menuItems(slug: string): readonly MenuItemSpec[] {
+  if (slug === 'open-long') {
+    return [
+      { value: 'upload', label: '참고 영상 올리기' },
+      ...Array.from({ length: 18 }, (_, index) => ({
+        value: `extra-${index + 1}`,
+        label: `추가 파일 ${index + 1}`,
+      })),
+      { value: 'text', label: '글 파일 올리기 (.md, .txt)' },
+      { value: 'image', label: '이미지 올리기', unavailable: true, tag: SOON_TAG },
+    ];
+  }
   const selected = slug === 'open' || slug === 'item-selected';
   return [
     { value: 'upload', label: '참고 영상 올리기' },
@@ -176,16 +187,17 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         </div>
       );
     case 'chip': {
+      const element = entry.slug.startsWith('element');
       const noLead = entry.slug.startsWith('no-lead');
       const chipState = state === 'loading' || state === 'error' ? state : 'default';
       return (
         <Chip
           state={chipState}
           forceState={state}
-          lead={noLead ? undefined : <FileText aria-hidden="true" />}
+          lead={noLead || element ? undefined : <FileText aria-hidden="true" />}
           remove={<CloseButton label="파일 지우기" size="sm" />}
         >
-          대본_최종_수정본.md
+          {element ? <span>대본_최종_수정본.md</span> : '대본_최종_수정본.md'}
         </Chip>
       );
     }

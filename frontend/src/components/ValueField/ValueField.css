@@ -90,42 +90,6 @@
     transform var(--motion-panel-duration) var(--motion-ease);
 }
 
-.field-menu__body {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-.field-menu__body::before,
-.field-menu__body::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  left: 0;
-  height: calc(var(--part-menu-row) / 2);
-  opacity: 0;
-  pointer-events: none;
-}
-
-.field-menu__body::before {
-  top: 0;
-  background: linear-gradient(to bottom, var(--popover), transparent);
-}
-
-.field-menu__body::after {
-  bottom: 0;
-  background: linear-gradient(to bottom, transparent, var(--popover));
-}
-
-.field-menu[data-fade='bottom'] .field-menu__body::after,
-.field-menu[data-fade='both'] .field-menu__body::before,
-.field-menu[data-fade='both'] .field-menu__body::after,
-.field-menu[data-fade='top'] .field-menu__body::before {
-  opacity: 1;
-}
-
 .field-menu__list {
   flex: 1 1 auto;
   min-height: 0;

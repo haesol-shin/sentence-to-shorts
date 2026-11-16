@@ -5,6 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import './Chip.css';
 
 import { statesOf, type ForceState } from '../force-state';
+import { LabelBox } from '../LabelBox';
 
 export type ChipState = 'default' | 'loading' | 'error';
 
@@ -43,11 +44,8 @@ export function Chip({ children, state = 'default', lead, remove, forceState, cl
           {state === 'loading' ? <span className="spinner" /> : lead}
         </span>
       )}
-      <span
-        className="chip__label"
-        data-label={typeof children === 'string' ? children : undefined}
-      >
-        <span className="chip__text">{children}</span>
+      <span className="chip__label">
+        <LabelBox>{children}</LabelBox>
       </span>
       {hasRemove ? <span className="chip__remove">{remove}</span> : null}
     </div>

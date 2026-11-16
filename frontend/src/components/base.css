@@ -68,6 +68,46 @@
   font-weight: var(--font-weight-regular);
 }
 
+/*
+ * A scrolling popup body keeps the owner's half-row sign: the last row stays
+ * half visible and the hidden edge fades into the surface.
+ */
+.scroll-fade {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.scroll-fade::before,
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: calc(var(--part-menu-row) / 2);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-fade::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--popover), transparent);
+}
+
+.scroll-fade::after {
+  bottom: 0;
+  background: linear-gradient(to bottom, transparent, var(--popover));
+}
+
+.scroll-fade[data-fade='bottom']::after,
+.scroll-fade[data-fade='both']::before,
+.scroll-fade[data-fade='both']::after,
+.scroll-fade[data-fade='top']::before {
+  opacity: 1;
+}
+
 .spinner {
   box-sizing: border-box;
   display: inline-block;

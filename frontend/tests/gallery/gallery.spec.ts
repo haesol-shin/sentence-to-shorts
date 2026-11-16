@@ -73,46 +73,57 @@ test('test_10a_gallery_lists_every_part_and_numbered_case_in_order', async ({ pa
 });
 
 test('test_10a_visible_box_stays_equal_across_states', async ({ page }) => {
-  const widthsOf = async (partId: string, labels: readonly string[], selector: string): Promise<number[]> => {
+  const sizesOf = async (
+    partId: string,
+    labels: readonly string[],
+    selector: string,
+  ): Promise<[number, number][]> => {
     await galleryReady(page, partId);
     const frame = await frameOf(page, `iframe[data-frame-group="${partId}"][width="390"]`);
-    const widths: number[] = [];
+    const sizes: [number, number][] = [];
     for (const label of labels) {
-      const width = await frame
+      const size = await frame
         .locator(`[data-case="${label}"] ${selector}`)
         .first()
-        .evaluate((element) => element.getBoundingClientRect().width);
-      widths.push(Math.round(width * 10) / 10);
+        .evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return [box.width, box.height];
+        });
+      sizes.push([Math.round(size[0] * 10) / 10, Math.round(size[1] * 10) / 10]);
     }
-    return widths;
+    return sizes;
   };
-  const equal = (widths: number[]) => expect(new Set(widths).size).toBe(1);
+  const equal = (sizes: [number, number][]) =>
+    expect(new Set(sizes.map(([width, height]) => `${width}x${height}`)).size).toBe(1);
 
   equal(
-    await widthsOf(
+    await sizesOf(
       'button-primary',
       ['1-1-default', '1-2-hover', '1-3-pressed', '1-4-disabled', '1-5-loading', '1-6-focus-visible'],
       'button',
     ),
   );
-  equal(await widthsOf('chip', ['6-1-default', '6-2-loading', '6-3-error', '6-4-focus-visible'], '.chip'));
-  equal(await widthsOf('chip', ['6-5-no-lead', '6-6-no-lead-loading'], '.chip'));
+  const chip = await sizesOf('chip', ['6-1-default'], '.chip');
+  expect(chip[0][1]).toBe(36);
+  equal(await sizesOf('chip', ['6-1-default', '6-2-loading', '6-3-error', '6-4-focus-visible'], '.chip'));
+  equal(await sizesOf('chip', ['6-5-no-lead', '6-6-no-lead-loading'], '.chip'));
+  equal(await sizesOf('chip', ['6-7-element-default', '6-8-element-error'], '.chip'));
   equal(
-    await widthsOf(
+    await sizesOf(
       'tabs',
       ['10-1-default', '10-2-hover', '10-3-pressed', '10-4-selected', '10-5-disabled', '10-6-focus-visible'],
       '[role=tab]',
     ),
   );
-  equal(await widthsOf('tabs', ['10-7-latin-default', '10-8-latin-selected'], '[role=tab]'));
+  equal(await sizesOf('tabs', ['10-7-latin-default', '10-8-latin-selected'], '[role=tab]'));
   equal(
-    await widthsOf(
+    await sizesOf(
       'switch',
       ['12-1-default', '12-2-hover', '12-3-pressed', '12-4-selected', '12-5-disabled', '12-6-focus-visible'],
       '.switch-option',
     ),
   );
-  equal(await widthsOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option'));
+  equal(await sizesOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option'));
 });
 
 test('test_10a_tabs_radio_and_switch_change_with_the_keyboard', async ({ page }) => {
@@ -229,6 +240,41 @@ test('test_10a_unavailable_menu_row_shows_its_reason_on_hover', async ({ page })
   expect(await tooltip.textContent()).toContain('곧 지원 항목은 다음 단계에서 열려요.');
   const describedBy = (await row.getAttribute('aria-describedby')) ?? '';
   expect(describedBy.split(' ')).toContain(await tooltip.getAttribute('id'));
+  const onTop = await tooltip.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return hit !== null && element.contains(hit);
+  });
+  expect(onTop).toBe(true);
+});
+
+test('test_10a_heading_menu_keeps_half_a_row_at_the_scroll_end', async ({ page }) => {
+  await galleryReady(page, 'menu');
+  const frame = await frameOf(page, 'iframe[data-frame-case="13-14-open-long"][width="390"]');
+  await expect(frame.locator('.scroll-fade')).toHaveAttribute('data-fade', 'bottom');
+  const geometry = await frame.locator('.menu-scroll').evaluate((element) => {
+    const rows = [...element.querySelectorAll<HTMLElement>('.menu-item')];
+    const box = element.getBoundingClientRect();
+    const first = rows[0].getBoundingClientRect();
+    const second = rows[1].getBoundingClientRect();
+    const origin = first.top - box.top + element.scrollTop;
+    const pitch = second.top - first.top;
+    return {
+      pitch,
+      clientHeight: element.clientHeight,
+      scrollHeight: element.scrollHeight,
+      remainder: (element.clientHeight - origin) % pitch,
+    };
+  });
+  expect(geometry.scrollHeight).toBeGreaterThan(geometry.clientHeight);
+  expect(Math.abs(geometry.remainder - geometry.pitch / 2)).toBeLessThan(1.5);
+});
+
+test('test_10a_loading_button_keeps_its_accessible_name', async ({ page }) => {
+  await galleryReady(page, 'button-primary');
+  const frame = await frameOf(page, 'iframe[data-frame-group="button-primary"][width="390"]');
+  const button = frame.locator('[data-case="1-5-loading"] button');
+  await expect(button).toHaveAccessibleName('영상 만들기');
 });
 
 test('test_10a_keyboard_focus_draws_the_token_ring', async ({ page }) => {

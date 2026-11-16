@@ -49,7 +49,7 @@
 }
 
 .button[aria-busy='true'] > .button__label {
-  visibility: hidden;
+  opacity: 0;
 }
 
 .button__icon svg,

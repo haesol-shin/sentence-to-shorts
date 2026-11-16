@@ -263,6 +263,8 @@ const SPECS: readonly PartSpec[] = [
       { state: 'focus-visible', slug: 'focus-visible', width: 420 },
       { state: 'default', slug: 'no-lead', width: 420 },
       { state: 'loading', slug: 'no-lead-loading', width: 420 },
+      { state: 'default', slug: 'element-default', width: 420 },
+      { state: 'error', slug: 'element-error', width: 420 },
     ],
   },
   {
@@ -386,6 +388,7 @@ const SPECS: readonly PartSpec[] = [
       { state: 'disabled', slug: 'item-disabled', portal: true, surface: 'background' },
       { state: 'unavailable', slug: 'item-unavailable', portal: true, surface: 'background' },
       { state: 'focus-visible', slug: 'item-focus-visible', portal: true, surface: 'background' },
+      { state: 'open', slug: 'open-long', portal: true, surface: 'background' },
     ],
   },
   {

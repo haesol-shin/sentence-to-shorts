@@ -15,6 +15,8 @@ export type TooltipProps = {
   /** Opens for the gallery without hover. */
   forceOpen?: boolean;
   className?: string;
+  /** A positioner class for a tooltip opened by a popup, above that popup. */
+  positionerClassName?: string;
 };
 
 function existingDescriptionOf(element: ReactElement): string | undefined {
@@ -28,7 +30,7 @@ function existingDescriptionOf(element: ReactElement): string | undefined {
  * A short reason on hover and on keyboard focus. One line is a pill; two lines
  * or more use the content radius, both from the token set.
  */
-export function Tooltip({ content, children, side = 'top', forceOpen, className }: TooltipProps) {
+export function Tooltip({ content, children, side = 'top', forceOpen, className, positionerClassName }: TooltipProps) {
   const [open, setOpen] = useState(forceOpen ?? false);
   const [lines, setLines] = useState(1);
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
@@ -62,7 +64,12 @@ export function Tooltip({ content, children, side = 'top', forceOpen, className 
         render={cloneElement(children, { 'aria-describedby': describedBy })}
       />
       <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Positioner side={side} sideOffset={8} collisionPadding={8} className="tooltip-positioner">
+        <TooltipPrimitive.Positioner
+          side={side}
+          sideOffset={8}
+          collisionPadding={8}
+          className={cn('tooltip-positioner', positionerClassName)}
+        >
           <TooltipPrimitive.Popup
             ref={setPopup}
             id={popupId}

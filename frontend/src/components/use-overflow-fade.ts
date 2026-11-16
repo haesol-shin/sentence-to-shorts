@@ -19,11 +19,15 @@ export function useOverflowFade(element: HTMLElement | null, rowSelector: string
         return;
       }
       const rows = element.querySelectorAll<HTMLElement>(rowSelector);
-      const pitch = rows.length > 1 ? rows[1].offsetTop - rows[0].offsetTop : 0;
+      if (rows.length === 0) return;
+      const box = element.getBoundingClientRect();
+      const first = rows[0].getBoundingClientRect();
+      const origin = first.top - box.top + element.scrollTop;
+      const pitch = rows.length > 1 ? rows[1].getBoundingClientRect().top - first.top : 0;
       const available = element.clientHeight;
       if (pitch > 0) {
-        const snapped = Math.floor((available - pitch / 2) / pitch) * pitch + pitch / 2;
-        if (snapped >= pitch && snapped < available) element.style.maxHeight = `${snapped}px`;
+        const snapped = Math.floor((available - origin - pitch / 2) / pitch) * pitch + pitch / 2 + origin;
+        if (snapped > origin && snapped < available) element.style.maxHeight = `${snapped}px`;
       }
       const atTop = element.scrollTop <= 1;
       const atBottom = element.scrollTop + element.clientHeight >= element.scrollHeight - 1;

@@ -14,7 +14,7 @@ describe('Chip', () => {
       </Chip>,
     );
 
-    const chip = screen.getByText('대본.md').closest('.chip');
+    const chip = screen.getAllByText('대본.md')[0].closest('.chip');
     expect(chip?.getAttribute('data-state')).toBe('loading');
     expect(chip?.querySelector('.spinner')).not.toBeNull();
   });
@@ -26,7 +26,7 @@ describe('Chip', () => {
       </Chip>,
     );
 
-    const chip = screen.getByText('참고영상.mp4').closest('.chip');
+    const chip = screen.getAllByText('참고영상.mp4')[0].closest('.chip');
     expect(chip?.getAttribute('data-state')).toBe('error');
     expect(screen.getByRole('button', { name: '파일 지우기' })).toBeTruthy();
   });
@@ -34,7 +34,7 @@ describe('Chip', () => {
   test('test_10a_chip_marks_a_forced_focus_state', () => {
     render(<Chip forceState="focus-visible">대본.md</Chip>);
 
-    expect(screen.getByText('대본.md').closest('.chip')?.getAttribute('data-force-state')).toBe(
+    expect(screen.getAllByText('대본.md')[0].closest('.chip')?.getAttribute('data-force-state')).toBe(
       'focus-visible',
     );
   });

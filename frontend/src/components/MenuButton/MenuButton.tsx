@@ -88,7 +88,12 @@ export function MenuButton({
       </MenuPrimitive.Item>
     );
     return item.unavailable === true && resolvedNote !== undefined ? (
-      <Tooltip key={item.value} content={resolvedNote} side="right">
+      <Tooltip
+        key={item.value}
+        content={resolvedNote}
+        side="right"
+        positionerClassName="tooltip-positioner--from-popup"
+      >
         {row}
       </Tooltip>
     ) : (
@@ -107,12 +112,8 @@ export function MenuButton({
           collisionPadding={8}
           className="menu-positioner"
         >
-          <MenuPrimitive.Popup
-            className={cn('menu-surface', className)}
-            aria-label={label}
-            data-fade={fade === 'none' ? undefined : fade}
-          >
-            <div className="menu-body">
+          <MenuPrimitive.Popup className={cn('menu-surface', className)} aria-label={label}>
+            <div className="scroll-fade" data-fade={fade === 'none' ? undefined : fade}>
               <div className="menu-scroll" ref={setList}>
                 {heading === undefined ? (
                   rows

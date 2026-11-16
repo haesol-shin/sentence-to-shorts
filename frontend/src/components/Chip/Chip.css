@@ -1,6 +1,7 @@
 @import '../base.css';
 
 .chip {
+  box-sizing: border-box;
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -26,7 +27,7 @@
 }
 
 .chip[data-no-lead][data-state='loading'] .chip__label {
-  visibility: hidden;
+  opacity: 0;
 }
 
 .chip--removable {
@@ -53,23 +54,7 @@
   overflow: hidden;
 }
 
-.chip__label::before,
-.chip__label::after {
-  content: attr(data-label);
-  height: 0;
-  visibility: hidden;
-  white-space: nowrap;
-}
-
-.chip__label::before {
-  font-weight: var(--font-weight-bold);
-}
-
-.chip__label::after {
-  font-weight: var(--font-weight-regular);
-}
-
-.chip__text {
+.chip__label .label-box__text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

@@ -96,8 +96,8 @@ export function ValueField({
           collisionPadding={8}
           className="field-positioner"
         >
-          <SelectPrimitive.Popup className="field-menu" data-fade={fade === 'none' ? undefined : fade}>
-            <div className="field-menu__body">
+          <SelectPrimitive.Popup className="field-menu">
+            <div className="scroll-fade" data-fade={fade === 'none' ? undefined : fade}>
               <SelectPrimitive.List className="field-menu__list" ref={setList}>
                 {items.map((item) => {
                   const row = (
@@ -120,7 +120,12 @@ export function ValueField({
                     </SelectPrimitive.Item>
                   );
                   return item.unavailable === true && resolvedNote !== undefined ? (
-                    <Tooltip key={item.value} content={resolvedNote} side="right">
+                    <Tooltip
+                      key={item.value}
+                      content={resolvedNote}
+                      side="right"
+                      positionerClassName="tooltip-positioner--from-popup"
+                    >
                       {row}
                     </Tooltip>
                   ) : (

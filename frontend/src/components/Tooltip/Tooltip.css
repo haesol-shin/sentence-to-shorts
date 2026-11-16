@@ -5,6 +5,11 @@
   isolation: isolate;
 }
 
+/* A reason opened from a menu row is part of that popup, so it sits above it. */
+.tooltip-positioner--from-popup {
+  z-index: var(--z-panel);
+}
+
 .tooltip-surface {
   box-sizing: border-box;
   display: flex;
