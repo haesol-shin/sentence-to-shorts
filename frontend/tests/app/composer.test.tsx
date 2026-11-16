@@ -419,3 +419,35 @@ test('test_10a_adding_more_files_keeps_the_earlier_materials', async () => {
     ['brief.txt', '둘째 재료'],
   ]);
 });
+
+test('test_10a_files_dropped_while_sending_stay_after_the_send_finishes', async () => {
+  let releaseSend: () => void = () => undefined;
+  const pendingSend = new Promise<void>((resolve) => {
+    releaseSend = resolve;
+  });
+  const calls: Attachment[][] = [];
+  render(
+    <Harness
+      initial="원두 이야기"
+      onSubmit={(attachments) => {
+        calls.push(attachments);
+        return pendingSend;
+      }}
+    />,
+  );
+  const composer = document.querySelector('[data-slot="composer"]') as HTMLElement;
+
+  chooseFiles('text', [textFile('sent.md', '보낸 재료')]);
+  await waitFor(() => expect(attachmentCount()).toBe(1));
+  fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+  await waitFor(() => expect(calls).toHaveLength(1));
+
+  fireEvent.drop(composer, { dataTransfer: { files: [textFile('late.md', '늦게 놓은 재료')] } });
+  await waitFor(() => expect(attachmentCount()).toBe(2));
+
+  releaseSend();
+  await waitFor(() => expect(screen.queryByText('sent.md')).toBeNull());
+  expect(calls[0].map((attachment) => attachment.name)).toEqual(['sent.md']);
+  expect(attachmentCount()).toBe(1);
+  expect(screen.getByText('late.md')).toBeTruthy();
+});

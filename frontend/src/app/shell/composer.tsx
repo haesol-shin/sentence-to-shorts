@@ -429,7 +429,9 @@ function ComposerBox({
     );
     try {
       await onSubmit?.(payload);
-      updateAttachments([]);
+      // Files dropped or read while the send ran were not in the payload; keep them.
+      const sent = new Set(payload.map((attachment) => attachment.id));
+      updateAttachments(attachmentsRef.current.filter((attachment) => !sent.has(attachment.id)));
     } catch {
       setError(t('concept.composer.sendFailed'));
       updateAttachments(
