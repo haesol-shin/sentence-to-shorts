@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 
@@ -210,32 +211,45 @@ def test_uploads_pass_file_streams_to_services(
     client: TestClient, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
     runtime = client.app.state.runtime  # type: ignore[attr-defined]
-    reference_seen: list[bytes] = []
+    # Park execution so each staged upload stays readable for the assertion.
+    runtime.runner.stop()
+    staged_seen: list[Path] = []
     sound_seen: list[bytes] = []
-
-    def capture_reference(video_id, base_revision, upload, key):  # type: ignore[no-untyped-def]
-        reference_seen.append(upload.stream.read())
-        raise NotImplementedError
 
     def capture_sound(project_id, upload, key):  # type: ignore[no-untyped-def]
         sound_seen.append(upload.stream.read())
         raise NotImplementedError
 
-    monkeypatch.setattr(runtime.services.reference, "submit_upload", capture_reference)
     monkeypatch.setattr(runtime.services.sound, "submit_upload", capture_sound)
 
+    project = client.post(
+        "/api/v1/projects", json={"title": "Synthetic upload", "language": "en"}
+    )
+    assert project.status_code == 201
     for content in (b"first-bytes", b"second-bytes"):
-        response = client.post(
-            "/api/v1/videos/v_synthetic/references",
-            data={"base_revision": "1"},
-            files={"file": ("same.wav", content, "audio/wav")},
+        video = client.post(
+            f"/api/v1/projects/{project.json()['id']}/videos",
+            json={"from_video_id": None, "preset_id": None},
         )
-        assert response.status_code == 501
+        assert video.status_code == 201
+        response = client.post(
+            f"/api/v1/videos/{video.json()['id']}/references",
+            data={"base_revision": "1"},
+            files={"file": ("same.mp4", content, "video/mp4")},
+        )
+        assert response.status_code == 202, response.text
+        saved = runtime.job_inputs.load(response.json()["id"])
+        assert saved is not None
+        staged_seen.append(Path(saved["upload_path"]))
         response = client.post(
             "/api/v1/bgm/uploads",
             data={"project_id": "p_synthetic"},
             files={"file": ("same.wav", content, "audio/wav")},
         )
         assert response.status_code == 501
-    assert reference_seen == [b"first-bytes", b"second-bytes"]
+    assert len(set(staged_seen)) == 2
+    assert [path.read_bytes() for path in staged_seen] == [
+        b"first-bytes",
+        b"second-bytes",
+    ]
     assert sound_seen == [b"first-bytes", b"second-bytes"]

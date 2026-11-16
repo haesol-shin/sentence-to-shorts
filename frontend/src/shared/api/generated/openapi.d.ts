@@ -673,8 +673,7 @@ export interface paths {
         put?: never;
         /**
          * Upload Reference
-         * @description Multipart digest: SHA-256 of the file part, then canonical JSON of the other
-         *     fields sorted by name (CONTRACTS 3). Streaming and hashing land with the jobs lane.
+         * @description Stage the bounded upload before queuing; only the private job input holds its path.
          */
         post: operations["uploadReference"];
         delete?: never;

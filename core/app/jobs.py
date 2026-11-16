@@ -19,6 +19,7 @@ import json
 import logging
 import math
 import re
+import secrets
 import shutil
 import sqlite3
 import threading
@@ -84,6 +85,8 @@ PERMANENT_ERRORS = frozenset(
 JOB_ID = re.compile(r"^j_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _ENTITY_ID = re.compile(r"^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _CHUNK = 1 << 20
+REFERENCE_UPLOAD_DIR = "reference-uploads"
+REFERENCE_UPLOAD_NAME = re.compile(r"^upload-[A-Za-z0-9_-]{1,64}\.(?:part|src)$")
 
 log = logging.getLogger(__name__)
 
@@ -563,6 +566,21 @@ class SqliteJobStore:
             ).fetchall()
         return [Job.model_validate_json(row[0]) for row in rows]
 
+    def retryable_failures(self) -> list[Job]:
+        """Failed jobs that still allow another attempt while their input is kept."""
+        with self._db.read() as conn:
+            rows = conn.execute(
+                "SELECT doc FROM jobs WHERE state = 'failed' ORDER BY created_at, id"
+            ).fetchall()
+        jobs = [Job.model_validate_json(row[0]) for row in rows]
+        return [
+            job
+            for job in jobs
+            if job.error is not None
+            and job.error.retryable
+            and job.attempt < job.max_attempts
+        ]
+
     def recover(self) -> list[tuple[Job, str]]:
         """Steps 1 to 5 of CONTRACTS 5.3 in one transaction, before any job runs.
 
@@ -657,6 +675,29 @@ def _remove_dir(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
+def _keeps_upload(job: Job) -> bool:
+    """True while a retry or restart can still read the job's staged reference."""
+    if job.state in (JobState.queued, JobState.running, JobState.cancelling):
+        return True
+    return (
+        job.state is JobState.failed
+        and job.error is not None
+        and job.error.retryable
+        and job.attempt < job.max_attempts
+    )
+
+
+def _unlink_upload(path: Path) -> bool:
+    """Remove one staged reference file. A symlink is unlinked, never followed."""
+    try:
+        if path.is_symlink() or path.is_file():
+            path.unlink(missing_ok=True)
+            return True
+    except OSError:
+        return False
+    return False
+
+
 class JobRunner:
     """One worker thread per queue and one watcher for cancel requests and deadlines."""
 
@@ -738,7 +779,114 @@ class JobRunner:
             for entry in root.iterdir():
                 if JOB_ID.fullmatch(entry.name) and entry.name not in active:
                     _remove_dir(entry)
+        self.cleanup_reference_uploads()
         return changed
+
+    # reference sources
+
+    def _uploads_dir(self) -> Path:
+        return self._cache_dir / REFERENCE_UPLOAD_DIR
+
+    def stage_reference_upload(self) -> tuple[Path, Path]:
+        """Names for one new staged upload: a partial file and the final source.
+
+        Staging and cleanup share one folder and one name shape, so a file made
+        here is always one the cleanup recognizes. The folder is created here.
+        """
+        folder = self._uploads_dir()
+        if folder.is_symlink():
+            raise AppError("internal")
+        folder.mkdir(mode=0o700, parents=True, exist_ok=True)
+        token = secrets.token_hex(16)
+        part = folder / f"upload-{token}.part"
+        source = folder / f"upload-{token}.src"
+        if not (REFERENCE_UPLOAD_NAME.fullmatch(part.name)
+                and REFERENCE_UPLOAD_NAME.fullmatch(source.name)):
+            raise ValueError("staged upload name does not match the cleanup pattern")
+        return part, source
+
+    def reference_source_available(self, job_id: str) -> bool:
+        """False when a reference upload job has lost its staged source.
+
+        A cancelled job drops its source, so another attempt could not read it.
+        Jobs of other kinds and link jobs have no staged source and are available.
+        """
+        try:
+            job = self._store.get(job_id)
+            if job.kind is not JobKind.reference:
+                return True
+            payload = self._inputs.load(job_id)
+        except (AppError, OSError, ValueError):
+            return True
+        value = None if payload is None else payload.get("upload_path")
+        return not isinstance(value, str) or Path(value).is_file()
+
+    def _staged_upload(self, job: Job) -> Path | None:
+        """The app-owned staged source of a reference job, if its input names one."""
+        if job.kind is not JobKind.reference:
+            return None
+        payload = self._inputs.load(job.id)
+        if payload is None:
+            raise ValueError("reference job input is unavailable")
+        value = payload.get("upload_path")
+        if not isinstance(value, str):
+            return None
+        uploads = self._uploads_dir()
+        if uploads.is_symlink():
+            return None
+        path = Path(value)
+        if path.parent != uploads or not REFERENCE_UPLOAD_NAME.fullmatch(path.name):
+            return None
+        return path
+
+    def discard_reference_upload(self, job_id: str) -> bool:
+        """Delete the staged source once no attempt can read it again.
+
+        A queued, running, cancelling or retryable failed job keeps its source.
+        True means a file was removed.
+        """
+        try:
+            job = self._store.get(job_id)
+        except AppError:
+            return False
+        if _keeps_upload(job):
+            return False
+        try:
+            path = self._staged_upload(job)
+        except (OSError, ValueError):
+            log.warning(
+                "reference source cleanup deferred",
+                extra=_job_fields(job, event="reference_cleanup_deferred"),
+            )
+            return False
+        if path is None:
+            return False
+        return _unlink_upload(path)
+
+    def cleanup_reference_uploads(self) -> None:
+        """Remove staged sources no remaining attempt can read, plus orphan staging files."""
+        folder = self._uploads_dir()
+        if folder.is_symlink() or not folder.is_dir():
+            return
+        try:
+            entries = list(folder.iterdir())
+        except OSError:
+            return
+        keep: set[Path] = set()
+        for job in (*self._store.unfinished(), *self._store.retryable_failures()):
+            try:
+                path = self._staged_upload(job)
+            except (OSError, ValueError):
+                log.warning(
+                    "reference source cleanup deferred",
+                    extra=_job_fields(job, event="reference_cleanup_deferred"),
+                )
+                return
+            if path is not None:
+                keep.add(path)
+        for entry in entries:
+            if REFERENCE_UPLOAD_NAME.fullmatch(entry.name) and entry not in keep:
+                _unlink_upload(entry)
 
     # execution
 
@@ -815,6 +963,8 @@ class JobRunner:
                 self._active.pop(claimed.id, None)
             _remove_dir(self._cache_dir / "j" / claimed.id)
             _remove_dir(self._cache_dir / "r" / claimed.id)
+            if claimed.kind is JobKind.reference:
+                self.discard_reference_upload(claimed.id)
 
     def _run(self, job: Job, active: _Active, started: float, *, has_checkpoints: bool) -> None:
         store = self._store

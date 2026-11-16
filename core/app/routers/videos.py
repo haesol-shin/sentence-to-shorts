@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
+from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, Header, Request, UploadFile
+from fastapi import APIRouter, File, Form, Header, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 
-from app.ports import AppError, UploadSource
+from app.ports import AppError, canonical_json
 from app.routers.deps import request_digest, runtime
 from app.schemas.api import (
     ActivityRequest,
@@ -24,6 +27,7 @@ from app.schemas.change import ChangePlan
 from app.schemas.job import JobKind
 from app.schemas.video import Video
 from app.services.pipeline.dependencies import plan_change
+from app.services.reference.links import platform_of
 
 router = APIRouter()
 
@@ -207,6 +211,16 @@ def generate_video(
     return _submit(runtime(request), JobKind.generate, body, video_id=vid, key=idempotency_key)
 
 
+def _sync_directory(path: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 @router.post(
     "/videos/{vid}/references",
     operation_id="uploadReference",
@@ -215,20 +229,69 @@ def generate_video(
 )
 async def upload_reference(
     request: Request,
+    response: Response,
     vid: str,
     base_revision: Annotated[int, Form()],
     file: UploadFile = File(...),
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    """Multipart digest: SHA-256 of the file part, then canonical JSON of the other
-    fields sorted by name (CONTRACTS 3). Streaming and hashing land with the jobs lane.
-    """
-    return runtime(request).services.reference.submit_upload(
-        vid,
-        base_revision,
-        UploadSource(file.filename, file.content_type, file.file),
-        idempotency_key,
-    )
+    """Stage the bounded upload before queuing; only the private job input holds its path."""
+    app = runtime(request)
+    video = app.project_store.get_video(vid)
+    if video.revision != base_revision:
+        raise AppError("revision_conflict", detail={"current_revision": video.revision})
+    if file.content_type and not (
+        file.content_type.startswith("video/") or file.content_type == "application/octet-stream"
+    ):
+        raise AppError("unsupported_media")
+    form = await request.form()
+    if set(form) != {"base_revision", "file"} or not isinstance(form["base_revision"], str):
+        raise AppError("validation_failed")
+    fields = {"base_revision": form["base_revision"]}
+    temporary, path = app.runner.stage_reference_upload()
+    folder = path.parent
+    _sync_directory(folder.parent)
+    keep = False
+    staged = temporary.open("xb")
+    try:
+        with staged:
+            digest = hashlib.sha256()
+            total = 0
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > app.settings.app.uploads.reference_max_bytes:
+                    raise AppError("payload_too_large")
+                staged.write(chunk)
+                digest.update(chunk)
+            if not total:
+                raise AppError("validation_failed")
+            staged.flush()
+            os.fsync(staged.fileno())
+        os.replace(temporary, path)
+        _sync_directory(folder)
+        text = digest.hexdigest().encode("ascii") + canonical_json(fields)
+        job = app.submitter.submit(
+            JobKind.reference,
+            project_id=None,
+            video_id=vid,
+            base_revision=base_revision,
+            request_digest=hashlib.sha256(text).hexdigest(),
+            input={"base_revision": base_revision, "upload_path": str(path)},
+            idempotency_key=idempotency_key,
+        )
+        keep = True
+        saved = app.job_inputs.load(job.id)
+        if saved is None:
+            raise AppError("internal")
+        if saved.get("upload_path") != str(path):
+            keep = False
+            response.status_code = 200
+        return job
+    finally:
+        temporary.unlink(missing_ok=True)
+        if not keep:
+            path.unlink(missing_ok=True)
+            _sync_directory(folder)
 
 
 @router.post(
@@ -243,7 +306,11 @@ def link_reference(
     body: LinkRequest,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.reference, body, video_id=vid, key=idempotency_key)
+    app = runtime(request)
+    if app.settings.deployment == "hosted":
+        raise AppError("link_disabled")
+    platform_of(body.url)
+    return _submit(app, JobKind.reference, body, video_id=vid, key=idempotency_key)
 
 
 @router.post(

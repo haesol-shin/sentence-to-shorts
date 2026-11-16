@@ -120,7 +120,7 @@ STAGE_GATES: dict[JobKind, tuple[VideoStage, str]] = {
     JobKind.precheck: (VideoStage.scenes_confirmed, "scenes_not_confirmed"),
     JobKind.generate: (VideoStage.scenes_confirmed, "scenes_not_confirmed"),
 }
-UNAVAILABLE_JOB_KINDS = frozenset({JobKind.reference, JobKind.runtime_prepare})
+UNAVAILABLE_JOB_KINDS = frozenset({JobKind.runtime_prepare})
 """Kinds whose services are still contracts only: a request fails with 501 up front."""
 BGM_MOOD_PATH = "/settings/audio/bgm/mood"
 BGM_ENTRY_PATH = "/settings/audio/bgm/entry"
@@ -296,7 +296,7 @@ class LocalJobs:
             gate = STAGE_GATES.get(kind)
             if gate is not None and STAGE_ORDER.index(head.stage) < STAGE_ORDER.index(gate[0]):
                 raise AppError(gate[1], detail={"stage": head.stage.value})
-        if kind in LLM_JOB_KINDS and self._llm.auth_state() != "ok":
+        if kind in LLM_JOB_KINDS and self._llm.auth_state() in {"missing", "expired"}:
             raise AppError("llm_auth_required")
         self._check_runtime(kind)
 
