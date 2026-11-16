@@ -243,3 +243,33 @@ test('test_10a_bgm_files_keep_their_kind_and_all_selected_items', async ({ page 
   await expect(composer.getByText('second.wav')).toBeVisible();
   await expect(chips.first()).toContainText('BGM');
 });
+
+async function buttonRowHeight(composer: Locator): Promise<number> {
+  const parts = ['composer-plus', 'composer-send'].map((slot) =>
+    composer.locator(`[data-slot="${slot}"]`),
+  );
+  for (const kind of ['language', 'duration']) {
+    parts.push(composer.locator(`[data-slot="composer-action"][data-kind="${kind}"]`));
+  }
+  const tops: number[] = [];
+  const bottoms: number[] = [];
+  for (const part of parts) {
+    const box = await part.boundingBox();
+    expect(box).not.toBeNull();
+    if (box === null) continue;
+    tops.push(box.y);
+    bottoms.push(box.y + box.height);
+  }
+  return Math.max(...bottoms) - Math.min(...tops);
+}
+
+test('test_10a_the_button_row_stays_on_one_line_so_the_box_keeps_its_height', async ({ page }) => {
+  const first = await openFirst(page);
+  // Wrapping the send button onto a second line would make this about 94.
+  expect(await buttonRowHeight(first)).toBeLessThanOrEqual(44);
+
+  await startConcept(page);
+  const stage = stageComposer(page);
+  await expect(stage).toBeVisible();
+  expect(await buttonRowHeight(stage)).toBeLessThanOrEqual(44);
+});

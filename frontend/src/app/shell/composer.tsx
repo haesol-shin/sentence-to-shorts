@@ -600,7 +600,10 @@ function ComposerBox({
 
       <div
         data-slot="composer-actions"
-        className="flex min-w-0 flex-wrap items-center gap-1.5"
+        // One row at every width: wrapping would drop the send button onto a
+        // second line (WebKit sizes a select wider than Blink does) and make
+        // the docked box taller than the room a phone keyboard leaves it.
+        className="flex min-w-0 items-center gap-1.5"
       >
         <div data-slot="composer-plus" data-hit={TOUCH_TARGET} className="relative shrink-0">
           <IconButton
@@ -671,13 +674,13 @@ function ComposerBox({
             {languageName(language)}
           </Chip>
         ) : (
-          <Chip data-slot="composer-action" data-kind="language" className="px-0">
+          <Chip data-slot="composer-action" data-kind="language" className="min-w-0 shrink px-0">
           <select
             aria-label={t('concept.composer.languageLabel')}
             value={language}
             disabled={busy}
             onChange={(event) => onLanguageChange(event.target.value as Language)}
-            className="h-9 max-w-32 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+            className="h-9 w-full min-w-0 max-w-32 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
           >
             {LANGUAGES.map((code) => (
               <option key={code} value={code}>
@@ -693,13 +696,13 @@ function ComposerBox({
             {durationName(duration)}
           </Chip>
         ) : (
-          <Chip data-slot="composer-action" data-kind="duration" className="px-0">
+          <Chip data-slot="composer-action" data-kind="duration" className="min-w-0 shrink px-0">
           <select
             aria-label={t('concept.composer.durationLabel')}
             value={duration}
             disabled={busy}
             onChange={(event) => onDurationChange(Number(event.target.value))}
-            className="h-9 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+            className="h-9 w-full min-w-0 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
           >
             {DURATION_VALUES.map((seconds) => (
               <option key={seconds} value={seconds}>
