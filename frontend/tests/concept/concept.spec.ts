@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
+import { capture } from '../support/capture';
+
 async function start(page: Page): Promise<Locator> {
   await page.goto('/');
   await page.getByRole('textbox', { name: '만들고 싶은 영상을 한 문장으로 적어 주세요' }).fill('별이 보이는 이유');
@@ -128,8 +130,8 @@ test('test_23_keyboard_cards_and_docked_action_have_no_horizontal_overflow', asy
   await expect(page.locator('[data-slot="top-bar"] [data-slot="next-action"]')).toBeHidden();
 });
 
-test('test_23_captures_synthetic_concept_at_each_supported_width', async ({ page }) => {
+test('test_23_captures_synthetic_concept_at_each_supported_width', async ({ page }, testInfo) => {
   await start(page);
   const width = page.viewportSize()!.width;
-  await page.screenshot({ path: `tests/concept/screens/concept-${width}.png`, fullPage: true });
+  await capture(page, testInfo, `tests/concept/screens/concept-${width}.png`, true);
 });

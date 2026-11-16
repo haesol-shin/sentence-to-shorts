@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { capture } from '../support/capture';
+
 declare global {
   interface Window {
     /** Installed by the init script below, so a test can open a soft keyboard. */
@@ -116,7 +118,7 @@ test('test_23_the_stage_input_sits_above_the_keyboard_without_overlap', async ({
   expect(overlaps(dockBox, preview)).toBe(false);
 });
 
-test('test_23_captures_the_job_status_in_the_top_bar_while_typing', async ({ page }) => {
+test('test_23_captures_the_job_status_in_the_top_bar_while_typing', async ({ page }, testInfo) => {
   await installSoftKeyboard(page);
   await page.goto('/');
 
@@ -130,7 +132,7 @@ test('test_23_captures_the_job_status_in_the_top_bar_while_typing', async ({ pag
   // A desktop has no soft keyboard: the header and the full status line stay.
   if (width >= 768) {
     await expect(page.locator('[data-slot="top-bar"] [data-slot="job-status"]')).toHaveCount(0);
-    await page.screenshot({ path: `tests/screens/keyboard-status-${width}.png` });
+    await capture(page, testInfo, `tests/screens/keyboard-status-${width}.png`);
     return;
   }
 
@@ -142,5 +144,5 @@ test('test_23_captures_the_job_status_in_the_top_bar_while_typing', async ({ pag
   await expect(status).toBeVisible();
   const barAfter = await page.locator('[data-slot="top-bar"]').boundingBox();
   expect(barAfter?.height).toBe(barBefore?.height);
-  await page.screenshot({ path: `tests/screens/keyboard-status-${width}.png` });
+  await capture(page, testInfo, `tests/screens/keyboard-status-${width}.png`);
 });
