@@ -20,6 +20,7 @@ from __future__ import annotations
 import contextlib
 import json
 import os
+import sys
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import AbstractContextManager
@@ -32,14 +33,17 @@ from app.runtime import archive, download, fsutil, journal
 from app.runtime.lock import (
     Item,
     Target,
+    all_lock_items,
     archive_member,
     download_name,
+    host_files,
     host_platform,
     install_dir,
     installed_path,
     lock_items,
     relative_install_path,
     require_file,
+    runtime_owned,
     select_file,
     shares_install_path,
     wheel_binary,
@@ -49,6 +53,7 @@ from app.schemas.api import RuntimeItem, RuntimeItemState
 STAGING_DIR = ".tmp"
 ROLLBACK_NAME = ".rollback.json"
 ROLLBACK_VERSION = 1
+PACKAGE_JOURNAL_NAME = "packages.installed.json"
 # Archives that fail these checks are bad input for the lock, so their staging is dropped.
 DISCARD_CODES = frozenset({"download_blocked", "download_too_large", "model_hash_mismatch"})
 
@@ -107,29 +112,72 @@ def is_ready(settings: AppSettings, item: Item, target: Target | None = None) ->
     return _record_ready(root, item, entry, journal.read(root).get(str(item["id"])))
 
 
+def _model_state(
+    settings: AppSettings, item: Item, entries: Sequence[Mapping[str, Any]], record: Any
+) -> RuntimeItemState:
+    """Readiness of a `model-` item from the model journal and the files on disk."""
+    if not isinstance(record, dict) or record.get("revision") != item["revision"]:
+        return RuntimeItemState.missing
+    base = settings.model_dir.joinpath(*relative_install_path(item).parts)
+    for entry in entries:
+        path = base.joinpath(*PurePosixPath(str(entry["file"])).parts)
+        # Size only: a locked model file can be gigabytes, so this request never hashes it.
+        try:
+            matches = path.is_file() and path.stat().st_size == int(entry["bytes"])
+        except OSError:
+            matches = False
+        if not matches:
+            return RuntimeItemState.corrupt
+    return RuntimeItemState.ready
+
+
+def _package_state(entry: Mapping[str, Any], record: Any) -> RuntimeItemState:
+    """Readiness of a `package-` item from the wheel journal of this interpreter."""
+    if not isinstance(record, dict):
+        return RuntimeItemState.missing
+    if record.get("sha256") == entry["sha256"] and record.get("python") == sys.executable:
+        return RuntimeItemState.ready
+    return RuntimeItemState.corrupt
+
+
 def status(settings: AppSettings, target: Target | None = None) -> list[RuntimeItem]:
-    """One `RuntimeItem` per lock item, for `GET /runtime` and the prepare job."""
+    """One `RuntimeItem` per lock item, for `GET /runtime` and the prepare job.
+
+    Items this preparer installs are read from the runtime journal. `model-` and
+    `package-` items are installed by `scripts/dev_setup.py`, so their state comes from
+    the two journals that script writes; they are never `downloading`.
+    """
     target = target or host_platform()
     root = settings.runtime_dir
     records = journal.read(root)
     with _active_lock:
         active = {name for base, name in _active if base == str(root)}
+    model_records: dict[str, dict[str, Any]] | None = None
+    package_records: dict[str, dict[str, Any]] | None = None
     result = []
-    for item in lock_items(settings):
-        entry = select_file(item, target)
+    for item in all_lock_items(settings):
         identifier = str(item["id"])
-        if entry is None:
-            state, size = RuntimeItemState.missing, 0
-        else:
-            size = int(entry["bytes"])
-            if identifier in active:
-                state = RuntimeItemState.downloading
-            elif _record_ready(root, item, entry, records.get(identifier)):
-                state = RuntimeItemState.ready
-            elif isinstance(records.get(identifier, {}).get("files"), dict):
-                state = RuntimeItemState.corrupt
+        entries = host_files(item, target)
+        size = sum(int(entry["bytes"]) for entry in entries)
+        if not entries:
+            state = RuntimeItemState.missing
+        elif not runtime_owned(item):
+            if identifier.startswith("model-"):
+                if model_records is None:
+                    model_records = journal.read(settings.model_dir)
+                state = _model_state(settings, item, entries, model_records.get(identifier))
             else:
-                state = RuntimeItemState.missing
+                if package_records is None:
+                    package_records = journal.read_path(root / PACKAGE_JOURNAL_NAME)
+                state = _package_state(entries[0], package_records.get(identifier))
+        elif identifier in active:
+            state = RuntimeItemState.downloading
+        elif _record_ready(root, item, entries[0], records.get(identifier)):
+            state = RuntimeItemState.ready
+        elif isinstance(records.get(identifier, {}).get("files"), dict):
+            state = RuntimeItemState.corrupt
+        else:
+            state = RuntimeItemState.missing
         result.append(RuntimeItem(id=identifier, state=state, bytes=size))
     return result
 

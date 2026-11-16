@@ -22,15 +22,20 @@ def journal_path(root: Path) -> Path:
     return root / JOURNAL_NAME
 
 
-def read(root: Path) -> dict[str, dict[str, Any]]:
-    """The journal records; an unreadable journal counts as empty."""
+def read_path(path: Path) -> dict[str, dict[str, Any]]:
+    """The records of a journal file; an unreadable journal counts as empty."""
     try:
-        payload = json.loads(journal_path(root).read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     if not isinstance(payload, dict):
         return {}
     return {key: value for key, value in payload.items() if isinstance(value, dict)}
+
+
+def read(root: Path) -> dict[str, dict[str, Any]]:
+    """The journal records; an unreadable journal counts as empty."""
+    return read_path(journal_path(root))
 
 
 def write(root: Path, records: dict[str, dict[str, Any]]) -> None:

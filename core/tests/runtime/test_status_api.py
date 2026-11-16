@@ -35,7 +35,8 @@ def test_runtime_api_reports_a_damaged_install_as_corrupt_like_the_status_functi
         }
     journal.write(settings.runtime_dir, records)
     ready = client.get("/api/v1/runtime").json()["items"]
-    assert {row["state"] for row in ready} == {"ready"}
+    assert {row["id"] for row in ready} == {item.id for item in settings.runtime.items}
+    assert {row["state"] for row in ready if row["id"] in records} == {"ready"}
 
     first = next(iter(records.values()))
     (settings.runtime_dir / next(iter(first["files"]))).write_bytes(b"damaged")
