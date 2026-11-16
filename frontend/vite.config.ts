@@ -12,8 +12,10 @@ export default defineConfig({
     },
   },
   server: {
-    host: '127.0.0.1',
-    port: 4173,
+    // The dev gallery binds to the Tailscale address when the host gives one.
+    // This server is not for the public internet.
+    host: process.env.APP_GALLERY_HOST ?? '127.0.0.1',
+    port: Number(process.env.APP_PORT ?? 4173),
     strictPort: true,
     fs: {
       // A mock run serves the recorded answers from `fixtures/api/` one level up.
@@ -22,6 +24,7 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
-    include: ['tests/**/*.test.{ts,tsx}'],
+    // Part tests live next to their part so the acceptance command can name the folder.
+    include: ['tests/**/*.test.{ts,tsx}', 'src/components/**/*.test.{ts,tsx}'],
   },
 });

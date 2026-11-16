@@ -349,63 +349,63 @@
 | 부품 | 변형 | 상태 | 바탕 | 글자 | 아이콘 | 테두리 | 바뀐 칸 | 메모 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `button.primary` | - | `default` | `--primary` | `--primary-foreground` | - | `--primary` | 없음 |  |
-| `button.primary` | - | `hover` | `--primary` | `--primary-foreground` | - | `--primary` | 없음 | 대표색 단추에는 올림 색이 정해지지 않아 바탕이 그대로다 |
+| `button.primary` | - | `hover` | `--primary-hover` | `--primary-foreground` | - | `--primary-hover` | 바탕, 테두리 | 올림에서는 바탕을 조금 밝게 한다 |
 | `button.primary` | - | `pressed` | `--primary-pressed` | `--primary-foreground` | - | `--primary-pressed` | 바탕, 테두리 |  |
 | `button.primary` | - | `disabled` | `--muted` | `--disabled-foreground` | - | `--muted` | 바탕, 글자, 테두리 |  |
 | `button.primary` | - | `loading` | `--primary` | `--primary-foreground` | - | `--primary` | 없음 | 바탕과 글자는 default와 같고 진행 표시만 더한다 |
 | `button.primary` | - | `focus-visible` | `--primary` | `--primary-foreground` | - | `--ring` | 테두리 |  |
-| `button.secondary` | - | `default` | `--secondary` | `--foreground` | - | `--secondary` | 없음 |  |
-| `button.secondary` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
-| `button.secondary` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 테두리 |  |
+| `button.secondary` | - | `default` | `--background` | `--foreground` | - | `--background` | 없음 |  |
+| `button.secondary` | - | `hover` | `--state-hover-gray` | `--foreground` | - | `--state-hover-gray` | 바탕, 테두리 |  |
+| `button.secondary` | - | `pressed` | `--state-pressed-gray` | `--foreground` | - | `--state-pressed-gray` | 바탕, 테두리 |  |
 | `button.secondary` | - | `disabled` | `--muted` | `--disabled-foreground` | - | `--muted` | 바탕, 글자, 테두리 |  |
-| `button.secondary` | - | `focus-visible` | `--secondary` | `--foreground` | - | `--ring` | 테두리 |  |
+| `button.secondary` | - | `focus-visible` | `--background` | `--foreground` | - | `--ring` | 테두리 |  |
 | `button.ghost` | - | `default` | `--background` | `--foreground` | - | `--background` | 없음 | 상단바와 사이드바처럼 앱 바탕 위에 놓인다. 흰 면 위에서는 card를 바탕으로 쓴다 |
-| `button.ghost` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
-| `button.ghost` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 테두리 |  |
+| `button.ghost` | - | `hover` | `--state-hover-gray` | `--foreground` | - | `--state-hover-gray` | 바탕, 테두리 |  |
+| `button.ghost` | - | `pressed` | `--state-pressed-gray` | `--foreground` | - | `--state-pressed-gray` | 바탕, 테두리 |  |
 | `button.ghost` | - | `disabled` | `--background` | `--disabled-foreground` | - | `--background` | 글자 |  |
 | `button.ghost` | - | `focus-visible` | `--background` | `--foreground` | - | `--ring` | 테두리 |  |
 | `button.icon` | - | `default` | `--card` | `--foreground` | - | `--card` | 없음 |  |
-| `button.icon` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
-| `button.icon` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 테두리 |  |
-| `button.icon` | - | `selected` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
+| `button.icon` | - | `hover` | `--state-hover-white` | `--foreground` | - | `--state-hover-white` | 바탕, 테두리 |  |
+| `button.icon` | - | `pressed` | `--state-pressed-white` | `--foreground` | - | `--state-pressed-white` | 바탕, 테두리 |  |
+| `button.icon` | - | `selected` | `--state-selected` | `--foreground` | - | `--foreground` | 바탕, 테두리 |  |
 | `button.icon` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--card` | 글자 |  |
 | `button.icon` | - | `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 |  |
 | `button.trigger` | - | `default` | `--background` | `--foreground` | - | `--background` | 없음 |  |
-| `button.trigger` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
-| `button.trigger` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 테두리 | 열림 표시가 이미 있으면 누름은 바탕만 진하게 바꾼다 |
-| `button.trigger` | - | `open` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 | 열린 동안 회색 바탕과 굵은 글자를 함께 쓴다 |
+| `button.trigger` | - | `hover` | `--state-hover-gray` | `--foreground` | - | `--state-hover-gray` | 바탕, 테두리 |  |
+| `button.trigger` | - | `pressed` | `--state-pressed-gray` | `--foreground` | - | `--state-pressed-gray` | 바탕, 테두리 | 열림 표시가 이미 있으면 누름은 바탕만 진하게 바꾼다 |
+| `button.trigger` | - | `open` | `--state-selected` | `--foreground` | - | `--state-selected` | 바탕, 테두리 | 열린 동안 회색 바탕과 굵은 글자를 함께 쓴다 |
 | `button.trigger` | - | `disabled` | `--background` | `--disabled-foreground` | - | `--background` | 글자 |  |
 | `button.trigger` | - | `focus-visible` | `--background` | `--foreground` | - | `--ring` | 테두리 |  |
 | `button.send` | - | `default` | `--primary` | `--primary-foreground` | - | `--primary` | 없음 |  |
-| `button.send` | - | `hover` | `--primary` | `--primary-foreground` | - | `--primary` | 없음 | 대표색 단추에는 올림 색이 정해지지 않아 바탕이 그대로다 |
+| `button.send` | - | `hover` | `--primary-hover` | `--primary-foreground` | - | `--primary-hover` | 바탕, 테두리 | 올림에서는 바탕을 조금 밝게 한다 |
 | `button.send` | - | `pressed` | `--primary-pressed` | `--primary-foreground` | - | `--primary-pressed` | 바탕, 테두리 |  |
 | `button.send` | - | `disabled` | `--muted` | `--disabled-foreground` | - | `--muted` | 바탕, 글자, 테두리 |  |
 | `button.send` | - | `loading` | `--primary` | `--primary-foreground` | - | `--primary` | 없음 | 아이콘 대신 진행 표시를 같은 색으로 둔다 |
 | `button.send` | - | `focus-visible` | `--primary` | `--primary-foreground` | - | `--ring` | 테두리 |  |
 | `field.trigger` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 | 값 칸은 늘 회색 바탕이다 |
-| `field.trigger` | - | `hover` | `--muted` | `--foreground` | - | `--muted` | 없음 | 바탕이 바뀌지 않는다 |
+| `field.trigger` | - | `hover` | `--state-hover-gray` | `--foreground` | - | `--state-hover-gray` | 바탕, 테두리 | 한 단계 진한 회색으로 올린다. 열린 메뉴의 선택 행 색과 다른 단계다 |
 | `field.trigger` | - | `open` | `--muted` | `--foreground` | - | `--muted` | 없음 | 테두리 없이 화살표만 위로 돈다 |
 | `field.trigger` | - | `disabled` | `--muted` | `--disabled-foreground` | - | `--muted` | 글자 |  |
 | `field.trigger` | - | `focus-visible` | `--muted` | `--foreground` | - | `--ring` | 테두리 |  |
 | `menu.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 |  |
 | `menu.item` | - | `default` | `--popover` | `--foreground` | - | `--popover` | 없음 |  |
-| `menu.item` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
-| `menu.item` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 테두리 |  |
-| `menu.item` | - | `selected` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 | 고른 줄은 회색 바탕과 체크를 함께 쓴다 |
+| `menu.item` | - | `hover` | `--state-hover-white` | `--foreground` | - | `--state-hover-white` | 바탕, 테두리 |  |
+| `menu.item` | - | `pressed` | `--state-pressed-white` | `--foreground` | - | `--state-pressed-white` | 바탕, 테두리 |  |
+| `menu.item` | - | `selected` | `--state-selected` | `--foreground` | - | `--state-selected` | 바탕, 테두리 | 고른 줄은 회색 바탕과 체크를 함께 쓴다 |
 | `menu.item` | - | `disabled` | `--popover` | `--disabled-foreground` | - | `--popover` | 글자 |  |
 | `menu.item` | - | `unavailable` | `--popover` | `--disabled-foreground` | - | `--popover` | 글자 | 흐린 글자와 곧 지원 꼬리표를 함께 둔다 |
 | `menu.item` | - | `focus-visible` | `--popover` | `--foreground` | - | `--ring` | 테두리 | 포커스 선을 줄 안쪽에 그린다. 누른 동안에는 포커스 선을 그리지 않는다 |
 | `menu.label` | - | `default` | `--popover` | `--muted-foreground` | - | `--popover` | 없음 |  |
 | `tooltip.surface` | - | `default` | `--popover` | `--foreground` | - | `--popover` | 없음 | 한 줄이면 radius.pill, 두 줄 이상이면 radius.content를 쓴다 |
 | `picker.window` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 옆에서 미끄러져 오는 창은 shadow.slide를 쓴다 |
-| `tag` | `neutral` | `default` | `--muted` | `--foreground` | `--muted-foreground` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
-| `tag` | `new` | `default` | `--muted` | `--foreground` | `--emphasis` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
-| `tag` | `warning` | `default` | `--muted` | `--foreground` | `--warning` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
-| `tag` | `error` | `default` | `--muted` | `--foreground` | `--destructive` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
+| `tag` | `neutral` | `default` | `--muted` | `--foreground` | `--muted-foreground` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
+| `tag` | `new` | `default` | `--muted` | `--foreground` | `--emphasis` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
+| `tag` | `warning` | `default` | `--muted` | `--foreground` | `--warning` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
+| `tag` | `error` | `default` | `--muted` | `--foreground` | `--destructive` | `--muted` | 없음 | 꼬리표는 회색 바탕을 쓰고 뜻 색은 아이콘에만 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
 | `notice.surface` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 | 안내 문장은 회색 바탕을 쓰고 뜻 색은 제목 옆 아이콘에만 쓴다 |
-| `notice.title` | `neutral` | `default` | `--muted` | `--foreground` | `--muted-foreground` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
-| `notice.title` | `warning` | `default` | `--muted` | `--foreground` | `--warning` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
-| `notice.title` | `error` | `default` | `--muted` | `--foreground` | `--destructive` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 회색 바탕에서 기준에 못 미친다 |
+| `notice.title` | `neutral` | `default` | `--muted` | `--foreground` | `--muted-foreground` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
+| `notice.title` | `warning` | `default` | `--muted` | `--foreground` | `--warning` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
+| `notice.title` | `error` | `default` | `--muted` | `--foreground` | `--destructive` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
 | `notice.body` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 |  |
 | `text.emphasis` | - | `default` | `--card` | `--emphasis` | - | `--card` | 없음 | 강조 단어와 안 본 변경 표시에 쓴다. 흰 바탕에서만 쓴다 |
 | `toast.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 알림 면은 shadow.float를 쓴다 |
@@ -420,8 +420,8 @@
 | `chip.surface` | - | `error` | `--card` | `--destructive` | - | `--destructive` | 글자, 테두리 | 실패한 칩은 테두리와 글자를 destructive로 바꾼다 |
 | `chip.surface` | - | `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 |  |
 | `chip.remove` | - | `default` | `--card` | `--muted-foreground` | - | `--card` | 없음 |  |
-| `chip.remove` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 글자, 테두리 |  |
-| `chip.remove` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 글자, 테두리 |  |
+| `chip.remove` | - | `hover` | `--state-hover-white` | `--foreground` | - | `--state-hover-white` | 바탕, 글자, 테두리 |  |
+| `chip.remove` | - | `pressed` | `--state-pressed-white` | `--foreground` | - | `--state-pressed-white` | 바탕, 글자, 테두리 |  |
 | `chip.remove` | - | `focus-visible` | `--card` | `--muted-foreground` | - | `--ring` | 테두리 |  |
 | `skeleton.block` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 | 글자나 그림이 들어올 자리를 회색 면으로 채운다 |
 | `card.surface` | - | `default` | `--card` | `--foreground` | - | `--card` | 없음 | 카드는 그림자 없이 흰 면을 쓴다 |
@@ -436,21 +436,21 @@
 | `steps.past` | - | `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 |  |
 | `steps.current` | - | `default` | `--card` | `--foreground` | - | `--card` | 없음 | 지금 단계는 굵은 글자와 글자 아래 점으로 보인다. 컨셉 단계는 보기만 한다 |
 | `tab.item` | - | `default` | `--card` | `--muted-foreground` | - | `--card` | 없음 |  |
-| `tab.item` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 글자, 테두리 |  |
-| `tab.item` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 글자, 테두리 |  |
+| `tab.item` | - | `hover` | `--state-hover-white` | `--foreground` | - | `--state-hover-white` | 바탕, 글자, 테두리 |  |
+| `tab.item` | - | `pressed` | `--state-pressed-white` | `--foreground` | - | `--state-pressed-white` | 바탕, 글자, 테두리 |  |
 | `tab.item` | - | `selected` | `--card` | `--foreground` | - | `--foreground` | 글자, 테두리 | 고른 탭은 글자 아래 선을 foreground로 그린다 |
 | `tab.item` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--card` | 글자 |  |
 | `tab.item` | - | `focus-visible` | `--card` | `--muted-foreground` | - | `--ring` | 테두리 | 포커스 선을 줄 안쪽에 그린다. 누른 동안에는 포커스 선을 그리지 않는다 |
 | `choice.radio` | - | `default` | `--card` | `--foreground` | - | `--border` | 없음 |  |
-| `choice.radio` | - | `hover` | `--accent` | `--foreground` | - | `--border` | 바탕 |  |
-| `choice.radio` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--border` | 바탕 |  |
-| `choice.radio` | - | `selected` | `--card` | `--foreground` | - | `--primary` | 테두리 | 고른 항목은 테두리를 primary로 바꾸고 안쪽 점을 primary로 채운다 |
+| `choice.radio` | - | `hover` | `--state-hover-white` | `--foreground` | - | `--border` | 바탕 |  |
+| `choice.radio` | - | `pressed` | `--state-pressed-white` | `--foreground` | - | `--border` | 바탕 |  |
+| `choice.radio` | - | `selected` | `--state-selected` | `--foreground` | - | `--primary` | 바탕, 테두리 | 고른 항목은 테두리를 primary로 바꾸고 안쪽 점을 primary로 채운다 |
 | `choice.radio` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--border` | 글자 |  |
 | `choice.radio` | - | `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 |  |
 | `choice.switch` | - | `default` | `--card` | `--foreground` | - | `--border` | 없음 |  |
-| `choice.switch` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 |  |
-| `choice.switch` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 테두리 |  |
-| `choice.switch` | - | `selected` | `--accent` | `--foreground` | - | `--accent` | 바탕, 테두리 | 켜진 항목은 회색 바탕과 굵은 글자를 함께 쓴다 |
+| `choice.switch` | - | `hover` | `--state-hover-white` | `--foreground` | - | `--state-hover-white` | 바탕, 테두리 |  |
+| `choice.switch` | - | `pressed` | `--state-pressed-white` | `--foreground` | - | `--state-pressed-white` | 바탕, 테두리 |  |
+| `choice.switch` | - | `selected` | `--state-selected` | `--foreground` | - | `--foreground` | 바탕, 테두리 | 고른 칸은 회색 바탕, 굵은 글자, foreground 테두리를 함께 쓴다 |
 | `choice.switch` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--border` | 글자 |  |
 | `choice.switch` | - | `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 |  |
 | `reorder.row` | - | `default` | `--card` | `--foreground` | - | `--card` | 없음 |  |
@@ -465,15 +465,15 @@
 | `player.progress` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 | 진행 막대는 회색 바탕에 foreground로 채우고 반경은 radius.media다 |
 | `player.progress` | - | `focus-visible` | `--muted` | `--foreground` | - | `--ring` | 테두리 |  |
 | `sidebar.item` | - | `default` | `--background` | `--muted-foreground` | - | `--background` | 없음 | 사이드바는 아이콘만 두고 이름은 tooltip으로 보인다. text 칸의 색은 아이콘 색이다 |
-| `sidebar.item` | - | `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕, 글자, 테두리 |  |
-| `sidebar.item` | - | `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕, 글자, 테두리 |  |
-| `sidebar.item` | - | `selected` | `--accent` | `--foreground` | - | `--accent` | 바탕, 글자, 테두리 |  |
+| `sidebar.item` | - | `hover` | `--state-hover-gray` | `--foreground` | - | `--state-hover-gray` | 바탕, 글자, 테두리 |  |
+| `sidebar.item` | - | `pressed` | `--state-pressed-gray` | `--foreground` | - | `--state-pressed-gray` | 바탕, 글자, 테두리 |  |
+| `sidebar.item` | - | `selected` | `--state-selected` | `--foreground` | - | `--state-selected` | 바탕, 글자, 테두리 |  |
 | `sidebar.item` | - | `disabled` | `--background` | `--disabled-foreground` | - | `--background` | 글자 |  |
 | `sidebar.item` | - | `focus-visible` | `--background` | `--muted-foreground` | - | `--ring` | 테두리 |  |
 | `dropzone.surface` | - | `default` | `--card` | `--foreground` | - | `--border` | 없음 | 화면 끝에서 24px 안쪽에 점선 테두리를 그린다. 끌어 오는 동안에만 보인다 |
 | `dropzone.mask` | - | `default` | `--overlay-scrim` | `--foreground` | - | `--overlay-scrim` | 없음 | 파일을 끌어 오는 동안 사이드바를 뺀 화면 전체를 흐린다 |
 | `dialog.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 확인 창은 shadow.float를 쓰고 안의 단추가 포커스를 받는다 |
-| `dialog.backdrop` | - | `default` | `--overlay-scrim` | `--foreground` | - | `--overlay-scrim` | 없음 | 확인 창 뒤는 영상 설정 판과 같은 흐리는 막을 쓴다 |
+| `dialog.backdrop` | - | `default` | `--overlay-dialog-scrim` | - | - | `--overlay-dialog-scrim` | 없음 | 확인 창 뒤는 진한 회색 24% 막을 쓰고 막 위에는 글자를 놓지 않는다 |
 | `panel.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 판은 shadow.float를 쓰고 값 칸은 판 위에서 열린다 |
 | `panel.scrim` | - | `default` | `--overlay-scrim` | `--foreground` | - | `--overlay-scrim` | 없음 | 판 뒤의 장면 칸을 흐린다 |
 
@@ -483,50 +483,50 @@
 
 | 부품 | 변형 | 조합 | 바탕 | 글자 | 아이콘 | 테두리 | 이긴 상태 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `button.primary` | - | `hover` + `focus-visible` | `--primary` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible |
+| `button.primary` | - | `hover` + `focus-visible` | `--primary-hover` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
 | `button.primary` | - | `pressed` + `focus-visible` | `--primary-pressed` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
 | `button.primary` | - | `loading` + `focus-visible` | `--primary` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible |
-| `button.secondary` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
-| `button.secondary` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
-| `button.ghost` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
-| `button.ghost` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
-| `button.icon` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
-| `button.icon` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
-| `button.icon` | - | `selected` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
-| `button.trigger` | - | `open` + `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕 open, 테두리 open |
-| `button.trigger` | - | `open` + `pressed` | `--accent-pressed` | `--foreground` | - | `--accent-pressed` | 바탕 pressed, 테두리 pressed |
-| `button.trigger` | - | `open` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 open |
-| `button.trigger` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
-| `button.send` | - | `hover` + `focus-visible` | `--primary` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible |
+| `button.secondary` | - | `hover` + `focus-visible` | `--state-hover-gray` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `button.secondary` | - | `pressed` + `focus-visible` | `--state-pressed-gray` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
+| `button.ghost` | - | `hover` + `focus-visible` | `--state-hover-gray` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `button.ghost` | - | `pressed` + `focus-visible` | `--state-pressed-gray` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
+| `button.icon` | - | `hover` + `focus-visible` | `--state-hover-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `button.icon` | - | `pressed` + `focus-visible` | `--state-pressed-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
+| `button.icon` | - | `selected` + `focus-visible` | `--state-selected` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
+| `button.trigger` | - | `open` + `hover` | `--state-selected` | `--foreground` | - | `--state-selected` | 바탕 open, 테두리 open |
+| `button.trigger` | - | `open` + `pressed` | `--state-pressed-gray` | `--foreground` | - | `--state-pressed-gray` | 바탕 pressed, 테두리 pressed |
+| `button.trigger` | - | `open` + `focus-visible` | `--state-selected` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 open |
+| `button.trigger` | - | `hover` + `focus-visible` | `--state-hover-gray` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `button.send` | - | `hover` + `focus-visible` | `--primary-hover` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
 | `button.send` | - | `pressed` + `focus-visible` | `--primary-pressed` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
 | `button.send` | - | `loading` + `focus-visible` | `--primary` | `--primary-foreground` | - | `--ring` | 테두리 focus-visible |
-| `field.trigger` | - | `open` + `hover` | `--muted` | `--foreground` | - | `--muted` | 없음 |
+| `field.trigger` | - | `open` + `hover` | `--state-hover-gray` | `--foreground` | - | `--state-hover-gray` | 바탕 hover, 테두리 hover |
 | `field.trigger` | - | `open` + `focus-visible` | `--muted` | `--foreground` | - | `--ring` | 테두리 focus-visible |
-| `menu.item` | - | `selected` + `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕 selected, 테두리 selected |
-| `menu.item` | - | `selected` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
-| `menu.item` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `menu.item` | - | `selected` + `hover` | `--state-selected` | `--foreground` | - | `--state-selected` | 바탕 selected, 테두리 selected |
+| `menu.item` | - | `selected` + `focus-visible` | `--state-selected` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
+| `menu.item` | - | `hover` + `focus-visible` | `--state-hover-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
 | `chip.surface` | - | `loading` + `focus-visible` | `--card` | `--muted-foreground` | - | `--ring` | 글자 loading, 테두리 focus-visible |
-| `chip.remove` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover, 글자 hover |
-| `chip.remove` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed, 글자 pressed |
+| `chip.remove` | - | `hover` + `focus-visible` | `--state-hover-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover, 글자 hover |
+| `chip.remove` | - | `pressed` + `focus-visible` | `--state-pressed-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed, 글자 pressed |
 | `card.surface` | - | `selected` + `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 focus-visible |
 | `card.surface` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
 | `steps.past` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
 | `steps.past` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
-| `tab.item` | - | `selected` + `hover` | `--accent` | `--foreground` | - | `--foreground` | 글자 selected, 테두리 selected, 바탕 hover |
+| `tab.item` | - | `selected` + `hover` | `--state-hover-white` | `--foreground` | - | `--foreground` | 글자 selected, 테두리 selected, 바탕 hover |
 | `tab.item` | - | `selected` + `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 focus-visible, 글자 selected |
-| `tab.item` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover, 글자 hover |
-| `choice.radio` | - | `selected` + `hover` | `--accent` | `--foreground` | - | `--primary` | 테두리 selected, 바탕 hover |
-| `choice.radio` | - | `selected` + `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 focus-visible |
-| `choice.radio` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
-| `choice.radio` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
-| `choice.switch` | - | `selected` + `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕 selected, 테두리 selected |
-| `choice.switch` | - | `selected` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
-| `choice.switch` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
-| `choice.switch` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
+| `tab.item` | - | `hover` + `focus-visible` | `--state-hover-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover, 글자 hover |
+| `choice.radio` | - | `selected` + `hover` | `--state-selected` | `--foreground` | - | `--primary` | 바탕 selected, 테두리 selected |
+| `choice.radio` | - | `selected` + `focus-visible` | `--state-selected` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
+| `choice.radio` | - | `hover` + `focus-visible` | `--state-hover-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `choice.radio` | - | `pressed` + `focus-visible` | `--state-pressed-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
+| `choice.switch` | - | `selected` + `hover` | `--state-selected` | `--foreground` | - | `--foreground` | 바탕 selected, 테두리 selected |
+| `choice.switch` | - | `selected` + `focus-visible` | `--state-selected` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected |
+| `choice.switch` | - | `hover` + `focus-visible` | `--state-hover-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
+| `choice.switch` | - | `pressed` + `focus-visible` | `--state-pressed-white` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
 | `reorder.row` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
 | `reorder.row` | - | `pressed` + `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 focus-visible |
 | `player.control` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover |
 | `player.control` | - | `pressed` + `focus-visible` | `--accent-pressed` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 pressed |
-| `sidebar.item` | - | `selected` + `hover` | `--accent` | `--foreground` | - | `--accent` | 바탕 selected, 글자 selected, 테두리 selected |
-| `sidebar.item` | - | `selected` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected, 글자 selected |
-| `sidebar.item` | - | `hover` + `focus-visible` | `--accent` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover, 글자 hover |
+| `sidebar.item` | - | `selected` + `hover` | `--state-selected` | `--foreground` | - | `--state-selected` | 바탕 selected, 글자 selected, 테두리 selected |
+| `sidebar.item` | - | `selected` + `focus-visible` | `--state-selected` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 selected, 글자 selected |
+| `sidebar.item` | - | `hover` + `focus-visible` | `--state-hover-gray` | `--foreground` | - | `--ring` | 테두리 focus-visible, 바탕 hover, 글자 hover |

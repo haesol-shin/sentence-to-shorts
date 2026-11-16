@@ -1,0 +1,81 @@
+@import '../base.css';
+
+.tabs {
+  max-width: 100%;
+  font-family: var(--font-family-sans);
+}
+
+.tabs__list {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: 100%;
+  border-bottom: var(--part-hairline) solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--part-tab);
+  padding-inline: var(--space-12);
+  border: 0;
+  border-radius: var(--radius-inset);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.tab::before {
+  content: "";
+  position: absolute;
+  right: var(--space-12);
+  bottom: 0;
+  left: var(--space-12);
+  height: var(--focus-width);
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+.tab:hover:not(:disabled),
+.tab[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-white);
+  color: var(--foreground);
+}
+
+.tab:active:not(:disabled),
+.tab[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-white);
+  color: var(--foreground);
+}
+
+.tab[data-active],
+.tab[data-force-state~='selected'] {
+  color: var(--foreground);
+  font-weight: var(--font-weight-bold);
+}
+
+.tab[data-active]::before,
+.tab[data-force-state~='selected']::before {
+  background: var(--foreground);
+}
+
+.tab:disabled,
+.tab[data-disabled] {
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}

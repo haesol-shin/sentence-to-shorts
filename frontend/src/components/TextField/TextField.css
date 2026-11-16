@@ -1,0 +1,87 @@
+@import '../base.css';
+
+.text-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  font-family: var(--font-family-sans);
+}
+
+.text-field__label {
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+}
+
+.text-field__input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: var(--size-control);
+  height: var(--size-control);
+  padding-inline: var(--space-16);
+  border: var(--part-hairline) solid var(--input);
+  border-radius: var(--radius-surface);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  outline: none;
+  transition:
+    border-color var(--motion-state-duration) var(--motion-ease),
+    outline-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.text-field__input::placeholder {
+  color: var(--muted-foreground);
+}
+
+.text-field__input[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+
+.text-field__input:focus,
+.text-field[data-force-state~='focus-visible'] .text-field__input {
+  outline: var(--focus-width) solid var(--ring);
+  outline-offset: var(--focus-offset);
+}
+
+.text-field__input:disabled {
+  border-color: var(--border);
+  background: var(--muted);
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+.text-field__input:disabled::placeholder {
+  color: var(--disabled-foreground);
+}
+
+.text-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  margin: 0;
+  color: var(--destructive);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.text-field__error svg {
+  flex: none;
+  width: var(--icon-close);
+  height: var(--icon-close);
+  margin-top: var(--space-4);
+  stroke-width: var(--icon-stroke);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .text-field__input {
+    transition: none;
+  }
+}

@@ -1,0 +1,184 @@
+@import '../base.css';
+
+.button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-width: var(--size-control);
+  border: var(--part-hairline) solid transparent;
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-20);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.button--md {
+  min-height: var(--size-control);
+}
+
+.button--sm {
+  height: var(--part-small);
+  padding-inline: var(--space-12);
+  font-weight: var(--font-weight-regular);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+}
+
+.button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button > .spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+
+.button[aria-busy='true'] > .button__label {
+  visibility: hidden;
+}
+
+.button__icon svg,
+.button__label svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+  stroke-width: var(--icon-stroke);
+}
+
+.button__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.button--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.button--primary:hover:not(:disabled),
+.button--primary[data-force-state~='hover']:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.button--primary:active:not(:disabled),
+.button--primary[data-force-state~='pressed']:not(:disabled) {
+  background: var(--primary-pressed);
+  border-color: var(--primary-pressed);
+}
+
+.button--primary:disabled {
+  background: var(--muted);
+  border-color: var(--muted);
+  color: var(--disabled-foreground);
+}
+
+.button--secondary {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--foreground);
+}
+
+.button--secondary:hover:not(:disabled),
+.button--secondary[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.button--secondary:active:not(:disabled),
+.button--secondary[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+}
+
+.button--secondary:disabled {
+  background: var(--muted);
+  border-color: var(--muted);
+  color: var(--disabled-foreground);
+}
+
+.button--ghost {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--foreground);
+}
+
+.button--ghost:hover:not(:disabled),
+.button--ghost[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.button--ghost:active:not(:disabled),
+.button--ghost[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+}
+
+.button--ghost:disabled {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--disabled-foreground);
+}
+
+.button--trigger {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--foreground);
+}
+
+.button--trigger:hover:not(:disabled),
+.button--trigger[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.button--trigger:active:not(:disabled),
+.button--trigger[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+}
+
+.button--trigger[data-popup-open],
+.button--trigger[data-force-state~='open'] {
+  background: var(--state-selected);
+  border-color: var(--state-selected);
+  font-weight: var(--font-weight-bold);
+}
+
+.button--trigger:disabled {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--disabled-foreground);
+}
+
+.button--trigger .button__icon--end {
+  transition: transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.button--trigger[data-popup-open] .button__icon--end {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .button,
+  .button--trigger .button__icon--end {
+    transition: none;
+  }
+}

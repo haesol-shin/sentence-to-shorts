@@ -1,0 +1,44 @@
+@import '../base.css';
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--part-tag);
+  padding-inline: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
+  white-space: nowrap;
+}
+
+.tag__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tag__icon svg {
+  width: var(--icon-close);
+  height: var(--icon-close);
+  stroke-width: var(--icon-stroke);
+}
+
+.tag--neutral .tag__icon {
+  color: var(--muted-foreground);
+}
+
+.tag--new .tag__icon {
+  color: var(--emphasis);
+}
+
+.tag--warning .tag__icon {
+  color: var(--warning);
+}
+
+.tag--error .tag__icon {
+  color: var(--destructive);
+}

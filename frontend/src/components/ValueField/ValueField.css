@@ -1,0 +1,226 @@
+@import '../base.css';
+
+.field-trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+  width: 100%;
+  min-width: var(--size-control);
+  height: var(--size-control);
+  padding-inline: var(--space-16);
+  border: var(--part-hairline) solid var(--muted);
+  border-radius: var(--radius-surface);
+  background: var(--muted);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  text-align: start;
+  cursor: pointer;
+}
+
+.field-trigger__value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-regular);
+}
+
+.field-trigger:hover:not(:disabled),
+.field-trigger[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.field-trigger[data-placeholder] .field-trigger__value {
+  /* The owner sub colour meets 4.5 on the grey field. */
+  color: var(--sub);
+}
+
+.field-trigger__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.field-trigger__icon svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+  stroke-width: var(--icon-stroke);
+}
+
+.field-trigger[data-popup-open] .field-trigger__icon {
+  transform: rotate(180deg);
+}
+
+.field-trigger:disabled {
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+.field-positioner {
+  z-index: var(--z-menu);
+  isolation: isolate;
+  outline: none;
+}
+
+.field-menu {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: var(--anchor-width);
+  min-width: var(--size-control);
+  max-height: var(--available-height);
+  padding: var(--space-8);
+  overflow: hidden;
+  border-radius: var(--radius-surface);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-family-sans);
+  outline: none;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--motion-panel-duration) var(--motion-ease),
+    transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.field-menu__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.field-menu__body::before,
+.field-menu__body::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: calc(var(--part-menu-row) / 2);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.field-menu__body::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--popover), transparent);
+}
+
+.field-menu__body::after {
+  bottom: 0;
+  background: linear-gradient(to bottom, transparent, var(--popover));
+}
+
+.field-menu[data-fade='bottom'] .field-menu__body::after,
+.field-menu[data-fade='both'] .field-menu__body::before,
+.field-menu[data-fade='both'] .field-menu__body::after,
+.field-menu[data-fade='top'] .field-menu__body::before {
+  opacity: 1;
+}
+
+.field-menu__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-padding-block: var(--space-8);
+  scroll-snap-type: y proximity;
+  scrollbar-width: none;
+}
+
+.field-menu__list::-webkit-scrollbar {
+  display: none;
+}
+
+.field-menu[data-starting-style],
+.field-menu[data-ending-style] {
+  opacity: 0;
+  transform: translateY(calc(var(--space-4) * -1));
+}
+
+.field-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--part-menu-row);
+  padding-inline: var(--space-12);
+  border-radius: var(--radius-row);
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  white-space: nowrap;
+  scroll-snap-align: start;
+  outline: none;
+  user-select: none;
+  cursor: default;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.field-item + .field-item {
+  margin-top: var(--space-8);
+}
+
+.field-item__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-item__tag {
+  display: inline-flex;
+  margin-inline-start: auto;
+}
+
+.field-item__indicator {
+  position: absolute;
+  right: var(--space-12);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.field-item__indicator svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  stroke-width: var(--icon-stroke);
+}
+
+.field-item[data-highlighted] {
+  background: var(--state-hover-white);
+}
+
+.field-item[data-selected] {
+  background: var(--state-selected);
+}
+
+.field-item[data-disabled],
+.field-item[data-unavailable] {
+  color: var(--disabled-foreground);
+}
+
+.field-note {
+  padding: var(--space-8) var(--space-12) var(--space-4);
+  color: var(--muted-foreground);
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field-trigger__icon,
+  .field-menu,
+  .field-item {
+    transition: none;
+  }
+}
