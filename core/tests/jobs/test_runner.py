@@ -47,6 +47,8 @@ def _alive(pid: int) -> bool:
             return False
         if stat.rsplit(")", 1)[1].split()[0] == "Z":
             return False
+    if os.name == "nt":
+        return _windows_alive(pid)
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -54,6 +56,30 @@ def _alive(pid: int) -> bool:
     except PermissionError:
         return True
     return True
+
+
+def _windows_alive(pid: int) -> bool:
+    """Windows signal 0 is not a probe, so ask the process for its exit code."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = wintypes.HANDLE
+    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel32.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+    process_query_limited_information = 0x1000
+    still_active = 259
+    handle = kernel32.OpenProcess(process_query_limited_information, False, pid)
+    if not handle:
+        return False
+    try:
+        code = wintypes.DWORD()
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == still_active
+    finally:
+        kernel32.CloseHandle(handle)
 
 
 def test_runner_success_records_result_progress_stages_and_usage(env: Env) -> None:

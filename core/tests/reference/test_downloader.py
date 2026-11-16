@@ -14,7 +14,9 @@ from app.tools.downloaders.adapter import create, create_skeleton
 from app.tools.downloaders.ytdlp.downloader import YtDlpDownloader
 from tests.reference.support import Cancel, fake_ytdlp, last_call
 
-LINK = "https://www.youtube.com/watch?v=abc&mode="
+# One query value and no "&": the fake is a batch file on Windows, where an
+# ampersand in an argument would start a second command.
+LINK = "https://www.youtube.com/watch/abc?mode="
 MAX_BYTES = 4000
 MAX_MS = 20_000
 

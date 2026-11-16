@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -159,7 +160,8 @@ def test_wheel_prepare_installs_the_contract_ffmpeg_item_like_the_development_se
     binary = media.runtime_executable(settings)
     assert binary == settings.runtime_dir.resolve() / "ffmpeg" / name
     assert binary.read_bytes() == BINARY
-    assert binary.stat().st_mode & 0o111
+    if os.name == "posix":
+        assert binary.stat().st_mode & 0o111
     assert sorted(path.name for path in (settings.runtime_dir / "ffmpeg").iterdir()) == [name]
     assert status(settings, TARGET)[0].state is RuntimeItemState.ready
     prepare(settings, cancel=Flag(), transport=transport, target=TARGET)

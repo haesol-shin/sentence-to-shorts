@@ -96,15 +96,16 @@ def test_1_missing_runtime_ffmpeg_reports_media_unavailable(tmp_path: Path) -> N
     assert error.value.code == "media_unavailable"
 
 
-def test_1_runtime_lock_entry_gives_an_absolute_path(tmp_path: Path) -> None:
+def test_1_runtime_lock_entry_gives_an_absolute_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     system, arch = media._platform()
     entry = SimpleNamespace(os=system, arch=arch, file="ffmpeg-bin")
     item = SimpleNamespace(id="ffmpeg", install_path="ffmpeg", files=[entry])
-    settings = SimpleNamespace(
-        runtime=SimpleNamespace(items=[item]), runtime_dir=Path(os.path.relpath(tmp_path))
-    )
+    monkeypatch.chdir(tmp_path)
+    settings = SimpleNamespace(runtime=SimpleNamespace(items=[item]), runtime_dir=Path("rt"))
     path = media.runtime_executable(settings)  # type: ignore[arg-type]
-    assert path == (tmp_path / "ffmpeg" / "ffmpeg-bin").resolve()
+    assert path == (tmp_path / "rt" / "ffmpeg" / "ffmpeg-bin").resolve()
     assert path is not None and path.is_absolute()
 
 
