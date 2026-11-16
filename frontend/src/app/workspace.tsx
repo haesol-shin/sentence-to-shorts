@@ -21,7 +21,7 @@ import { ExportRoute } from './routes/export';
 import { ScriptRoute } from './routes/script';
 import { AppShell } from './shell/app-shell';
 import { PlaceholderComposer } from './shell/composer';
-import { JobBanner } from './shell/job-banner';
+import { JobBanner, JobStatusShort } from './shell/job-banner';
 import { DEFAULT_LANGUAGE, type CardPick, type View } from './shell/shell-config';
 
 /** The language the pair answer asked for, until the user picks one. */
@@ -137,6 +137,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       onNewVideo={openNewVideo}
       onStage={setView}
       header={header}
+      jobStatus={job.job === null ? null : <JobStatusShort job={job.job} />}
       composer={
         view === 'first' ? null : (
           <PlaceholderComposer

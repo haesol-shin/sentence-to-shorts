@@ -21,6 +21,7 @@ export function AppShell({
   onNewVideo,
   onStage,
   header,
+  jobStatus,
   composer,
   children,
 }: {
@@ -29,6 +30,7 @@ export function AppShell({
   onNewVideo: () => void;
   onStage: (stage: Stage) => void;
   header?: ReactNode;
+  jobStatus?: ReactNode;
   composer: ReactNode | null;
   children: ReactNode;
 }) {
@@ -56,7 +58,12 @@ export function AppShell({
     >
       <Sidebar view={view} onNewVideo={onNewVideo} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <TopBar brand={brand} view={view} onStage={onStage} />
+        <TopBar
+          brand={brand}
+          view={view}
+          onStage={onStage}
+          status={keyboardOpen ? jobStatus : null}
+        />
         {/* While the keys are up the phone shows the sheet: step, panel and input. */}
         {keyboardOpen ? null : header}
         <div className="flex min-h-0 flex-1">
