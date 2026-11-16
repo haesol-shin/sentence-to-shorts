@@ -83,7 +83,16 @@ def extract(archive: Path, target: Path) -> None:
 
 def extract_item(item: dict, entry: dict, archive: Path, root: Path) -> None:
     installed = root / item["install_path"]
-    if entry["file"].endswith(".whl"):
+    if item["id"] == "ffmpeg":
+        installed.mkdir(parents=True, exist_ok=True)
+        binary = installed / entry["file"]
+        with zipfile.ZipFile(archive) as wheel:
+            with wheel.open(f"imageio_ffmpeg/binaries/{entry['file']}") as source:
+                with binary.open("wb") as target:
+                    shutil.copyfileobj(source, target)
+        if entry["os"] != "windows":
+            binary.chmod(binary.stat().st_mode | 0o111)
+    elif entry["file"].endswith(".whl"):
         installed.mkdir(parents=True, exist_ok=True)
         shutil.copy2(archive, installed / entry["file"])
     elif item["id"] == "deno":

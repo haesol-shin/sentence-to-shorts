@@ -10,7 +10,7 @@ app:
 
 providers:
   adapters:
-    llm: fixture
+    llm: openai_compat
     tts: fixed_wav
     aligner: default
     transcriber: default
@@ -18,9 +18,11 @@ providers:
     sandbox: default
     downloader: default
   fixture_adapters:
+    llm: fixture
+    tts: fixed_wav
     aligner: skeleton
     transcriber: skeleton
-    media: skeleton
+    media: default
     sandbox: skeleton
     downloader: skeleton
 

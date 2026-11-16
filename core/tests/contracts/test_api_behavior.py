@@ -29,6 +29,7 @@ def test_runtime_reports_brand_and_items(client: TestClient) -> None:
     assert body["llm_auth"] == {"adapter": "fixture", "state": "ok"}
     assert {item["id"] for item in body["items"]} == {
         "deno",
+        "ffmpeg",
         "pyodide-core",
         "pyodide-pillow",
     }
@@ -93,10 +94,9 @@ def test_catalog_returns_a_real_manifest(client: TestClient) -> None:
     assert body["regions"]["caption"]["y"] == 1040
 
 
-def test_unimplemented_project_returns_problem_501(client: TestClient) -> None:
+def test_unimplemented_runtime_prepare_returns_problem_501(client: TestClient) -> None:
     response = client.post(
-        "/api/v1/projects",
-        json={"title": "새 프로젝트", "language": "ko"},
+        "/api/v1/runtime/prepare",
         headers={"Idempotency-Key": "req-0123456789"},
     )
     assert response.status_code == 501
@@ -105,7 +105,7 @@ def test_unimplemented_project_returns_problem_501(client: TestClient) -> None:
     assert body["status"] == 501
     assert body["code"] == "not_implemented"
     assert body["message_key"] == "error.not_implemented"
-    assert body["instance"] == "/api/v1/projects"
+    assert body["instance"] == "/api/v1/runtime/prepare"
     assert body["retryable"] is False
     assert body["errors"] == []
 
@@ -135,9 +135,11 @@ def test_invalid_request_returns_problem_422(client: TestClient) -> None:
     assert response.json()["code"] == "validation_failed"
 
 
-def test_job_and_metrics_routes_delegate_to_services(client: TestClient) -> None:
-    assert client.get("/api/v1/jobs/j_missing").status_code == 501
-    assert client.get("/api/v1/videos/v_missing/metrics").status_code == 501
+def test_unknown_job_and_video_return_problem_404(client: TestClient) -> None:
+    for path in ("/api/v1/jobs/j_missing", "/api/v1/videos/v_missing/metrics"):
+        response = client.get(path)
+        assert response.status_code == 404
+        assert response.json()["code"] == "not_found"
 
 
 def test_unhandled_error_returns_problem_500(

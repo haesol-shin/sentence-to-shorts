@@ -7,7 +7,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, File, Form, Header, Request, UploadFile
 from fastapi.responses import FileResponse
 
-from app.ports import UploadSource
+from app.ports import AppError, UploadSource
 from app.routers.deps import request_digest, runtime
 from app.schemas.api import (
     ActivityRequest,
@@ -142,12 +142,14 @@ def create_change(
 ) -> ChangePlan:
     app = runtime(request)
     video = app.project_store.get_video(vid)
+    if body.base_revision != video.revision:
+        raise AppError("revision_conflict", detail={"current_revision": video.revision})
     plan = plan_change(video, body.ops, body.source, body.target, app.services)
     app.project_store.put_change(plan)
     if plan.requires_confirmation:
         return plan
     app.services.project.commit(plan, body.base_revision)
-    return plan
+    return app.project_store.get_change(plan.id)
 
 
 @router.post(
@@ -266,4 +268,4 @@ def get_metrics(request: Request, vid: str) -> Metrics:
 )
 def download_video(request: Request, vid: str, kind: str) -> FileResponse:
     path = runtime(request).artifact_store.download_path(vid, kind)
-    return FileResponse(path)
+    return FileResponse(path, filename=f"{vid}{path.suffix}")

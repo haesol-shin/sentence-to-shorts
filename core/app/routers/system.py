@@ -103,12 +103,12 @@ def get_runtime(request: Request) -> RuntimeStatus:
         ),
         items=_runtime_items(settings),
         llm_auth=LlmAuth(
-            adapter=LlmAdapter(settings.providers.adapters.get("llm", "fixture")),
+            adapter=LlmAdapter(app.llm_adapter),
             state=llm_state,
         ),
         capabilities=Capabilities(
             open_edit_play=True,
-            render=False,
+            render=app.render_ready,
             tts=tts_ready,
             llm=llm_state == "ok",
             link_download=False,
