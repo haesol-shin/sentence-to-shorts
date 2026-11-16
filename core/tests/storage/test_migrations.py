@@ -8,9 +8,11 @@ import pytest
 
 from app.ports import AppError
 from app.schemas.artifact import Timing
+from app.schemas.change import ChangePlan
 from app.schemas.project import Project
 from app.schemas.video import Video
 from app.storage.migrations import (
+    CHANGE_DOCUMENT_VERSION,
     PROJECT_DOCUMENT_VERSION,
     VIDEO_DOCUMENT_VERSION,
     upgrade_document,
@@ -64,6 +66,22 @@ def test_v1_change_drops_builtin_typing_cues_in_nested_scenes() -> None:
     assert migrated["schema_version"] == 2
     cues = migrated["ops"][0]["value"]["sfx"]
     assert [cue["sfx_id"]["id"] for cue in cues] == ["pop"]
+
+
+def test_v1_change_op_values_drop_builtin_typing_cues() -> None:
+    before = load_json("contracts/migrations/change_v1_typing_cue_ops.json")
+    after = load_json("contracts/migrations/change_v2_typing_cue_ops.json")
+    assert migrate(before) == after
+    assert upgrade_document(before, CHANGE_DOCUMENT_VERSION) == after
+    assert ChangePlan.model_validate(after).schema_version == 2
+
+
+def test_v1_change_op_values_keep_other_sfx_cues() -> None:
+    before = load_json("contracts/migrations/change_v1_other_sfx_ops.json")
+    migrated = migrate(before)
+    assert migrated["schema_version"] == 2
+    assert migrated["ops"] == before["ops"]
+    assert ChangePlan.model_validate(migrated).schema_version == 2
 
 
 def test_v1_document_without_cues_keeps_its_version() -> None:
