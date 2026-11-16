@@ -1,6 +1,13 @@
-import { act, cleanup, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import { AppShell } from '@/app/shell/app-shell';
+import { JobAnnouncer, JobStatusShort } from '@/app/shell/job-banner';
+import type { Job } from '@/shared/api/client';
+import { LocaleProvider } from '@/shared/lib/i18n/locale';
+
+import { draftJob } from '../support/api';
 import { renderApp, sendSentence } from '../support/render';
 
 /**
@@ -82,10 +89,13 @@ test('test_23_one_job_status_live_region_stays_mounted_across_the_keyboard', asy
   expect(region?.textContent).toBe('진행 상황 차례를 기다리는 중이에요.');
 
   act(() => keyboard.open());
-  expect(jobStatusRegions()).toEqual([region]);
+  expect(jobStatusRegions()).toHaveLength(1);
+  expect(jobStatusRegions()[0]).toBe(region);
+  expect(document.querySelector('[data-slot="job-status"]')?.getAttribute('aria-hidden')).toBe('true');
 
   act(() => keyboard.close());
-  expect(jobStatusRegions()).toEqual([region]);
+  expect(jobStatusRegions()).toHaveLength(1);
+  expect(jobStatusRegions()[0]).toBe(region);
 });
 
 test('test_23_the_top_bar_stays_unchanged_while_the_keyboard_is_open_without_a_job', async () => {
@@ -97,4 +107,48 @@ test('test_23_the_top_bar_stays_unchanged_while_the_keyboard_is_open_without_a_j
 
   expect(document.querySelector('[data-slot="top-bar"]')?.innerHTML).toBe(before);
   expect(document.querySelector('[data-slot="job-live"]')?.textContent).toBe('');
+});
+
+test('test_23_a_status_change_with_a_keyboard_toggle_lands_in_the_same_live_region', () => {
+  const keyboard = installSoftKeyboard();
+  let setJob: (job: Job) => void = () => undefined;
+  function Harness() {
+    const [job, set] = useState<Job>({ ...draftJob, state: 'queued' } as Job);
+    setJob = set;
+    return (
+      <LocaleProvider language="ko" setLanguage={() => undefined}>
+        <AppShell
+          view="concept"
+          brand={null}
+          onNewVideo={() => undefined}
+          onStage={() => undefined}
+          jobStatus={<JobStatusShort job={job} />}
+          announcer={<JobAnnouncer job={job} />}
+          composer={null}
+        >
+          <p>stage</p>
+        </AppShell>
+      </LocaleProvider>
+    );
+  }
+  render(<Harness />);
+  expect(jobStatusRegions()).toHaveLength(1);
+  const region = jobStatusRegions()[0];
+  expect(region?.textContent).toBe('진행 상황 차례를 기다리는 중이에요.');
+
+  act(() => {
+    setJob({ ...draftJob, state: 'running' } as Job);
+    keyboard.open();
+  });
+  expect(jobStatusRegions()).toHaveLength(1);
+  expect(jobStatusRegions()[0]).toBe(region);
+  expect(region?.textContent).toBe('진행 상황 만드는 중이에요.');
+
+  act(() => {
+    setJob({ ...draftJob, state: 'succeeded' } as Job);
+    keyboard.close();
+  });
+  expect(jobStatusRegions()).toHaveLength(1);
+  expect(jobStatusRegions()[0]).toBe(region);
+  expect(region?.textContent).toBe('진행 상황 다 됐어요.');
 });

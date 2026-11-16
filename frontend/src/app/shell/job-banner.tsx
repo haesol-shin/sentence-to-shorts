@@ -42,6 +42,7 @@ export function JobStatusShort({ job }: { job: Job }) {
     <div
       data-slot="job-status"
       data-state={job.state}
+      aria-hidden="true"
       className="min-w-0 truncate text-[15px] text-[var(--text-muted)]"
     >
       {jobText(t, job)}
