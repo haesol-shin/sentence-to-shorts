@@ -1,0 +1,33 @@
+# The squash subject on main is the PR title, so a bad title becomes a bad main
+# subject. `edited` lives here rather than in CI so that fixing a title does not
+# restart every CI job. The pattern comes from scripts/check_commit_messages.py.
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: "gate | pr title"
+    if: github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Title follows the commit title rule
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: python scripts/check_commit_messages.py --pr-title "$PR_TITLE"

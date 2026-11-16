@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 import os
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
-import _helpers
+import _helpers  # noqa: F401  (puts scripts/ on sys.path)
 import check_commit_messages as checker
 
 VALID = "fix(cache): retain speech audio\n\n- Avoid synthesis for caption-only edits\n- Keep approved speech available\n"
@@ -45,6 +47,20 @@ class CommitMessagesTest(unittest.TestCase):
         prefix = "fix(cache): retain audio\n\n- "
         self.assertEqual(checker.check_message(prefix + "x" * 70), [])
         self.assertTrue(checker.check_message(prefix + "x" * 71))
+
+    def test_title_enforces_the_pattern_and_72_characters(self):
+        longest = "ci(repo): " + "x" * (checker.MAX_TITLE - len("ci(repo): "))
+        self.assertEqual(len(longest), checker.MAX_TITLE)
+        self.assertEqual(checker.check_title(longest), [])
+        self.assertTrue(checker.check_title(longest + "x"))
+        for title in ("ci: add gate", "ci(repo): 게이트 추가", "CI(repo): add gate", "ci(repo): "):
+            with self.subTest(title=title):
+                self.assertTrue(checker.check_title(title))
+
+    def test_pr_title_option_reports_a_bad_title(self):
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            self.assertEqual(checker.main(["--pr-title", "fix(cache): retain audio"]), 0)
+            self.assertEqual(checker.main(["--pr-title", "add ci"]), 1)
 
     def test_message_limits_bullet_count(self):
         prefix = "fix(cache): retain audio\n\n"

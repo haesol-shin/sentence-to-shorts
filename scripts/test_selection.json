@@ -1,0 +1,141 @@
+{
+  "always": [
+    "tests/contracts",
+    "tests/architecture",
+    "tests/tools"
+  ],
+  "folders": {
+    "core/app/access/": [
+      "tests/access",
+      "tests/e2e"
+    ],
+    "core/app/catalog/": [
+      "tests/project",
+      "tests/reference",
+      "tests/story",
+      "tests/templates"
+    ],
+    "core/app/llm/": [
+      "tests/llm"
+    ],
+    "core/app/plugins/art_styles/": [
+      "tests/plugins",
+      "tests/templates"
+    ],
+    "core/app/plugins/bgm/": [
+      "tests/plugins",
+      "tests/sound"
+    ],
+    "core/app/plugins/fonts/": [
+      "tests/plugins",
+      "tests/render"
+    ],
+    "core/app/plugins/sfx/": [
+      "tests/plugins",
+      "tests/sound"
+    ],
+    "core/app/plugins/templates/": [
+      "tests/plugins",
+      "tests/templates"
+    ],
+    "core/app/plugins/voices/": [
+      "tests/plugins",
+      "tests/voice"
+    ],
+    "core/app/routers/": [
+      "tests/e2e"
+    ],
+    "core/app/runtime/": [
+      "tests/e2e",
+      "tests/runtime"
+    ],
+    "core/app/services/assemble/": [
+      "tests/assemble",
+      "tests/pipeline"
+    ],
+    "core/app/services/pipeline/": [
+      "tests/pipeline",
+      "tests/reference"
+    ],
+    "core/app/services/project/": [
+      "tests/pipeline",
+      "tests/project",
+      "tests/reference"
+    ],
+    "core/app/services/reference/": [
+      "tests/reference"
+    ],
+    "core/app/services/render/": [
+      "tests/assemble",
+      "tests/plugins",
+      "tests/render",
+      "tests/templates"
+    ],
+    "core/app/services/sound/": [
+      "tests/assemble",
+      "tests/sound"
+    ],
+    "core/app/services/story/": [
+      "tests/story"
+    ],
+    "core/app/services/templates/": [
+      "tests/templates"
+    ],
+    "core/app/services/voice/": [
+      "tests/pipeline",
+      "tests/voice"
+    ],
+    "core/app/storage/": [
+      "tests/access",
+      "tests/e2e",
+      "tests/jobs",
+      "tests/pipeline",
+      "tests/project",
+      "tests/recovery",
+      "tests/reference",
+      "tests/storage"
+    ],
+    "core/app/tools/asr/": [
+      "tests/reference",
+      "tests/tools"
+    ],
+    "core/app/tools/downloaders/": [
+      "tests/reference"
+    ],
+    "core/app/tools/media/": [
+      "tests/e2e",
+      "tests/media",
+      "tests/runtime"
+    ],
+    "core/app/tools/process.py": [
+      "tests/jobs",
+      "tests/media",
+      "tests/templates",
+      "tests/tools"
+    ],
+    "core/app/tools/sandbox/": [
+      "tests/runtime",
+      "tests/templates"
+    ],
+    "core/app/tools/tts/": [
+      "tests/voice"
+    ],
+    "THIRD_PARTY_NOTICES.md": [
+      "tests/runtime"
+    ]
+  },
+  "no_core_tests": [
+    ".github/",
+    "AGENTS.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "MAINTAINING.md",
+    "README.ko.md",
+    "README.md",
+    "cubic.yaml",
+    "design/",
+    "docs/",
+    "frontend/",
+    "probes/"
+  ]
+}
