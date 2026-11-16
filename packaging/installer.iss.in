@@ -1,0 +1,37 @@
+; Inno Setup script template. packaging/build.py fills the @...@ values from
+; core/config/brand.yaml and the build arguments. No name is written here.
+[Setup]
+AppId=@APP_ID@
+AppName=@DISPLAY_NAME@
+AppVersion=@VERSION@
+DefaultDirName={localappdata}\Programs\@APP_ID@\@VERSION@
+DefaultGroupName=@DISPLAY_NAME@
+PrivilegesRequired=lowest
+DisableProgramGroupPage=yes
+DisableWelcomePage=yes
+OutputDir=@OUTPUT_DIR@
+OutputBaseFilename=@OUTPUT_NAME@
+Compression=lzma2
+SolidCompression=yes
+WizardStyle=modern
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
+UninstallDisplayName=@DISPLAY_NAME@
+CloseApplications=no
+
+[Files]
+Source: "@BUNDLE_DIR@\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
+
+[Icons]
+Name: "{autoprograms}\@DISPLAY_NAME@"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"
+Name: "{autoprograms}\@DISPLAY_NAME@ 종료"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"" --stop"; WorkingDir: "{app}"
+
+[Run]
+Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"; Description: "@DISPLAY_NAME@"; Flags: nowait postinstall skipifsilent
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\rt"
+Type: filesandordirs; Name: "{app}\core"
+Type: filesandordirs; Name: "{app}\site-packages"
+Type: filesandordirs; Name: "{app}\python"
+Type: filesandordirs; Name: "{app}\web"

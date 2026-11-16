@@ -551,8 +551,11 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         downloader=_build_adapter("downloader", resolved),
     )
     services = _build_services(resolved, deps)
+    runtime_setup = create_runtime_setup(resolved, deps.downloader, job_store)
 
     def run_job(job: Job, ctx: LocalJobContext) -> Mapping[str, Any]:
+        if job.kind is JobKind.runtime_prepare:
+            return runtime_setup.run_job(job, ctx)
         return run_pipeline(job, ctx, services)
 
     runner = JobRunner(
@@ -573,7 +576,6 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         wake=runner.notify,
     )
     access = create_access(resolved)
-    runtime_setup = create_runtime_setup(resolved, deps.downloader, job_store)
     return AppRuntime(
         settings=resolved,
         catalog=catalog,

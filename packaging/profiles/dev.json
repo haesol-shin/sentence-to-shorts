@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "profile": "dev",
+  "deployment": "local",
+  "web_dir": "web"
+}

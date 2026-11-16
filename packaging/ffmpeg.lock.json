@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "id": "ffmpeg",
+  "version": "9.0.2",
+  "revision": "2a571b606854520cf89804d8030c8b328e621689",
+  "install_path": "ffmpeg",
+  "license": {
+    "spdx": "GPL-3.0-or-later",
+    "source_url": "https://github.com/FFmpeg/FFmpeg/tree/2a571b606854520cf89804d8030c8b328e621689"
+  },
+  "builds": {
+    "linux-x86_64": {
+      "os": "linux",
+      "arch": "x86_64",
+      "url": "https://files.pythonhosted.org/packages/de/0f/49292fbef69ee10ebcf97bb741602521caafcc6966d5fa1a2b868cc15655/imageio_ffmpeg-0.8.1-py3-none-manylinux_2_28_x86_64.whl",
+      "archive_bytes": 67998402,
+      "archive_sha256": "050d6850601c3b3890bd2b28306f3b842b3daea390a561101174375a1c460bda",
+      "member": "imageio_ffmpeg/binaries/ffmpeg-linux-x86_64-v9.0.2",
+      "bytes": 172692552,
+      "sha256": "0d709a0bed1a43f24cd2c420878c63afea4580671b6949ad19ed124572f3bc3d",
+      "license_members": ["imageio_ffmpeg-0.8.1.dist-info/licenses/LICENSE"]
+    },
+    "linux-aarch64": {
+      "os": "linux",
+      "arch": "aarch64",
+      "url": "https://files.pythonhosted.org/packages/53/02/e139e53a71f33f728cb2ce6c1124edc29e4c008427923f01a4d37f9a1867/imageio_ffmpeg-0.8.1-py3-none-manylinux_2_28_aarch64.whl",
+      "archive_bytes": 60956631,
+      "archive_sha256": "fad3176f859b25869e60a8ed79957d4e3ed74a97a95e5f0cdcb91455f6c6d00e",
+      "member": "imageio_ffmpeg/binaries/ffmpeg-linux-aarch64-v9.0.2",
+      "bytes": 130865896,
+      "sha256": "0b0b5ac30495b4e07ce1321b8d58200f901f57782884a8b6b264c7528c2c9e77",
+      "license_members": ["imageio_ffmpeg-0.8.1.dist-info/licenses/LICENSE"]
+    },
+    "windows-x86_64": {
+      "os": "windows",
+      "arch": "x86_64",
+      "url": "https://github.com/BtbN/FFmpeg-Builds/releases/download/autobuild-2026-09-30-13-08/ffmpeg-n9.0.2-17-g2a571b6068-win64-gpl-9.0.zip",
+      "archive_bytes": 194034585,
+      "archive_sha256": "a0e45723c72141975f51d8666302e614711745f3102b704ca3f82c897a58d278",
+      "member": "ffmpeg-n9.0.2-17-g2a571b6068-win64-gpl-9.0/bin/ffmpeg.exe",
+      "bytes": 165155840,
+      "sha256": "513368c81583572ce1d09d5c7ff827feed1a63db352412a5001f4da3a1583d98",
+      "license_members": ["ffmpeg-n9.0.2-17-g2a571b6068-win64-gpl-9.0/LICENSE.txt"]
+    }
+  }
+}
