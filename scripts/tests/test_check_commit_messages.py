@@ -14,6 +14,13 @@ import check_commit_messages as checker
 VALID = "fix(cache): retain speech audio\n\n- Avoid synthesis for caption-only edits\n- Keep approved speech available\n"
 
 
+def _git(cwd, *args, text=None):
+    env = dict(os.environ, GIT_AUTHOR_NAME="Example", GIT_AUTHOR_EMAIL="test@example.invalid",
+               GIT_COMMITTER_NAME="Example", GIT_COMMITTER_EMAIL="test@example.invalid")
+    return subprocess.run(["git", *args], cwd=cwd, env=env, input=text,
+                          text=True, capture_output=True, check=True).stdout.strip()
+
+
 class CommitMessagesTest(unittest.TestCase):
     def test_message_accepts_regular_and_breaking_commits(self):
         for message in (VALID, VALID.replace("fix(cache):", "fix(cache)!:")):
@@ -54,18 +61,11 @@ class CommitMessagesTest(unittest.TestCase):
     def test_range_checks_earlier_commits_not_only_head(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            env = dict(os.environ, GIT_AUTHOR_NAME="Example", GIT_AUTHOR_EMAIL="test@example.invalid",
-                       GIT_COMMITTER_NAME="Example", GIT_COMMITTER_EMAIL="test@example.invalid")
-
-            def run(*args, text=None):
-                return subprocess.run(["git", *args], cwd=root, env=env, input=text,
-                                      text=True, capture_output=True, check=True).stdout.strip()
-
-            run("init", "--quiet")
-            tree = run("mktree", text="")
-            base = run("commit-tree", tree, text=VALID)
-            bad = run("commit-tree", tree, "-p", base, text="missing format\n")
-            head = run("commit-tree", tree, "-p", bad, text=VALID)
+            _git(root, "init", "--quiet")
+            tree = _git(root, "mktree", text="")
+            base = _git(root, "commit-tree", tree, text=VALID)
+            bad = _git(root, "commit-tree", tree, "-p", base, text="missing format\n")
+            head = _git(root, "commit-tree", tree, "-p", bad, text=VALID)
             script = Path(checker.__file__).resolve()
             result = subprocess.run([os.sys.executable, str(script), "--range", f"{base}..{head}"],
                                     cwd=root, capture_output=True, text=True)
@@ -75,6 +75,35 @@ class CommitMessagesTest(unittest.TestCase):
             passed = subprocess.run([os.sys.executable, str(script), "--range", f"{bad}..{head}"],
                                     cwd=root, capture_output=True, text=True)
             self.assertEqual(passed.returncode, 0, passed.stderr)
+
+    def test_range_skips_merges_but_still_checks_regular_commits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            _git(root, "init", "--quiet")
+            tree = _git(root, "mktree", text="")
+            base = _git(root, "commit-tree", tree, text=VALID)
+            earlier = _git(root, "commit-tree", tree, "-p", base, text=VALID)
+            merge = _git(root, "commit-tree", tree, "-p", earlier, "-p", base,
+                         text="Merge branch 'main' into feature\n")
+            good = _git(root, "commit-tree", tree, "-p", merge, text=VALID)
+            bad = _git(root, "commit-tree", tree, "-p", good, text="missing format\n")
+            script = Path(checker.__file__).resolve()
+
+            def check(start, end):
+                return subprocess.run([os.sys.executable, str(script), "--range", f"{start}..{end}"],
+                                      cwd=root, capture_output=True, text=True)
+
+            passed = check(base, good)
+            self.assertEqual(passed.returncode, 0, passed.stderr)
+            only_merge = check(earlier, merge)
+            self.assertEqual(only_merge.returncode, 0, only_merge.stderr)
+            failed = check(base, bad)
+            self.assertEqual(failed.returncode, 1)
+            self.assertIn(bad, failed.stderr)
+            self.assertNotIn(merge, failed.stderr)
+            empty = check(good, good)
+            self.assertEqual(empty.returncode, 1)
+            self.assertIn("range contains no commits", empty.stderr)
 
 
 if __name__ == "__main__":

@@ -37,8 +37,8 @@ def git(*args: str) -> str:
 
 
 def check_range(revision_range: str) -> list[str]:
-    commits = git("rev-list", "--reverse", revision_range, "--").splitlines()
-    if not commits:
+    commits = git("rev-list", "--reverse", "--no-merges", revision_range, "--").splitlines()
+    if not commits and not git("rev-list", "--max-count=1", revision_range, "--").strip():
         return ["range contains no commits"]
     problems = []
     for commit in commits:
