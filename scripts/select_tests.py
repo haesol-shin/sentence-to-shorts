@@ -5,8 +5,11 @@ Reads one repository-relative path per line and prints one pytest target per
 line, sorted. `scripts/test_selection.json` maps a source folder to the test
 folders that cover it: each entry lists the tests that import the folder plus
 the test folder of the same name, and the test folders are written relative to
-`core/`, where pytest runs. A path the map does not list selects the full
-suite, so a new shared module runs every test until someone maps it.
+`core/`, where pytest runs. A test folder therefore maps to itself, so a test
+change runs that folder instead of the full suite. A path the map does not list
+selects the full suite, so a new shared module runs every test until someone
+maps it. Repository tooling under `scripts/` has its own test step, so it lists
+under `no_core_tests`.
 
 Usage:
     git diff --name-only origin/main...HEAD | python scripts/select_tests.py

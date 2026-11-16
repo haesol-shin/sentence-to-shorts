@@ -88,6 +88,34 @@ class CheckedInMapTest(unittest.TestCase):
         for entry in checked.no_core_tests:
             self.assertTrue((root / entry.rstrip("/")).exists(), entry)
 
+    def test_every_core_test_folder_selects_its_own_tests(self):
+        root = Path(__file__).resolve().parents[2]
+        checked = select_tests.TestMap.load()
+        for folder in sorted((root / "core/tests").iterdir()):
+            if not folder.is_dir() or not any(folder.glob("test_*.py")):
+                continue
+            with self.subTest(folder=folder.name):
+                self.assertEqual(
+                    select_tests.select_tests(
+                        [f"core/tests/{folder.name}/test_sample.py"], checked
+                    ),
+                    sorted({f"tests/{folder.name}", *checked.always}),
+                )
+
+    def test_a_shared_test_harness_file_selects_the_full_suite(self):
+        checked = select_tests.TestMap.load()
+        self.assertEqual(
+            select_tests.select_tests(["core/tests/conftest.py"], checked),
+            [select_tests.FULL_SUITE],
+        )
+
+    def test_repository_tooling_selects_only_the_always_folders(self):
+        checked = select_tests.TestMap.load()
+        self.assertEqual(
+            select_tests.select_tests(["scripts/select_tests.py"], checked),
+            sorted(checked.always),
+        )
+
 
 def app_modules(path: Path) -> set[str]:
     """Return the app modules a test file imports, expanding `from app.x import y`."""

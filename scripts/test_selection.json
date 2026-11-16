@@ -128,6 +128,78 @@
       "tests/tts",
       "tests/voice"
     ],
+    "core/tests/access/": [
+      "tests/access"
+    ],
+    "core/tests/align/": [
+      "tests/align"
+    ],
+    "core/tests/architecture/": [
+      "tests/architecture"
+    ],
+    "core/tests/assemble/": [
+      "tests/assemble"
+    ],
+    "core/tests/contracts/": [
+      "tests/contracts"
+    ],
+    "core/tests/e2e/": [
+      "tests/e2e"
+    ],
+    "core/tests/jobs/": [
+      "tests/jobs"
+    ],
+    "core/tests/llm/": [
+      "tests/llm"
+    ],
+    "core/tests/media/": [
+      "tests/media"
+    ],
+    "core/tests/pipeline/": [
+      "tests/pipeline"
+    ],
+    "core/tests/plugins/": [
+      "tests/plugins"
+    ],
+    "core/tests/project/": [
+      "tests/project"
+    ],
+    "core/tests/recovery/": [
+      "tests/recovery"
+    ],
+    "core/tests/reference/": [
+      "tests/reference"
+    ],
+    "core/tests/render/": [
+      "tests/render"
+    ],
+    "core/tests/runtime/": [
+      "tests/runtime"
+    ],
+    "core/tests/sandbox/": [
+      "tests/sandbox"
+    ],
+    "core/tests/sound/": [
+      "tests/sound"
+    ],
+    "core/tests/storage/": [
+      "tests/storage"
+    ],
+    "core/tests/story/": [
+      "tests/story"
+    ],
+    "core/tests/templates/": [
+      "tests/templates"
+    ],
+    "core/tests/tools/": [
+      "tests/tools"
+    ],
+    "core/tests/tts/": [
+      "tests/tts"
+    ],
+    "core/tests/voice/": [
+      "tests/voice"
+    ],
     "THIRD_PARTY_NOTICES.md": [
       "tests/runtime"
     ]
@@ -144,6 +216,7 @@
     "design/",
     "docs/",
     "frontend/",
-    "probes/"
+    "probes/",
+    "scripts/"
   ]
 }
