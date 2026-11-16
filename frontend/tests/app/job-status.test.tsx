@@ -46,9 +46,7 @@ function installSoftKeyboard(): { open: () => void; close: () => void } {
 }
 
 function jobStatusRegions(): HTMLElement[] {
-  return [
-    ...document.querySelectorAll<HTMLElement>('[data-slot="job-banner"], [data-slot="job-status"]'),
-  ];
+  return [...document.querySelectorAll<HTMLElement>('[data-slot^="job-"][aria-live]')];
 }
 
 afterEach(() => {
@@ -68,28 +66,26 @@ test('test_23_the_short_job_status_shows_in_the_top_bar_only_while_the_keyboard_
   act(() => keyboard.open());
 
   const status = document.querySelector('[data-slot="job-status"]');
-  expect(status?.textContent).toBe('진행 상황 차례를 기다리는 중이에요.');
+  expect(status?.textContent).toBe('차례를 기다리는 중이에요.');
   expect(document.querySelector('[data-slot="top-bar"]')?.contains(status)).toBe(true);
   expect(document.querySelector('[data-slot="job-banner"]')).toBeNull();
 });
 
-test('test_23_one_job_status_live_region_moves_with_the_keyboard', async () => {
+test('test_23_one_job_status_live_region_stays_mounted_across_the_keyboard', async () => {
   const keyboard = installSoftKeyboard();
   await renderApp();
   sendSentence('커피를 고르는 세 가지 기준');
   await screen.findByRole('heading', { name: '컨셉' });
   await waitFor(() => expect(jobStatusRegions()).toHaveLength(1));
-
-  expect(jobStatusRegions()[0]?.closest('[data-slot="job-banner"]')).not.toBeNull();
+  const region = jobStatusRegions()[0];
+  expect(region?.dataset.slot).toBe('job-live');
+  expect(region?.textContent).toBe('진행 상황 차례를 기다리는 중이에요.');
 
   act(() => keyboard.open());
-  expect(jobStatusRegions()).toHaveLength(1);
-  expect(jobStatusRegions()[0]?.closest('[data-slot="top-bar"]')).not.toBeNull();
+  expect(jobStatusRegions()).toEqual([region]);
 
   act(() => keyboard.close());
-  expect(jobStatusRegions()).toHaveLength(1);
-  expect(jobStatusRegions()[0]?.closest('[data-slot="job-banner"]')).not.toBeNull();
-  expect(document.querySelector('[data-slot="job-status"]')).toBeNull();
+  expect(jobStatusRegions()).toEqual([region]);
 });
 
 test('test_23_the_top_bar_stays_unchanged_while_the_keyboard_is_open_without_a_job', async () => {
@@ -100,5 +96,5 @@ test('test_23_the_top_bar_stays_unchanged_while_the_keyboard_is_open_without_a_j
   act(() => keyboard.open());
 
   expect(document.querySelector('[data-slot="top-bar"]')?.innerHTML).toBe(before);
-  expect(jobStatusRegions()).toHaveLength(0);
+  expect(document.querySelector('[data-slot="job-live"]')?.textContent).toBe('');
 });
