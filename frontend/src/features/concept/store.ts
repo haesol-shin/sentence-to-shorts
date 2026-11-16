@@ -285,7 +285,7 @@ function makeLocalPlan(
   const impact = planImpact(session.document.settings, ops, 'direct');
   localPlanSequence += 1;
   return {
-    schema_version: 1,
+    schema_version: 2,
     id: `${LOCAL_PLAN_PREFIX}${localPlanSequence}`,
     video_id: session.document.id,
     base_revision: session.document.revision,

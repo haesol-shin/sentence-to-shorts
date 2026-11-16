@@ -780,7 +780,7 @@ export class MockConceptApi implements ConceptApi {
     const impact = planImpact(document.settings, ops, source);
     const id = this.nextId('c');
     const plan: Plan = {
-      schema_version: 1,
+      schema_version: 2,
       id,
       video_id: document.id,
       base_revision: document.revision,
