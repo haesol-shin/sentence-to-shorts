@@ -73,6 +73,6 @@ test('test_23_a_sentence_starts_a_video_from_the_mock_answers', async ({ page })
 
   await startVideo(page);
 
-  await expect(page.getByText('차례를 기다리는 중이에요.')).toBeVisible();
+  await expect(page.getByText('차례를 기다리는 중이에요.', { exact: true })).toBeVisible();
   await expect(page.locator('main[data-screen="app"]')).toBeVisible();
 });

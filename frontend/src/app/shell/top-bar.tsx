@@ -34,6 +34,8 @@ function NextAction({ stage }: { stage: Stage }) {
 
 /**
  * Brand on the left, step navigation on the way, the next action on the right.
+ * The middle seat also carries the short job status while a phone keyboard
+ * covers the header, so the step menu and the action keep their own space.
  * The first screen carries no step navigation at all, and on a phone it needs
  * no top bar at all (SPEC 10a.2).
  */
@@ -41,10 +43,12 @@ export function TopBar({
   brand,
   view,
   onStage,
+  status,
 }: {
   brand: ReactNode;
   view: View;
   onStage: (stage: Stage) => void;
+  status?: ReactNode;
 }) {
   const stage: Stage | null = view === 'first' ? null : view;
 
@@ -75,7 +79,7 @@ export function TopBar({
           ) : null}
         </>
       )}
-      <div className="min-w-0 flex-1" />
+      <div className="flex min-w-0 flex-1 items-center">{status}</div>
       {stage === null ? null : <NextAction stage={stage} />}
     </header>
   );

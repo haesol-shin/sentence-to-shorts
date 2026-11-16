@@ -21,6 +21,8 @@ export function AppShell({
   onNewVideo,
   onStage,
   header,
+  jobStatus,
+  announcer,
   composer,
   children,
 }: {
@@ -29,6 +31,9 @@ export function AppShell({
   onNewVideo: () => void;
   onStage: (stage: Stage) => void;
   header?: ReactNode;
+  jobStatus?: ReactNode;
+  /** Stays mounted in every state so a screen reader hears each change once. */
+  announcer?: ReactNode;
   composer: ReactNode | null;
   children: ReactNode;
 }) {
@@ -54,9 +59,15 @@ export function AppShell({
       // then ends at the top of the keys instead of riding over the stage.
       style={{ height: keyboardOpen ? `calc(100dvh - ${inset}px)` : '100dvh' }}
     >
+      {announcer}
       <Sidebar view={view} onNewVideo={onNewVideo} />
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <TopBar brand={brand} view={view} onStage={onStage} />
+        <TopBar
+          brand={brand}
+          view={view}
+          onStage={onStage}
+          status={keyboardOpen ? jobStatus : null}
+        />
         {/* While the keys are up the phone shows the sheet: step, panel and input. */}
         {keyboardOpen ? null : header}
         <div className="flex min-h-0 flex-1">
