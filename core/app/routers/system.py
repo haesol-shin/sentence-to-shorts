@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated
 
 from fastapi import APIRouter, Header, Request
 
@@ -21,60 +19,10 @@ from app.schemas.api import (
     LlmAuth,
     PairRequest,
     PairResponse,
-    RuntimeItem,
-    RuntimeItemState,
     RuntimeStatus,
 )
 
 router = APIRouter()
-
-
-def _runtime_journal(settings: Any) -> dict[str, Any]:
-    path = settings.runtime_dir / "installed.json"
-    if not path.is_file():
-        return {}
-    try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-    return payload if isinstance(payload, dict) else {}
-
-
-def _runtime_item_ready(base: Path, item: Any, journal: dict[str, Any]) -> bool:
-    record = journal.get(item.id)
-    if not isinstance(record, dict):
-        return False
-    if record.get("install_path") != item.install_path:
-        return False
-    known = {(entry.file, entry.sha256) for entry in item.files}
-    if (record.get("file"), record.get("sha256")) not in known:
-        return False
-    if item.id == "deno":
-        return (base / "deno").is_file() or (base / "deno.exe").is_file()
-    if item.id == "pyodide-core":
-        return all(
-            (base / name).is_file()
-            for name in ("pyodide.asm.wasm", "python_stdlib.zip")
-        )
-    if item.id == "pyodide-pillow":
-        return isinstance(record.get("file"), str) and (base / record["file"]).is_file()
-    return base.is_dir() and any(path.is_file() for path in base.rglob("*"))
-
-
-def _runtime_items(settings: Any) -> list[RuntimeItem]:
-    items = []
-    journal = _runtime_journal(settings)
-    for item in settings.runtime.items:
-        base = settings.runtime_dir / item.install_path
-        installed = _runtime_item_ready(base, item, journal)
-        items.append(
-            RuntimeItem(
-                id=item.id,
-                state=RuntimeItemState.ready if installed else RuntimeItemState.missing,
-                bytes=sum(entry.bytes for entry in item.files),
-            )
-        )
-    return items
 
 
 @router.get("/health", operation_id="getHealth", response_model=Health)
@@ -101,7 +49,7 @@ def get_runtime(request: Request) -> RuntimeStatus:
             display_name_ko=settings.brand.display_name_ko,
             display_name_en=settings.brand.display_name_en,
         ),
-        items=_runtime_items(settings),
+        items=app.runtime_setup.status(),
         llm_auth=LlmAuth(
             adapter=LlmAdapter(app.llm_adapter),
             state=llm_state,

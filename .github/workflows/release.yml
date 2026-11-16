@@ -1,0 +1,237 @@
+name: Release
+
+# Builds the Linux tarball and the Windows installer from a verified main commit and
+# attaches them to a draft Release, together with the corresponding source of the bundled
+# FFmpeg binary. It never runs for a pull request. A tag push builds
+# that tag; a manual run takes the tag name to use for the draft. The Windows installer
+# is opt-in: the manual input or the repository variable RELEASE_WINDOWS=true.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag name for the draft Release, for example v0.1.0-test1"
+        required: true
+        type: string
+      windows:
+        description: "Also build the Windows installer"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify the main commit
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+      tag: ${{ steps.check.outputs.tag }}
+      matrix: ${{ steps.check.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Check the commit and choose the builds
+        id: check
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          REF: ${{ github.ref }}
+          TAG_INPUT: ${{ inputs.tag }}
+          WINDOWS_INPUT: ${{ inputs.windows }}
+          WINDOWS_VARIABLE: ${{ vars.RELEASE_WINDOWS }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" = "push" ]; then
+            tag="$REF_NAME"
+          else
+            tag="$TAG_INPUT"
+            if [ "$REF" != "refs/heads/main" ]; then
+              echo "A manual release run must use the main branch." >&2
+              exit 1
+            fi
+          fi
+          if ! printf '%s' "$tag" | grep -Eq '^v[0-9][0-9A-Za-z._-]{0,60}$'; then
+            echo "The tag name must look like v0.1.0." >&2
+            exit 1
+          fi
+          sha=$(git rev-parse HEAD)
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$sha" origin/main; then
+            echo "The commit is not on main." >&2
+            exit 1
+          fi
+          python3 packaging/release_tag.py --tag "$tag" --sha "$sha"
+          passed=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${sha}&event=push&branch=main&status=success" --jq '.total_count')
+          if [ "$passed" -lt 1 ]; then
+            echo "CI has not passed for this main commit." >&2
+            exit 1
+          fi
+          include='{"os":"ubuntu-24.04","label":"linux","profile":"release"},{"os":"ubuntu-24.04","label":"linux","profile":"dev"}'
+          if [ "$WINDOWS_INPUT" = "true" ] || [ "$WINDOWS_VARIABLE" = "true" ]; then
+            include="$include"',{"os":"windows-latest","label":"windows","profile":"release"},{"os":"windows-latest","label":"windows","profile":"dev"}'
+          fi
+          {
+            echo "sha=$sha"
+            echo "tag=$tag"
+            echo "matrix={\"include\":[$include]}"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.label }} ${{ matrix.profile }}
+    needs: verify
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.verify.outputs.sha }}
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24.22.3"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install the pinned build tools
+        shell: bash
+        # packaging/python.lock.json owns the versions, so this file cannot drift from them.
+        run: |
+          set -- $(python -c "import json; t = json.load(open('packaging/python.lock.json'))['tools']; print(t['uv'], t['poetry'], t['poetry-plugin-export'])")
+          python -m pip install --disable-pip-version-check --no-input "uv==$1" "poetry==$2" "poetry-plugin-export==$3"
+      - name: Brand name check
+        shell: bash
+        run: python scripts/check_brand.py
+      - name: Runtime tests
+        if: matrix.profile == 'release'
+        shell: bash
+        working-directory: core
+        run: |
+          python -m poetry install
+          python -m poetry run pytest tests/runtime -q -m "not sandbox and not models and not realllm"
+      - name: Build the frontend
+        shell: bash
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
+      - name: Build the bundle
+        shell: bash
+        env:
+          COMMIT: ${{ needs.verify.outputs.sha }}
+        run: >-
+          python packaging/build.py bundle
+          --os "${{ matrix.label }}" --profile "${{ matrix.profile }}"
+          --out dist --web frontend/dist --poetry "python -m poetry" --commit "$COMMIT"
+      - name: Make the tarball or installer
+        id: archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ matrix.label }}" = "windows" ] && ! command -v iscc >/dev/null 2>&1 \
+            && [ ! -f "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" ]; then
+            choco install innosetup -y --no-progress
+          fi
+          bundle=$(find dist -mindepth 1 -maxdepth 1 -type d | head -n 1)
+          python packaging/build.py archive --os "${{ matrix.label }}" --bundle "$bundle" --out out
+          cp "$bundle/build-info.json" "out/$(basename "$bundle").build-info.json"
+          ls -l out
+      - name: Install as a new user and start it
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact=$(find out -maxdepth 1 \( -name '*.tar.gz' -o -name '*-setup.exe' \) | head -n 1)
+          python packaging/smoke.py --artifact "$artifact" --os "${{ matrix.label }}" \
+            --profile "${{ matrix.profile }}" --output "out/smoke-${{ matrix.label }}-${{ matrix.profile }}.json"
+      - name: Publish the smoke summary
+        if: always()
+        shell: bash
+        run: |
+          for file in out/smoke-*.json; do
+            [ -f "$file" ] || continue
+            echo '```json' >> "$GITHUB_STEP_SUMMARY"
+            cat "$file" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done
+      - name: Collect the corresponding source of the FFmpeg binary
+        if: matrix.profile == 'release'
+        shell: bash
+        # Both profiles ship the same FFmpeg binary, so one source archive per OS covers them.
+        run: python packaging/build.py sources --os "${{ matrix.label }}" --out out
+      - name: Keep the files for the Release job
+        shell: bash
+        run: |
+          mkdir -p assets
+          cp out/*.tar.gz out/*-setup.exe out/*.build-info.json assets/ 2>/dev/null || true
+          if [ "${{ matrix.profile }}" = "release" ]; then
+            cp out/ffmpeg-corresponding-source-*.tar assets/
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist-${{ matrix.label }}-${{ matrix.profile }}
+          path: assets
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: smoke-${{ matrix.label }}-${{ matrix.profile }}
+          path: out/smoke-*.json
+          if-no-files-found: ignore
+          retention-days: 30
+
+  release:
+    name: Draft Release
+    needs: [verify, build]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ needs.verify.outputs.sha }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: files
+      - name: Write the checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp THIRD_PARTY_NOTICES.md files/
+          python3 packaging/build.py sums files/* --out SHA256SUMS
+          mv SHA256SUMS files/
+          ls -l files
+      - name: Create the draft Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.verify.outputs.tag }}
+          SHA: ${{ needs.verify.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 packaging/release_tag.py --tag "$TAG" --sha "$SHA" --create
+          gh release create "$TAG" files/* \
+            --repo "$GITHUB_REPOSITORY" --draft --verify-tag --title "$TAG" \
+            --notes "Draft build of ${SHA}. Check the files against SHA256SUMS, then follow docs/INSTALL.md."

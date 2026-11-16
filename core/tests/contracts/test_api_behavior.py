@@ -94,22 +94,6 @@ def test_catalog_returns_a_real_manifest(client: TestClient) -> None:
     assert body["regions"]["caption"]["y"] == 1040
 
 
-def test_unimplemented_runtime_prepare_returns_problem_501(client: TestClient) -> None:
-    response = client.post(
-        "/api/v1/runtime/prepare",
-        headers={"Idempotency-Key": "req-0123456789"},
-    )
-    assert response.status_code == 501
-    assert response.headers["content-type"].startswith("application/problem+json")
-    body = response.json()
-    assert body["status"] == 501
-    assert body["code"] == "not_implemented"
-    assert body["message_key"] == "error.not_implemented"
-    assert body["instance"] == "/api/v1/runtime/prepare"
-    assert body["retryable"] is False
-    assert body["errors"] == []
-
-
 def test_unknown_catalog_id_returns_problem_404(client: TestClient) -> None:
     response = client.get("/api/v1/catalog/template/missing_template")
     assert response.status_code == 404
