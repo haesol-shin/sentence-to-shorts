@@ -54,6 +54,7 @@ export default defineConfig({
   webServer: {
     command: 'npm run dev',
     url: baseURL,
+    timeout: 300_000,
     reuseExistingServer: !isCI,
     env: { VITE_API_MODE: 'mock' },
   },

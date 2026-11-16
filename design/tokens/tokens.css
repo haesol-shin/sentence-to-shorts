@@ -28,8 +28,10 @@
   --palette-gray-7: #C9CDD2;
   --palette-gray-8: #9AA0A8;
   --palette-gray-9: #6B7280;
+  --palette-gray-sub: #646B76;
   --palette-gray-10: #3A3F46;
   --palette-gray-11: #22262B;
+  --palette-gray-12: #34383C;
   --palette-blue-light: #A9CBFA;
   --palette-blue: #3182F6;
   --palette-orange: #B45309;
@@ -43,14 +45,21 @@
   --popover-foreground: var(--palette-gray-11);
   --primary: var(--palette-gray-11);
   --primary-foreground: var(--palette-white);
+  --primary-hover: var(--palette-gray-12);
   --primary-pressed: var(--palette-gray-10);
   --secondary: var(--palette-gray-2);
   --secondary-foreground: var(--palette-gray-11);
   --muted: var(--palette-gray-2);
   --muted-foreground: var(--palette-gray-9);
+  --sub: var(--palette-gray-sub);
   --accent: var(--palette-gray-4);
   --accent-foreground: var(--palette-gray-11);
   --accent-pressed: var(--palette-gray-5);
+  --state-hover-white: var(--palette-gray-2);
+  --state-selected: var(--palette-gray-4);
+  --state-pressed-white: var(--palette-gray-5);
+  --state-hover-gray: var(--palette-gray-5);
+  --state-pressed-gray: var(--palette-gray-7);
   --destructive: var(--palette-red);
   --warning: var(--palette-orange);
   --emphasis: var(--palette-blue);
@@ -63,6 +72,7 @@
   --overlay-scene-number: rgba(255, 255, 255, 0.92);
   --overlay-length: rgba(0, 0, 0, 0.55);
   --overlay-scrim: rgba(255, 255, 255, 0.55);
+  --overlay-dialog-scrim: rgba(34, 38, 43, 0.24);
   /* typography */
   --font-family-sans: "Pretendard", system-ui, sans-serif;
   --font-size-display: 34px;

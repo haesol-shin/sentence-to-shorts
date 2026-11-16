@@ -30,24 +30,28 @@ cd frontend && npx vitest run --root ../design/tokens --environment node
 
 `--palette-*`는 실제 색 값이고 `--*` 역할 token은 팔레트만 가리킨다. 역할 이름은 shadcn/ui의 CSS 변수 이름을 따른다: `--background`, `--foreground`, `--card`, `--popover`, `--primary`, `--secondary`, `--muted`, `--accent`, `--destructive`, `--border`, `--input`, `--ring`과 각 짝의 `-foreground`.
 
-shadcn/ui 이름에 없는 역할을 다섯 가지 더 둔다. 값은 모두 결정표의 색이다.
+shadcn/ui 이름에 없는 역할은 아래와 같다. 값은 모두 결정표의 색이다.
 
+- `--primary-hover`: 대표색 단추의 올림 면이다. 시안 값 #34383C를 팔레트 `gray-12`로 두고 가리킨다.
 - `--primary-pressed`와 `--accent-pressed`: 표에 있는 눌린 면 두 값을 눌림 상태에 쓴다.
+- `--state-hover-white`, `--state-selected`, `--state-pressed-white`: 흰 바탕 부품의 올림·선택·눌림 면이다. 올림과 선택은 같은 색을 쓰지 않는다.
+- `--state-hover-gray`, `--state-pressed-gray`: 회색 바탕 부품(보조 단추 등)의 올림·눌림 면이다.
+- `--sub`: 보조 글자 #646B76. 회색 면 `--muted`에서 4.88로 4.5를 넘고, 값 칸의 자리표시 글자에 쓴다.
 - `--emphasis`: 강조 단어와 안 본 변경 표시에 쓰는 파랑이다. `--ring`과 같은 값을 쓰지만 포커스 선과 쓰임이 달라 이름을 나눈다.
 - `--disabled-foreground`: 쓸 수 없는 글자 색이다.
-- `--overlay-*` 네 가지: 그림 위에 놓는 반투명 면이다.
+- `--overlay-*` 다섯 가지: 그림 위에 놓는 반투명 면이다. `--overlay-dialog-scrim`은 확인 창 뒤의 진한 회색 24% 막이고 나머지 네 가지는 흰 막과 그림 위 표시다.
 
 성공 상태 색은 결정표에 값이 없어 만들지 않았다. 지금 상태 목록도 성공 색을 쓰지 않는다.
 
-`--palette-gray-1`, `--palette-gray-7`, `--palette-blue-light`은 지금 역할이 없다. 팔레트는 정한 색의 목록이고 역할은 쓰는 곳이 생길 때 붙인다.
+`--palette-gray-1`과 `--palette-blue-light`은 지금 역할이 없다. 팔레트는 정한 색의 목록이고 역할은 쓰는 곳이 생길 때 붙인다.
 
 ## 작은 글자 규칙
 
 모든 글자 크기가 24px 아래이므로 글자 조합은 4.5:1을 넘어야 한다. 계산 결과가 표를 정한다.
 
-- 뜻 색(`--muted-foreground`, `--destructive`, `--warning`, `--emphasis`)을 작은 글자로 쓰려면 흰 면(`--card`, `--popover`)이어야 한다. 회색 면 위에서 `--muted-foreground`와 `--destructive`는 4.38로 4.5에 못 미친다.
+- 뜻 색(`--muted-foreground`, `--destructive`, `--warning`, `--emphasis`)을 작은 글자로 쓰려면 흰 면(`--card`, `--popover`)이어야 한다. 회색 면에서 실제로 미달인 색은 `--muted-foreground`와 `--destructive`가 4.38, `--emphasis`가 3.37이다. `--warning`은 회색 면에서 4.55로 통과한다. `--sub`는 회색 면에서 4.88로 통과해 값 칸의 자리표시 글자에 쓴다.
 - 회색 면과 강조 면 위의 글자는 `--foreground`를 쓴다. 이 조합은 11을 넘는다.
-- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 뜻 색은 제목 글자가 아니라 아이콘에만 쓴다. 뜻 색을 글자로 쓰면 회색 바탕에서 기준에 못 미쳐 소유자 결정으로 올렸다.
+- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 뜻 색은 제목 글자가 아니라 아이콘에만 쓴다. 회색 바탕의 뜻 색 글자는 `--warning`만 4.55로 통과하고 나머지는 4.5에 못 미친다.
 - 작은 파랑 글자는 흰 면에서 3.71이고 이 조합만 감수한다. 진한 파랑 변형은 만들지 않는다.
 - 쓸 수 없는 글자는 WCAG 예외로 두고 `contrast.md`에 따로 적는다.
 
@@ -57,7 +61,7 @@ shadcn/ui 이름에 없는 역할을 다섯 가지 더 둔다. 값은 모두 결
 
 ## 직접 색 금지
 
-부품과 화면은 `--palette-*` 이름이나 hex, rgb, hsl 같은 색 값을 직접 쓰지 않고 역할 token만 쓴다. 시험이 `frontend/src`의 `.ts`, `.tsx`, `.css`에서 팔레트 이름과 색 값을 찾는다. 이 규칙을 ESLint나 stylelint로 옮기려면 `frontend/eslint.config.js`를 고쳐야 하고, 그전까지는 시험이 같은 자리를 맡는다.
+부품과 화면은 `--palette-*` 이름이나 hex, rgb, hsl 같은 색 값을 직접 쓰지 않고 역할 token만 쓴다. 시험이 `frontend/src`의 `.ts`, `.tsx`, `.css`에서 팔레트 이름과 색 값을 찾는다. 값의 원본인 `tokens.css` 두 파일(`design/tokens/tokens.css`, `frontend/src/shared/ui/tokens.css`)은 검사에서 뺀다. 이 규칙을 ESLint나 stylelint로 옮기려면 `frontend/eslint.config.js`를 고쳐야 하고, 그전까지는 시험이 같은 자리를 맡는다.
 
 ## 글자
 
@@ -105,8 +109,6 @@ Pretendard 정적 파일 두 개(400, 700)를 동봉하고 외부 CDN을 쓰지 
 
 아래 값은 결정표에 없어 만들지 않았다. 필요한 화면이 생기면 값을 먼저 정한다.
 
-- 대표색 단추의 올림 색. 지금은 올림에서 바탕이 그대로이고 눌림만 진해진다.
 - 성공 상태 색과 다크 모드 색.
-- 확인 창 뒤 막 색. 판 뒤 막과 같은 `--overlay-scrim`을 쓴다.
 - 켜기와 끄기의 스위치 손잡이 색. 지금은 켜짐이 회색 바탕으로 남는 단추 모양이다.
-- 회색 바탕에 뜻 색 글자를 쓰는 조합. 지금은 글자를 `--foreground`로 두고 뜻 색을 아이콘에만 쓴다.
+- 회색 바탕에 뜻 색 글자를 쓰는 조합. `--warning`만 4.55로 통과하고 나머지는 글자를 `--foreground`로 두고 뜻 색을 아이콘에만 쓴다.

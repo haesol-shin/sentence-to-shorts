@@ -1,0 +1,51 @@
+@import '../base.css';
+
+.tooltip-positioner {
+  z-index: var(--z-tooltip);
+  isolation: isolate;
+}
+
+/* A reason opened from a menu row is part of that popup, so it sits above it. */
+.tooltip-positioner--from-popup {
+  z-index: var(--z-panel);
+}
+
+.tooltip-surface {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  min-height: var(--part-tooltip);
+  max-width: var(--part-tooltip-width);
+  padding: var(--space-4) var(--space-12);
+  border-radius: var(--radius-pill);
+  background: var(--popover);
+  color: var(--foreground);
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+  text-wrap: balance;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--motion-panel-duration) var(--motion-ease),
+    transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.tooltip-surface[data-lines='2'] {
+  align-items: flex-start;
+  padding-block: var(--space-8);
+  border-radius: var(--radius-content);
+}
+
+.tooltip-surface[data-starting-style],
+.tooltip-surface[data-ending-style] {
+  opacity: 0;
+  transform: translateY(var(--space-4));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tooltip-surface {
+    transition: none;
+  }
+}

@@ -1,0 +1,133 @@
+@import './tokens.local.css';
+
+/*
+ * One place for the owner-decided sizes and the transparent hit area.
+ *
+ * Every control keeps its designed visible size and fills 44x44 with a
+ * transparent ring. A part never does this arithmetic itself.
+ */
+:root {
+  --part-hairline: 1px;
+  --part-small: 32px;
+  --part-chip: 36px;
+  --part-menu-row: 36px;
+  --part-tab: 36px;
+  --part-tag: 24px;
+  --part-tooltip: 32px;
+  --part-tooltip-width: 240px;
+  --part-menu-width: calc(var(--space-48) * 6);
+}
+
+.hit-area {
+  position: relative;
+}
+
+.hit-area::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--size-control));
+  height: max(100%, var(--size-control));
+  transform: translate(-50%, -50%);
+}
+
+.focus-ring:focus-visible {
+  outline: var(--focus-width) solid var(--ring);
+  outline-offset: var(--focus-offset);
+}
+
+.focus-ring[data-force-state~='focus-visible'] {
+  outline: var(--focus-width) solid var(--ring);
+  outline-offset: var(--focus-offset);
+}
+
+.focus-ring--inset:focus-visible,
+.focus-ring--inset[data-force-state~='focus-visible'] {
+  outline-offset: var(--focus-offset-inset);
+}
+
+.label-box {
+  display: inline-grid;
+}
+
+.label-box__text {
+  grid-area: 1 / 1;
+}
+
+.label-box__text[aria-hidden='true'] {
+  visibility: hidden;
+  height: 0;
+}
+
+.label-box__text[data-weight='bold'] {
+  font-weight: var(--font-weight-bold);
+}
+
+.label-box__text[data-weight='regular'] {
+  font-weight: var(--font-weight-regular);
+}
+
+/*
+ * A scrolling popup body keeps the owner's half-row sign: the last row stays
+ * half visible and the hidden edge fades into the surface.
+ */
+.scroll-fade {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.scroll-fade::before,
+.scroll-fade::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: calc(var(--part-menu-row) / 2);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.scroll-fade::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--popover), transparent);
+}
+
+.scroll-fade::after {
+  bottom: 0;
+  background: linear-gradient(to bottom, transparent, var(--popover));
+}
+
+.scroll-fade[data-fade='bottom']::after,
+.scroll-fade[data-fade='both']::before,
+.scroll-fade[data-fade='both']::after,
+.scroll-fade[data-fade='top']::before {
+  opacity: 1;
+}
+
+.spinner {
+  box-sizing: border-box;
+  display: inline-block;
+  flex: none;
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  border: var(--icon-stroke) solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--radius-pill);
+  animation: part-spin calc(var(--motion-panel-duration) * 4) linear infinite;
+}
+
+@keyframes part-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}

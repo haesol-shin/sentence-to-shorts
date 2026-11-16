@@ -1,0 +1,56 @@
+@import '../base.css';
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  row-gap: var(--space-12);
+  width: 100%;
+  min-height: var(--size-control);
+  padding-block: var(--space-12);
+  font-family: var(--font-family-sans);
+}
+
+.settings-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.settings-row__label {
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+}
+
+.settings-row__description {
+  color: var(--muted-foreground);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+
+.settings-row__note {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin-top: var(--space-4);
+  color: var(--muted-foreground);
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+}
+
+.settings-row__control {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-8);
+  margin-inline-start: auto;
+}

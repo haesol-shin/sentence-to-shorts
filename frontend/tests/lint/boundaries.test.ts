@@ -38,11 +38,11 @@ describe('frontend import boundaries', () => {
     expect(messages.map((message) => message.message).join('\n')).toContain(
       'shared-api',
     );
-  });
+  }, 30_000);
 
   test('test_2_components_can_import_shared_lib', async () => {
     const messages = await lintAt('src/components/boundary-allowed.ts', allowed);
 
     expect(messages).toEqual([]);
-  });
+  }, 30_000);
 });

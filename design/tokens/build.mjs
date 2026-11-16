@@ -360,13 +360,15 @@ export function contrastProblems(tokens) {
     .filter((exception) => exception.kind === 'disabled')
     .map((exception) => exception.text);
   for (const row of allRows(tokens)) {
-    const { value, verdict } = textVerdict(tokens, row.text, row.surface);
-    if (row.kind === 'icon') {
-      if (verdict !== 'WCAG 예외' && value < 3) {
-        problems.push(`icon ${row.part} ${row.state}: ${row.text} on ${row.surface} ${pair(value)}`);
+    if (row.text) {
+      const { value, verdict } = textVerdict(tokens, row.text, row.surface);
+      if (row.kind === 'icon') {
+        if (verdict !== 'WCAG 예외' && value < 3) {
+          problems.push(`icon ${row.part} ${row.state}: ${row.text} on ${row.surface} ${pair(value)}`);
+        }
+      } else if (verdict === '금지') {
+        problems.push(`state ${row.part} ${row.state}: ${row.text} on ${row.surface} ${pair(value)}`);
       }
-    } else if (verdict === '금지') {
-      problems.push(`state ${row.part} ${row.state}: ${row.text} on ${row.surface} ${pair(value)}`);
     }
     if (row.icon) {
       const declared = tokens.contrast.icons.some(
@@ -411,7 +413,7 @@ export function renderContrast(tokens) {
   lines.push('');
   lines.push('## 그림 위의 반투명 면');
   lines.push('');
-  lines.push('반투명 면은 그림 위에 놓이므로 검은 그림 픽셀과 흰 그림 픽셀 위에서 계산하고 낮은 값을 쓴다.');
+  lines.push('반투명 면은 그림 위에 놓이므로 검은 그림 픽셀과 흰 그림 픽셀 위에서 계산하고 낮은 값을 쓴다. 확인 창 뒤의 진한 회색 막(`--overlay-dialog-scrim`)은 글자를 얹지 않아 이 표에 넣지 않는다.');
   lines.push('');
   lines.push('| 글자 | 바탕 | 대비 | 판정 |');
   lines.push('| --- | --- | --- | --- |');
@@ -460,6 +462,10 @@ export function renderContrast(tokens) {
   lines.push('## 금지 목록');
   lines.push('');
   lines.push('여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.');
+  lines.push('');
+  lines.push(
+    `회색 바탕의 뜻 색 글자는 \`--warning\`만 ${pair(pairRatio(tokens, '--warning', '--muted'))}로 통과하고 \`--muted-foreground\`와 \`--destructive\`는 ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 꼬리표와 안내 문장은 뜻 색을 아이콘에만 쓴다.`,
+  );
   lines.push('');
   const byText = new Map();
   for (const row of report.forbidden) {
@@ -524,7 +530,7 @@ export function renderStates(tokens) {
     const changed =
       row.changed.length === 0 ? '없음' : row.changed.map((key) => changedName[key] ?? key).join(', ');
     lines.push(
-      `| \`${row.part}\` | ${row.variant ? `\`${row.variant}\`` : '-'} | \`${row.state}\` | \`${row.surface}\` | \`${row.text}\` | ${row.icon ? `\`${row.icon}\`` : '-'} | \`${row.border}\` | ${changed} | ${row.note} |`,
+      `| \`${row.part}\` | ${row.variant ? `\`${row.variant}\`` : '-'} | \`${row.state}\` | \`${row.surface}\` | ${row.text ? `\`${row.text}\`` : '-'} | ${row.icon ? `\`${row.icon}\`` : '-'} | \`${row.border}\` | ${changed} | ${row.note} |`,
     );
   }
   lines.push('');

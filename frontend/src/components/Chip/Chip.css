@@ -1,0 +1,89 @@
+@import '../base.css';
+
+.chip {
+  box-sizing: border-box;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: 100%;
+  height: var(--part-chip);
+  padding-inline: var(--space-12);
+  border: var(--part-hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.chip__spinner {
+  position: absolute;
+  left: var(--space-12);
+  top: 50%;
+  color: var(--muted-foreground);
+  translate: 0 -50%;
+}
+
+.chip[data-no-lead][data-state='loading'] .chip__label {
+  opacity: 0;
+}
+
+.chip--removable {
+  padding-inline-end: var(--space-4);
+}
+
+.chip__lead {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+}
+
+.chip__lead svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  stroke-width: var(--icon-stroke);
+}
+
+.chip__label {
+  display: inline-grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chip__label .label-box__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip__remove {
+  display: inline-flex;
+  align-items: center;
+}
+
+.chip[data-state='loading'] .chip__label {
+  color: var(--muted-foreground);
+}
+
+.chip[data-state='error'] {
+  border-color: var(--destructive);
+  color: var(--destructive);
+}
+
+.chip[data-state='error'] .chip__label {
+  font-weight: var(--font-weight-bold);
+}
+
+.chip[data-state='error'] .chip__lead {
+  color: var(--destructive);
+}
+
+.chip[data-force-state~='focus-visible'] {
+  outline: var(--focus-width) solid var(--ring);
+  outline-offset: var(--focus-offset);
+}

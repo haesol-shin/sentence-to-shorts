@@ -1,0 +1,59 @@
+@import '../base.css';
+
+.switch-option {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--size-control);
+  min-width: var(--size-control);
+  padding-inline: var(--space-16);
+  border: var(--part-hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.switch-option:hover:not(:disabled),
+.switch-option[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-white);
+  border-color: var(--state-hover-white);
+}
+
+.switch-option:active:not(:disabled),
+.switch-option[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-white);
+  border-color: var(--state-pressed-white);
+}
+
+.switch-option[data-checked],
+.switch-option[data-force-state~='selected'] {
+  background: var(--state-selected);
+  border-color: var(--foreground);
+  font-weight: var(--font-weight-bold);
+}
+
+.switch-option:disabled,
+.switch-option[data-disabled],
+.switch-option[data-force-state~='disabled'] {
+  color: var(--disabled-foreground);
+  background: var(--muted);
+  border-color: var(--border);
+  font-weight: var(--font-weight-regular);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-option {
+    transition: none;
+  }
+}

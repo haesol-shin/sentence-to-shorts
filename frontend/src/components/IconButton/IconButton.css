@@ -1,0 +1,55 @@
+@import '../base.css';
+
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control);
+  height: var(--size-control);
+  border: var(--part-hairline) solid var(--card);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.icon-button svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+  stroke-width: var(--icon-stroke);
+}
+
+.icon-button:hover:not(:disabled),
+.icon-button[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-white);
+  border-color: var(--state-hover-white);
+}
+
+.icon-button:active:not(:disabled),
+.icon-button[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-white);
+  border-color: var(--state-pressed-white);
+}
+
+.icon-button[aria-pressed='true'],
+.icon-button[data-force-state~='selected'] {
+  background: var(--state-selected);
+  border-color: var(--foreground);
+}
+
+.icon-button:disabled {
+  background: var(--card);
+  border-color: var(--card);
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button {
+    transition: none;
+  }
+}

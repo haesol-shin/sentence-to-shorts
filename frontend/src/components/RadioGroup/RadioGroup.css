@@ -1,0 +1,94 @@
+@import '../base.css';
+
+.radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  font-family: var(--font-family-sans);
+}
+
+.radio-option {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: var(--size-control);
+  padding-inline: var(--space-16);
+  border: var(--part-hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: inherit;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.radio-option__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--icon-default);
+  height: var(--icon-default);
+  border: var(--part-hairline) solid var(--muted-foreground);
+  border-radius: var(--radius-pill);
+}
+
+.radio-option__dot {
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  opacity: 0;
+}
+
+.radio-option:hover:not(:disabled),
+.radio-option[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-white);
+}
+
+.radio-option:active:not(:disabled),
+.radio-option[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-white);
+}
+
+.radio-option[data-checked],
+.radio-option[data-force-state~='selected'] {
+  background: var(--state-selected);
+  border-color: var(--primary);
+}
+
+.radio-option[data-checked] .radio-option__mark,
+.radio-option[data-force-state~='selected'] .radio-option__mark {
+  border-color: var(--primary);
+}
+
+.radio-option[data-checked] .radio-option__dot,
+.radio-option[data-force-state~='selected'] .radio-option__dot {
+  opacity: 1;
+}
+
+.radio-option:disabled,
+.radio-option[data-disabled],
+.radio-option[data-force-state~='disabled'] {
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+.radio-option:disabled .radio-option__mark,
+.radio-option[data-disabled] .radio-option__mark,
+.radio-option[data-force-state~='disabled'] .radio-option__mark {
+  border-color: var(--disabled-foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .radio-option {
+    transition: none;
+  }
+}

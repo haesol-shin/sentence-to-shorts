@@ -1,0 +1,64 @@
+@import '../base.css';
+
+.close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--part-hairline) solid var(--card);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.close-button--md {
+  width: var(--size-control);
+  height: var(--size-control);
+}
+
+.close-button--sm {
+  width: var(--part-small);
+  height: var(--part-small);
+}
+
+.close-button svg {
+  stroke-width: var(--icon-stroke);
+}
+
+.close-button--md svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+}
+
+.close-button--sm svg {
+  width: var(--icon-close);
+  height: var(--icon-close);
+}
+
+.close-button:hover:not(:disabled),
+.close-button[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-white);
+  border-color: var(--state-hover-white);
+  color: var(--foreground);
+}
+
+.close-button:active:not(:disabled),
+.close-button[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-white);
+  border-color: var(--state-pressed-white);
+  color: var(--foreground);
+}
+
+.close-button:disabled {
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .close-button {
+    transition: none;
+  }
+}
