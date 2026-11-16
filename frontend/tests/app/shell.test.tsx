@@ -64,8 +64,8 @@ test('test_10a_the_next_action_keeps_its_seat_on_stage_screens', async () => {
   sendSentence('커피를 고르는 세 가지 기준');
   await screen.findByRole('heading', { name: '컨셉' });
 
-  const action = screen.getByRole('button', { name: '정하고 대본 만들기' });
-  expect((action as HTMLButtonElement).disabled).toBe(true);
+  const action = document.querySelector<HTMLButtonElement>('[data-slot="next-action"]');
+  expect(action?.disabled).toBe(true);
 });
 
 test('test_10a_brand_name_comes_from_the_runtime_answer', async () => {

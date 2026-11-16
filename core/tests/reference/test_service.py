@@ -488,11 +488,12 @@ def test_20_analysis_leaves_no_work_folder(
     staged = _stage_upload(tmp_path, clip)
     ctx = _context(tmp_path, upload_path=str(staged))
     source = service.ingest(staged, None, ctx=ctx)
-    assert source.parent == _work(tmp_path) and not staged.exists()
+    assert source.parent == _work(tmp_path) and staged.exists()
 
     service.analyze(source, draft_video(), ctx=ctx)
 
     assert not _work(tmp_path).exists()
+    assert staged.exists()
     assert not any((tmp_path / "cache" / "r").iterdir())
 
 

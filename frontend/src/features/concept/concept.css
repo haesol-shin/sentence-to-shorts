@@ -1,0 +1,182 @@
+.concept-screen {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  width: min(100%, 960px);
+  margin-inline: auto;
+  color: var(--text);
+  font-size: 17px;
+}
+
+/* Keep the document's action in its own dock, not in the shell's placeholder. */
+main:has(.concept-screen) [data-slot="next-action"] {
+  display: none;
+}
+
+main:has(.concept-screen) [data-slot="stage-scroll"] {
+  overflow: hidden;
+}
+
+.concept-screen {
+  flex-direction: column;
+}
+
+.concept-content {
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 22px 28px;
+}
+
+.concept-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.concept-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.concept-tile {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 16px;
+  text-align: left;
+  background: var(--surface-muted);
+}
+
+.concept-tile[aria-pressed="true"] {
+  background: var(--surface-sunken);
+}
+
+.concept-tile:disabled,
+.concept-field select:disabled {
+  cursor: not-allowed;
+}
+
+.concept-tile:focus-visible,
+.concept-small-button:focus-visible,
+.concept-field select:focus-visible {
+  outline: 2px solid var(--text-strong);
+  outline-offset: 2px;
+}
+
+.concept-picture {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.concept-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr));
+  gap: 16px;
+}
+
+.concept-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.concept-field select {
+  min-height: 44px;
+  max-width: 100%;
+  width: 100%;
+  border-radius: 12px;
+  padding: 8px 12px;
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+.concept-small-button {
+  min-height: 44px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  text-decoration: underline;
+}
+
+.concept-origin {
+  padding: 4px 8px;
+  border-radius: 16px;
+  background: var(--surface-muted);
+}
+
+.concept-example,
+.concept-review {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 16px;
+  padding: 16px;
+  background: var(--surface-muted);
+  overflow-wrap: anywhere;
+}
+
+.concept-example {
+  align-items: center;
+  min-height: 120px;
+}
+
+.concept-footer {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 28px;
+  background: var(--surface);
+}
+
+.concept-dialog {
+  max-width: min(640px, calc(100vw - 32px));
+  width: 100%;
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  overflow-y: auto;
+  border: 0;
+  border-radius: 24px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.concept-dialog::backdrop {
+  background: rgb(0 0 0 / 25%);
+}
+
+@media (max-width: 767px) {
+  .concept-content {
+    padding: 16px;
+    gap: 20px;
+  }
+
+  .concept-tiles {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .concept-tile {
+    gap: 4px;
+  }
+
+  .concept-picture {
+    min-height: 48px;
+  }
+
+  .concept-footer {
+    padding: 8px 12px;
+  }
+}

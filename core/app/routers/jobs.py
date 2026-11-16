@@ -45,7 +45,10 @@ def get_job(request: Request, jid: str) -> Job:
     status_code=202,
 )
 def cancel_job(request: Request, jid: str) -> Job:
-    return runtime(request).job_store.request_cancel(jid)
+    app = runtime(request)
+    job = app.job_store.request_cancel(jid)
+    app.runner.discard_reference_upload(jid)
+    return job
 
 
 @router.post(
@@ -59,4 +62,7 @@ def retry_job(
     jid: str,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return runtime(request).submitter.retry(jid)
+    app = runtime(request)
+    if not app.runner.reference_source_available(jid):
+        raise AppError("job_not_retryable")
+    return app.submitter.retry(jid)

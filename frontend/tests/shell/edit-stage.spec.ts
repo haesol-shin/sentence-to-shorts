@@ -119,13 +119,18 @@ test('test_10a_the_next_action_stays_inside_every_stage_screen', async ({ page }
     if (stage !== 'concept') {
       await openStage(page, label);
     }
-    await expect(page.locator('[data-slot="stage-panel"]')).toHaveAttribute('data-stage', stage);
-
-    const box = await page.locator('[data-slot="next-action"]').boundingBox();
-    expect(box).not.toBeNull();
-    if (box === null) continue;
-    expect(box.x).toBeGreaterThan(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    // The concept screen owns its action in its own dock, so the top bar seat stays shut.
+    await expect(
+      page.locator(stage === 'concept' ? '[data-slot="concept-screen"]' : '[data-slot="stage-panel"]'),
+    ).toBeVisible();
+    if (stage !== 'concept') {
+      await expect(page.locator('[data-slot="stage-panel"]')).toHaveAttribute('data-stage', stage);
+      const box = await page.locator('[data-slot="next-action"]').boundingBox();
+      expect(box).not.toBeNull();
+      if (box === null) continue;
+      expect(box.x).toBeGreaterThan(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
 
     const overflows = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
