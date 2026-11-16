@@ -18,11 +18,13 @@ const WIDTHS = [390, 1920] as const;
 
 function CaseBody({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {
   const style = { '--case-width': `${entry.width ?? 420}px` } as CSSProperties;
+  const surface = BARE_PARTS[part.id] === true ? 'bare' : entry.surface;
   return (
     <div
-      className={`case case--${entry.surface}`}
+      className={`case case--${surface}`}
       data-case={entry.label}
       data-layout={entry.layout}
+      data-portal={entry.portal ? '' : undefined}
     >
       <span className="case__label">
         {entry.label}
@@ -35,10 +37,25 @@ function CaseBody({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {
   );
 }
 
+const CASE_HEIGHT: Record<string, number> = {
+  composer: 300,
+  skeleton: 320,
+};
+
+const BARE_PARTS: Record<string, true> = {
+  dialog: true,
+  alert: true,
+  'confirm-delete': true,
+  'confirm-range': true,
+  toast: true,
+  'file-drop': true,
+  'bottom-sheet': true,
+};
+
 function frameHeight(part: GalleryPart, width: number, portal: boolean): number {
   if (portal) return width === 390 ? 844 : 1080;
   const base = width === 390 ? 844 : 1080;
-  return Math.max(base, 96 + inlineCases(part).length * 200);
+  return Math.max(base, 96 + inlineCases(part).length * (CASE_HEIGHT[part.id] ?? 200));
 }
 
 function CaseFrame({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {

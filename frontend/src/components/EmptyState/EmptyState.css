@@ -1,0 +1,63 @@
+@import '../base.css';
+
+.empty-state {
+  --part-empty-width: 560px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: var(--part-empty-width);
+  max-width: 100%;
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  text-align: center;
+}
+
+.empty-state__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0 0 var(--space-8);
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  font-weight: var(--font-weight-bold);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.empty-state__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.empty-state__icon svg {
+  width: var(--icon-title);
+  height: var(--icon-title);
+  stroke-width: var(--icon-stroke);
+}
+
+.empty-state__body {
+  margin: 0 0 var(--space-24);
+  color: var(--sub);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.empty-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-8);
+}
+
+.empty-state[data-tone='error'] .empty-state__icon {
+  color: var(--destructive);
+}
+
+.empty-state[data-tone='error'] .empty-state__title {
+  color: var(--foreground);
+}

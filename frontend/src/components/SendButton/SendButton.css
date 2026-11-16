@@ -1,0 +1,55 @@
+@import '../base.css';
+
+.send-button {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--part-small);
+  height: var(--part-small);
+  border: var(--part-hairline) solid var(--primary);
+  border-radius: var(--radius-pill);
+  background: var(--primary);
+  color: var(--primary-foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.send-button svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  stroke-width: var(--icon-stroke);
+}
+
+.send-button:hover:not(:disabled),
+.send-button[data-force-state~='hover']:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.send-button:active:not(:disabled),
+.send-button[data-force-state~='pressed']:not(:disabled) {
+  background: var(--primary-pressed);
+  border-color: var(--primary-pressed);
+}
+
+.send-button:disabled {
+  background: var(--muted);
+  border-color: var(--muted);
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+.send-button > .spinner {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .send-button {
+    transition: none;
+  }
+}

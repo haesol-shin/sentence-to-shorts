@@ -21,10 +21,10 @@ test.beforeEach(({}, testInfo) => {
 async function galleryReady(page: Page): Promise<void> {
   // Tall enough that a cropped popup near a frame edge keeps its margin.
   await page.setViewportSize({ width: 2400, height: 1600 });
-  await page.goto(`${GALLERY}?batch=1`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  await page.goto(`${GALLERY}?batch=2`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-part]').length === 16,
-    undefined,
+    (count) => document.querySelectorAll('[data-part]').length === count,
+    galleryParts.filter((part) => part.batch === 2).length,
     { timeout: 120_000 },
   );
   await page.waitForFunction(
@@ -62,7 +62,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
   await galleryReady(page);
   await page.screenshot({ path: join(GALLERY_SHEETS, 'gallery-overview.png') });
 
-  for (const part of galleryParts) {
+  for (const part of galleryParts.filter((candidate) => candidate.batch === 2)) {
     for (const width of [390, 1920] as const) {
       if (inlineCases(part).length > 0) {
         const frame = page.frameLocator(`iframe[data-frame-group="${part.id}"][width="${width}"]`);
@@ -76,8 +76,15 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
         const selector = `iframe[data-frame-case="${entry.label}"][width="${width}"]`;
         const iframe = page.locator(selector);
         const frame = await frameOf(page, selector);
-        await frame.locator('[role=menu], [role=listbox], [role=tooltip]').first().waitFor({ timeout: 10_000 });
+        await frame
+          .locator('[role=menu], [role=listbox], [role=tooltip], [role=dialog], [role=alertdialog], [role=status]')
+          .first()
+          .waitFor({ timeout: 10_000 });
         await page.waitForTimeout(250);
+        await frame.evaluate(() => {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement) active.blur();
+        });
         await iframe.scrollIntoViewIfNeeded();
         const frameBox = await iframe.boundingBox();
         if (frameBox === null) throw new Error(`missing frame box: ${selector}`);
@@ -88,7 +95,11 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
             return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
           };
           const caseBox = boxOf(document.querySelector('[data-case]'));
-          const popups = [...document.querySelectorAll('.menu-positioner, .field-positioner, .tooltip-positioner')]
+          const popups = [
+            ...document.querySelectorAll(
+              '.menu-positioner, .field-positioner, .tooltip-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop',
+            ),
+          ]
             .map((element) => boxOf(element))
             .filter((box): box is { left: number; top: number; right: number; bottom: number } => box !== null);
           const boxes = [caseBox, ...popups].filter(
@@ -114,7 +125,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
     }
   }
 
-  for (const part of galleryParts) {
+  for (const part of galleryParts.filter((candidate) => candidate.batch === 2)) {
     for (const entry of part.cases) {
       for (const width of [390, 1920] as const) {
         expect(existsSync(join(SHOTS, `${entry.label}-${width}.png`)), `${entry.label}-${width}`).toBe(true);
@@ -125,7 +136,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
   const controls: (MeasuredControl & { part: string; width: number })[] = [];
   const overlaps: (MeasuredOverlap & { part: string; width: number })[] = [];
   let clipped = 0;
-  for (const part of galleryParts) {
+  for (const part of galleryParts.filter((candidate) => candidate.batch === 2)) {
     for (const width of [390, 1920] as const) {
       const selectors: string[] = [];
       if (inlineCases(part).length > 0) {
@@ -164,7 +175,9 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
   expect(overlaps).toEqual([]);
   expect(controls.length).toBeGreaterThan(0);
 
-  for (const range of galleryRanges) {
+  for (const range of galleryRanges.filter((candidate) =>
+    candidate.parts.some((part) => part.batch === 2),
+  )) {
     await page.locator(`[data-range="${range.id}"]`).screenshot({
       path: join(GALLERY_SHEETS, `gallery-parts-${range.id}.png`),
     });

@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { ChevronDown, Info } from 'lucide-react';
 
+import { BottomSheet, BottomSheetClose } from '@/components/BottomSheet/BottomSheet';
 import { Button } from '@/components/Button/Button';
+import { Composer } from '@/components/Composer/Composer';
+import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
 import { MenuButton } from '@/components/MenuButton/MenuButton';
 import { RadioGroup } from '@/components/RadioGroup/RadioGroup';
 import { Switch } from '@/components/Switch/Switch';
@@ -94,6 +97,77 @@ export function ProbePage() {
         <Switch label="자동 저장" onCheckedChange={(checked) => setLog(`switch:${String(checked)}`)}>
           자동 저장
         </Switch>
+      </section>
+      <section className="probe__section" data-probe="dialog">
+        <h2>창</h2>
+        <Dialog
+          title="이 영상을 만들까요?"
+          description="만들면 편집 화면으로 넘어가요."
+          trigger={<Button>영상 만들기</Button>}
+          actions={
+            <>
+              <DialogClose render={<Button variant="secondary">취소</Button>} />
+              <DialogClose render={<Button onClick={() => setLog('dialog:confirm')}>확인</Button>} />
+            </>
+          }
+        />
+      </section>
+      <section className="probe__section" data-probe="dialog-nested">
+        <h2>창 안 조작</h2>
+        <Dialog
+          title="중첩 조작"
+          description="창 안에서 메뉴, 목소리, 도움말을 연다."
+          trigger={<Button>중첩 창 열기</Button>}
+          actions={<DialogClose render={<Button variant="secondary">닫기</Button>} />}
+        >
+          <div className="probe__stack">
+            <MenuButton
+              trigger={
+                <Button variant="trigger" iconEnd={<ChevronDown aria-hidden="true" />}>
+                  파일 넣기
+                </Button>
+              }
+              label="파일 넣기"
+              items={MENU_ITEMS}
+              onSelect={(value) => setLog(`nested-menu:${value}`)}
+            />
+            <ValueField
+              label="목소리"
+              items={VOICES}
+              placeholder="목소리 고르기"
+              onValueChange={(value) => setLog(`nested-select:${value}`)}
+            />
+            <Tooltip content="창 안 도움말이에요.">
+              <Button variant="secondary">이유 보기</Button>
+            </Tooltip>
+          </div>
+        </Dialog>
+      </section>
+      <section className="probe__section" data-probe="sheet">
+        <h2>아래 판</h2>
+        <BottomSheet
+          title="목소리 고르기"
+          description="이 영상에서 쓸 목소리를 골라요."
+          trigger={<Button variant="secondary">목소리</Button>}
+          actions={<BottomSheetClose render={<Button variant="secondary">닫기</Button>} />}
+        >
+          <RadioGroup
+            label="목소리"
+            options={[
+              { value: 'bright', label: '밝은 목소리' },
+              { value: 'calm', label: '차분한 목소리' },
+            ]}
+          />
+        </BottomSheet>
+      </section>
+      <section className="probe__section" data-probe="composer">
+        <h2>입력창</h2>
+        <Composer
+          label="메시지 입력"
+          attachLabel="파일 넣기"
+          placeholder="어떤 영상을 만들까요?"
+          onSend={() => setLog('composer:send')}
+        />
       </section>
       <p className="probe__log" data-probe="log">
         {log}

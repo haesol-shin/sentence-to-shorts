@@ -3,6 +3,8 @@ import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 
 import { cn } from '@/shared/lib/utils';
 
+import { usePopupContainer } from '../PopupContainer';
+
 import './Tooltip.css';
 
 export type TooltipSide = 'top' | 'bottom' | 'left' | 'right';
@@ -31,6 +33,7 @@ function existingDescriptionOf(element: ReactElement): string | undefined {
  * or more use the content radius, both from the token set.
  */
 export function Tooltip({ content, children, side = 'top', forceOpen, className, positionerClassName }: TooltipProps) {
+  const container = usePopupContainer();
   const [open, setOpen] = useState(forceOpen ?? false);
   const [lines, setLines] = useState(1);
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
@@ -63,7 +66,7 @@ export function Tooltip({ content, children, side = 'top', forceOpen, className,
       <TooltipPrimitive.Trigger
         render={cloneElement(children, { 'aria-describedby': describedBy })}
       />
-      <TooltipPrimitive.Portal>
+      <TooltipPrimitive.Portal container={container ?? undefined}>
         <TooltipPrimitive.Positioner
           side={side}
           sideOffset={8}

@@ -76,14 +76,22 @@ Pretendard 정적 파일 두 개(400, 700)를 동봉하고 외부 CDN을 쓰지 
 | token | 값 | 쓰는 곳 |
 | --- | --- | --- |
 | `--radius-column` | 36px | 대화 칸, 작업 칸 |
-| `--radius-surface` | 24px | 입력창, 메뉴, 창, 판, 끌어다 놓는 칸 |
-| `--radius-dialogue` | 20px | 대사 줄 |
+| `--radius-composer` | 28px | 대화 입력창 |
+| `--radius-surface` | 24px | 메뉴, 창, 판, 끌어다 놓는 칸 |
+| `--radius-toast` | 22px | 알림 |
 | `--radius-row` | 18px | 메뉴와 목록의 줄 |
-| `--radius-content` | 16px | 안내 문장, 파일 칩, 두 줄 이상 tooltip |
+| `--radius-content` | 16px | 안내 문장, 파일 칩, 대사 줄, 두 줄 이상 tooltip |
 | `--radius-media` | 12px | 편집 미리보기, 장면 썸네일, 카드 그림, 진행 막대 |
 | `--radius-inset` | 8px | 칩 속 그림 |
 | `--radius-pill` | 999px | 원 단추, 알약 단추, 꼬리표, 한 줄 tooltip |
 | `--radius-none` | 0 | 전체 영상 플레이어 |
+
+## 크기
+
+| token | 값 | 쓰는 곳 |
+| --- | --- | --- |
+| `--size-control` | 44px | 모든 조작의 기본 높이와 누를 영역 |
+| `--size-dialog` | 480px | 확인 창 너비 |
 
 ## 겹침 순서
 

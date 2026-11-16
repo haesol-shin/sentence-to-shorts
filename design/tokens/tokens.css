@@ -98,10 +98,12 @@
   --space-48: 48px;
   /* size */
   --size-control: 44px;
+  --size-dialog: 480px;
   /* radius */
   --radius-column: 36px;
+  --radius-composer: 28px;
   --radius-surface: 24px;
-  --radius-dialogue: 20px;
+  --radius-toast: 22px;
   --radius-row: 18px;
   --radius-content: 16px;
   --radius-media: 12px;

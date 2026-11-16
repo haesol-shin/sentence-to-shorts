@@ -1,0 +1,53 @@
+@import '../base.css';
+
+.skeleton {
+  --part-skeleton-text-width: 360px;
+  --part-skeleton-text-height: 18px;
+  --part-skeleton-script-width: 360px;
+  --part-skeleton-script-height: 54px;
+  --part-skeleton-thumb-width: 112px;
+  --part-skeleton-thumb-height: 108px;
+  --part-skeleton-media-width: 318px;
+  --part-skeleton-media-height: 566px;
+  box-sizing: border-box;
+  width: var(--part-skeleton-text-width);
+  max-width: 100%;
+  height: var(--part-skeleton-text-height);
+  border-radius: var(--radius-content);
+  background: linear-gradient(90deg, var(--muted) 0%, var(--accent) 50%, var(--muted) 100%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer calc(var(--motion-panel-duration) * 6) linear infinite;
+}
+
+.skeleton[data-shape='script'] {
+  width: var(--part-skeleton-script-width);
+  height: var(--part-skeleton-script-height);
+}
+
+.skeleton[data-shape='thumb'] {
+  width: var(--part-skeleton-thumb-width);
+  height: var(--part-skeleton-thumb-height);
+  border-radius: var(--radius-media);
+}
+
+.skeleton[data-shape='media'] {
+  width: var(--part-skeleton-media-width);
+  height: var(--part-skeleton-media-height);
+  border-radius: var(--radius-media);
+}
+
+@keyframes skeleton-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

@@ -1,0 +1,107 @@
+@import '../base.css';
+
+.file-chip {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 320px;
+  max-width: 100%;
+  height: calc(var(--space-48) + var(--space-8));
+  padding: var(--space-8);
+  overflow: hidden;
+  border: var(--part-hairline) solid var(--border);
+  border-radius: var(--radius-content);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+}
+
+.file-chip__lead {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space-48) - var(--space-8));
+  height: calc(var(--space-48) - var(--space-8));
+  border-radius: var(--radius-inset);
+  background: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.file-chip__lead svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+  stroke-width: var(--icon-stroke);
+}
+
+.file-chip__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.file-chip__name,
+.file-chip__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-chip__name {
+  font-size: var(--font-size-small);
+  line-height: calc(var(--line-height-small) - var(--space-4));
+  font-weight: var(--font-weight-bold);
+}
+
+.file-chip__detail {
+  color: var(--sub);
+  font-size: var(--font-size-length);
+  line-height: calc(var(--line-height-small) - var(--space-4));
+}
+
+.file-chip__remove,
+.file-chip__retry {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+.file-chip__bar {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: calc(var(--part-hairline) * 3);
+  background: var(--muted);
+}
+
+.file-chip__bar-fill {
+  display: block;
+  width: var(--file-progress, 0%);
+  height: 100%;
+  background: var(--foreground);
+  transition: width var(--motion-state-duration) var(--motion-ease);
+}
+
+.file-chip[data-state='error'] {
+  border-color: var(--destructive);
+}
+
+.file-chip[data-state='error'] .file-chip__detail {
+  color: var(--destructive);
+  font-weight: var(--font-weight-bold);
+}
+
+.file-chip[data-force-state~='focus-visible'] {
+  outline: var(--focus-width) solid var(--ring);
+  outline-offset: var(--focus-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-chip__bar-fill {
+    transition: none;
+  }
+}

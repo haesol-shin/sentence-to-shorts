@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/utils';
 import './ValueField.css';
 
 import { statesOf, type ForceState } from '../force-state';
+import { usePopupContainer } from '../PopupContainer';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { useOverflowFade } from '../use-overflow-fade';
 
@@ -57,6 +58,7 @@ export function ValueField({
   className,
 }: ValueFieldProps) {
   const noteId = useId();
+  const container = usePopupContainer();
   const [list, setList] = useState<HTMLDivElement | null>(null);
   const fade = useOverflowFade(list, '.field-item');
   const forced = statesOf(forceState);
@@ -87,7 +89,7 @@ export function ValueField({
         <SelectPrimitive.Value className="field-trigger__value" placeholder={placeholder} />
         <SelectPrimitive.Icon className="field-trigger__icon" render={<ChevronDown aria-hidden="true" />} />
       </SelectPrimitive.Trigger>
-      <SelectPrimitive.Portal>
+      <SelectPrimitive.Portal container={container ?? undefined}>
         <SelectPrimitive.Positioner
           side="bottom"
           align="start"

@@ -2,17 +2,29 @@ import type { ReactElement, ReactNode } from 'react';
 import { AlertCircle, AlertTriangle, ChevronDown, FileText, Info, Settings, Sparkles } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
+import { BottomSheet, BottomSheetClose } from '@/components/BottomSheet/BottomSheet';
 import { Chip } from '@/components/Chip/Chip';
 import { CloseButton } from '@/components/CloseButton/CloseButton';
+import { Composer } from '@/components/Composer/Composer';
+import { ConfirmDialog } from '@/components/ConfirmDialog/ConfirmDialog';
+import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { FileChip } from '@/components/FileChip/FileChip';
+import { FileDropZone } from '@/components/FileDropZone/FileDropZone';
 import { IconButton } from '@/components/IconButton/IconButton';
 import { MenuButton, type MenuItemSpec } from '@/components/MenuButton/MenuButton';
 import { Notice, type NoticeTone } from '@/components/Notice/Notice';
+import { Progress } from '@/components/Progress/Progress';
 import { RadioGroup } from '@/components/RadioGroup/RadioGroup';
+import { RangeDialog } from '@/components/RangeDialog/RangeDialog';
+import { SendButton } from '@/components/SendButton/SendButton';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
+import { Skeleton } from '@/components/Skeleton/Skeleton';
 import { Switch } from '@/components/Switch/Switch';
 import { Tabs } from '@/components/Tabs/Tabs';
 import { Tag, type TagVariant } from '@/components/Tag/Tag';
 import { TextField } from '@/components/TextField/TextField';
+import { Toast } from '@/components/Toast/Toast';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
 import { ValueField, type ValueFieldItem } from '@/components/ValueField/ValueField';
 import type { GalleryCase } from './items';
@@ -149,6 +161,53 @@ function menuTrigger(state?: string): ReactElement {
     </Button>
   );
 }
+
+const COMPOSER_LONG = [
+  '게임 비유로 바꿔 줘.',
+  '차분한 픽셀 그림체로.',
+  '낮은 목소리로 읽어 줘.',
+  '편의점 앞에서 시작해 줘.',
+  '재고를 세는 손을 보여 줘.',
+  '계산대 너머로 웃어 줘.',
+  '게임 점수판을 보여 줘.',
+  '밝은 거리로 끝내 줘.',
+  '자막은 짧게 유지해 줘.',
+  '효과음은 넣지 말아 줘.',
+  '전체 길이는 1분 안으로.',
+  '다음 편을 예고해 줘.',
+].join('\n');
+
+const SHEET_VOICES = [
+  { value: 'bright', label: '밝은 목소리' },
+  { value: 'calm', label: '차분한 목소리' },
+  { value: 'low', label: '낮은 목소리' },
+  { value: 'warm', label: '따뜻한 목소리' },
+];
+
+const SHEET_LONG_VOICES = [
+  ...SHEET_VOICES,
+  { value: 'clear', label: '또렷한 목소리' },
+  { value: 'soft', label: '부드러운 목소리' },
+];
+
+const RANGE_CHANGES = [
+  { label: '분위기', before: '차분함', after: '유쾌함' },
+  { label: '장면 수', before: '4개', after: '5개' },
+];
+
+const RANGE_SCOPE = [
+  '대본을 처음부터 다시 씀',
+  '장면 1, 2의 목소리와 렌더를 다시 만듦',
+  '바뀌지 않은 장면 3, 4의 파일은 그대로 둠',
+];
+
+const DIALOG_ACTIONS = (
+  <>
+    <DialogClose render={<Button variant="secondary">취소</Button>} />
+    <DialogClose render={<Button>확인</Button>} />
+  </>
+);
+
 
 /** One case of a part. The label is drawn here so every screenshot carries it. */
 export function renderCase(partId: string, entry: GalleryCase): ReactNode {
@@ -361,6 +420,228 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         />
       );
     }
+    case 'send-button':
+      return <SendButton label="보내기" forceState={state} />;
+    case 'composer': {
+      const long = entry.slug === 'long';
+      return (
+        <Composer
+          label="메시지 입력"
+          attachLabel="파일 넣기"
+          placeholder={entry.slug === 'drop' ? '여기에 놓으면 올라가요' : '어떤 영상을 만들까요?'}
+          defaultValue={long ? COMPOSER_LONG : entry.slug === 'filled' ? '차분한 다큐멘터리로 만들어 줘.' : undefined}
+          dropActive={entry.slug === 'drop'}
+          disabled={state === 'disabled'}
+          forceState={state === 'focus-visible' ? 'focus-visible' : undefined}
+          chips={
+            entry.slug === 'chips' ? (
+              <>
+                <Button variant="ghost" size="sm" className="composer-chip">
+                  한국어
+                </Button>
+                <Button variant="ghost" size="sm" className="composer-chip">
+                  1분
+                </Button>
+              </>
+            ) : undefined
+          }
+          attachments={
+            entry.slug === 'attachments' ? (
+              <FileChip
+                name="참고_영상.mp4"
+                detail="영상 · 0:12"
+                remove={<CloseButton label="파일 지우기" size="sm" />}
+              />
+            ) : undefined
+          }
+        />
+      );
+    }
+    case 'file-chip': {
+      const errored = state === 'error';
+      return (
+        <FileChip
+          name={state === 'loading' ? 'BGM_잔잔한.mp3' : '참고_영상.mp4'}
+          detail={
+            state === 'loading'
+              ? 'BGM'
+              : errored
+                ? entry.slug === 'error-retry'
+                  ? '형식이 맞지 않아요'
+                  : '올리지 못했어요'
+                : '영상 · 0:12'
+          }
+          state={state === 'loading' || errored ? state : 'default'}
+          progress={0.45}
+          forceState={state}
+          remove={<CloseButton label="파일 지우기" size="sm" />}
+          retry={
+            errored ? (
+              <Button variant="ghost" size="sm">
+                다시
+              </Button>
+            ) : undefined
+          }
+        />
+      );
+    }
+    case 'file-drop':
+      return entry.slug === 'container' ? (
+        <div className="demo-drop-container">
+          <FileDropZone
+            scope="container"
+            open
+            label="여기에 놓으면 올라가요"
+            accept="참고 영상, BGM, 글 파일(.md, .txt)"
+          />
+        </div>
+      ) : (
+        <FileDropZone
+          open
+          label="여기에 놓으면 올라가요"
+          accept={
+            entry.slug === 'long'
+              ? '참고 영상, BGM, 목소리 파일, 글 파일(.md, .txt)을 받아요'
+              : '참고 영상, BGM, 글 파일(.md, .txt)'
+          }
+        />
+      );
+    case 'dialog':
+      return entry.slug === 'long' ? (
+        <Dialog
+          defaultOpen
+          title="다시 만들기 전에 확인해 주세요"
+          description="고친 내용이 여러 장면에 걸쳐 있어요. 적용하면 아래 범위가 새로 만들어져요."
+          actions={DIALOG_ACTIONS}
+        >
+          <Notice tone="warning" title="바뀌지 않은 장면은 그대로 둬요">
+            장면 3과 4의 파일은 다시 만들지 않아요.
+          </Notice>
+        </Dialog>
+      ) : (
+        <Dialog
+          defaultOpen
+          title="이 영상을 만들까요?"
+          description="만들면 편집 화면으로 넘어가요. 만드는 동안에도 다른 값을 고칠 수 있어요."
+          actions={DIALOG_ACTIONS}
+        />
+      );
+    case 'alert':
+      return entry.slug === 'error' ? (
+        <ConfirmDialog
+          defaultOpen
+          tone="danger"
+          icon={<AlertCircle />}
+          title="영상을 만들지 못했어요"
+          confirmLabel="확인"
+          cancelLabel={null}
+        >
+          연결을 확인한 뒤 다시 시도해 주세요. 만들던 내용은 저장돼 있어요.
+        </ConfirmDialog>
+      ) : (
+        <ConfirmDialog
+          defaultOpen
+          tone="neutral"
+          title="이 장면을 다시 만들까요?"
+          confirmLabel="다시 만들기"
+        >
+          장면 3의 대사와 목소리만 새로 만들어요.
+        </ConfirmDialog>
+      );
+    case 'confirm-delete':
+      return (
+        <ConfirmDialog
+          defaultOpen
+          title="파일을 지울까요?"
+          confirmLabel="지우기"
+          icon={<AlertCircle />}
+        >
+          지운 파일은 되돌릴 수 없어요. 다시 올리려면 파일을 새로 골라야 해요.
+        </ConfirmDialog>
+      );
+    case 'confirm-range':
+      return (
+        <RangeDialog
+          defaultOpen
+          intro="여러 장면이 바뀌어서 적용 전에 확인해요."
+          changes={RANGE_CHANGES}
+          scope={RANGE_SCOPE}
+          confirmLabel="적용"
+        />
+      );
+    case 'toast':
+      return (
+        <Toast open>
+          {entry.slug === 'long'
+            ? '장면 3을 다시 만들었어요. 목소리와 렌더를 새로 만들었어요.'
+            : '대본을 저장했어요'}
+        </Toast>
+      );
+    case 'bottom-sheet':
+      return (
+        <BottomSheet
+          defaultOpen
+          title="목소리 고르기"
+          description={
+            entry.slug === 'long'
+              ? '이 영상에서 쓸 목소리를 골라요. 고른 목소리는 모든 장면에 적용돼요.'
+              : '이 영상에서 쓸 목소리를 골라요.'
+          }
+          actions={
+            <>
+              <BottomSheetClose render={<Button variant="secondary">취소</Button>} />
+              <Button>적용</Button>
+            </>
+          }
+        >
+          <RadioGroup
+            label="목소리"
+            options={entry.slug === 'long' ? SHEET_LONG_VOICES : SHEET_VOICES}
+            defaultValue="calm"
+          />
+        </BottomSheet>
+      );
+    case 'progress':
+      if (entry.slug === 'bar') return <Progress value={40} labelText="만드는 중" />;
+      if (entry.slug === 'complete') return <Progress value={100} label="영상 만들기" />;
+      if (entry.slug === 'indeterminate') return <Progress value={null} label="만드는 중" />;
+      return <Progress value={40} label="장면 3개 만드는 중" />;
+    case 'skeleton':
+      return <Skeleton shape={entry.slug === 'text' ? 'text' : (entry.slug as 'thumb' | 'script' | 'media')} />;
+    case 'empty-state':
+      return entry.slug === 'long' ? (
+        <EmptyState
+          title="아직 이 영상에 장면이 없어요"
+          actions={<Button>장면 만들기</Button>}
+        >
+          대본을 확인하면 장면 그림과 목소리를 만들 수 있어요. 편집 화면에서 장면을 더할 수도 있어요.
+        </EmptyState>
+      ) : (
+        <EmptyState
+          title="아직 만든 영상이 없어요"
+          actions={<Button>새 영상 만들기</Button>}
+        >
+          문장 하나로 첫 영상을 만들 수 있어요.
+        </EmptyState>
+      );
+    case 'error-state':
+      return (
+        <EmptyState
+          tone="error"
+          icon={<AlertCircle />}
+          title={entry.slug === 'long' ? '영상을 만들지 못했어요' : '영상 링크를 받지 못했어요'}
+          actions={
+            <>
+              <Button>다시 시도</Button>
+              <Button variant="secondary">파일로 올리기</Button>
+            </>
+          }
+        >
+          {entry.slug === 'long'
+            ? '연결이 끊겨서 만들던 영상을 마치지 못했어요. 만들던 내용은 저장돼 있으니 다시 시도해 주세요. 계속 실패하면 앱을 다시 열어 주세요.'
+            : '링크가 공개 상태인지 확인하고 다시 붙여넣어 주세요.'}
+        </EmptyState>
+      );
     default:
       return null;
   }

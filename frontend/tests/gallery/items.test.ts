@@ -31,12 +31,14 @@ function primaryMatrix(part: GalleryPart): MatrixPart {
 }
 
 describe('gallery state list', () => {
-  test('test_10a_gallery_lists_every_shared_part_of_batch_one', () => {
+  test('test_10a_gallery_lists_every_shared_part', () => {
     expect(galleryParts.map((part) => part.id)).toEqual([...SHARED_PART_IDS]);
     for (const part of galleryParts) {
-      expect(part.batch).toBe(1);
+      expect([1, 2]).toContain(part.batch);
       expect(part.cases.length).toBeGreaterThan(0);
     }
+    expect(galleryParts.filter((part) => part.batch === 1)).toHaveLength(16);
+    expect(galleryParts.filter((part) => part.batch === 2)).toHaveLength(14);
   });
 
   test('test_10a_gallery_numbers_are_generated_in_order_and_unique', () => {
@@ -87,12 +89,22 @@ describe('gallery state list', () => {
   });
 
   test('test_10a_gallery_marks_only_popups_as_portal_cases', () => {
+    const windowParts: Record<string, true> = {
+      tooltip: true,
+      toast: true,
+      'file-drop': true,
+      dialog: true,
+      alert: true,
+      'confirm-delete': true,
+      'confirm-range': true,
+      'bottom-sheet': true,
+    };
     for (const part of galleryParts) {
       for (const entry of [...inlineCases(part), ...portalCases(part)]) {
         if (entry.portal) {
-          expect(entry.label.includes('open') || entry.label.includes('item') || part.id === 'tooltip').toBe(
-            true,
-          );
+          expect(
+            entry.label.includes('open') || entry.label.includes('item') || windowParts[part.id] === true,
+          ).toBe(true);
         }
       }
     }

@@ -1,0 +1,120 @@
+@import '../base.css';
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  background: var(--overlay-dialog-scrim);
+  transition: opacity var(--motion-panel-duration) var(--motion-ease);
+}
+
+.dialog-backdrop[data-starting-style],
+.dialog-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.dialog-positioner {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-dialog) + 1);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.dialog {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--size-dialog), calc(100vw - var(--space-48)));
+  max-height: calc(100dvh - var(--space-48));
+  padding: var(--space-24);
+  overflow: visible;
+  border-radius: var(--radius-surface);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-family-sans);
+  pointer-events: auto;
+  transition:
+    opacity var(--motion-panel-duration) var(--motion-ease),
+    transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.dialog[data-starting-style],
+.dialog[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.98);
+}
+
+.dialog__scroll {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dialog__title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  font-weight: var(--font-weight-bold);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.dialog__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.dialog__icon svg {
+  width: var(--icon-title);
+  height: var(--icon-title);
+  stroke-width: var(--icon-stroke);
+}
+
+.dialog[data-tone='warning'] .dialog__icon {
+  color: var(--warning);
+}
+
+.dialog[data-tone='danger'] .dialog__icon {
+  color: var(--destructive);
+}
+
+.dialog__description,
+.dialog__content {
+  margin-top: var(--space-8);
+  color: var(--sub);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.dialog__description {
+  margin-bottom: 0;
+}
+
+.dialog__content > :first-child {
+  margin-top: 0;
+}
+
+.dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  margin-top: var(--space-24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialog-backdrop,
+  .dialog {
+    transition: none;
+  }
+}
