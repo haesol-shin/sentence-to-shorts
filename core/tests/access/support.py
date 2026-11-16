@@ -81,19 +81,33 @@ def install_draft_submit(monkeypatch: Any, app: FastAPI) -> tuple[Job, list[Any]
     return job, calls
 
 
-def install_reference_upload(
-    monkeypatch: Any, app: FastAPI, *, video_id: str | None = None
-) -> tuple[Job, list[Any]]:
-    """Make the multipart reference upload succeed without the jobs lane."""
-    job = new_job(JobKind.reference, video_id=video_id or new_typeid("v"))
+def create_upload_video(client: TestClient) -> dict[str, Any]:
+    """A project and its first video at revision 1, created the way the SPA does."""
+    project = client.post(
+        "/api/v1/projects", json={"title": "Synthetic upload", "language": "en"}
+    )
+    assert project.status_code == 201, project.text
+    video = client.post(
+        f"/api/v1/projects/{project.json()['id']}/videos",
+        json={"from_video_id": None, "preset_id": None},
+    )
+    assert video.status_code == 201, video.text
+    return video.json()
+
+
+def install_reference_submit(monkeypatch: Any, app: FastAPI) -> list[Any]:
+    """Answer the reference upload route without the jobs lane, recording calls."""
+    runtime = app.state.runtime
     calls: list[Any] = []
 
-    def submit_upload(*args: Any, **kwargs: Any) -> Job:
+    def submit(*args: Any, **kwargs: Any) -> Job:
         calls.append((args, kwargs))
+        job = new_job(JobKind.reference, video_id=kwargs["video_id"])
+        runtime.job_inputs.save(job.id, kwargs["input"])
         return job
 
-    monkeypatch.setattr(app.state.runtime.services.reference, "submit_upload", submit_upload)
-    return job, calls
+    monkeypatch.setattr(runtime.submitter, "submit", submit)
+    return calls
 
 
 def multipart_body(
@@ -104,24 +118,28 @@ def multipart_body(
     filename: str = "clip.mp4",
     closing: bool = True,
     content_type: str = "video/mp4",
+    file_first: bool = False,
 ) -> bytes:
     """A multipart/form-data body with the named text fields and one `file` part."""
-    body = bytearray()
+    text = bytearray()
     for name, value in fields:
-        body += (
+        text += (
             f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="{name}"\r\n'
             "\r\n"
             f"{value}\r\n"
         ).encode()
-    body += (
+    file = (
         f"--{boundary}\r\n"
         f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
         f"Content-Type: {content_type}\r\n"
         "\r\n"
     ).encode()
-    body += file_data
-    body += b"\r\n"
+    body = bytearray()
+    if file_first:
+        body += file + file_data + b"\r\n" + text
+    else:
+        body += text + file + file_data + b"\r\n"
     if closing:
         body += f"--{boundary}--\r\n".encode()
     return bytes(body)

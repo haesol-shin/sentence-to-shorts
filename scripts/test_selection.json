@@ -54,15 +54,19 @@
       "tests/pipeline"
     ],
     "core/app/services/pipeline/": [
+      "tests/e2e",
       "tests/pipeline",
-      "tests/reference"
+      "tests/reference",
+      "tests/tts"
     ],
     "core/app/services/project/": [
+      "tests/e2e",
       "tests/pipeline",
       "tests/project",
       "tests/reference"
     ],
     "core/app/services/reference/": [
+      "tests/e2e",
       "tests/reference"
     ],
     "core/app/services/render/": [
@@ -82,7 +86,9 @@
       "tests/templates"
     ],
     "core/app/services/voice/": [
+      "tests/align",
       "tests/pipeline",
+      "tests/tts",
       "tests/voice"
     ],
     "core/app/storage/": [
@@ -118,6 +124,8 @@
       "tests/templates"
     ],
     "core/app/tools/tts/": [
+      "tests/align",
+      "tests/tts",
       "tests/voice"
     ],
     "THIRD_PARTY_NOTICES.md": [

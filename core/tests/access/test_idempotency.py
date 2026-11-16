@@ -13,8 +13,9 @@ from tests.access.support import (
     assert_problem,
     assert_security_headers,
     chunked,
+    create_upload_video,
     install_draft_submit,
-    install_reference_upload,
+    install_reference_submit,
     multipart_body,
     multipart_content_type,
 )
@@ -22,7 +23,10 @@ from tests.conftest import pair
 
 DRAFT_PATH = "/api/v1/videos/v_0par6gpzwz995r49419ne1gwxd/draft"
 DRAFT_BODY = {"base_revision": 1, "message": "hello", "card_id": None}
-REFERENCE_PATH = "/api/v1/videos/v_0par6gpzwz995r49419ne1gwxd/references"
+
+
+def _reference_path(video_id: str) -> str:
+    return f"/api/v1/videos/{video_id}/references"
 
 
 def _json_request(
@@ -192,21 +196,22 @@ def test_json_body_over_one_mib_is_rejected_while_streaming(
     assert len(calls) == 1
 
 
-def test_multipart_digest_ignores_boundary_filename_and_field_order(
+def test_multipart_digest_ignores_boundary_filename_and_part_order(
     client: TestClient, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
-    _job, calls = install_reference_upload(monkeypatch, client.app)
+    calls = install_reference_submit(monkeypatch, client.app)
+    path = _reference_path(create_upload_video(client)["id"])
     key = "multipart-replay-key-01"
     data = b"the same reference bytes"
 
     first_body = multipart_body(
-        [("base_revision", "1"), ("note", "alpha")],
+        [("base_revision", "1")],
         data,
         boundary="first-boundary",
         filename="first.mp4",
     )
     first = client.post(
-        REFERENCE_PATH,
+        path,
         content=first_body,
         headers={
             "Content-Type": multipart_content_type("first-boundary"),
@@ -216,13 +221,14 @@ def test_multipart_digest_ignores_boundary_filename_and_field_order(
     assert first.status_code == 202, first.text
 
     second_body = multipart_body(
-        [("note", "alpha"), ("base_revision", "1")],
+        [("base_revision", "1")],
         data,
         boundary="second-boundary",
         filename="second.mp4",
+        file_first=True,
     )
     second = client.post(
-        REFERENCE_PATH,
+        path,
         content=second_body,
         headers={
             "Content-Type": multipart_content_type("second-boundary"),
@@ -238,12 +244,13 @@ def test_multipart_digest_ignores_boundary_filename_and_field_order(
 def test_multipart_changed_fields_are_a_conflict(
     client: TestClient, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
-    _job, calls = install_reference_upload(monkeypatch, client.app)
+    calls = install_reference_submit(monkeypatch, client.app)
+    path = _reference_path(create_upload_video(client)["id"])
     key = "multipart-mismatch-key-01"
     data = b"same bytes"
 
     first = client.post(
-        REFERENCE_PATH,
+        path,
         content=multipart_body(
             [("base_revision", "1")], data, boundary="one-boundary"
         ),
@@ -254,7 +261,7 @@ def test_multipart_changed_fields_are_a_conflict(
     )
     assert first.status_code == 202
     changed = client.post(
-        REFERENCE_PATH,
+        path,
         content=multipart_body(
             [("base_revision", "2")], data, boundary="two-boundary"
         ),
@@ -283,12 +290,13 @@ def test_multipart_changed_fields_are_a_conflict(
 def test_malformed_or_truncated_multipart_is_rejected(
     client: TestClient, monkeypatch, malformed: bytes
 ) -> None:  # type: ignore[no-untyped-def]
-    _job, calls = install_reference_upload(monkeypatch, client.app)
+    calls = install_reference_submit(monkeypatch, client.app)
+    path = _reference_path(create_upload_video(client)["id"])
     key = "multipart-broken-key-01"
     boundary = "truncated" if b"--truncated" in malformed else "broken"
 
     response = client.post(
-        REFERENCE_PATH,
+        path,
         content=malformed,
         headers={
             "Content-Type": multipart_content_type(boundary),
@@ -300,7 +308,7 @@ def test_malformed_or_truncated_multipart_is_rejected(
 
     # A broken body must not reserve the key for a later good body.
     accepted = client.post(
-        REFERENCE_PATH,
+        path,
         content=multipart_body(
             [("base_revision", "1")], b"file", boundary="good-boundary"
         ),
@@ -320,7 +328,8 @@ def test_upload_limit_stops_a_streaming_multipart_body(
     settings.app.uploads.reference_max_bytes = 1024
     with access_env(settings) as env:
         pair(env.client)
-        _job, calls = install_reference_upload(monkeypatch, env.app)
+        calls = install_reference_submit(monkeypatch, env.app)
+        path = _reference_path(create_upload_video(env.client)["id"])
         key = "multipart-limit-key-01"
         body = multipart_body(
             [("base_revision", "1")],
@@ -328,7 +337,7 @@ def test_upload_limit_stops_a_streaming_multipart_body(
             boundary="large-boundary",
         )
         response = env.client.post(
-            REFERENCE_PATH,
+            path,
             content=chunked(body, 512),
             headers={
                 "Content-Type": multipart_content_type("large-boundary"),
@@ -339,7 +348,7 @@ def test_upload_limit_stops_a_streaming_multipart_body(
         assert calls == []
 
         accepted = env.client.post(
-            REFERENCE_PATH,
+            path,
             content=multipart_body(
                 [("base_revision", "1")], b"ok", boundary="small-boundary"
             ),
@@ -355,7 +364,8 @@ def test_upload_limit_stops_a_streaming_multipart_body(
 def test_nonmultipart_upload_is_rejected_before_the_body_is_read(
     client: TestClient, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
-    _job, calls = install_reference_upload(monkeypatch, client.app)
+    calls = install_reference_submit(monkeypatch, client.app)
+    path = _reference_path(create_upload_video(client)["id"])
     consumed: list[bool] = []
 
     def body():  # type: ignore[no-untyped-def]
@@ -363,7 +373,7 @@ def test_nonmultipart_upload_is_rejected_before_the_body_is_read(
         yield b'{"base_revision":1}'
 
     response = client.post(
-        REFERENCE_PATH,
+        path,
         content=body(),
         headers={
             "Content-Type": "application/json",
@@ -413,7 +423,8 @@ def test_invalid_idempotency_key_is_rejected(
 def test_spool_rolls_over_under_the_cache_directory(
     client: TestClient, monkeypatch
 ) -> None:  # type: ignore[no-untyped-def]
-    _job, calls = install_reference_upload(monkeypatch, client.app)
+    calls = install_reference_submit(monkeypatch, client.app)
+    path = _reference_path(create_upload_video(client)["id"])
     real_spool = idempotency.SpooledTemporaryFile
     recorded: dict[str, list[object]] = {"dirs": [], "rolled": []}
 
@@ -429,7 +440,7 @@ def test_spool_rolls_over_under_the_cache_directory(
     monkeypatch.setattr(idempotency, "SpooledTemporaryFile", RecordingSpool)
     key = "spool-rollover-key-01"
     response = client.post(
-        REFERENCE_PATH,
+        path,
         content=multipart_body(
             [("base_revision", "1")],
             b"r" * (idempotency.SPOOL_MEMORY_BYTES + 4096),
