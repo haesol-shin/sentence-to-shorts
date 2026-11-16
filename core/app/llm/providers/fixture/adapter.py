@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -38,24 +40,50 @@ STAGE_BY_TASK = {
 }
 
 
+# Entity ids are random per run, so a request carrying them could never match
+# a recording. The digest names each id by its order of first appearance; the
+# recorded ids are mapped onto the live ones when the response is returned.
+_ENTITY_ID = re.compile(r"(?<![0-9a-z_])[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}(?![0-9a-z_])")
+
+
+def _id_order(texts: Iterable[str | None]) -> list[str]:
+    seen: dict[str, None] = {}
+    for text in texts:
+        if text is not None:
+            for found in _ENTITY_ID.finditer(text):
+                seen.setdefault(found.group())
+    return list(seen)
+
+
+def _name_ids(text: str, order: list[str]) -> str:
+    index = {entity_id: number for number, entity_id in enumerate(order)}
+    return _ENTITY_ID.sub(lambda found: f"<id:{index[found.group()]}>", text)
+
+
+def _bind_text(text: str, mapping: dict[str, str]) -> str:
+    """Swap recorded ids for the live ones, in one pass so ids never chain."""
+    return _ENTITY_ID.sub(lambda found: mapping.get(found.group(), found.group()), text)
+
+
 def request_digest(req: LlmRequest) -> str:
     """Digest of the recorded request, used as the fixture file name."""
+    order = _id_order(part.text for part in req.parts)
     return canonical_digest(
         {
             "task": req.task.value,
             "route": req.route,
             "system": req.system,
-            "parts": [_part_payload(part) for part in req.parts],
+            "parts": [_part_payload(part, order) for part in req.parts],
             "output_schema": req.output_schema,
             "max_output_tokens": req.max_output_tokens,
         }
     )
 
 
-def _part_payload(part: LlmPart) -> dict[str, object]:
+def _part_payload(part: LlmPart, order: list[str]) -> dict[str, object]:
     payload: dict[str, object] = {"kind": part.kind}
     if part.text is not None:
-        payload["text"] = part.text
+        payload["text"] = _name_ids(part.text, order)
     if part.png is not None:
         payload["png_sha256"] = hashlib.sha256(part.png).hexdigest()
     return payload
@@ -89,6 +117,9 @@ def _request_record(record: Any, task: LlmTask) -> dict[str, Any]:
         or max_output_tokens < 0
     ):
         raise _record_error(task, "request")
+    order = _id_order(
+        part.get("text") if isinstance(part, dict) else None for part in parts
+    )
     normalized_parts: list[dict[str, object]] = []
     for part in parts:
         if not isinstance(part, dict):
@@ -101,7 +132,7 @@ def _request_record(record: Any, task: LlmTask) -> dict[str, Any]:
         if text is not None:
             if not isinstance(text, str):
                 raise _record_error(task, "request")
-            payload["text"] = text
+            payload["text"] = _name_ids(text, order)
         png_sha256 = part.get("png_sha256")
         if png_sha256 is not None:
             if not isinstance(png_sha256, str):
@@ -172,11 +203,20 @@ class FixtureLlm(LlmPort):
         cancel.raise_if_set()
         payload = self._load_record(req)
         cancel.raise_if_set()
-        text = payload["text"]
+        recorded_ids = _id_order(
+            part.get("text") for part in payload["request"]["parts"]
+        )
+        live_ids = _id_order(part.text for part in req.parts)
+        mapping = dict(zip(recorded_ids, live_ids, strict=True))
+        text = _bind_text(payload["text"], mapping)
         recorded_parsed = payload.get("parsed")
-        if req.output_schema is None:
-            if recorded_parsed is not None and not isinstance(recorded_parsed, dict):
+        if recorded_parsed is not None:
+            if not isinstance(recorded_parsed, dict):
                 raise _record_error(req.task, "parsed")
+            recorded_parsed = json.loads(
+                _bind_text(json.dumps(recorded_parsed, ensure_ascii=False), mapping)
+            )
+        if req.output_schema is None:
             parsed = recorded_parsed
         else:
             parsed = validate_output(text, req.output_schema)

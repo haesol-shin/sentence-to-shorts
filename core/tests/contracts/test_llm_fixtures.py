@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from app.llm.common import validate_output
 from app.llm.providers.fixture.adapter import FixtureLlm, request_digest
 from app.ports import LlmPart, LlmRequest, LlmTask
 
@@ -57,7 +58,12 @@ def test_recorded_response_plays_back(path: Path) -> None:
     assert result.parsed == payload["parsed"]
     if request.task is LlmTask.split:
         assert isinstance(result.parsed, dict)
-        assert isinstance(result.parsed["beats"], list)
+        if request.output_schema is None:
+            assert isinstance(result.parsed["beats"], list)
+        else:
+            assert result.parsed == validate_output(result.text, request.output_schema)
+            assert request.route == "split"
+            assert isinstance(result.parsed["scenes"], list)
 
 
 def test_route_takes_part_in_the_request_digest() -> None:

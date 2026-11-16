@@ -76,6 +76,42 @@
           "sha256": "e29838b7a756e4ee0f27a9cfa9a387ee0dfa2e9dd44be2dd595130b9f9d93ac3"
         }
       ]
+    },
+    {
+      "id": "ffmpeg",
+      "version": "9.0.2",
+      "revision": "2a571b606854520cf89804d8030c8b328e621689",
+      "install_path": "ffmpeg",
+      "license": {
+        "spdx": "GPL-3.0-or-later",
+        "source_url": "https://github.com/FFmpeg/FFmpeg"
+      },
+      "files": [
+        {
+          "os": "windows",
+          "arch": "x86_64",
+          "file": "ffmpeg-win-x86_64-v9.0.2.exe",
+          "url": "https://files.pythonhosted.org/packages/82/0c/a1d49f3dd2688bd750b4986f8e271ad11f8e729a896070ea25f587b44da8/imageio_ffmpeg-0.8.1-py3-none-win_amd64.whl",
+          "bytes": 38893483,
+          "sha256": "f27ca4cb85e2d4946deedbce1a81245dfd942a2bcf94b53676fb3956aa95bf1b"
+        },
+        {
+          "os": "linux",
+          "arch": "x86_64",
+          "file": "ffmpeg-linux-x86_64-v9.0.2",
+          "url": "https://files.pythonhosted.org/packages/de/0f/49292fbef69ee10ebcf97bb741602521caafcc6966d5fa1a2b868cc15655/imageio_ffmpeg-0.8.1-py3-none-manylinux_2_28_x86_64.whl",
+          "bytes": 67998402,
+          "sha256": "050d6850601c3b3890bd2b28306f3b842b3daea390a561101174375a1c460bda"
+        },
+        {
+          "os": "linux",
+          "arch": "aarch64",
+          "file": "ffmpeg-linux-aarch64-v9.0.2",
+          "url": "https://files.pythonhosted.org/packages/53/02/e139e53a71f33f728cb2ce6c1124edc29e4c008427923f01a4d37f9a1867/imageio_ffmpeg-0.8.1-py3-none-manylinux_2_28_aarch64.whl",
+          "bytes": 60956631,
+          "sha256": "fad3176f859b25869e60a8ed79957d4e3ed74a97a95e5f0cdcb91455f6c6d00e"
+        }
+      ]
     }
   ]
 }

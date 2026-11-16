@@ -6,9 +6,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Query, Request
 
+from app.ports import AppError
 from app.routers.deps import runtime
 from app.schemas.api import JobList
-from app.schemas.job import Job
+from app.schemas.job import Job, JobState
 
 router = APIRouter()
 
@@ -21,11 +22,11 @@ def list_jobs(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> JobList:
-    jobs = runtime(request).job_store.unfinished()
-    if video_id:
-        jobs = [job for job in jobs if job.video_id == video_id]
-    if state:
-        jobs = [job for job in jobs if job.state == state]
+    try:
+        wanted = None if state is None else JobState(state)
+    except ValueError:
+        raise AppError("validation_failed", detail={"field": "state"}) from None
+    jobs = runtime(request).submitter.find(video_id=video_id, state=wanted)
     offset = int(cursor) if cursor and cursor.isdigit() else 0
     window = jobs[offset : offset + limit]
     next_cursor = str(offset + limit) if offset + limit < len(jobs) else None
@@ -58,4 +59,4 @@ def retry_job(
     jid: str,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return runtime(request).job_store.requeue(jid)
+    return runtime(request).submitter.retry(jid)

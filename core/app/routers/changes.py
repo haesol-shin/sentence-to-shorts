@@ -6,10 +6,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Header, Request
 
-from app.ports import canonical_digest
+from app.ports import AppError, canonical_digest
 from app.routers.deps import runtime
 from app.schemas.api import BaseRevision, Job
-from app.schemas.change import ChangePlan
+from app.schemas.change import ChangePlan, ChangeStatus
 from app.schemas.job import JobKind
 from app.schemas.video import Video
 
@@ -34,13 +34,16 @@ def preview_change(
 ) -> Job:
     app = runtime(request)
     plan = app.project_store.get_change(cid)
+    if plan.status is not ChangeStatus.proposed:
+        raise AppError("change_stale")
+    payload = {"change_id": plan.id}
     return app.submitter.submit(
         JobKind.preview,
         project_id=None,
         video_id=plan.video_id,
         base_revision=plan.base_revision,
-        request_digest=canonical_digest({}),
-        input={},
+        request_digest=canonical_digest(payload),
+        input=payload,
         idempotency_key=idempotency_key,
     )
 
@@ -69,6 +72,10 @@ def reject_change(
 ) -> ChangePlan:
     app = runtime(request)
     plan = app.project_store.get_change(cid)
-    plan.status = "rejected"
-    app.project_store.put_change(plan)
-    return plan
+    if plan.status is ChangeStatus.rejected:
+        return plan
+    if plan.status is not ChangeStatus.proposed:
+        raise AppError("change_stale")
+    rejected = plan.model_copy(update={"status": ChangeStatus.rejected})
+    app.project_store.put_change(rejected)
+    return rejected

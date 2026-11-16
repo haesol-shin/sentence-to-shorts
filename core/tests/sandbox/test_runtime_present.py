@@ -18,7 +18,7 @@ def test_runtime_lock_entries_have_valid_hashes_and_urls() -> None:
     document = json.loads(LOCK.read_text(encoding="utf-8"))
     assert document["schema_version"] == 1
     items = {item["id"]: item for item in document["items"]}
-    assert set(items) == {"deno", "pyodide-core", "pyodide-pillow"}
+    assert set(items) == {"deno", "pyodide-core", "pyodide-pillow", "ffmpeg"}
 
     for item in items.values():
         assert re.fullmatch(r"\d+\.\d+\.\d+", item["version"])
