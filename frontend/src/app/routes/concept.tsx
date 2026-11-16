@@ -1,6 +1,7 @@
-import { StagePanel } from './stage-panel';
+import { ConceptScreen } from '@/features/concept/concept-screen';
 
-/** The concept step. Its cards and choices arrive with the concept screen. */
+import { Composer } from '../shell/composer';
+
 export function ConceptRoute() {
-  return <StagePanel stage="concept" />;
+  return <ConceptScreen ComposerComponent={Composer} />;
 }
