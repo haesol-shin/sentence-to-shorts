@@ -12,9 +12,13 @@ import pytest
 
 from app.plugins.registry import Registry
 from app.ports import AppError, MediaInfo, MixItem, MixPlan
+from app.schemas.artifact import Timing
 from app.schemas.bgm_entry import UploadBgm
 from app.schemas.settings import Settings
+from app.schemas.video import Video
 from app.services.sound import SoundService, loop_samples, scene_starts_ms
+from app.services.sound.service import typing_gain_db_x10, typing_key_index
+from tests.conftest import load_json
 from tests.fixtures.media import corrupt_wav, tone_wav
 from tests.media import ffmpeg
 from tests.media.scenes import Ctx, Token, timings, tts_tones, video
@@ -50,6 +54,45 @@ def _settings(registry: Registry, mood: str) -> Settings:
     raw = built.settings.model_dump(mode="json", by_alias=True)
     raw["audio"]["bgm"]["mood"] = mood
     return Settings.model_validate(raw)
+
+
+def _typing_video(*, sfx_enabled: bool = True, typing_sound: bool = True) -> Video:
+    built = Video.model_validate(
+        load_json("contracts/valid/video_ko_typewriter_typing.json")
+    )
+    caption = built.settings.caption
+    if not typing_sound:
+        caption = caption.model_copy(update={"typing_sound": None})
+    bgm = built.settings.audio.bgm.model_copy(update={"enabled": False})
+    audio = built.settings.audio.model_copy(
+        update={"bgm": bgm, "sfx_enabled": sfx_enabled}
+    )
+    return built.model_copy(
+        update={
+            "settings": built.settings.model_copy(
+                update={"audio": audio, "caption": caption}
+            )
+        }
+    )
+
+
+def _typing_timing() -> Timing:
+    return Timing.model_validate(load_json("contracts/valid/timing_typewriter.json"))
+
+
+class PlanRecorder:
+    """Records the mix plan; BGM is off so no audio file is read."""
+
+    def __init__(self) -> None:
+        self.plan: MixPlan | None = None
+
+    def decode_audio(self, *args: Any, **kwargs: Any) -> MediaInfo:
+        raise AssertionError("the typing mix test reads no source audio")
+
+    def mix(self, plan: MixPlan, *, out: Path, cancel: Any) -> MediaInfo:
+        self.plan = plan
+        out.write_bytes(b"")
+        return MediaInfo(path=out)
 
 
 def _samples(path: Path) -> array:
@@ -111,7 +154,7 @@ def test_14_loud_loop_seam_keeps_its_peaks_unclipped() -> None:
 def test_14_mix_does_not_clip_a_sum_above_full_scale(tmp_path: Path) -> None:
     tone = tone_wav(tmp_path / "tone.wav", duration_ms=2000, frequency=441.0)
     # Two in-phase 0.2 tones raised 9 dB sum to about 1.13 times full scale.
-    plan = MixPlan(items=[MixItem(path=tone, start_ms=0, gain_db_x10=90)] * 2)
+    plan = MixPlan(items=[MixItem(path=tone, start_ms=0, gain_db_x10=90)] * 2, duration_ms=2000)
     out = ffmpeg.adapter().mix(plan, out=tmp_path / "mix.wav", cancel=Token())
     samples = _samples(out.path)[RATE // 2:3 * RATE // 2]
     peak = max(abs(value) for value in samples)
@@ -261,3 +304,87 @@ def test_14_lines_and_effects_sit_on_the_scene_clock(registry: Registry, tmp_pat
         next(sid for sid in built.scene_order if built.scenes[sid].visual.sfx)
     )
     assert [item.start_ms for item in effects] == [starts[sfx_scene]]
+
+
+def _typing_plan(
+    registry: Registry, tmp_path: Path, built: Video, timing: Timing
+) -> MixPlan:
+    recorder = PlanRecorder()
+    tts = {timing.lines[0].line_id: tmp_path / "tts" / "line.wav"}
+    _service(registry, recorder).mix(
+        built, [timing], tts, ctx=Ctx(tmp_path / "job")
+    )
+    assert recorder.plan is not None
+    return recorder.plan
+
+
+def _keys(plan: MixPlan) -> list[MixItem]:
+    return [item for item in plan.items if item.path.parent.name.startswith("typing_")]
+
+
+def test_14_typing_sound_places_one_key_per_voiced_span(
+    registry: Registry, tmp_path: Path
+) -> None:
+    built = _typing_video()
+    timing = _typing_timing()
+    plan = _typing_plan(registry, tmp_path, built, timing)
+    keys = _keys(plan)
+    # The display text is "타자!": punctuation makes no sound.
+    assert [item.start_ms for item in keys] == [0, 666]
+    assert len({item.path for item in keys}) == 2
+    assert all(-50 <= item.gain_db_x10 <= 0 for item in keys)
+    assert plan.duration_ms == scene_starts_ms([timing])[1]
+    assert [item.start_ms for item in plan.items if item.path.parent.name == "tts"] == [0]
+
+
+def test_14_typing_sound_is_deterministic(
+    registry: Registry, tmp_path: Path
+) -> None:
+    built = _typing_video()
+    timing = _typing_timing()
+    first = _keys(_typing_plan(registry, tmp_path / "a", built, timing))
+    second = _keys(_typing_plan(registry, tmp_path / "b", built, timing))
+    assert [(item.path, item.gain_db_x10) for item in first] == [
+        (item.path, item.gain_db_x10) for item in second
+    ]
+
+
+def test_14_typing_sound_follows_the_sfx_switch_and_caption_setting(
+    registry: Registry, tmp_path: Path
+) -> None:
+    timing = _typing_timing()
+    off = _typing_plan(
+        registry, tmp_path / "off", _typing_video(sfx_enabled=False), timing
+    )
+    silent = _typing_plan(
+        registry, tmp_path / "silent", _typing_video(typing_sound=False), timing
+    )
+    assert _keys(off) == []
+    assert _keys(silent) == []
+
+
+def test_14_typing_key_choice_skips_the_previous_key_and_repeats_one_key() -> None:
+    assert typing_key_index("l_x", 0, "a" * 64, 1, None) == 0
+    assert typing_key_index("l_x", 3, "a" * 64, 1, 0) == 0
+    previous = None
+    chosen = []
+    for start in range(20):
+        index = typing_key_index("l_x", start, "a" * 64, 2, previous)
+        assert index != previous
+        chosen.append(index)
+        previous = index
+    assert set(chosen) == {0, 1}
+
+
+def test_14_typing_gain_stays_inside_its_range() -> None:
+    gains = {typing_gain_db_x10("l_x", start, "a" * 64) for start in range(200)}
+    assert min(gains) >= -50 and max(gains) <= 0
+
+
+@ffmpeg.requires_ffmpeg
+def test_14_mix_output_is_cut_at_the_plan_duration(tmp_path: Path) -> None:
+    tone = tone_wav(tmp_path / "tone.wav", duration_ms=2000, frequency=441.0)
+    plan = MixPlan(items=[MixItem(path=tone, start_ms=0)], duration_ms=1000)
+    out = ffmpeg.adapter().mix(plan, out=tmp_path / "cut.wav", cancel=Token())
+    assert out.duration_ms is not None
+    assert abs(out.duration_ms - 1000) <= 50

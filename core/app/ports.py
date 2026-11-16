@@ -242,6 +242,7 @@ class MixItem:
 @dataclass(frozen=True)
 class MixPlan:
     items: list[MixItem]
+    duration_ms: int
     loudness_lufs_x10: int = -160
     true_peak_dbtp_x10: int = -10
     sample_rate: int = 44100

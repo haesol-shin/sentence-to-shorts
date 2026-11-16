@@ -108,6 +108,7 @@ class Caption(ContractModel):
     font_id: PinnedRef
     position: CaptionPosition
     highlight: bool
+    typing_sound: PinnedRef | None = None
 
 
 class Motion(ContractModel):

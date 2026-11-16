@@ -187,6 +187,12 @@ def _artifact_timing(scene: Scene, timing: Timing) -> dict[str, Any]:
     line_ids = [line.id for line in scene.lines]
     if timing.scene_id != scene.id or [line.line_id for line in timing.lines] != line_ids:
         raise AppError("timing_mismatch", detail={"scene_id": scene.id})
+    for line in timing.lines:
+        if line.caption.mode_used is CaptionMode.typewriter and not line.caption.phrases:
+            raise AppError(
+                "timing_mismatch",
+                detail={"scene_id": scene.id, "line_id": line.line_id},
+            )
     return {
         "source": "artifact",
         "duration_ms": timing.duration_ms,

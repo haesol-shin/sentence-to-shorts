@@ -78,7 +78,7 @@ def plan(
     overwrites: list[str] | None = None,
 ) -> ChangePlan:
     change = ChangePlan(
-        schema_version=1,
+        schema_version=2,
         id=service.projects.new_id("c"),
         video_id=video.id,
         base_revision=video.revision,

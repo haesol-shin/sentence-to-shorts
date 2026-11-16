@@ -135,9 +135,9 @@ def _active(lines: list[TimingLine], t: int) -> int:
 def caption_state(lines: list[TimingLine], t: int, typed_units: list[int]) -> CaptionState:
     """Caption of the frame at ``t``. A line stays on screen until the next one starts.
 
-    Phrase captions show the last phrase that has started. A typewriter line types
-    its graphemes over the line's speech; ``typed_units`` is each line's grapheme
-    count as laid out.
+    Phrase captions show the last phrase that has started. A typewriter line shows
+    the clusters whose timing span has started and keeps them to the line end;
+    ``typed_units`` is each line's grapheme count as laid out.
     """
     index = _active(lines, t)
     line = lines[index]
@@ -150,11 +150,8 @@ def caption_state(lines: list[TimingLine], t: int, typed_units: list[int]) -> Ca
         return CaptionState(line=index, phrase=(current.start_char, current.end_char))
     if mode == CaptionMode.typewriter:
         total = typed_units[index]
-        elapsed = t - line.start_ms
-        if elapsed <= 0:
-            return CaptionState(line=index, typed=0)
-        typed = min(total, -(-elapsed * total // line.speech_ms))
-        return CaptionState(line=index, typed=typed)
+        typed = sum(1 for phrase in line.caption.phrases if phrase.start_ms <= t)
+        return CaptionState(line=index, typed=min(total, typed))
     return CaptionState(line=index)
 
 

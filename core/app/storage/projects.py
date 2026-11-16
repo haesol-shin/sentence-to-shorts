@@ -26,7 +26,13 @@ from app.schemas.change import ChangePlan
 from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.video import RevisionInfo, Video
-from app.storage.migrations import upgrade_document
+from app.storage.migrations import (
+    CHANGE_DOCUMENT_VERSION,
+    PRESET_DOCUMENT_VERSION,
+    PROJECT_DOCUMENT_VERSION,
+    VIDEO_DOCUMENT_VERSION,
+    upgrade_document,
+)
 from app.storage.paths import Layout, write_atomic
 from app.storage.sqlite import Database
 
@@ -107,7 +113,7 @@ class SqliteProjectStore:
 
     def _load_project(self, project_id: str) -> Project:
         doc = self._load(self._layout.project_file(project_id))
-        return Project.model_validate(upgrade_document(doc))
+        return Project.model_validate(upgrade_document(doc, PROJECT_DOCUMENT_VERSION))
 
     def delete_project(self, project_id: str) -> None:
         """Remove the index rows first, then the files. A crash or a file error in
@@ -212,7 +218,7 @@ class SqliteProjectStore:
         if not 1 <= wanted <= head:
             raise _not_found()
         doc = self._load(self._layout.revision_file(project_id, video_id, wanted))
-        return Video.model_validate(upgrade_document(doc))
+        return Video.model_validate(upgrade_document(doc, VIDEO_DOCUMENT_VERSION))
 
     def list_revisions(self, video_id: str) -> list[RevisionInfo]:
         with self._db.read() as conn:
@@ -251,7 +257,9 @@ class SqliteProjectStore:
             row = conn.execute("SELECT doc FROM changes WHERE id = ?", (change_id,)).fetchone()
         if row is None:
             raise _not_found()
-        return ChangePlan.model_validate(upgrade_document(json.loads(row[0])))
+        return ChangePlan.model_validate(
+            upgrade_document(json.loads(row[0]), CHANGE_DOCUMENT_VERSION)
+        )
 
     def list_changes(self, video_id: str) -> list[ChangePlan]:
         with self._db.read() as conn:
@@ -260,7 +268,12 @@ class SqliteProjectStore:
             rows = conn.execute(
                 "SELECT doc FROM changes WHERE video_id = ? ORDER BY id", (video_id,)
             ).fetchall()
-        return [ChangePlan.model_validate(upgrade_document(json.loads(row[0]))) for row in rows]
+        return [
+            ChangePlan.model_validate(
+                upgrade_document(json.loads(row[0]), CHANGE_DOCUMENT_VERSION)
+            )
+            for row in rows
+        ]
 
     def put_preset(self, preset: Preset) -> None:
         with self._db.write() as conn:
@@ -288,7 +301,12 @@ class SqliteProjectStore:
                 "SELECT doc FROM presets WHERE project_id = ? ORDER BY created_at, id",
                 (project_id,),
             ).fetchall()
-        return [Preset.model_validate(upgrade_document(json.loads(row[0]))) for row in rows]
+        return [
+            Preset.model_validate(
+                upgrade_document(json.loads(row[0]), PRESET_DOCUMENT_VERSION)
+            )
+            for row in rows
+        ]
 
     def add_activity(self, video_id: str, spans: list[ActivitySpan]) -> None:
         with self._db.write() as conn:

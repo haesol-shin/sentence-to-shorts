@@ -21,6 +21,7 @@ from typing import Any
 from pydantic import BaseModel, ValidationError
 
 from app.ports import AppError, CatalogPort, Issue, UnknownCatalogId
+from app.schemas.bgm_entry import SfxEntry, SfxKind, TypingSoundEntry
 from app.schemas.change import (
     AddSceneOp,
     ChangePlan,
@@ -578,6 +579,14 @@ class _Checker:
         self.lookup(f"{base}/audio/voice", "voice", s.audio.voice)
         self.lookup(f"{base}/audio/bgm/entry", "bgm", s.audio.bgm.entry)
         self.lookup(f"{base}/caption/font_id", "font", s.caption.font_id)
+        typing = self.lookup(
+            f"{base}/caption/typing_sound", "sfx", s.caption.typing_sound
+        )
+        if s.caption.typing_sound is not None:
+            if s.caption.mode is not CaptionMode.typewriter:
+                self.add(f"{base}/caption/typing_sound", "typing_sound_mode")
+            if typing is not None and not isinstance(typing, TypingSoundEntry):
+                self.add(f"{base}/caption/typing_sound", "typing_sound_kind")
         if template is not None and s.caption.mode is CaptionMode.typewriter:
             if not template.dialog_box:
                 self.add(f"{base}/caption/mode", "typewriter_layout")
@@ -651,7 +660,13 @@ class _Checker:
         for index, cue in enumerate(visual.sfx):
             if cue.line_id not in line_ids:
                 self.add(f"{base}/visual/sfx/{index}/line_id", "reveal_line_unknown")
-            self.lookup(f"{base}/visual/sfx/{index}/sfx_id", "sfx", cue.sfx_id)
+            entry = self.lookup(
+                f"{base}/visual/sfx/{index}/sfx_id", "sfx", cue.sfx_id
+            )
+            if isinstance(entry, TypingSoundEntry) or (
+                isinstance(entry, SfxEntry) and entry.kind is SfxKind.typing
+            ):
+                self.add(f"{base}/visual/sfx/{index}/sfx_id", "typing_cue")
         if style is None:
             return
         if visual.background_id not in backgrounds:

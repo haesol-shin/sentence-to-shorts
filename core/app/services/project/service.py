@@ -63,7 +63,7 @@ class ProjectService:
         else:
             project = self.projects.get_project(project_id)
             video = Video(
-                schema_version=1,
+                schema_version=2,
                 id=self.projects.new_id("v"),
                 project_id=project.id,
                 owner_id=project.owner_id,

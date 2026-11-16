@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import time
 from pathlib import Path
 
@@ -193,7 +194,7 @@ def test_9_two_videos_pin_the_same_voice(tmp_path: Path) -> None:
         ctx = make_ctx(tmp_path / name)
         ref = store.publish(ARTIFACT_IDS[0], service.synthesize(voice, "ko", line, ctx=ctx))
         timings.append(
-            service.timing(make_scene(line), VOICE_PIN, {line.id: ref}, "sentence", ctx=ctx)
+            service.timing(make_scene(line), VOICE_PIN, {line.id: ref}, "sentence", "ko", ctx=ctx)
         )
     assert timings[0].voice == timings[1].voice == VOICE_PIN
     assert [call[1] for call in tts.calls] == ["ko", "ko"]
@@ -205,8 +206,8 @@ def test_15_timing_records_the_published_refs(tmp_path: Path) -> None:
     ctx = make_ctx(tmp_path)
     lines = [make_line(0, "가나다"), make_line(1, "라마바")]
     refs = publish(service, store, lines, ctx)
-    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "sentence", ctx=ctx)
-    assert timing.schema_version == 1
+    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "sentence", "ko", ctx=ctx)
+    assert timing.schema_version == 2
     assert timing.scene_id == SCENE_ID
     assert timing.voice == VOICE_PIN
     assert [line.tts for line in timing.lines] == [refs[line.id] for line in lines]
@@ -226,7 +227,7 @@ def test_15_phrase_spans_stay_inside_display_text(tmp_path: Path) -> None:
     line = make_line(0, display, speech)
     refs = publish(service, store, [line], ctx)
     timing = service.timing(
-        make_scene(line), VOICE_PIN, refs, "phrase", language="ko", ctx=ctx
+        make_scene(line), VOICE_PIN, refs, "phrase", "ko", ctx=ctx
     )
     caption = timing.lines[0].caption
     assert caption.mode_used is CaptionMode.phrase
@@ -254,7 +255,7 @@ def test_15_failed_line_falls_back_to_sentence(tmp_path: Path) -> None:
     ctx = make_ctx(tmp_path)
     lines = [make_line(0, first), make_line(1, second)]
     refs = publish(service, store, lines, ctx)
-    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "phrase", language="ko", ctx=ctx)
+    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "phrase", "ko", ctx=ctx)
     assert timing.lines[0].caption.mode_used is CaptionMode.phrase
     assert timing.lines[0].caption.fallback_reason is None
     failed = timing.lines[1]
@@ -273,7 +274,7 @@ def test_15_failed_alignment_never_builds_times_from_characters(tmp_path: Path) 
     short_line = make_line(1, "짧", speech)
     lines = [long_line, short_line]
     refs = publish(service, store, lines, ctx)
-    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "phrase", language="ko", ctx=ctx)
+    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "phrase", "ko", ctx=ctx)
     for result in timing.lines:
         assert result.caption.mode_used is CaptionMode.sentence
         assert result.caption.fallback_reason == "align_failed"
@@ -299,7 +300,7 @@ def test_15_invalid_alignment_falls_back_to_sentence(
     line = make_line(0, text)
     refs = publish(service, store, [line], ctx)
     timing = service.timing(
-        make_scene(line), VOICE_PIN, refs, "phrase", language="ko", ctx=ctx
+        make_scene(line), VOICE_PIN, refs, "phrase", "ko", ctx=ctx
     )
     caption = timing.lines[0].caption
     assert caption.mode_used is CaptionMode.sentence
@@ -307,33 +308,54 @@ def test_15_invalid_alignment_falls_back_to_sentence(
     assert caption.phrases == []
 
 
-def test_15_typewriter_display_is_not_shorter_than_speech(tmp_path: Path) -> None:
+def test_15_typewriter_spans_cover_each_grapheme_and_follow_the_formula(
+    tmp_path: Path,
+) -> None:
+    display = "👩\u200d💻가!"
     speech = "짧은 말"
     service, store = make_service()
     ctx = make_ctx(tmp_path)
-    lines = [make_line(0, "가" * 40, speech), make_line(1, "짧", speech)]
-    refs = publish(service, store, lines, ctx)
+    line = make_line(0, display, speech)
+    refs = publish(service, store, [line], ctx)
     timing = service.timing(
-        make_scene(*lines), VOICE_PIN, refs, "typewriter", language="ko", ctx=ctx
+        make_scene(line), VOICE_PIN, refs, "typewriter", "ko", ctx=ctx
     )
-    for result in timing.lines:
-        assert result.caption.mode_used is CaptionMode.typewriter
-        assert result.caption.fallback_reason is None
-        assert result.caption.phrases == []
-        assert result.end_ms - result.start_ms >= result.speech_ms
-    assert timing.lines[0].end_ms - timing.lines[0].start_ms > timing.lines[0].speech_ms
-    assert timing.lines[1].end_ms - timing.lines[1].start_ms == timing.lines[1].speech_ms
+    first = timing.lines[0]
+    phrases = first.caption.phrases
+    shown = first.end_ms - first.start_ms
+    assert first.caption.mode_used is CaptionMode.typewriter
+    assert first.caption.fallback_reason is None
+    assert shown >= first.speech_ms
+    assert [(phrase.start_char, phrase.end_char) for phrase in phrases] == [
+        (0, 3),
+        (3, 4),
+        (4, 5),
+    ]
+    assert phrases[0].start_ms == first.start_ms
+    assert phrases[-1].end_ms == first.end_ms
+    for index, phrase in enumerate(phrases):
+        assert phrase.start_ms == first.start_ms + index * shown // len(phrases)
+        assert phrase.end_ms == first.start_ms + (index + 1) * shown // len(phrases)
 
 
-def test_15_typewriter_without_language_keeps_the_speech_length(tmp_path: Path) -> None:
+def test_15_typewriter_keeps_a_short_line_at_its_speech_length(tmp_path: Path) -> None:
+    speech = "짧은 말"
     service, store = make_service()
     ctx = make_ctx(tmp_path)
-    lines = [make_line(0, "가" * 40)]
-    refs = publish(service, store, lines, ctx)
-    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "typewriter", ctx=ctx)
+    line = make_line(0, "짧", speech)
+    refs = publish(service, store, [line], ctx)
+    timing = service.timing(
+        make_scene(line), VOICE_PIN, refs, "typewriter", "ko", ctx=ctx
+    )
     first = timing.lines[0]
-    assert first.caption.mode_used is CaptionMode.typewriter
     assert first.end_ms - first.start_ms == first.speech_ms
+    assert first.caption.phrases[0].end_ms == first.end_ms
+
+
+def test_15_timing_requires_the_video_language() -> None:
+    parameters = inspect.signature(VoiceService.timing).parameters
+    assert "language" in parameters
+    assert parameters["language"].default is inspect.Parameter.empty
 
 
 def test_15_line_gap_and_scene_tail_follow_the_defaults(tmp_path: Path) -> None:
@@ -341,35 +363,10 @@ def test_15_line_gap_and_scene_tail_follow_the_defaults(tmp_path: Path) -> None:
     ctx = make_ctx(tmp_path)
     lines = [make_line(0, "가나다"), make_line(1, "라마바")]
     refs = publish(service, store, lines, ctx)
-    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "sentence", ctx=ctx)
+    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "sentence", "ko", ctx=ctx)
     assert timing.lines[0].start_ms == 0
     assert timing.lines[1].start_ms == timing.lines[0].end_ms + LINE_GAP_MS
     assert timing.duration_ms == timing.lines[-1].end_ms + SCENE_TAIL_MS
-
-
-def test_15_contract_timing_call_runs_without_language(tmp_path: Path) -> None:
-    service, store = make_service()
-    ctx = make_ctx(tmp_path)
-    line = make_line(0, "가나다")
-    refs = publish(service, store, [line], ctx)
-    timing = service.timing(make_scene(line), VOICE_PIN, refs, "sentence", ctx=ctx)
-    assert timing.lines[0].caption.mode_used is CaptionMode.sentence
-    assert timing.duration_ms == timing.lines[0].end_ms + SCENE_TAIL_MS
-
-
-def test_15_phrase_without_language_falls_back_unavailable(tmp_path: Path) -> None:
-    text = "가나다"
-    phrases = [PhraseSpan(start_char=0, end_char=3, start_ms=0, end_ms=100)]
-    aligner = FakeAligner({text: AlignResult(phrases=phrases, failure=None)})
-    service, store = make_service(aligner)
-    ctx = make_ctx(tmp_path)
-    line = make_line(0, text)
-    refs = publish(service, store, [line], ctx)
-    timing = service.timing(make_scene(line), VOICE_PIN, refs, "phrase", ctx=ctx)
-    caption = timing.lines[0].caption
-    assert caption.mode_used is CaptionMode.sentence
-    assert caption.fallback_reason == "align_unavailable"
-    assert aligner.calls == []
 
 
 def test_15_phrase_times_follow_the_scene_clock(tmp_path: Path) -> None:
@@ -381,7 +378,7 @@ def test_15_phrase_times_follow_the_scene_clock(tmp_path: Path) -> None:
     ctx = make_ctx(tmp_path)
     lines = [make_line(0, display, speech), make_line(1, display, speech)]
     refs = publish(service, store, lines, ctx)
-    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "phrase", language="ko", ctx=ctx)
+    timing = service.timing(make_scene(*lines), VOICE_PIN, refs, "phrase", "ko", ctx=ctx)
     first, second = timing.lines
     assert first.caption.phrases[0].start_ms == 0
     assert first.caption.phrases[0].end_ms == 200
@@ -398,7 +395,7 @@ def test_15_truncated_wav_keeps_tts_failed(tmp_path: Path) -> None:
     ref = store.publish(ARTIFACT_IDS[0], path)
     with pytest.raises(AppError) as error:
         service.timing(
-            make_scene(line), VOICE_PIN, {line.id: ref}, "sentence", ctx=make_ctx(tmp_path)
+            make_scene(line), VOICE_PIN, {line.id: ref}, "sentence", "ko", ctx=make_ctx(tmp_path)
         )
     assert error.value.code == "tts_failed"
 
@@ -408,7 +405,7 @@ def test_15_missing_tts_keeps_tts_failed(tmp_path: Path) -> None:
     line = make_line(0, "가나다")
     with pytest.raises(AppError) as error:
         service.timing(
-            make_scene(line), VOICE_PIN, {}, "sentence", language="ko", ctx=make_ctx(tmp_path)
+            make_scene(line), VOICE_PIN, {}, "sentence", "ko", ctx=make_ctx(tmp_path)
         )
     assert error.value.code == "tts_failed"
 
@@ -419,7 +416,7 @@ def test_15_unknown_artifact_keeps_tts_failed(tmp_path: Path) -> None:
     lost = ArtifactRef(id=ARTIFACT_IDS[0], digest="0" * 64, cache_key="1" * 64)
     with pytest.raises(AppError) as error:
         service.timing(
-            make_scene(line), VOICE_PIN, {line.id: lost}, "sentence", ctx=make_ctx(tmp_path)
+            make_scene(line), VOICE_PIN, {line.id: lost}, "sentence", "ko", ctx=make_ctx(tmp_path)
         )
     assert error.value.code == "tts_failed"
 

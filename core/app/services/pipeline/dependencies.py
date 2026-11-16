@@ -154,7 +154,7 @@ def plan_change(
     if render_ids or source_kind is ChangeSource.style:
         reasons.append(ConfirmationReason.rebuild_render)
     return ChangePlan(
-        schema_version=1,
+        schema_version=2,
         id=services.project.projects.new_id("c"),
         video_id=video.id,
         base_revision=video.revision,

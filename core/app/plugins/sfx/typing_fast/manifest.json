@@ -6,13 +6,52 @@
     "en": "Fast typing"
   },
   "kind": "typing",
-  "file": "effect.wav",
-  "sha256": "df9fed8d46faf12e5e919227f83ca6943f9fccf3f3cc31acd65346ff51cb5a23",
-  "duration_ms": 1566,
+  "keys": [
+    {
+      "file": "key-01.wav",
+      "sha256": "44eefa9e5e56d60b9b6e9ee2230f8ef8c6955e4eed6d3eee38ddc5bc29959eeb",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-02.wav",
+      "sha256": "0628db743254e203b516bc4a994853dbe43adced16ee41e03371689be4d9c25e",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-03.wav",
+      "sha256": "15354b6f8e819b684baa14452527607bed88ce678acd0bb4632b6f24058c9757",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-04.wav",
+      "sha256": "bfbeeff0fb4b4aa4bc7fb941c7e41ce31f8b1d20ee96274dd3f79345de1f5d8c",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-05.wav",
+      "sha256": "2dcd1808475f9209e1fa58a3794a333c694c8aecd28e6077cd51074e4efe5dc8",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-06.wav",
+      "sha256": "94a80c66a0de2e7a4c486991a7ef56ceddf09072a0c4f21918ad3025ef538616",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-07.wav",
+      "sha256": "1b3f909bbf27857f94ff12c39a19afd9160706e5a45523f3604306d0e1a58ea0",
+      "duration_ms": 95
+    },
+    {
+      "file": "key-08.wav",
+      "sha256": "401fa6cae66d8d855c3a966144062b1164dfe5fa3d2e8a8e7ce4004479c839c8",
+      "duration_ms": 95
+    }
+  ],
   "license": {
     "spdx": "CC0-1.0",
-    "source_url": "https://kenney.nl/assets/interface-sounds",
-    "author": "Kenney",
+    "source_url": "https://opengameart.org/content/keyboard-soundpack-1-typing-and-single-keystrokes",
+    "author": "unicaegames",
     "commercial_ok": true,
     "attribution": null,
     "license_file": "LICENSE.txt"

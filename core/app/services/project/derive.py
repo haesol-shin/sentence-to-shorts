@@ -81,7 +81,7 @@ def _replace(settings: Settings, key: LockKey, value: Any) -> Settings:
 
 def _snapshot(project: Project, settings: Settings, video_id: str) -> Video:
     return Video(
-        schema_version=1, id=video_id, project_id=project.id, owner_id=project.owner_id,
+        schema_version=2, id=video_id, project_id=project.id, owner_id=project.owner_id,
         revision=1, parent_revision=None, created_at=revision.now(),
         created_by=CreatedBy.create, change_id=None, stage=VideoStage.draft,
         derived_from=None, topic="", material=[], reference=None, settings=settings,

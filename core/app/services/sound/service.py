@@ -42,12 +42,14 @@ from app.schemas.bgm_entry import (
     CodeBgm,
     ReviewStatus,
     SfxEntry,
+    TypingSoundEntry,
     UploadBgm,
 )
-from app.schemas.common import LocalizedText, Mood, PinnedRef
+from app.schemas.common import CaptionMode, LocalizedText, Mood, PinnedRef
 from app.schemas.job import Job
-from app.schemas.scene import CueAt
+from app.schemas.scene import CueAt, Scene
 from app.schemas.settings import BgmSettings, Settings
+from app.schemas.text import is_silent
 from app.schemas.video import Video
 
 SAMPLE_RATE = 44100
@@ -68,6 +70,12 @@ depth; the probe measured about 17 dB under loud speech."""
 
 SFX_GAIN_DB_X10 = -60
 """Sound effects sit under the voice: one key accent per scene, never louder than speech."""
+
+TYPING_GAIN_MIN_DB_X10 = -50
+"""Quietest typing key on the gain_db_x10 scale, -5.0 dB."""
+
+TYPING_GAIN_MAX_DB_X10 = 0
+"""Loudest typing key: never above the voice."""
 
 MAX_BGM_MS = 600_000
 """Longest BGM file the mix decodes, the schema's duration limit."""
@@ -184,6 +192,41 @@ def _sha256(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1 << 20), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _typing_input(line_id: str, start_char: int, revision: str) -> dict[str, object]:
+    return {"line_id": line_id, "start_char": start_char, "typing_sound": revision}
+
+
+def typing_key_index(
+    line_id: str,
+    start_char: int,
+    revision: str,
+    key_count: int,
+    previous: int | None,
+) -> int:
+    """Index of the key for one voiced span, never the same as the previous one.
+
+    The index is the span digest modulo the candidate keys. A one-key sound
+    repeats; a larger set removes the key used by the previous span of the line.
+    """
+    if key_count < 1:
+        raise ValueError("a typing sound needs at least one key")
+    if key_count == 1:
+        return 0
+    candidates = [index for index in range(key_count) if index != previous]
+    digest = int(canonical_digest(_typing_input(line_id, start_char, revision)), 16)
+    return candidates[digest % len(candidates)]
+
+
+def typing_gain_db_x10(line_id: str, start_char: int, revision: str) -> int:
+    """Deterministic key gain, an integer from -50 to 0."""
+    digest = int(
+        canonical_digest({**_typing_input(line_id, start_char, revision), "gain": True}),
+        16,
+    )
+    span = TYPING_GAIN_MAX_DB_X10 - TYPING_GAIN_MIN_DB_X10 + 1
+    return TYPING_GAIN_MIN_DB_X10 + digest % span
 
 
 class SoundService:
@@ -318,6 +361,12 @@ class SoundService:
             raise AppError("timing_mismatch", detail={"reason": "scene_order"})
         starts, total_ms = scene_starts_ms(timings)
         audio = video.settings.audio
+        typing_ref = video.settings.caption.typing_sound
+        typing = (
+            self._typing_sound(typing_ref)
+            if audio.sfx_enabled and typing_ref is not None
+            else None
+        )
         items: list[MixItem] = []
         for start, timing in zip(starts, timings, strict=True):
             scene = video.scenes[timing.scene_id]
@@ -331,6 +380,10 @@ class SoundService:
                         "tts_failed", detail={"reason": "tts_missing", "line_id": line.line_id}
                     )
                 items.append(MixItem(path=path, start_ms=start + line.start_ms))
+            if typing is not None and typing_ref is not None:
+                self._typing_items(
+                    items, scene, timing, start, typing, typing_ref.revision
+                )
             if not audio.sfx_enabled or scene.visual is None:
                 continue
             for cue in scene.visual.sfx:
@@ -354,9 +407,63 @@ class SoundService:
         )
         out = ctx.job_dir / MIX_DIR / "mix.wav"
         out.parent.mkdir(parents=True, exist_ok=True)
-        self.media.mix(MixPlan(items=items), out=out, cancel=ctx.cancel)
+        self.media.mix(
+            MixPlan(items=items, duration_ms=total_ms), out=out, cancel=ctx.cancel
+        )
         ctx.cancel.raise_if_set()
         return out
+
+    def _typing_sound(self, ref: PinnedRef) -> tuple[TypingSoundEntry, Path]:
+        try:
+            entry = self.catalog.get("sfx", ref.id, ref.revision)
+            root = self.catalog.package_dir("sfx", ref)
+        except UnknownCatalogId as error:
+            raise AppError(
+                "unknown_catalog_id", detail={"kind": "sfx", "id": ref.id}
+            ) from error
+        if not isinstance(entry, TypingSoundEntry):
+            raise AppError("unknown_catalog_id", detail={"kind": "sfx", "id": ref.id})
+        return entry, root
+
+    def _typing_items(
+        self,
+        items: list[MixItem],
+        scene: Scene,
+        timing: Timing,
+        start_ms: int,
+        typing: tuple[TypingSoundEntry, Path],
+        revision: str,
+    ) -> None:
+        """One key at each voiced typewriter span start, on the scene clock."""
+        entry, root = typing
+        texts = {line.id: line.display_text for line in scene.lines}
+        for line in timing.lines:
+            if line.caption.mode_used is not CaptionMode.typewriter:
+                continue
+            text = texts[line.line_id]
+            previous: int | None = None
+            for phrase in line.caption.phrases:
+                cluster = text[phrase.start_char:phrase.end_char]
+                if is_silent(cluster):
+                    continue
+                index = typing_key_index(
+                    line.line_id,
+                    phrase.start_char,
+                    revision,
+                    len(entry.keys),
+                    previous,
+                )
+                key = entry.keys[index]
+                items.append(
+                    MixItem(
+                        path=root / key.file,
+                        start_ms=start_ms + phrase.start_ms,
+                        gain_db_x10=typing_gain_db_x10(
+                            line.line_id, phrase.start_char, revision
+                        ),
+                    )
+                )
+                previous = index
 
     def _sfx(self, ref: PinnedRef) -> tuple[SfxEntry, Path]:
         try:
@@ -416,4 +523,11 @@ def create(settings: AppSettings, deps: ServiceDeps) -> SoundService:
     )
 
 
-__all__ = ["SoundService", "create", "loop_samples", "scene_starts_ms"]
+__all__ = [
+    "SoundService",
+    "create",
+    "loop_samples",
+    "scene_starts_ms",
+    "typing_gain_db_x10",
+    "typing_key_index",
+]

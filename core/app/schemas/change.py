@@ -124,7 +124,7 @@ class PlanWarning(ContractModel):
 
 
 class ChangePlan(ContractModel):
-    schema_version: Literal[1]
+    schema_version: Literal[2]
     id: EntityId
     video_id: EntityId
     base_revision: Annotated[int, Field(ge=1)]

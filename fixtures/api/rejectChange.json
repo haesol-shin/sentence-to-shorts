@@ -18,7 +18,7 @@
     "status": 200,
     "media_type": null,
     "body": {
-      "schema_version": 1,
+      "schema_version": 2,
       "id": "c_0t2wvk16pb9s0a453j9s6540mg",
       "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
       "base_revision": 1,

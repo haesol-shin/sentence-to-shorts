@@ -266,6 +266,31 @@
       "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
       "type": "string"
     },
+    "KeySound": {
+      "additionalProperties": false,
+      "description": "One key press of a typing sound entry.",
+      "properties": {
+        "duration_ms": {
+          "maximum": 1000,
+          "minimum": 20,
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "file": {
+          "$ref": "#/$defs/WavRelPath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/Digest"
+        }
+      },
+      "required": [
+        "file",
+        "sha256",
+        "duration_ms"
+      ],
+      "title": "KeySound",
+      "type": "object"
+    },
     "License": {
       "additionalProperties": false,
       "properties": {
@@ -442,6 +467,7 @@
     },
     "SfxEntry": {
       "additionalProperties": false,
+      "description": "One effect sound. A typing kind here is a legacy document, not a new cue.",
       "properties": {
         "duration_ms": {
           "maximum": 5000,
@@ -503,6 +529,50 @@
       "description": "ISO 8601 date-time with a timezone.",
       "format": "date-time",
       "type": "string"
+    },
+    "TypingSoundEntry": {
+      "additionalProperties": false,
+      "description": "A set of key presses for typewriter captions. The ``keys`` member is the\ndiscriminator that keeps legacy ``SfxEntry`` manifests readable.",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "keys": {
+          "items": {
+            "$ref": "#/$defs/KeySound"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "title": "Keys",
+          "type": "array"
+        },
+        "kind": {
+          "const": "typing",
+          "title": "Kind",
+          "type": "string"
+        },
+        "label": {
+          "$ref": "#/$defs/LocalizedText"
+        },
+        "license": {
+          "$ref": "#/$defs/License"
+        },
+        "schema_version": {
+          "const": 1,
+          "title": "Schema Version",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "id",
+        "label",
+        "kind",
+        "keys",
+        "license"
+      ],
+      "title": "TypingSoundEntry",
+      "type": "object"
     },
     "UploadBgm": {
       "additionalProperties": false,

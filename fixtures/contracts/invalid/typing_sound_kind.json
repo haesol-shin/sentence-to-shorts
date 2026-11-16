@@ -1,0 +1,75 @@
+{
+  "language": "ko",
+  "target_duration_s": 30,
+  "format": {
+    "card_id": "just_three",
+    "story_structure": "numbered_three",
+    "layout": {
+      "id": "dialog_stage",
+      "revision": "9e35982704c63533aff840097bc1dd80ecb19149ff7231287ab95e3ac2a62ea0"
+    },
+    "character_role": "presenter",
+    "register": "friendly",
+    "humor": "none",
+    "progress_mode": "numbered",
+    "scene_count": 5
+  },
+  "visual": {
+    "art_style": {
+      "id": "pixel",
+      "revision": "6996966228988901a42e3e3f5d19ddc19ffd005bd3c9f1047ca979fcd3a98e20"
+    },
+    "theme_id": "day",
+    "character": {
+      "preset_id": null,
+      "slots": {
+        "body": "body_hero",
+        "face": "face_neutral",
+        "hair": null,
+        "hat": null,
+        "outfit": null,
+        "prop": null
+      }
+    }
+  },
+  "audio": {
+    "voice": {
+      "id": "fixed_wav",
+      "revision": "ba110776c483d72203c4546080a8b32a277f4b22bf81af8781936685a226c768"
+    },
+    "bgm": {
+      "enabled": true,
+      "mood": "curious",
+      "entry": {
+        "id": "builtin_loop",
+        "revision": "147cce67e7a15cb62266dc400510271e9109d3cba1163456574de556a1776d09"
+      },
+      "gain_db_x10": -120,
+      "ducking": true
+    },
+    "sfx_enabled": true
+  },
+  "caption": {
+    "mode": "typewriter",
+    "font_id": {
+      "id": "galmuri11",
+      "revision": "d92c304c2bc07f41810bf938c71bd8a9cab36e27fcb980bbb98a6ffb27098c75"
+    },
+    "position": "bottom",
+    "highlight": true,
+    "typing_sound": {
+      "id": "pop",
+      "revision": "ed080bd5f08408574bca18e7b5e212b5b046df2ad8fedbecd511e7b7861d6b06"
+    }
+  },
+  "motion": {
+    "transition": "cut",
+    "character_motion": "none"
+  },
+  "locks": {},
+  "origins": {
+    "/format/card_id": "card",
+    "/visual/art_style": "default"
+  },
+  "extra_instructions": []
+}

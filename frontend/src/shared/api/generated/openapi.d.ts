@@ -1008,6 +1008,7 @@ export interface components {
             highlight: boolean;
             mode: components["schemas"]["CaptionMode"];
             position: components["schemas"]["CaptionPosition"];
+            typing_sound?: components["schemas"]["PinnedRef"] | null;
         };
         /**
          * CaptionMode
@@ -1080,7 +1081,7 @@ export interface components {
              * Schema Version
              * @constant
              */
-            schema_version: 1;
+            schema_version: 2;
             source: components["schemas"]["ChangeSource"];
             status: components["schemas"]["ChangeStatus"];
             target: components["schemas"]["Target"];
@@ -1411,6 +1412,16 @@ export interface components {
          * @enum {string}
          */
         JobState: "queued" | "running" | "succeeded" | "failed" | "cancelling" | "cancelled";
+        /**
+         * KeySound
+         * @description One key press of a typing sound entry.
+         */
+        KeySound: {
+            /** Duration Ms */
+            duration_ms: number;
+            file: components["schemas"]["WavRelPath"];
+            sha256: components["schemas"]["Digest"];
+        };
         /**
          * Language
          * @enum {string}
@@ -1996,7 +2007,7 @@ export interface components {
          * @description Codes returned in the errors member of a problem body (CONTRACTS 1.3).
          * @enum {string}
          */
-        SemanticCode: "unknown_catalog_id" | "duplicate_order" | "duplicate_line_id" | "typewriter_layout" | "role_none_character" | "character_missing" | "incompatible_part" | "highlight_range" | "reveal_line_unknown" | "revision_conflict";
+        SemanticCode: "unknown_catalog_id" | "duplicate_order" | "duplicate_line_id" | "typewriter_layout" | "role_none_character" | "character_missing" | "incompatible_part" | "highlight_range" | "reveal_line_unknown" | "typing_sound_mode" | "typing_sound_kind" | "typing_cue" | "revision_conflict";
         /** SetOp */
         SetOp: {
             /**
@@ -2053,7 +2064,10 @@ export interface components {
             offset_ms: number;
             sfx_id: components["schemas"]["PinnedRef"];
         };
-        /** SfxEntry */
+        /**
+         * SfxEntry
+         * @description One effect sound. A typing kind here is a legacy document, not a new cue.
+         */
         SfxEntry: {
             /** Duration Ms */
             duration_ms: number;
@@ -2282,6 +2296,28 @@ export interface components {
          * @enum {string}
          */
         TransitionIn: "cut" | "fade";
+        /**
+         * TypingSoundEntry
+         * @description A set of key presses for typewriter captions. The ``keys`` member is the
+         *     discriminator that keeps legacy ``SfxEntry`` manifests readable.
+         */
+        TypingSoundEntry: {
+            id: components["schemas"]["CatalogId"];
+            /** Keys */
+            keys: components["schemas"]["KeySound"][];
+            /**
+             * Kind
+             * @constant
+             */
+            kind: "typing";
+            label: components["schemas"]["LocalizedText"];
+            license: components["schemas"]["License"];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+        };
         /** Usage */
         Usage: {
             /** Cache Read Tokens */
@@ -2329,7 +2365,7 @@ export interface components {
              * Schema Version
              * @constant
              */
-            schema_version: 1;
+            schema_version: 2;
             script: components["schemas"]["Script"] | null;
             settings: components["schemas"]["Settings"];
             stage: components["schemas"]["VideoStage"];
@@ -2759,7 +2795,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleManifest"] | components["schemas"]["TemplateManifest"] | components["schemas"]["VoiceManifest"] | components["schemas"]["BuiltinBgm"] | components["schemas"]["SfxEntry"] | components["schemas"]["FontManifest"] | components["schemas"]["FormatCard"] | components["schemas"]["StoryStructure"];
+                    "application/json": components["schemas"]["StyleManifest"] | components["schemas"]["TemplateManifest"] | components["schemas"]["VoiceManifest"] | components["schemas"]["BuiltinBgm"] | components["schemas"]["SfxEntry"] | components["schemas"]["TypingSoundEntry"] | components["schemas"]["FontManifest"] | components["schemas"]["FormatCard"] | components["schemas"]["StoryStructure"];
                 };
             };
             /** @description The request body or parameters do not match the contract. */

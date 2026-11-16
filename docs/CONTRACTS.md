@@ -58,15 +58,21 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | `incompatible_part` | `rig.compat`가 허용하지 않는 body와 부위 조합 |
 | `highlight_range` | highlight span이 display_text 범위를 벗어나거나 겹침 |
 | `reveal_line_unknown` | element나 sfx가 장면에 없는 line을 가리킴 |
+| `typing_sound_mode` | caption mode가 typewriter가 아닌데 `caption.typing_sound`가 있음 |
+| `typing_sound_kind` | `caption.typing_sound`가 `TypingSoundEntry`를 가리키지 않음 |
+| `typing_cue` | `SfxCue.sfx_id`가 타자음 항목을 가리킴 |
 | `revision_conflict` | 요청의 base_revision이 head가 아님 (HTTP 409 problem으로 응답하고 `current_revision` 확장 멤버를 함께 돌려준다) |
 
 ## 2. 버전과 migration
 
-- 저장 문서(project, video, preset, change, 모든 manifest, timing)는 정수 `schema_version`을 갖는다. 현재 값은 1이다.
+- 저장 문서(project, video, preset, change, 모든 manifest, timing)는 정수 `schema_version`을 갖는다.
+- `SfxCue`를 담을 수 있는 video와 change는 2이고, project와 preset은 1이며, timing은 2다. manifest는 종류별로 1이다.
 - manifest는 추가로 `api_version`을 갖는다. 렌더러 계약 버전이다.
 - 기존 문서를 무효로 만들거나 뜻을 바꾸는 변경은 `schema_version`을 올린다.
-- 기본값이 있는 선택 필드 추가는 버전을 올리지 않는다.
+- 기본값이 있는 선택 필드 추가는 버전을 올리지 않는다. `Caption.typing_sound`가 그렇다.
+- caption mode를 typewriter에서 다른 mode로 바꾸는 변경은 같은 변경에 `typing_sound: null`을 넣는다. 남기면 `typing_sound_mode`로 거절한다.
 - migration은 `core/app/storage/migrations/v<N>_to_v<N+1>.py`의 순수 함수 `migrate(doc: dict) -> dict`다.
+- `v1_to_v2`는 내장 타자음 id(`typing_keys`, `typing_fast`)를 가리키는 `SfxCue`만 지운다. registry를 읽지 않으므로 그 밖의 타자음 cue는 남기고, 그 문서를 쓰는 작업에서 `typing_cue`로 거절한다. 과거 pin은 자동으로 다시 고정하지 않는다.
 - 읽을 때 순서대로 적용한다. 원본 revision 파일은 다시 쓰지 않는다. 다음 쓰기에서 새 버전으로 저장한다.
 - migration마다 이전 버전 fixture와 기대 결과 fixture를 함께 추가한다.
 - 앱보다 높은 `schema_version` 문서는 열지 않는다. API는 422 `unsupported_version` problem과 `found`, `supported` 확장 멤버로 알린다. job 안에서 읽다 만나면 job 오류 `unsupported_version`으로 실패시킨다. 두 enum 모두에 이 코드가 있다.
@@ -212,12 +218,14 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 | `timing_json` | 줄별 tts digest, speech_text, display_text, language, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
 | `part_png` | style PinnedRef, CharacterSpec, expression, pose, canvas, seed, sandbox runtime digest | 장면 글 |
 | `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, canvas, 입력 part digest, seed | BGM, 순서 |
-| `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정, layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
+| `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정(`typing_sound` 제외), layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
 | `clip_mp4` | still 입력 전체, timing digest, motion, fps, renderer revision | BGM, 순서, 다른 장면 |
-| `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, `gain_db_x10`, `ducking_db_x10`, SFX digest와 시점, 음량 목표 `loudness_lufs_x10` | 영상 화면 |
+| `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, `gain_db_x10`, `ducking_db_x10`, `audio.sfx_enabled`, SFX digest와 시점, `caption.typing_sound` PinnedRef, 소리를 내는 typewriter 구간 목록(line id와 `start_char`), 음량 목표 `loudness_lufs_x10` | 영상 화면 |
 | `final_mp4` | 순서 있는 clip digest, mix digest, encoder 설정 | UI 상태 |
 | `srt` | 순서 있는 timing digest, display_text | BGM |
 
+- typewriter 표시 일정이 바뀌어도 `timing_json`을 재사용하지 않도록 그 key의 `api_version`은 2다.
+- 무음 글자만 바뀌어도 `mix_wav` key가 갈리도록 소리를 내는 구간 목록을 넣는다. 무음 판정은 11.2절과 같다.
 - 진행 표시 문구는 장면 안의 beat 기준이다. 순서만 바뀌면 clip key는 그대로다.
 - 결과: 화면 글만 바꾸면 TTS는 재사용한다. 순서만 바꾸면 final만 다시 만든다. BGM만 바꾸면 mix와 final만 다시 만든다. 말할 글 변경은 그 줄의 TTS만 무효화한다.
 - `ChangePlan.effects`는 변경 전후 key 비교로 계산한다. 장면을 직접 나열하지 않는다.
@@ -417,11 +425,32 @@ class TranscriberPort(Protocol):
 
 - 정렬은 알려진 대본의 forced alignment다. 기준선은 WhisperX다. 전사는 참고 영상용이고 별도 adapter다.
 - 정렬이 실패하면 그 줄은 문장형 자막이다. `Timing.caption.fallback_reason`에 이유를 남긴다. 글자 비율로 나눈 가짜 시간은 만들지 않는다.
+- typewriter 줄은 예외다. 표시 일정은 forced alignment 결과가 아니라 화면 표시 계획이므로, 화면 글의 grapheme cluster마다 구간 하나를 `TimingCaption.phrases`에 넣는다. 줄의 표시 길이를 D, cluster 수를 N이라 할 때 i번째 구간은 `[line.start_ms + floor(i*D/N), line.start_ms + floor((i+1)*D/N))`이다. `start_char`와 `end_char`는 `display_text`의 code point index다.
+- 렌더는 구간 시작에 글자를 누적 표시하고 줄 끝까지 유지한다. 소리 섞기도 같은 구간 시작을 쓴다.
 - 화면 글과 말할 글의 대응을 구절 단위로 기록한다. 대응이 끊기면 그 줄은 문장형이다.
+- 무음 cluster는 `cluster.isspace()`이거나 `unicodedata.category(cluster[0])`이 `P`로 시작하는 경우다. 렌더, 소리 배치, cache 대상 목록이 같은 판정을 쓴다.
+- `VoiceService.timing`은 video language를 필수 인자로 받는다. keyword 기본값과 language 생략 시 축소 동작은 없다.
+- `Caption.typing_sound`는 지정 revision의 `TypingSoundEntry`만 가리킨다. 생략과 null은 타자음 없음이고, `audio.sfx_enabled`가 false이면 내지 않는다. `TypingSoundEntry`는 1개에서 64개까지의 `KeySound`를 가지며 각 key는 20ms에서 1000ms다.
+- registry는 `keys`가 있는 sfx manifest를 `TypingSoundEntry`로 읽고 모든 key WAV와 license 파일의 경로, 존재, checksum을 검사한다. catalog 미디어 route의 샘플은 첫 key WAV다.
 
 ## 12. Media (ffmpeg)
 
 ```python
+@dataclass(frozen=True)
+class MixItem:
+    path: Path
+    start_ms: int
+    gain_db_x10: int = 0
+    ducking_db_x10: int = 0
+
+@dataclass(frozen=True)
+class MixPlan:
+    items: list[MixItem]
+    duration_ms: int
+    loudness_lufs_x10: int = -160
+    true_peak_dbtp_x10: int = -10
+    sample_rate: int = 44100
+
 class MediaPort(Protocol):
     def encode_frames(self, frames: Iterable[bytes], *, width: int, height: int, fps: int,
                       out: Path, cancel: CancelToken) -> MediaInfo: ...   # raw RGB24 via stdin, H.264 yuv420p
@@ -442,6 +471,9 @@ class MediaPort(Protocol):
 - 자막 줄바꿈과 배치는 1080×1920 기준으로 실제 glyph 폭을 재서 한 번 계산한다. 미리보기는 같은 배치를 축소한다.
 - 음량 목표는 -16 LUFS, true peak -1 dBTP다. 계약 값은 `loudness_lufs_x10: -160`과 `true_peak_dbtp_x10: -10`이다. BGM ducking은 sidechain으로 한다.
 - 장면 clip은 무음 영상이다. 소리는 최종 mux에서 한 번 넣는다.
+- `MixPlan`은 `items`, 출력 길이 `duration_ms`, 음량 목표, true peak, sample rate를 갖는다. `duration_ms`는 모든 장면 길이의 합이고, 한 번 재생하는 소리의 꼬리가 장면 경계나 영상 끝을 넘어도 출력은 이 길이에서 자른다. 소리 때문에 영상 길이를 늘리지 않는다.
+- typewriter 줄의 타자음은 `SoundService.mix`가 구간마다 키 소리 하나를 구간 시작에 놓는다. 키 선택은 line id, 구간 `start_char`, `caption.typing_sound` revision의 canonical JSON SHA-256으로 정한다. 키가 둘 이상이면 같은 줄의 직전 키 index를 후보에서 빼고, 하나면 반복한다. 음량은 같은 입력에 다른 구분값을 붙인 SHA-256으로 `gain_db_x10`을 -50에서 0 사이 정수로 정한다. 저장하는 seed는 없다.
+- `audio.sfx_enabled`가 false이면 타자음도 내지 않는다. 음성 재생 미리보기는 mp4와 같은 `mix_wav`를 쓴다.
 - 내장 BGM은 `core/app/plugins/bgm/<id>/`의 WAV 또는 Ogg Vorbis 파일을 그대로 보관하고, mix 전에 `MediaPort.decode_audio`로 44.1kHz PCM으로 푼다. 내장 BGM의 `file`은 `.wav`와 `.ogg`를 받는다.
 - 내장 BGM은 원본 master를 그대로 보관하므로 true peak가 0 dBTP를 넘을 수 있고, `true_peak_dbtp_x10`은 -1000에서 100까지 받는다.
 
@@ -613,7 +645,7 @@ class VoiceService:            # services/voice, ports: TtsPort, AlignerPort, Ar
     def estimate_ms(self, line: Line, language: str) -> int: ...
     def synthesize(self, voice: VoiceManifest, language: str, line: Line, *, ctx: JobContext) -> Path: ...
     def timing(self, scene: Scene, voice: PinnedRef, tts: Mapping[str, ArtifactRef],
-               caption_mode: str, *, ctx: JobContext) -> Timing: ...
+               caption_mode: str, language: Language, *, ctx: JobContext) -> Timing: ...
 
 class SoundService:            # services/sound, ports: MediaPort, CatalogPort
     def pick_bgm(self, settings: Settings, recent: list[str], seed: int) -> PinnedRef: ...

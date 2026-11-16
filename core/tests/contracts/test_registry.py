@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from app.plugins.registry import Registry, RegistryError, file_list_revision
+from app.schemas.bgm_entry import SfxEntry, TypingSoundEntry
 
 PLUGINS = Path(__file__).resolve().parents[2] / "app" / "plugins"
 
@@ -223,3 +224,74 @@ def test_symlinked_generated_package_is_rejected(tmp_path: Path) -> None:
         registry.register_generated("art_style", package)
     assert error.value.code == "path_escape"
     assert not (tmp_path / "data" / "s").exists()
+
+
+def test_typing_entries_parse_by_their_keys() -> None:
+    registry = Registry()
+    registry.load()
+    assert isinstance(registry.get("sfx", "typing_keys"), TypingSoundEntry)
+    assert isinstance(registry.get("sfx", "typing_fast"), TypingSoundEntry)
+    assert isinstance(registry.get("sfx", "pop"), SfxEntry)
+
+
+def test_missing_typing_key_file_is_rejected(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "sfx", "typing_keys")
+    (package / "key-02.wav").unlink()
+    with pytest.raises(RegistryError) as error:
+        _registry(tmp_path).load()
+    assert error.value.code == "missing_file"
+
+
+def test_typing_key_digest_mismatch_is_rejected(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "sfx", "typing_keys")
+    key = package / "key-02.wav"
+    key.write_bytes(key.read_bytes() + b"\0")
+    with pytest.raises(RegistryError) as error:
+        _registry(tmp_path).load()
+    assert error.value.code == "digest_mismatch"
+
+
+def test_legacy_typing_sfx_pin_survives_a_restart(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "sfx", "pop").rename(tmp_path / "sfx" / "legacy_typing")
+    manifest = _read(package / "manifest.json")
+    manifest["id"] = "legacy_typing"
+    manifest["kind"] = "typing"
+    _write(package / "manifest.json", manifest)
+    plugin_root = tmp_path
+    data_dir = tmp_path / "data"
+    first = Registry(
+        plugin_root=plugin_root, catalog_root=tmp_path / "catalog", data_dir=data_dir
+    )
+    first.load()
+    ref = first.pin("sfx", "legacy_typing")
+    assert isinstance(first.get("sfx", ref.id, ref.revision), SfxEntry)
+
+    (package / "extra.txt").write_text("changed", encoding="utf-8")
+    restarted = Registry(
+        plugin_root=plugin_root, catalog_root=tmp_path / "catalog", data_dir=data_dir
+    )
+    restarted.load()
+    assert restarted.pin("sfx", "legacy_typing").revision != ref.revision
+    archived = restarted.get("sfx", ref.id, ref.revision)
+    assert isinstance(archived, SfxEntry)
+    assert archived.kind.value == "typing"
+    assert file_list_revision(restarted.package_dir("sfx", ref)) == ref.revision
+
+
+def test_typing_entry_resolves_from_the_archive_after_restart(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "sfx", "typing_keys")
+    data_dir = tmp_path / "data"
+    first = Registry(
+        plugin_root=tmp_path, catalog_root=tmp_path / "catalog", data_dir=data_dir
+    )
+    first.load()
+    ref = first.pin("sfx", "typing_keys")
+    (package / "extra.txt").write_text("changed", encoding="utf-8")
+    restarted = Registry(
+        plugin_root=tmp_path, catalog_root=tmp_path / "catalog", data_dir=data_dir
+    )
+    restarted.load()
+    entry = restarted.get("sfx", ref.id, ref.revision)
+    assert isinstance(entry, TypingSoundEntry)
+    assert restarted.pin("sfx", "typing_keys").revision != ref.revision
+    assert restarted.package_dir("sfx", ref).name == ref.revision[:16]

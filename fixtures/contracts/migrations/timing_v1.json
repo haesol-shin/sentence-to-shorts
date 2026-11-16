@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "scene_id": "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+  "voice": {
+    "id": "fixed_wav",
+    "revision": "ba110776c483d72203c4546080a8b32a277f4b22bf81af8781936685a226c768"
+  },
+  "duration_ms": 2400,
+  "lines": [
+    {
+      "line_id": "l_079jmk94bf8vj82ct90jqj44km",
+      "tts": {
+        "id": "a_0x9jjztjrj83nrbmysv0j1ksda",
+        "digest": "317e938a489b10da179b9cc1110357cb16d988856bb3ad7908862f9c2828c88c",
+        "cache_key": "19da364648c888736457201359b8d7b669e9be2ac83e9d45bc75e3db6cf48fae"
+      },
+      "start_ms": 0,
+      "end_ms": 2000,
+      "speech_ms": 1800,
+      "caption": {
+        "mode_used": "sentence",
+        "fallback_reason": null,
+        "phrases": []
+      }
+    }
+  ]
+}

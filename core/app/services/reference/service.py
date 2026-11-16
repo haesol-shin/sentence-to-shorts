@@ -312,7 +312,7 @@ class ReferenceService:
     def _store(self, video: Video, built: values.Built) -> str:
         """Keep the proposal as a plan; effects and confirmation are computed from keys later."""
         plan = ChangePlan(
-            schema_version=1,
+            schema_version=2,
             id=self.project_store.new_id("c"),
             video_id=video.id,
             base_revision=video.revision,

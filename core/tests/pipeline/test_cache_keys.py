@@ -333,3 +333,57 @@ def test_08_renderer_revision_digests_the_render_package(
     installed = graph(None)
     assert installed.scenes == graph(revision).scenes
     assert installed.scenes != graph("0" * 64).scenes
+
+
+def _typing_video() -> Video:
+    return Video.model_validate(
+        json.loads(
+            (VALID / "video_ko_typewriter_typing.json").read_text(encoding="utf-8")
+        )
+    )
+
+
+def test_14_typing_sound_change_moves_mix_but_not_timing_or_still(
+    registry: Registry,
+) -> None:
+    video = _typing_video()
+
+    def mutate(data):  # type: ignore[no-untyped-def]
+        data["settings"]["caption"]["typing_sound"] = registry.pin(
+            "sfx", "typing_fast"
+        ).model_dump()
+
+    changed = _changed(video, mutate)
+    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
+    after = Graph(changed, _services(registry, MemoryStore()), symbolic=True)
+    scene_id = video.scene_order[0]
+    assert before.scenes[scene_id].timing == after.scenes[scene_id].timing
+    assert before.scenes[scene_id].still == after.scenes[scene_id].still
+    assert before.scenes[scene_id].clip == after.scenes[scene_id].clip
+    assert before.mix != after.mix
+
+
+def test_14_silent_character_change_moves_the_mix_key(registry: Registry) -> None:
+    video = _typing_video()
+    scene_id = video.scene_order[0]
+
+    def mutate(data):  # type: ignore[no-untyped-def]
+        data["scenes"][scene_id]["lines"][0]["display_text"] = "타자."
+
+    changed = _changed(video, mutate)
+    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
+    after = Graph(changed, _services(registry, MemoryStore()), symbolic=True)
+    assert before.scenes[scene_id].tts == after.scenes[scene_id].tts
+    assert before.mix != after.mix
+
+
+def test_14_sfx_switch_moves_the_typing_mix_key(registry: Registry) -> None:
+    video = _typing_video()
+
+    def mutate(data):  # type: ignore[no-untyped-def]
+        data["settings"]["audio"]["sfx_enabled"] = False
+
+    changed = _changed(video, mutate)
+    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
+    after = Graph(changed, _services(registry, MemoryStore()), symbolic=True)
+    assert before.mix != after.mix
