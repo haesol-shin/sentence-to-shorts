@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "ryan_en",
+  "label": {
+    "ko": "라이언 (영어)",
+    "en": "Ryan (English)"
+  },
+  "engine_id": "qwen3-tts-0.6b",
+  "model": {
+    "runtime_item": "model-tts-qwen3-0.6b",
+    "repo": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice",
+    "revision": "85e237c12c027371202489a0ec509ded67b5e4b5"
+  },
+  "speaker": "Ryan",
+  "languages": ["en"],
+  "settings": {
+    "speed": 1.0,
+    "seed": 0
+  },
+  "output": {
+    "sample_rate": 24000,
+    "channels": 1
+  },
+  "sample": {
+    "file": "sample.wav",
+    "sha256": "2d26f119693142f7afab1ec330924bd12c6187fa46fd532337e3a4104563b904"
+  },
+  "license": {
+    "spdx": "Apache-2.0",
+    "source_url": "https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice/tree/85e237c12c027371202489a0ec509ded67b5e4b5",
+    "author": "Qwen Team",
+    "commercial_ok": true,
+    "attribution": {
+      "ko": "Qwen3-TTS 0.6B CustomVoice (Qwen, Apache-2.0)",
+      "en": "Qwen3-TTS 0.6B CustomVoice (Qwen, Apache-2.0)"
+    },
+    "license_file": "LICENSE.txt"
+  },
+  "cloning": false
+}
