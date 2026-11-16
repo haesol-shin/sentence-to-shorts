@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, BinaryIO, Literal, Protocol
 
 from app.schemas.api import ActivitySpan, CatalogItem, Metrics
-from app.schemas.artifact import Artifact, ArtifactKind
+from app.schemas.artifact import Artifact, ArtifactKind, Timing
 from app.schemas.change import ChangePlan, Op
 from app.schemas.common import ContractModel, EntityId, PinnedRef
 from app.schemas.job import Checkpoint, Job, JobError, JobKind, Stage, Usage, WaitingOn
@@ -25,6 +25,24 @@ from app.schemas.sandbox_io import SandboxRequest
 from app.schemas.scene import Scene
 from app.schemas.video import RevisionInfo, Video
 from app.schemas.voice_manifest import VoiceManifest
+
+FPS = 30
+"""Output frame rate shared by scene clips, audio and subtitles (CONTRACTS 12)."""
+
+
+def frame_count(duration_ms: int) -> int:
+    """Round half up to the nearest frame, keeping at least one frame."""
+    return max(1, (duration_ms * FPS + 500) // 1000)
+
+
+def scene_starts_ms(timings: Iterable[Timing]) -> tuple[list[int], int]:
+    """Scene starts and total video length on the accumulated clip frame clock."""
+    starts: list[int] = []
+    frames = 0
+    for timing in timings:
+        starts.append((frames * 1000 + FPS // 2) // FPS)
+        frames += frame_count(timing.duration_ms)
+    return starts, (frames * 1000 + FPS // 2) // FPS
 
 
 class Cancelled(Exception):

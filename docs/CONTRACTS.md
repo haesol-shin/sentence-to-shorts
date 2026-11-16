@@ -89,6 +89,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 자원이나 job을 만드는 POST는 `Idempotency-Key` header(8~64자 `[A-Za-z0-9_-]`)를 요구한다.
 - 같은 key와 같은 요청 digest는 저장한 응답을 그대로 돌려준다. 같은 key와 다른 digest는 409 `idempotency_mismatch`다. key는 24시간 보관한다.
 - 요청 digest는 SHA-256이다. JSON 본문은 canonical JSON(8절 규칙)의 SHA-256이다. multipart 본문은 `file` 파트의 SHA-256과 나머지 필드를 이름 순으로 canonical JSON으로 만든 값을 이어 붙인 문자열의 SHA-256이다. 서버는 업로드를 임시 파일로 받으며 해시를 계산하므로 파일 전체를 메모리에 올리지 않는다. 한도를 넘으면 해시 계산 중에도 413으로 끊는다.
+- BGM 업로드의 multipart digest는 `mood` 생략 시 `calm`을 먼저 적용한 `{mood, project_id}`를 이름 순 canonical JSON으로 만든다. 같은 파일과 프로젝트에서 생략과 명시적 `calm`은 같은 요청이고, 같은 key로 분위기만 바꾸면 409 `idempotency_mismatch`다. 이 기본값은 다른 multipart 경로에는 적용하지 않는다.
 - 같은 영상, 같은 kind, 같은 요청 digest의 활성 job이 있으면 새 job 대신 그 job을 200으로 돌려준다.
 - 같은 영상, 같은 kind의 다른 활성 job이 있으면 409 `job_running` problem과 `job_id` 확장 멤버를 돌려준다.
 - 오류 응답은 [3.1절](#31-오류-본문)의 RFC 9457 problem이다.
@@ -150,7 +151,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | POST `/styles` | `StyleRequest` | 202 Job `style` | 409, 503 | 예 |
 | POST `/templates` | `TemplateRequest` | 202 Job `template` | 409, 503 | 예 |
 | POST `/bgm/code` | `BgmCodeRequest` | 202 Job `bgm_code` | 503 | 예 |
-| POST `/bgm/uploads` | multipart `file`, `project_id` | 202 Job `bgm_upload` | 413 `payload_too_large`, 415 `unsupported_media` | 예 |
+| POST `/bgm/uploads` | multipart `file`, `project_id`, 선택 `mood` (`Mood`, 기본 `calm`) | 202 Job `bgm_upload` | 422 `validation_failed`, 413 `payload_too_large`, 415 `unsupported_media` | 예 |
 | GET `/bgm/{id}/audio` | 없음 | 200 내장 BGM 오디오(WAV, Ogg Vorbis) | 404 | 아니오 |
 | POST `/projects/{pid}/presets` | `PresetRequest` | 201 Preset | 404 | 예 |
 | GET `/projects/{pid}/presets` | `?cursor=&limit=` | 200 `{items: Preset[], next_cursor}` | 404 | 아니오 |
@@ -467,12 +468,13 @@ class MediaPort(Protocol):
 - 구현은 `core/app/tools/media/`다. 실행 파일은 runtime lock의 절대 경로만 쓴다. PATH 검색은 하지 않는다.
 - 인자는 배열이다. 사용자 문자열을 filtergraph, concat 목록, 경로에 넣지 않는다. concat 목록은 앱이 만든 artifact 경로만 쓴다.
 - `-nostdin`, `-protocol_whitelist file,pipe`를 쓴다. 입력은 내려받거나 업로드된 로컬 파일뿐이다.
+- 장면 프레임 시계는 `core/app/ports.py`의 `FPS = 30`, `frame_count(duration_ms)`, `scene_starts_ms(timings)`가 소유한다. 장면 프레임 수는 `max(1, (duration_ms * FPS + 500) // 1000)`으로 half-up 반올림한다. 장면 시작은 앞 장면 프레임 합 `frames`를 `(frames * 1000 + FPS // 2) // FPS`로 ms로 바꾼 값이고, 전체 영상 길이도 전체 프레임 합을 같은 식으로 바꾼 값이다. render, sound, assemble은 이 시계만 사용한다.
 - 출력 규격은 1080×1920, 30fps, H.264 yuv420p, AAC 44.1kHz다. 정지 미리보기는 540×960 PNG다. 기술 선택: 미리보기는 최종의 절반 크기다. 이유: 같은 함수를 쓰면서 생성 시간을 줄인다.
 - 자막 줄바꿈과 배치는 1080×1920 기준으로 실제 glyph 폭을 재서 한 번 계산한다. 미리보기는 같은 배치를 축소한다.
 - 음량 목표는 -16 LUFS, true peak -1 dBTP다. 계약 값은 `loudness_lufs_x10: -160`과 `true_peak_dbtp_x10: -10`이다. BGM ducking은 sidechain으로 한다.
 - 장면 clip은 무음 영상이다. 소리는 최종 mux에서 한 번 넣는다.
-- `MixPlan`은 `items`, 출력 길이 `duration_ms`, 음량 목표, true peak, sample rate를 갖는다. `duration_ms`는 모든 장면 길이의 합이고, 한 번 재생하는 소리의 꼬리가 장면 경계나 영상 끝을 넘어도 출력은 이 길이에서 자른다. 소리 때문에 영상 길이를 늘리지 않는다.
-- typewriter 줄의 타자음은 `SoundService.mix`가 구간마다 키 소리 하나를 구간 시작에 놓는다. 키 선택은 line id, 구간 `start_char`, `caption.typing_sound` revision의 canonical JSON SHA-256으로 정한다. 키가 둘 이상이면 같은 줄의 직전 키 index를 후보에서 빼고, 하나면 반복한다. 음량은 같은 입력에 다른 구분값을 붙인 SHA-256으로 `gain_db_x10`을 -50에서 0 사이 정수로 정한다. 저장하는 seed는 없다.
+- `MixPlan`은 `items`, 출력 길이 `duration_ms`, 음량 목표, true peak, sample rate를 갖는다. `duration_ms`는 `scene_starts_ms`가 반환하는 프레임 기준 전체 영상 길이다. 한 번 재생하는 소리의 꼬리가 장면 경계나 영상 끝을 넘어도 출력은 이 길이에서 자른다. 소리 때문에 영상 길이를 늘리지 않는다.
+- typewriter 줄의 타자음은 `SoundService.mix`가 공용 `scene_starts_ms`의 장면 시작값에 구간 시작을 더해 키 소리 하나를 놓는다. 키 선택은 line id, 구간 `start_char`, `caption.typing_sound` revision의 canonical JSON SHA-256으로 정한다. 키가 둘 이상이면 같은 줄의 직전 키 index를 후보에서 빼고, 하나면 반복한다. 음량은 같은 입력에 다른 구분값을 붙인 SHA-256으로 `gain_db_x10`을 -50에서 0 사이 정수로 정한다. 저장하는 seed는 없다.
 - `audio.sfx_enabled`가 false이면 타자음도 내지 않는다. 음성 재생 미리보기는 mp4와 같은 `mix_wav`를 쓴다.
 - 내장 BGM은 `core/app/plugins/bgm/<id>/`의 WAV 또는 Ogg Vorbis 파일을 그대로 보관하고, mix 전에 `MediaPort.decode_audio`로 44.1kHz PCM으로 푼다. 내장 BGM의 `file`은 `.wav`와 `.ogg`를 받는다.
 - 내장 BGM은 원본 master를 그대로 보관하므로 true peak가 0 dBTP를 넘을 수 있고, `true_peak_dbtp_x10`은 -1000에서 100까지 받는다.
@@ -521,6 +523,10 @@ import 방향은 모듈 구조 문서의 표를 따른다. 이 절은 각 모듈
 ### 14.1 ports (`core/app/ports.py`)
 
 ```python
+FPS = 30
+def frame_count(duration_ms: int) -> int: ...            # half-up, at least one frame
+def scene_starts_ms(timings: Iterable[Timing]) -> tuple[list[int], int]: ...  # starts, total ms
+
 class CancelToken(Protocol):
     def is_set(self) -> bool: ...
     def raise_if_set(self) -> None: ...                 # raises Cancelled
@@ -655,6 +661,8 @@ class SoundService:            # services/sound, ports: MediaPort, CatalogPort
 class AssembleService:         # services/assemble, ports: MediaPort
     def final(self, clips: list[Path], mix: Path, *, ctx: JobContext) -> Path: ...
     def srt(self, video: Video, timings: list[Timing]) -> str: ...
+    def attributions(self, entries: Sequence[BgmEntry | SfxEntry | TypingSoundEntry],
+                     language: Language) -> list[str]: ...
 
 class TemplatesService:        # services/templates, ports: LlmPort, SandboxPort, CatalogPort
     def generate_style(self, req: StyleRequest, video: Video, hints: dict | None, *, ctx: JobContext) -> PinnedRef: ...
@@ -673,6 +681,9 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 - `JobContext`는 jobs가 만든다. `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다.
 - 서비스는 결과 파일을 job 폴더에 쓴다. 공개와 index는 pipeline이 `ArtifactStore.publish`로 한다.
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.
+- `AssembleService.attributions`는 내장 BGM(`BuiltinBgm`), 효과음(`SfxEntry`), 타자음(`TypingSoundEntry`) 중 SPDX가 대소문자 구분 없이 `CC-BY`로 시작하는 항목만 처리한다. `license.attribution`이 null이 아니면 지정 언어의 문구를 그대로 쓰고, null이면 지정 언어의 `entry.label`로 `"{title}" - {author}, {spdx}, {source_url}`을 만든다. 입력 순서를 지키며 같은 문자열은 처음 한 번만 반환한다. 실제 사용 항목과 순서는 호출자가 정하고, 표시 위치와 호출 책임은 이 계약의 범위 밖이다.
+
+- BGM 업로드의 `mood`는 요청 검증과 digest 정규화에 반영한다. 업로드 제출 경로의 통합 전에는 기존과 같이 501이며, 서버 job 입력에 분위기를 저장하고 실행자가 `import_upload`에 전달하는 연결은 계약 요청 #39의 제출 경로 구현을 기다린다. 현재 `SoundService.import_upload`는 분위기를 `calm`으로 기록한다.
 
 ### 14.3 모듈별 소유 파일
 

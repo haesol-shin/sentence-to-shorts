@@ -11,14 +11,13 @@ from typing import Any
 
 import pytest
 
-from app.ports import AppError, MediaInfo
+from app.ports import AppError, MediaInfo, frame_count
 from app.schemas.artifact import Timing
 from app.schemas.text import clusters
 from app.services.render import RenderService
 from app.services.render.motion import (
     SCALE_STEP,
     caption_state,
-    frame_count,
     poses,
 )
 from app.services.render.service import OUTPUT, _typed

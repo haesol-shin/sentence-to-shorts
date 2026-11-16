@@ -11,12 +11,12 @@ from typing import Any
 import pytest
 
 from app.plugins.registry import Registry
-from app.ports import AppError, MediaInfo, MixItem, MixPlan
+from app.ports import AppError, MediaInfo, MixItem, MixPlan, scene_starts_ms
 from app.schemas.artifact import Timing
 from app.schemas.bgm_entry import UploadBgm
 from app.schemas.settings import Settings
 from app.schemas.video import Video
-from app.services.sound import SoundService, loop_samples, scene_starts_ms
+from app.services.sound import SoundService, loop_samples
 from app.services.sound.service import typing_gain_db_x10, typing_key_index
 from tests.conftest import load_json
 from tests.fixtures.media import corrupt_wav, tone_wav

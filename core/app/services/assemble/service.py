@@ -10,29 +10,24 @@ from __future__ import annotations
 from collections.abc import Sequence
 from pathlib import Path
 
-from app.ports import AppError, AppSettings, JobContext, MediaPort, ServiceDeps
+from app.ports import (
+    FPS,
+    AppError,
+    AppSettings,
+    JobContext,
+    MediaPort,
+    ServiceDeps,
+    scene_starts_ms,
+)
 from app.schemas.artifact import Timing
-from app.schemas.bgm_entry import BgmEntry, BuiltinBgm, SfxEntry
+from app.schemas.bgm_entry import BgmEntry, BuiltinBgm, SfxEntry, TypingSoundEntry
 from app.schemas.common import Language
 from app.schemas.video import Video
 
-FPS = 30
-"""Clip frame rate; scene starts follow the clip frame rule of the render service."""
-
-CLIP_SPEC = (1080, 1920, 30)
+CLIP_SPEC = (1080, 1920, FPS)
 """Width, height and frame rate every clip must share (CONTRACTS 12)."""
 
 FINAL_DIR = "final"
-
-
-def scene_starts_ms(timings: list[Timing]) -> list[int]:
-    """Start of each scene on the clip frame clock, in ms."""
-    starts: list[int] = []
-    frames = 0
-    for timing in timings:
-        starts.append((frames * 1000 + FPS // 2) // FPS)
-        frames += max(1, (timing.duration_ms * FPS + 500) // 1000)
-    return starts
 
 
 def _srt_time(ms: int) -> str:
@@ -79,7 +74,8 @@ class AssembleService:
         if [timing.scene_id for timing in timings] != list(video.scene_order):
             raise AppError("timing_mismatch", detail={"reason": "scene_order"})
         cues: list[str] = []
-        for start, timing in zip(scene_starts_ms(timings), timings, strict=True):
+        starts, _ = scene_starts_ms(timings)
+        for start, timing in zip(starts, timings, strict=True):
             scene = video.scenes[timing.scene_id]
             texts = {line.id: line.display_text for line in scene.lines}
             if [line.line_id for line in timing.lines] != list(texts):
@@ -93,7 +89,7 @@ class AssembleService:
         return "\n".join(cues)
 
     def attributions(
-        self, entries: Sequence[BgmEntry | SfxEntry], language: Language
+        self, entries: Sequence[BgmEntry | SfxEntry | TypingSoundEntry], language: Language
     ) -> list[str]:
         """Attribution lines for the CC BY tracks and effects a video uses, in order.
 
@@ -102,7 +98,7 @@ class AssembleService:
         """
         lines: list[str] = []
         for entry in entries:
-            if not isinstance(entry, (BuiltinBgm, SfxEntry)):
+            if not isinstance(entry, (BuiltinBgm, SfxEntry, TypingSoundEntry)):
                 continue
             license_ = entry.license
             if not license_.spdx.upper().startswith("CC-BY"):
@@ -121,4 +117,4 @@ def create(settings: AppSettings, deps: ServiceDeps) -> AssembleService:
     return AssembleService(deps.media)
 
 
-__all__ = ["AssembleService", "create", "scene_starts_ms"]
+__all__ = ["AssembleService", "create"]
