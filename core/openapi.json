@@ -8807,7 +8807,7 @@
     },
     "/api/v1/videos/{vid}/references": {
       "post": {
-        "description": "Multipart digest: SHA-256 of the file part, then canonical JSON of the other\nfields sorted by name (CONTRACTS 3). Streaming and hashing land with the jobs lane.",
+        "description": "Stage the bounded upload before queuing; only the private job input holds its path.",
         "operationId": "uploadReference",
         "parameters": [
           {

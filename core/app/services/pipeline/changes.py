@@ -32,10 +32,11 @@ from app.schemas.change import (
 )
 from app.schemas.common import Origin
 from app.schemas.job import Job
-from app.schemas.video import Video
+from app.schemas.video import CreatedBy, Video
 from app.services.pipeline.dependencies import plan_change
 from app.services.pipeline.run_state import check_alive
 from app.services.pipeline.types import Services
+from app.services.project import revision
 
 SCENE_PREFIX = "/scenes/"
 
@@ -69,7 +70,10 @@ def run_reference_job(
     check_alive(ctx)
     outcome = services.reference.analyze(source, video, ctx=ctx)
     check_alive(ctx)
+    report = outcome.reference
+    summary = None if report is None else getattr(report, "summary", None)
     if outcome.change_id is None:
+        _store_reference(video, summary, services)
         return {
             "change_id": None,
             "artifact_ids": [],
@@ -77,29 +81,70 @@ def run_reference_job(
             "stages": [],
             "status": None,
             "applied_revision": None,
-            "reference": _plain(outcome.reference),
+            "reference": _plain(report),
         }
     stored = services.project.projects.get_change(outcome.change_id)
     if stored.video_id != video.id:
         raise AppError("not_found", detail={"change_id": stored.id})
-    if stored.status is not ChangeStatus.proposed or stored.base_revision != video.revision:
-        result = settle_plan(stored, video, services)
-    else:
-        # The analysis stores only its ops; effects and confirmation come from keys.
-        planned = plan_change(video, list(stored.ops), stored.source.value, stored.target, services)
-        plan = planned.model_copy(
-            update={
-                "id": stored.id,
-                "base_revision": stored.base_revision,
-                "created_at": stored.created_at,
-                "notes": stored.notes,
-                "unsupported": stored.unsupported,
-            }
-        )
-        services.project.projects.put_change(plan)
-        result = settle_plan(plan, video, services)
-    result["reference"] = _plain(outcome.reference)
+    result = _settle_reference_plan(video, stored, summary, services)
+    result["reference"] = _plain(report)
     return result
+
+
+def _settle_reference_plan(
+    video: Video, stored: ChangePlan, summary: Any, services: Services
+) -> dict[str, object]:
+    """Settle the analysis plan and keep its summary on the analyzed base.
+
+    Saving the summary writes the revision after that base, so a plan that still
+    applies moves onto it. A head that changed on its own is never merged with:
+    the summary is not written and the plan is left to become stale.
+    """
+    if stored.status is not ChangeStatus.proposed or stored.base_revision != video.revision:
+        saved = _store_reference(video, summary, services)
+        return settle_plan(stored, video if saved is None else saved, services)
+    # The analysis stores only its ops; effects and confirmation come from keys.
+    planned = plan_change(video, list(stored.ops), stored.source.value, stored.target, services)
+    plan = planned.model_copy(
+        update={
+            "id": stored.id,
+            "base_revision": stored.base_revision,
+            "created_at": stored.created_at,
+            "notes": stored.notes,
+            "unsupported": stored.unsupported,
+        }
+    )
+    saved = _store_reference(video, summary, services)
+    if saved is not None:
+        plan = plan.model_copy(update={"base_revision": saved.revision})
+    services.project.projects.put_change(plan)
+    return settle_plan(plan, video if saved is None else saved, services)
+
+
+def _store_reference(video: Video, summary: Any, services: Services) -> Video | None:
+    """Append the summary only while the analyzed revision is still the head.
+
+    ``append_revision`` checks that the new revision is head + 1, so a writer
+    that advances the head between the read and the write wins: the conflict is
+    swallowed and this stale job output is not stored.
+    """
+    if summary is None:
+        return None
+    head = services.project.view(video.id)
+    if head.revision != video.revision:
+        return None
+    try:
+        return services.project.projects.append_revision(
+            revision.next_revision(
+                video.model_copy(update={"reference": summary}),
+                head,
+                CreatedBy.system,
+            )
+        )
+    except AppError as error:
+        if error.code == "revision_conflict":
+            return None
+        raise
 
 
 def run_bgm_code(body: dict[str, Any], ctx: JobContext, services: Services) -> dict[str, object]:

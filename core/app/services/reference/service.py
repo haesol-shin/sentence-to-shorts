@@ -4,9 +4,11 @@ A reference arrives as an upload or an allowed link, is checked, and is read as
 sampled frames plus a transcript. The model sees frames and transcript only; the
 cut count, silence ratio and music estimate are measured here. The result is a
 change plan of ``set`` ops with origin ``reference``, a ``ReferenceSummary`` and
-palette hints. The source, the frames and the audio live in ``CACHE_DIR/r/<job>/``
-and that folder is removed when the analysis ends, however it ends. No URL and no
-file name is stored: a link is kept as its platform only.
+palette hints. The attempt's source, frames and audio live in ``CACHE_DIR/r/<job>/``
+and that folder is removed when the analysis ends, however it ends. The staged
+upload is only copied, so the job runner can keep it for a retry and delete it
+after the job succeeds, is cancelled or cannot be retried. No URL and no file
+name is stored: a link is kept as its platform only.
 """
 
 from __future__ import annotations
@@ -142,9 +144,10 @@ class ReferenceService:
     ) -> Path:
         """Put the reference file into this job's work folder and return its path.
 
-        An upload is taken over: the staged file moves into the work folder, so it
-        is gone from where it was staged however the analysis ends. A link is
-        downloaded there. The folder is removed here when ingesting fails.
+        An upload is copied: the staged file stays where it is, so the runner can
+        keep it for another attempt and remove it when the job is over. A link is
+        downloaded into the work folder. The folder is removed here when ingesting
+        fails.
         """
         if (upload is None) == (url is None):
             raise ValueError("ingest takes exactly one of an upload or a link")
@@ -185,6 +188,7 @@ class ReferenceService:
         return source
 
     def _take(self, upload: Path, work: Path) -> Path:
+        """Copy the staged upload into the attempt, leaving the staged file in place."""
         if upload.is_symlink() or not upload.is_file():
             raise self._invalid(link=False, reason="missing")
         size = upload.stat().st_size
@@ -194,7 +198,11 @@ class ReferenceService:
             raise self._invalid(link=False, reason="too_large", max_bytes=self.max_upload_bytes)
         work.mkdir(parents=True, exist_ok=True)
         target = work / SOURCE_NAME.format(secrets.token_hex(8))
-        shutil.move(str(upload), str(target))
+        try:
+            shutil.copyfile(upload, target)
+        except BaseException:
+            target.unlink(missing_ok=True)
+            raise
         return target
 
     def submit_upload(
