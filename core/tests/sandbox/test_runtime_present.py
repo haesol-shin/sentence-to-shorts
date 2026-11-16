@@ -17,8 +17,9 @@ SHA256 = re.compile(r"^[0-9a-f]{64}$")
 def test_runtime_lock_entries_have_valid_hashes_and_urls() -> None:
     document = json.loads(LOCK.read_text(encoding="utf-8"))
     assert document["schema_version"] == 1
-    items = {item["id"]: item for item in document["items"]}
-    assert set(items) == {"deno", "pyodide-core", "pyodide-pillow", "ffmpeg"}
+    sandbox_ids = {"deno", "pyodide-core", "pyodide-pillow", "ffmpeg"}
+    items = {item["id"]: item for item in document["items"] if item["id"] in sandbox_ids}
+    assert set(items) == sandbox_ids
 
     for item in items.values():
         assert re.fullmatch(r"\d+\.\d+\.\d+", item["version"])

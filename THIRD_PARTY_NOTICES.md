@@ -11,6 +11,11 @@ These files are prepared from the runtime manifest and checked against its SHA-2
 | deno | 2.9.8 | MIT | https://github.com/denoland/deno |
 | pyodide-core | 314.0.7 | MPL-2.0 | https://github.com/pyodide/pyodide |
 | pyodide-pillow | 12.2.0 | MIT-CMU | https://github.com/python-pillow/Pillow |
+| package-qwen-tts | 0.1.1 | Apache-2.0 | https://pypi.org/project/qwen-tts/0.1.1/ |
+| model-tts-qwen3-0.6b | 85e237c12c027371202489a0ec509ded67b5e4b5 | Apache-2.0 | https://huggingface.co/Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice/tree/85e237c12c027371202489a0ec509ded67b5e4b5 |
+| model-align-ko | 629c9a3501c10ba128bf3fa1eebb12af3be03f61 | Apache-2.0 | https://huggingface.co/kresnik/wav2vec2-large-xlsr-korean/tree/629c9a3501c10ba128bf3fa1eebb12af3be03f61 |
+| model-align-en | WAV2VEC2_ASR_BASE_960H | MIT | https://github.com/pytorch/audio/blob/95c61b4168fc5133be8dd8c1337d929d066ae6cf/LICENSE |
+| model-asr-small | 536b0662742c02347bc0e980a01041f333bce120 | MIT | https://huggingface.co/Systran/faster-whisper-small/tree/536b0662742c02347bc0e980a01041f333bce120 |
 | ffmpeg | 9.0.2 | GPL-3.0-or-later | https://github.com/FFmpeg/FFmpeg/tree/2a571b606854520cf89804d8030c8b328e621689 |
 
 ## FFmpeg corresponding source

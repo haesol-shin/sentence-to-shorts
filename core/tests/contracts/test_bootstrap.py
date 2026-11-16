@@ -17,6 +17,8 @@ def test_unknown_adapter_fails_at_startup(app_settings: Settings) -> None:
 def test_unimplemented_adapter_fails_at_startup(app_settings: Settings) -> None:
     app_settings.profile = "dev"
     app_settings.providers.adapters["llm"] = "anthropic_api"
+    app_settings.providers.adapters["tts"] = "fixed_wav"
+    app_settings.providers.adapters["aligner"] = "default"
     with pytest.raises(RuntimeError, match="not implemented"):
         build_runtime(app_settings)
 
@@ -24,6 +26,8 @@ def test_unimplemented_adapter_fails_at_startup(app_settings: Settings) -> None:
 def test_unimplemented_default_adapter_fails_in_dev(app_settings: Settings) -> None:
     app_settings.profile = "dev"
     app_settings.providers.adapters["llm"] = "fixture"
+    app_settings.providers.adapters["tts"] = "fixed_wav"
+    app_settings.providers.adapters["aligner"] = "default"
     with pytest.raises(RuntimeError, match="adapter 'default' is not implemented"):
         build_runtime(app_settings)
 
@@ -32,6 +36,7 @@ def test_skeleton_adapter_is_fixture_only(app_settings: Settings) -> None:
     app_settings.profile = "dev"
     app_settings.providers.adapters["llm"] = "fixture"
     app_settings.providers.adapters["aligner"] = "skeleton"
+    app_settings.providers.adapters["tts"] = "fixed_wav"
     with pytest.raises(RuntimeError, match="only available in the fixture profile"):
         build_runtime(app_settings)
 

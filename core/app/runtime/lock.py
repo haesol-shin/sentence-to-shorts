@@ -32,14 +32,28 @@ def host_platform() -> Target:
     return name, _ARCH.get(machine, machine)
 
 
+EXTERNAL_PREFIXES = ("model-", "package-")
+
+
+def runtime_owned(item: Item) -> bool:
+    """True for items this preparer installs below the runtime root.
+
+    `model-` items live below `APP_MODEL_DIR` and `package-` items are Python wheels
+    installed with pip. Both are prepared by `scripts/dev_setup.py`, which skips the
+    other items for the same reason, so the preparer never plans or reports them.
+    """
+    return not str(item["id"]).startswith(EXTERNAL_PREFIXES)
+
+
 def lock_items(settings: AppSettings) -> list[dict[str, Any]]:
-    """The runtime lock items of the settings as plain dictionaries."""
+    """The runtime lock items of the settings that the preparer installs, as dictionaries."""
     lock = getattr(settings, "runtime", None)
     items = getattr(lock, "items", None) or []
-    return [
+    dumped = [
         item.model_dump(mode="python") if hasattr(item, "model_dump") else dict(item)
         for item in items
     ]
+    return [item for item in dumped if runtime_owned(item)]
 
 
 _ARCHIVE_SUFFIXES = (".zip", ".whl", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz")

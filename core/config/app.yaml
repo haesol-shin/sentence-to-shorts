@@ -11,8 +11,8 @@ app:
 providers:
   adapters:
     llm: openai_compat
-    tts: fixed_wav
-    aligner: default
+    tts: qwen3-tts-0.6b
+    aligner: none
     transcriber: default
     media: default
     sandbox: default
