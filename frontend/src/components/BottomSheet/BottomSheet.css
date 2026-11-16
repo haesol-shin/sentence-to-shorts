@@ -1,0 +1,99 @@
+@import '../base.css';
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  background: var(--overlay-scrim);
+  transition: opacity var(--motion-panel-duration) var(--motion-ease);
+}
+
+.sheet-backdrop[data-starting-style],
+.sheet-backdrop[data-ending-style] {
+  opacity: 0;
+}
+
+.sheet-positioner {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-dialog) + 1);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.sheet-popup {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, var(--size-dialog));
+  max-height: 80dvh;
+  padding: var(--space-24);
+  overflow: visible;
+  border-radius: var(--radius-surface) var(--radius-surface) var(--radius-none) var(--radius-none);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-family-sans);
+  pointer-events: auto;
+  transition:
+    opacity var(--motion-panel-duration) var(--motion-ease),
+    transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.sheet-popup[data-starting-style],
+.sheet-popup[data-ending-style] {
+  opacity: 0;
+  transform: translateY(100%);
+}
+
+.sheet-popup__scroll {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sheet-popup__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.sheet-popup__title {
+  margin: 0;
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  font-weight: var(--font-weight-bold);
+  word-break: keep-all;
+}
+
+.sheet-popup__description,
+.sheet-popup__content {
+  margin-top: var(--space-8);
+  color: var(--sub);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.sheet-popup__description {
+  margin-bottom: 0;
+}
+
+.sheet-popup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  margin-top: var(--space-24);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet-backdrop,
+  .sheet-popup {
+    transition: none;
+  }
+}

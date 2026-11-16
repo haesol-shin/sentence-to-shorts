@@ -1,0 +1,55 @@
+@import '../base.css';
+
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  font-family: var(--font-family-sans);
+}
+
+.progress__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-12);
+  align-items: baseline;
+}
+
+.progress__label,
+.progress__value {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.progress__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress__track {
+  width: 100%;
+  height: calc(var(--space-8) - var(--focus-width));
+  overflow: hidden;
+  border-radius: var(--radius-media);
+  background: var(--muted);
+}
+
+.progress__indicator {
+  height: 100%;
+  background: var(--foreground);
+  transition: width var(--motion-state-duration) var(--motion-ease);
+}
+
+.progress[data-indeterminate] .progress__indicator {
+  width: 40%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress__indicator {
+    transition: none;
+  }
+}

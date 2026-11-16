@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/utils';
 import './MenuButton.css';
 
 import { statesOf, type ForceState } from '../force-state';
+import { usePopupContainer } from '../PopupContainer';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { useOverflowFade } from '../use-overflow-fade';
 
@@ -61,6 +62,7 @@ export function MenuButton({
   className,
 }: MenuButtonProps) {
   const noteId = useId();
+  const container = usePopupContainer();
   const [list, setList] = useState<HTMLDivElement | null>(null);
   const fade = useOverflowFade(list, '.menu-item');
   const forced = statesOf(forceItemState);
@@ -104,7 +106,7 @@ export function MenuButton({
   return (
     <MenuPrimitive.Root open={open} defaultOpen={defaultOpen} onOpenChange={(next) => onOpenChange?.(next)}>
       <MenuPrimitive.Trigger render={trigger} />
-      <MenuPrimitive.Portal>
+      <MenuPrimitive.Portal container={container ?? undefined}>
         <MenuPrimitive.Positioner
           side="bottom"
           align="start"

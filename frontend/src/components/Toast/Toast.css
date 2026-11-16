@@ -1,0 +1,38 @@
+@import '../base.css';
+
+.toast-surface {
+  box-sizing: border-box;
+  position: fixed;
+  bottom: calc(var(--space-48) + var(--space-8));
+  left: 50%;
+  z-index: var(--z-toast);
+  max-width: calc(100vw - var(--space-48));
+  height: var(--size-control);
+  padding-inline: var(--space-20);
+  overflow: hidden;
+  border-radius: var(--radius-toast);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--size-control);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transform: translate(-50%, var(--space-8));
+  transition:
+    opacity var(--motion-panel-duration) var(--motion-ease),
+    transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.toast-surface[data-state='open'] {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-surface {
+    transition: none;
+  }
+}

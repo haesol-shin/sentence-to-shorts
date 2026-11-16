@@ -199,6 +199,10 @@ body {
   background: var(--card);
 }
 
+.case--bare {
+  background: transparent;
+}
+
 .case--background {
   background: var(--background);
 }
@@ -210,6 +214,11 @@ body {
   font-weight: var(--font-weight-bold);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+
+.case[data-portal] .case__label {
+  position: relative;
+  z-index: calc(var(--z-file-drop) + 1);
 }
 
 .case__note {
@@ -233,6 +242,15 @@ body {
   width: calc(var(--space-48) * 4.5);
 }
 
+.demo-drop-container {
+  position: relative;
+  width: 300px;
+  height: 200px;
+  overflow: hidden;
+  border-radius: var(--radius-content);
+  background: var(--card);
+}
+
 /* ---- interactive probe ---- */
 
 .probe {
@@ -250,6 +268,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
+}
+
+.probe__stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
 }
 
 .probe__section h2 {

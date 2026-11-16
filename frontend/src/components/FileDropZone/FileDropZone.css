@@ -1,0 +1,93 @@
+@import '../base.css';
+
+.file-drop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-file-drop);
+  display: grid;
+  place-items: center;
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  opacity: 0;
+  transition: opacity var(--motion-panel-duration) var(--motion-ease);
+}
+
+.file-drop[data-state='open'] {
+  opacity: 1;
+}
+
+.file-drop--container {
+  position: absolute;
+  inset: 0;
+}
+
+.file-drop--container .file-drop__frame {
+  inset: var(--space-12);
+  padding: var(--space-16);
+  border-radius: var(--radius-content);
+}
+
+.file-drop__mask {
+  position: absolute;
+  inset: 0;
+  background: var(--overlay-scrim);
+}
+
+.file-drop__frame {
+  position: absolute;
+  inset: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  padding: var(--space-24);
+  border: var(--part-hairline) dashed var(--sub);
+  border-radius: var(--radius-surface);
+  text-align: center;
+  transform: translateY(var(--space-8));
+  transition: transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.file-drop[data-state='open'] .file-drop__frame {
+  transform: translateY(0);
+}
+
+.file-drop__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sub);
+}
+
+.file-drop__icon svg {
+  width: var(--icon-placeholder);
+  height: var(--icon-placeholder);
+  stroke-width: var(--icon-stroke);
+}
+
+.file-drop__title,
+.file-drop__accept {
+  margin: 0;
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.file-drop__title {
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  font-weight: var(--font-weight-bold);
+}
+
+.file-drop__accept {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-drop,
+  .file-drop__frame {
+    transition: none;
+  }
+}

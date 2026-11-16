@@ -408,13 +408,13 @@
 | `notice.title` | `error` | `default` | `--muted` | `--foreground` | `--destructive` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
 | `notice.body` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 |  |
 | `text.emphasis` | - | `default` | `--card` | `--emphasis` | - | `--card` | 없음 | 강조 단어와 안 본 변경 표시에 쓴다. 흰 바탕에서만 쓴다 |
-| `toast.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 알림 면은 shadow.float를 쓴다 |
+| `toast.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 알림 면은 높이 44, 반경 22, shadow.float를 쓴다 |
 | `composer.surface` | - | `default` | `--card` | `--foreground` | - | `--input` | 없음 |  |
 | `composer.surface` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--input` | 글자 |  |
 | `composer.surface` | - | `focus-visible` | `--card` | `--foreground` | - | `--ring` | 테두리 | 입력칸 안에 포커스가 있을 때 입력창 테두리를 ring으로 바꾼다 |
 | `composer.textarea` | - | `default` | `--card` | `--foreground` | - | `--card` | 없음 |  |
 | `composer.textarea` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--card` | 글자 |  |
-| `composer.placeholder` | - | `default` | `--card` | `--muted-foreground` | - | `--card` | 없음 |  |
+| `composer.placeholder` | - | `default` | `--card` | `--sub` | - | `--card` | 없음 |  |
 | `chip.surface` | - | `default` | `--card` | `--foreground` | - | `--border` | 없음 |  |
 | `chip.surface` | - | `loading` | `--card` | `--muted-foreground` | - | `--border` | 글자 | 받는 중에는 종류와 길이 자리에 진행 표시를 둔다 |
 | `chip.surface` | - | `error` | `--card` | `--destructive` | - | `--destructive` | 글자, 테두리 | 실패한 칩은 테두리와 글자를 destructive로 바꾼다 |
@@ -472,7 +472,7 @@
 | `sidebar.item` | - | `focus-visible` | `--background` | `--muted-foreground` | - | `--ring` | 테두리 |  |
 | `dropzone.surface` | - | `default` | `--card` | `--foreground` | - | `--border` | 없음 | 화면 끝에서 24px 안쪽에 점선 테두리를 그린다. 끌어 오는 동안에만 보인다 |
 | `dropzone.mask` | - | `default` | `--overlay-scrim` | `--foreground` | - | `--overlay-scrim` | 없음 | 파일을 끌어 오는 동안 사이드바를 뺀 화면 전체를 흐린다 |
-| `dialog.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 확인 창은 shadow.float를 쓰고 안의 단추가 포커스를 받는다 |
+| `dialog.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 확인 창은 너비 480, 안쪽 여백 24, 반경 24, shadow.float를 쓰고 안의 단추가 포커스를 받는다 |
 | `dialog.backdrop` | - | `default` | `--overlay-dialog-scrim` | - | - | `--overlay-dialog-scrim` | 없음 | 확인 창 뒤는 진한 회색 24% 막을 쓰고 막 위에는 글자를 놓지 않는다 |
 | `panel.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 판은 shadow.float를 쓰고 값 칸은 판 위에서 열린다 |
 | `panel.scrim` | - | `default` | `--overlay-scrim` | `--foreground` | - | `--overlay-scrim` | 없음 | 판 뒤의 장면 칸을 흐린다 |

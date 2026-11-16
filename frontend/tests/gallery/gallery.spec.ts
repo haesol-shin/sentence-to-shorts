@@ -19,12 +19,16 @@ test.beforeEach(({}, testInfo) => {
   );
 });
 
-async function galleryReady(page: Page, partId?: string): Promise<void> {
-  const query = partId === undefined ? '?batch=1' : `?batch=1&part=${encodeURIComponent(partId)}`;
+async function galleryReady(page: Page, partId?: string, batch = 1): Promise<void> {
+  const query =
+    partId === undefined
+      ? `?batch=${batch}`
+      : `?batch=${batch}&part=${encodeURIComponent(partId)}`;
+  const expected = galleryParts.filter((part) => part.batch === batch).length;
   await page.goto(`${GALLERY}${query}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await page.waitForFunction(
-    (expected) => document.querySelectorAll('[data-part]').length === expected,
-    partId === undefined ? 16 : 1,
+    (count) => document.querySelectorAll('[data-part]').length === count,
+    partId === undefined ? expected : 1,
     { timeout: 120_000 },
   );
   await page.waitForFunction(
@@ -47,27 +51,32 @@ async function frameOf(page: Page, selector: string): Promise<Frame> {
 }
 
 test('test_10a_gallery_lists_every_part_and_numbered_case_in_order', async ({ page }) => {
-  await galleryReady(page);
+  for (const batch of [1, 2] as const) {
+    await galleryReady(page, undefined, batch);
+    const batchParts = galleryParts.filter((part) => part.batch === batch);
 
-  const ids = await page
-    .locator('[data-part]')
-    .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-part')));
-  expect(ids).toEqual(galleryParts.map((part) => part.id));
+    const ids = await page
+      .locator('[data-part]')
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-part')));
+    expect(ids).toEqual(batchParts.map((part) => part.id));
 
-  for (const part of galleryParts) {
-    if (inlineCases(part).length > 0) {
-      const frame = await frameOf(page, `iframe[data-frame-group="${part.id}"][width="390"]`);
-      const labels = await frame
-        .locator('[data-case]')
-        .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-case')));
-      expect(labels).toEqual(inlineCases(part).map((entry) => entry.label));
-    }
-    for (const entry of portalCases(part)) {
-      const frame = await frameOf(page, `iframe[data-frame-case="${entry.label}"][width="390"]`);
-      await expect(frame.locator(`[data-case="${entry.label}"]`)).toHaveCount(1);
-      await expect(frame.locator('[role=menu], [role=listbox], [role=tooltip]').first()).toBeVisible({
-        timeout: 10_000,
-      });
+    for (const part of batchParts) {
+      if (inlineCases(part).length > 0) {
+        const frame = await frameOf(page, `iframe[data-frame-group="${part.id}"][width="390"]`);
+        const labels = await frame
+          .locator('[data-case]')
+          .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-case')));
+        expect(labels).toEqual(inlineCases(part).map((entry) => entry.label));
+      }
+      for (const entry of portalCases(part)) {
+        const frame = await frameOf(page, `iframe[data-frame-case="${entry.label}"][width="390"]`);
+        await expect(frame.locator(`[data-case="${entry.label}"]`)).toHaveCount(1);
+        await expect(
+          frame
+            .locator('[role=menu], [role=listbox], [role=tooltip], [role=dialog], [role=alertdialog], [role=status]')
+            .first(),
+        ).toBeVisible({ timeout: 10_000 });
+      }
     }
   }
 });
@@ -124,6 +133,189 @@ test('test_10a_visible_box_stays_equal_across_states', async ({ page }) => {
     ),
   );
   equal(await sizesOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option'));
+});
+
+test('test_10a_batch_two_boxes_stay_equal_across_states', async ({ page }) => {
+  const sizesOf = async (
+    partId: string,
+    labels: readonly string[],
+    selector: string,
+  ): Promise<[number, number][]> => {
+    await galleryReady(page, partId, 2);
+    const frame = await frameOf(page, `iframe[data-frame-group="${partId}"][width="390"]`);
+    const sizes: [number, number][] = [];
+    for (const label of labels) {
+      const size = await frame
+        .locator(`[data-case="${label}"] ${selector}`)
+        .first()
+        .evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return [box.width, box.height];
+        });
+      sizes.push([Math.round(size[0] * 10) / 10, Math.round(size[1] * 10) / 10]);
+    }
+    return sizes;
+  };
+  const equal = (sizes: [number, number][]) =>
+    expect(new Set(sizes.map(([width, height]) => `${width}x${height}`)).size).toBe(1);
+
+  equal(
+    await sizesOf(
+      'send-button',
+      ['17-1-default', '17-2-hover', '17-3-pressed', '17-4-disabled', '17-5-loading', '17-6-focus-visible'],
+      'button',
+    ),
+  );
+  const send = await sizesOf('send-button', ['17-1-default'], 'button');
+  expect(send[0]).toEqual([32, 32]);
+
+  equal(
+    await sizesOf('file-chip', ['19-1-default', '19-2-loading', '19-3-error', '19-4-focus-visible', '19-5-error-retry'], '.file-chip'),
+  );
+  const fileChip = await sizesOf('file-chip', ['19-1-default'], '.file-chip');
+  expect(fileChip[0][1]).toBe(56);
+  expect(fileChip[0][0]).toBeLessThanOrEqual(320);
+
+  await galleryReady(page, 'dialog', 2);
+  for (const width of [390, 1920] as const) {
+    const widths: number[] = [];
+    for (const label of ['21-1-default', '21-2-long']) {
+      const frame = await frameOf(page, `iframe[data-frame-case="${label}"][width="${width}"]`);
+      const box = await frame.locator('.dialog').evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return rect.width;
+      });
+      widths.push(Math.round(box));
+    }
+    expect(new Set(widths).size).toBe(1);
+    expect(widths[0]).toBe(width === 390 ? 342 : 480);
+  }
+});
+
+test('test_10a_toast_drop_zone_progress_and_composer_name_their_role', async ({ page }) => {
+  await galleryReady(page, 'toast', 2);
+  const toast = await frameOf(page, 'iframe[data-frame-case="25-1-default"][width="390"]');
+  await expect(toast.getByRole('status')).toHaveText('대본을 저장했어요');
+  const toastBox = await toast.locator('.toast-surface').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return { height: rect.height, radius: style.borderRadius };
+  });
+  expect(toastBox.height).toBe(44);
+  expect(toastBox.radius).toBe('22px');
+
+  await galleryReady(page, 'file-drop', 2);
+  const drop = await frameOf(page, 'iframe[data-frame-case="20-1-default"][width="390"]');
+  await expect(drop.getByRole('status')).toContainText('여기에 놓으면 올라가요');
+  const border = await drop.locator('.file-drop__frame').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { style: style.borderTopStyle, width: style.borderTopWidth, inset: style.inset };
+  });
+  expect(border.style).toBe('dashed');
+  expect(border.width).toBe('1px');
+
+  await galleryReady(page, 'progress', 2);
+  const progress = await frameOf(page, 'iframe[data-frame-group="progress"][width="390"]');
+  await expect(progress.locator('[data-case="27-2-label"] [role=progressbar]')).toHaveAttribute(
+    'aria-valuenow',
+    '40',
+  );
+  await expect(progress.locator('[data-case="27-2-label"]')).toContainText('40%');
+
+  await galleryReady(page, 'composer', 2);
+  const composer = await frameOf(page, 'iframe[data-frame-group="composer"][width="390"]');
+  await expect(
+    composer.locator('[data-case="18-1-default"]').getByRole('textbox', { name: '메시지 입력' }),
+  ).toBeVisible();
+  await expect(composer.locator('[data-case="18-1-default"] button')).toHaveCount(2);
+});
+
+test('test_10a_dialog_and_sheet_report_open_state_and_return_focus', async ({ page }) => {
+  await page.goto(PROBE, { waitUntil: 'domcontentloaded' });
+
+  const dialogTrigger = page.locator('[data-probe="dialog"] button').first();
+  await expect(dialogTrigger).toHaveAttribute('aria-expanded', 'false');
+  await dialogTrigger.click();
+  await expect(page.getByRole('dialog').first()).toBeVisible();
+  await expect(dialogTrigger).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(dialogTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(dialogTrigger).toBeFocused();
+
+  const sheetTrigger = page.locator('[data-probe="sheet"] button').first();
+  await expect(sheetTrigger).toHaveAttribute('aria-expanded', 'false');
+  await sheetTrigger.click();
+  await expect(page.getByRole('dialog', { name: '목소리 고르기' })).toBeVisible();
+  await expect(sheetTrigger).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(sheetTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(sheetTrigger).toBeFocused();
+});
+
+test('test_10a_nested_window_controls_stay_above_the_dialog', async ({ page }) => {
+  await page.goto(PROBE, { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-probe="dialog-nested"] button').first().click();
+  const dialog = page.getByRole('dialog', { name: '중첩 조작' });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByRole('button', { name: '파일 넣기' }).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  const menuOnTop = await page.getByRole('menu').evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return hit !== null && element.contains(hit);
+  });
+  expect(menuOnTop).toBe(true);
+  await page.getByRole('menuitem', { name: '참고 영상 올리기' }).click();
+  await expect(page.locator('[data-probe="log"]')).toHaveText('nested-menu:upload');
+
+  await dialog.getByRole('combobox', { name: '목소리' }).click();
+  await expect(page.getByRole('listbox')).toBeVisible();
+  const option = page.getByRole('option', { name: '차분한 목소리' });
+  const optionOnTop = await option.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return hit !== null && element.contains(hit);
+  });
+  expect(optionOnTop).toBe(true);
+  await option.click();
+  await expect(page.locator('[data-probe="log"]')).toHaveText('nested-select:calm');
+
+  await dialog.getByRole('button', { name: '이유 보기' }).hover();
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toBeVisible();
+  const tooltipOnTop = await tooltip.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
+    return hit !== null && element.contains(hit);
+  });
+  expect(tooltipOnTop).toBe(true);
+
+  await dialog.getByRole('button', { name: '닫기' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+test('test_10a_dialog_and_sheet_end_motion_immediately_when_reduced', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(PROBE, { waitUntil: 'domcontentloaded' });
+
+  const durations = async (triggerSelector: string, dialogName?: string) => {
+    await page.locator(triggerSelector).first().click();
+    const dialog = dialogName === undefined ? page.getByRole('dialog').first() : page.getByRole('dialog', { name: dialogName });
+    await expect(dialog).toBeVisible();
+    const value = await dialog.evaluate((element) => getComputedStyle(element).transitionDuration);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    return value;
+  };
+
+  const dialogDuration = await durations('[data-probe="dialog"] button');
+  expect(dialogDuration.split(',').every((value) => value.trim() === '0s')).toBe(true);
+
+  const sheetDuration = await durations('[data-probe="sheet"] button', '목소리 고르기');
+  expect(sheetDuration.split(',').every((value) => value.trim() === '0s')).toBe(true);
 });
 
 test('test_10a_tabs_radio_and_switch_change_with_the_keyboard', async ({ page }) => {
