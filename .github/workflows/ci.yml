@@ -160,9 +160,9 @@ jobs:
         run: python -m poetry install
       # A pull request runs the tests that cover its changed paths; a main push
       # runs everything. The marker filter keeps out the sandbox job, model
-      # downloads and real provider calls. The per-test faulthandler timeout
-      # dumps every thread's stack, naming the test that stops making progress,
-      # so a hang leaves one named test in the log instead of only a cancel.
+      # downloads and real provider calls. `core/pyproject.toml` limits each test
+      # to 180 seconds, so a stuck test fails with its name instead of holding
+      # the job until the timeout cancels it.
       - name: Unit, contract, architecture and runtime tests
         shell: bash
         working-directory: core
@@ -175,7 +175,7 @@ jobs:
             targets="tests"
           fi
           echo "pytest targets: $targets"
-          python -m poetry run pytest $targets -q -rfE -o faulthandler_timeout=180 -m "not sandbox and not models and not realllm"
+          python -m poetry run pytest $targets -q -rfE -m "not sandbox and not models and not realllm"
 
   test-frontend-e2e:
     name: "test | frontend e2e"

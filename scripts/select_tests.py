@@ -8,8 +8,9 @@ the test folder of the same name, and the test folders are written relative to
 `core/`, where pytest runs. A test folder therefore maps to itself, so a test
 change runs that folder instead of the full suite. A path the map does not list
 selects the full suite, so a new shared module runs every test until someone
-maps it. Repository tooling under `scripts/` has its own test step, so it lists
-under `no_core_tests`.
+maps it. Repository tooling under `scripts/` lists under `no_core_tests` file by
+file, except a script that a core test loads: that script maps to the test
+folders that load it.
 
 Usage:
     git diff --name-only origin/main...HEAD | python scripts/select_tests.py

@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import ast
 import io
+import re
 import unittest
 from pathlib import Path
 
 import _helpers  # noqa: F401  (puts scripts/ on sys.path)
 import select_tests
+
+SCRIPT_REFERENCE = re.compile(r"scripts\"?\s*/\s*\"?([A-Za-z0-9_.-]+\.py)")
 
 
 def mapping(**changes) -> select_tests.TestMap:
@@ -114,6 +117,41 @@ class CheckedInMapTest(unittest.TestCase):
         self.assertEqual(
             select_tests.select_tests(["scripts/select_tests.py"], checked),
             sorted(checked.always),
+        )
+
+
+def loaded_scripts(root: Path) -> set[str]:
+    """Return the repository scripts that any core test file names as a path."""
+    return {
+        f"scripts/{match}"
+        for path in (root / "core/tests").rglob("*.py")
+        for match in SCRIPT_REFERENCE.findall(path.read_text(encoding="utf-8"))
+    }
+
+
+class ScriptCoverageTest(unittest.TestCase):
+    """A script a core test loads must select that test's folder."""
+
+    def test_every_script_a_core_test_loads_is_mapped(self):
+        root = Path(__file__).resolve().parents[2]
+        checked = select_tests.TestMap.load()
+        loaded = loaded_scripts(root)
+        self.assertIn("scripts/dev_setup.py", loaded)
+        for entry in sorted(loaded):
+            with self.subTest(entry=entry):
+                self.assertIn(entry, checked.folders)
+
+    def test_the_dev_setup_script_selects_its_consumers(self):
+        checked = select_tests.TestMap.load()
+        self.assertEqual(
+            select_tests.select_tests(["scripts/dev_setup.py"], checked),
+            [
+                "tests/architecture",
+                "tests/contracts",
+                "tests/e2e",
+                "tests/runtime",
+                "tests/tools",
+            ],
         )
 
 

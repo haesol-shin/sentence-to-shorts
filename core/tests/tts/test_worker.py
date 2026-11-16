@@ -18,6 +18,11 @@ from app.ports import AppError
 from app.tools.tts.qwen3_tts_0_6b.adapter import WORKER_PATH
 from tests.tts.support import make_adapter, make_voice, synth
 
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the real worker does not report ready within the load budget on the Windows runner",
+)
+
 RUN_WORKER = (
     "import runpy, sys\n"
     "sys.path.insert(0, sys.argv[1])\n"

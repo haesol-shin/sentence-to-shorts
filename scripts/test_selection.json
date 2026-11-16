@@ -200,6 +200,11 @@
     "core/tests/voice/": [
       "tests/voice"
     ],
+    "scripts/dev_setup.py": [
+      "tests/e2e",
+      "tests/runtime",
+      "tests/tools"
+    ],
     "THIRD_PARTY_NOTICES.md": [
       "tests/runtime"
     ]
@@ -217,6 +222,14 @@
     "docs/",
     "frontend/",
     "probes/",
-    "scripts/"
+    "scripts/check_brand.py",
+    "scripts/check_commit_messages.py",
+    "scripts/check_public_docs.py",
+    "scripts/compare_prompt_style.py",
+    "scripts/export_openapi.py",
+    "scripts/export_schemas.py",
+    "scripts/select_tests.py",
+    "scripts/test_selection.json",
+    "scripts/tests/"
   ]
 }
