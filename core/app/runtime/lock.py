@@ -40,20 +40,25 @@ def runtime_owned(item: Item) -> bool:
 
     `model-` items live below `APP_MODEL_DIR` and `package-` items are Python wheels
     installed with pip. Both are prepared by `scripts/dev_setup.py`, which skips the
-    other items for the same reason, so the preparer never plans or reports them.
+    other items for the same reason, so the preparer never plans or downloads them.
+    The status still reports them from the journals that script writes.
     """
     return not str(item["id"]).startswith(EXTERNAL_PREFIXES)
 
 
-def lock_items(settings: AppSettings) -> list[dict[str, Any]]:
-    """The runtime lock items of the settings that the preparer installs, as dictionaries."""
+def all_lock_items(settings: AppSettings) -> list[dict[str, Any]]:
+    """Every runtime lock item of the settings, in lock order, as dictionaries."""
     lock = getattr(settings, "runtime", None)
     items = getattr(lock, "items", None) or []
-    dumped = [
+    return [
         item.model_dump(mode="python") if hasattr(item, "model_dump") else dict(item)
         for item in items
     ]
-    return [item for item in dumped if runtime_owned(item)]
+
+
+def lock_items(settings: AppSettings) -> list[dict[str, Any]]:
+    """The runtime lock items of the settings that the preparer installs, as dictionaries."""
+    return [item for item in all_lock_items(settings) if runtime_owned(item)]
 
 
 _ARCHIVE_SUFFIXES = (".zip", ".whl", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz")
@@ -97,13 +102,20 @@ def download_name(entry: Item) -> str:
     return name
 
 
+def host_files(item: Item, target: Target) -> list[Mapping[str, Any]]:
+    """The lock file entries of the item for the target, in lock order."""
+    os_name, arch = target
+    return [
+        entry
+        for entry in item["files"]
+        if entry["os"] in (os_name, "any") and entry["arch"] in (arch, "wasm32")
+    ]
+
+
 def select_file(item: Item, target: Target) -> Mapping[str, Any] | None:
     """The lock file entry for the target, or None when the item has none for it."""
-    os_name, arch = target
-    for entry in item["files"]:
-        if entry["os"] in (os_name, "any") and entry["arch"] in (arch, "wasm32"):
-            return entry
-    return None
+    entries = host_files(item, target)
+    return entries[0] if entries else None
 
 
 def require_file(item: Item, target: Target) -> Mapping[str, Any]:

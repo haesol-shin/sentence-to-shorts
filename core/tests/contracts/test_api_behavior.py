@@ -32,6 +32,11 @@ def test_runtime_reports_brand_and_items(client: TestClient) -> None:
         "ffmpeg",
         "pyodide-core",
         "pyodide-pillow",
+        "package-qwen-tts",
+        "model-tts-qwen3-0.6b",
+        "model-align-ko",
+        "model-align-en",
+        "model-asr-small",
     }
 
 

@@ -106,6 +106,7 @@ def url_of(item: dict[str, Any]) -> str:
 def make_settings(root: Path, items: list[dict[str, Any]]) -> Any:
     return SimpleNamespace(
         runtime_dir=root / "rt",
+        model_dir=root / "models",
         data_dir=root / "data",
         cache_dir=root / "cache",
         runtime=SimpleNamespace(items=items),

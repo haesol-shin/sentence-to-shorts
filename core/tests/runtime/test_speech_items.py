@@ -11,6 +11,7 @@ import pytest
 from app.runtime import journal
 from app.runtime.lock import select_file
 from app.runtime.prepare import prepare, status
+from app.schemas.api import RuntimeItemState
 from tests.runtime.support import (
     FakeTransport,
     Flag,
@@ -63,10 +64,14 @@ def test_speech_items_prepare_does_not_fail_on_a_host_without_a_file(tmp_path: P
     assert transport.count == 0
 
 
-def test_speech_items_status_lists_only_runtime_files(tmp_path: Path) -> None:
+def test_speech_items_status_lists_every_lock_item_in_order(tmp_path: Path) -> None:
     settings = make_settings(tmp_path, speech_lock())
     rows = status(settings, ("linux", "aarch64"))
-    assert [row.id for row in rows] == ["deno"]
+    assert [(row.id, row.state, row.bytes) for row in rows] == [
+        ("model-tts-synthetic", RuntimeItemState.missing, len(MODEL_BLOB)),
+        ("package-synthetic", RuntimeItemState.missing, len(WHEEL_BLOB)),
+        ("deno", RuntimeItemState.missing, 0),
+    ]
 
 
 @pytest.mark.parametrize("host", HOSTS)
