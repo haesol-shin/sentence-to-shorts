@@ -1,11 +1,62 @@
-import type { KeyboardEvent, ReactNode } from 'react';
-import { ArrowUp, X } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
+import { ArrowUp, FileText, Film, Link2, Music, Plus, X } from 'lucide-react';
 
-import { cn } from '@/shared/lib/utils';
+import type { Language } from '@/shared/api/client';
+import { chooseConcept, loadConceptDeployment, useConcept, sendConcept, setConceptDraft } from '@/features/concept/store';
+import { ChangeReview } from '@/features/concept/concept-screen';
+import {
+  MAX_TEXT_ATTACHMENTS,
+  attachmentKindOf,
+  formatDurationMs,
+  linkPolicy,
+  newAttachmentId,
+  readTextFile,
+  validateReferenceUrl,
+  type Deployment,
+} from '@/features/concept/attachments';
+import type { Attachment } from '@/features/concept/types';
+import { LANGUAGES } from '@/shared/lib/i18n/catalog';
 import { useLocale } from '@/shared/lib/i18n/locale';
+import { useLoad } from '@/shared/lib/use-load';
+import { Button } from '@/shared/ui/button';
 import { Chip } from '@/shared/ui/chip';
 import { IconButton } from '@/shared/ui/icon-button';
 import { Tooltip } from '@/shared/ui/tooltip';
+import { cn } from '@/shared/lib/utils';
+
+/** One line of the text field; ten of them is the tallest the box may grow. */
+const LINE_HEIGHT = 24;
+const MAX_TEXT_HEIGHT = LINE_HEIGHT * 10;
+const TOUCH_TARGET = 44;
+const SEND_VISUAL = 32;
+const DURATION_VALUES = [30, 60, 120] as const;
+
+const KIND_LABEL_KEYS: Record<Attachment['kind'], string> = {
+  reference: 'concept.composer.kindReference',
+  bgm: 'concept.composer.kindBgm',
+  text: 'concept.composer.kindText',
+  link: 'concept.composer.kindLink',
+};
+
+
+
+/** Reference links stay unavailable until the host identifies itself as local. */
+export function useDeployment(ready = true): Deployment {
+  const deployment = useLoad(loadConceptDeployment, ready);
+  return deployment.data === 'local' ? 'local' : 'hosted';
+}
+
+type ComposerSubmit = (attachments: Attachment[]) => void | Promise<void>;
 
 interface ComposerBoxProps {
   label: string;
@@ -14,10 +65,135 @@ interface ComposerBoxProps {
   value: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
-  onSubmit?: () => void;
+  onSubmit?: ComposerSubmit;
   card?: { label: string } | null;
   onClearCard?: () => void;
   options?: ReactNode;
+  language?: Language;
+  duration?: number;
+  onLanguageChange?: (language: Language) => void;
+  onDurationChange?: (duration: number) => void;
+  deployment?: Deployment;
+  /** Read once on mount; the box always owns its attachment list afterwards. */
+  initialAttachments?: Attachment[];
+  onAttachmentsChange?: (attachments: Attachment[]) => void;
+  className?: string;
+}
+
+function AttachmentIcon({ kind }: { kind: Attachment['kind'] }) {
+  if (kind === 'reference') {
+    return <Film aria-hidden size={16} className="shrink-0" />;
+  }
+  if (kind === 'bgm') {
+    return <Music aria-hidden size={16} className="shrink-0" />;
+  }
+  if (kind === 'link') {
+    return <Link2 aria-hidden size={16} className="shrink-0" />;
+  }
+  return <FileText aria-hidden size={16} className="shrink-0" />;
+}
+
+function AttachmentChip({
+  attachment,
+  disabled,
+  onRemove,
+}: {
+  attachment: Attachment;
+  disabled: boolean;
+  onRemove: () => void;
+}) {
+  const { t } = useLocale();
+  const showsDuration = attachment.kind === 'reference' || attachment.kind === 'bgm';
+  const status =
+    attachment.state === 'receiving'
+      ? t('concept.composer.linkReceiving')
+      : attachment.state === 'failed'
+        ? t('concept.composer.linkFailed')
+        : null;
+
+  return (
+    <Chip
+      data-slot="composer-attachment"
+      data-kind={attachment.kind}
+      data-attachment-state={attachment.state}
+      className="max-w-full gap-1.5 py-0 pr-1 pl-2.5"
+    >
+      <AttachmentIcon kind={attachment.kind} />
+      <span className="min-w-0 max-w-40 truncate">{attachment.name}</span>
+      <span className="shrink-0 text-[13px] text-[var(--text-muted)]">
+        {t(KIND_LABEL_KEYS[attachment.kind])}
+      </span>
+      {showsDuration ? (
+        <span className="shrink-0 text-[13px] text-[var(--text-muted)]">
+          {attachment.durationMs === undefined
+            ? t('concept.composer.durationUnknown')
+            : formatDurationMs(attachment.durationMs)}
+        </span>
+      ) : null}
+      {status === null ? null : (
+        <span className="shrink-0 text-[13px] text-[var(--text-muted)]">{status}</span>
+      )}
+      <button
+        type="button"
+        aria-label={t('concept.composer.attachmentRemove', { name: attachment.name })}
+        disabled={disabled}
+        onClick={onRemove}
+        className="inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+      >
+        <X aria-hidden size={14} />
+      </button>
+    </Chip>
+  );
+}
+
+function MenuItem({
+  label,
+  onSelect,
+  disabled = false,
+  soon,
+  reason,
+}: {
+  label: string;
+  onSelect: () => void;
+  disabled?: boolean;
+  soon?: string;
+  reason?: string;
+}) {
+  const button = (
+    <button
+      type="button"
+      role="menuitem"
+      aria-disabled={disabled ? true : undefined}
+      data-disabled={disabled ? 'true' : undefined}
+      onClick={() => {
+        if (!disabled) {
+          onSelect();
+        }
+      }}
+      className={cn(
+        'flex min-h-11 w-full items-center gap-2 rounded-[var(--radius-panel)] px-3 text-left text-[15px]',
+        disabled
+          ? 'cursor-not-allowed text-[var(--text-disabled)]'
+          : 'text-[var(--text)] hover:bg-[var(--surface-muted)]',
+      )}
+    >
+      <span className="min-w-0 flex-1">{label}</span>
+      {soon === undefined ? null : (
+        <Chip state="placeholder" className="h-6 px-2 text-[13px]">
+          {soon}
+        </Chip>
+      )}
+    </button>
+  );
+
+  if (!disabled || reason === undefined) {
+    return button;
+  }
+  return (
+    <Tooltip label={reason} side="top" className="w-full">
+      {button}
+    </Tooltip>
+  );
 }
 
 function ComposerBox({
@@ -31,52 +207,330 @@ function ComposerBox({
   card = null,
   onClearCard,
   options,
+  language,
+  duration,
+  onLanguageChange,
+  onDurationChange,
+  deployment,
+  initialAttachments,
+  onAttachmentsChange,
+  className,
 }: ComposerBoxProps) {
   const { t } = useLocale();
-  const canSend = !disabled && value.trim() !== '';
+  const [attachments, setAttachments] = useState<Attachment[]>(initialAttachments ?? []);
+  const attachmentsRef = useRef<Attachment[]>(initialAttachments ?? []);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuUp, setMenuUp] = useState(true);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkValue, setLinkValue] = useState('');
+  const [consent, setConsent] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [overflowing, setOverflowing] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const referenceInput = useRef<HTMLInputElement>(null);
+  const bgmInput = useRef<HTMLInputElement>(null);
+  const textInput = useRef<HTMLInputElement>(null);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+  const busy = disabled || submitting;
+  const canSend =
+    !busy && onSubmit !== undefined && (value.trim() !== '' || attachments.length > 0);
+  const discoveredDeployment = useDeployment(deployment === undefined);
+  const policy = linkPolicy(deployment ?? discoveredDeployment);
+
+  const updateAttachments = useCallback(
+    (next: Attachment[]) => {
+      attachmentsRef.current = next;
+      setAttachments(next);
+      onAttachmentsChange?.(next);
+    },
+    [onAttachmentsChange],
+  );
+
+  const measureText = useCallback(() => {
+    const node = textareaRef.current;
+    if (node === null) {
+      return;
+    }
+    // Measuring from `auto` keeps the box from growing beyond its content.
+    node.style.height = 'auto';
+    const needed = node.scrollHeight;
+    const next = Math.min(Math.max(needed, LINE_HEIGHT), MAX_TEXT_HEIGHT);
+    node.style.height = `${next}px`;
+    const nextOverflowing = needed > MAX_TEXT_HEIGHT;
+    setOverflowing((previous) => (previous === nextOverflowing ? previous : nextOverflowing));
+  }, []);
+
+  useLayoutEffect(() => {
+    measureText();
+  }, [measureText, value, disabled]);
+
+  useEffect(() => {
+    const onResize = () => measureText();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [measureText]);
+
+  useEffect(() => {
+    if (!menuOpen && !linkOpen) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+        setLinkOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [linkOpen, menuOpen]);
+
+  const addFiles = async (
+    files: File[],
+    fallbackKind?: 'reference' | 'bgm' | 'text',
+  ): Promise<void> => {
+    setError(null);
+    for (const file of files) {
+      const kind = attachmentKindOf(file) ?? fallbackKind;
+      if (kind === 'image') {
+        setError(t('concept.composer.fileUnsupported', { name: file.name }));
+        continue;
+      }
+      if (kind === undefined || kind === null) {
+        setError(t('concept.composer.fileUnsupported', { name: file.name }));
+        continue;
+      }
+      if (
+        kind === 'text' &&
+        attachmentsRef.current.filter((attachment) => attachment.kind === 'text').length >=
+          MAX_TEXT_ATTACHMENTS
+      ) {
+        setError(t('concept.composer.fileTooMany', { max: MAX_TEXT_ATTACHMENTS }));
+        continue;
+      }
+
+      let text: string | undefined;
+      if (kind === 'text') {
+        try {
+          text = await readTextFile(file);
+        } catch {
+          setError(t('concept.composer.fileReadFailed', { name: file.name }));
+          continue;
+        }
+      }
+      if (
+        kind === 'text' &&
+        attachmentsRef.current.filter((attachment) => attachment.kind === 'text').length >=
+          MAX_TEXT_ATTACHMENTS
+      ) {
+        setError(t('concept.composer.fileTooMany', { max: MAX_TEXT_ATTACHMENTS }));
+        continue;
+      }
+
+      const attachment: Attachment = {
+        id: newAttachmentId(),
+        kind,
+        name: file.name,
+        state: 'ready',
+        ...(kind === 'text' ? { text } : { file }),
+      };
+      updateAttachments([...attachmentsRef.current, attachment]);
+    }
+  };
+
+  const onFileInput = (
+    kind: 'reference' | 'bgm' | 'text',
+    event: ChangeEvent<HTMLInputElement>,
+  ) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (files.length > 0) {
+      void addFiles(files, kind);
+    }
+  };
+
+  const openPicker = (input: HTMLInputElement | null) => {
+    setMenuOpen(false);
+    setError(null);
+    input?.click();
+  };
+
+  const onDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setDragging(false);
+    const files = Array.from(event.dataTransfer.files);
+    if (files.length > 0) {
+      void addFiles(files);
+    }
+  };
+
+  const onDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget as Node | null;
+    if (next === null || !event.currentTarget.contains(next)) {
+      setDragging(false);
+    }
+  };
+
+  const submitLink = () => {
+    if (!policy.enabled) {
+      setError(t('concept.composer.hostedLinkReason'));
+      return;
+    }
+    if (policy.consentRequired && !consent) {
+      return;
+    }
+    const checked = validateReferenceUrl(linkValue);
+    if (!checked.ok) {
+      setError(
+        checked.reason === 'length'
+          ? t('concept.composer.linkTooLong')
+          : t('concept.composer.linkInvalid'),
+      );
+      return;
+    }
+    const host = new URL(checked.url).hostname.replace(/^www\./u, '');
+    updateAttachments([
+      ...attachmentsRef.current,
+      {
+        id: newAttachmentId(),
+        kind: 'link',
+        name: host,
+        url: checked.url,
+        state: 'receiving',
+      },
+    ]);
+    setLinkOpen(false);
+    setLinkValue('');
+    setConsent(false);
+    setError(null);
+  };
+
+  const submit = async () => {
+    if (!canSend || submitting) {
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    setMenuOpen(false);
+    setLinkOpen(false);
+    const payload: Attachment[] = attachmentsRef.current.map((attachment) =>
+      attachment.kind === 'link' ? { ...attachment, state: 'ready' } : { ...attachment },
+    );
+    try {
+      await onSubmit?.(payload);
+      // Files dropped or read while the send ran were not in the payload; keep them.
+      const sent = new Set(payload.map((attachment) => attachment.id));
+      updateAttachments(attachmentsRef.current.filter((attachment) => !sent.has(attachment.id)));
+    } catch {
+      setError(t('concept.composer.sendFailed'));
+      updateAttachments(
+        attachmentsRef.current.map((attachment) =>
+          attachment.kind === 'link' && attachment.state === 'receiving'
+            ? { ...attachment, state: 'failed' }
+            : attachment,
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
     // Enter that settles a Korean or Japanese composition is not a send.
     if (event.nativeEvent.isComposing || event.keyCode === 229) {
       return;
     }
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault();
-      if (canSend) {
-        onSubmit?.();
-      }
+      void submit();
     }
   };
 
+  const languageName = (code: Language) =>
+    code === 'ko' ? t('concept.composer.languageKo') : t('concept.composer.languageEn');
+  const durationName = (seconds: number) => {
+    if (seconds === 30) return t('concept.composer.duration30');
+    if (seconds === 60) return t('concept.composer.duration60');
+    if (seconds === 120) return t('concept.composer.duration120');
+    return `${seconds}s`;
+  };
+  const maskStyle = overflowing
+    ? {
+        maskImage: 'linear-gradient(to bottom, transparent 0, black 20px)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 20px)',
+      }
+    : undefined;
+
   return (
     <div
+      ref={rootRef}
       data-slot="composer"
-      data-state={disabled ? 'placeholder' : 'active'}
-      className="w-full rounded-[var(--radius-input)] bg-[var(--surface-muted)] p-3"
+      data-state={onSubmit === undefined ? 'placeholder' : 'active'}
+      data-dragging={dragging ? 'true' : undefined}
+      onDragOver={(event) => {
+        event.preventDefault();
+        setDragging(true);
+      }}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      className={cn(
+        'relative flex w-full flex-col gap-2 rounded-[var(--radius-input)] border-2 border-transparent bg-[var(--surface-muted)] p-3 transition-colors',
+        dragging && 'border-dashed border-[var(--text-muted)]',
+        className,
+      )}
     >
-      {card === null ? null : (
-        <div className="mb-2 flex">
-          <Chip>
-            {t('shell.first.cardChip', { label: card.label })}
-            {onClearCard === undefined ? null : (
-              <button
-                type="button"
-                aria-label={t('shell.first.cardChipRemove')}
-                onClick={onClearCard}
-                className="-mr-1 inline-flex size-6 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)]"
-              >
-                <X aria-hidden size={14} />
-              </button>
-            )}
-          </Chip>
+      {card === null && attachments.length === 0 ? null : (
+        <div data-slot="composer-attachments" className="flex min-w-0 flex-col items-start gap-1">
+          {card === null ? null : (
+            <Chip data-slot="composer-action" data-kind="card" className="max-w-full">
+              <span className="truncate">{t('shell.first.cardChip', { label: card.label })}</span>
+              {onClearCard === undefined ? null : (
+                <button
+                  type="button"
+                  aria-label={t('shell.first.cardChipRemove')}
+                  disabled={busy}
+                  onClick={onClearCard}
+                  className="-mr-1 inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+                >
+                  <X aria-hidden size={14} />
+                </button>
+              )}
+            </Chip>
+          )}
+          {attachments.map((attachment) => (
+            <AttachmentChip
+              key={attachment.id}
+              attachment={attachment}
+              disabled={busy}
+              onRemove={() =>
+                updateAttachments(
+                  attachmentsRef.current.filter((item) => item.id !== attachment.id),
+                )
+              }
+            />
+          ))}
         </div>
       )}
+
       <textarea
+        ref={textareaRef}
         aria-label={label}
         placeholder={placeholder}
         value={value}
-        disabled={disabled}
-        rows={2}
+        disabled={busy}
+        rows={1}
+        data-slot="composer-input"
         onChange={(event) => onChange?.(event.target.value)}
         onKeyDown={onKeyDown}
         onFocus={(event) => {
@@ -84,20 +538,238 @@ function ComposerBox({
           // focused input into sight; the dock handles the rest of the inset.
           event.currentTarget.scrollIntoView?.({ block: 'nearest' });
         }}
-        className="w-full resize-none bg-transparent text-[17px] text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed"
+        style={maskStyle}
+        className="block max-h-[240px] w-full resize-none overflow-y-auto bg-transparent p-0 text-[17px] leading-6 text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed"
       />
-      <div className="mt-2 flex items-center gap-2">
+
+      {linkOpen ? (
+        <div data-slot="composer-link" className="flex flex-col gap-2 text-[15px]">
+          <p className="text-[var(--text-muted)]">{t('concept.composer.linkWarning')}</p>
+          <input
+            aria-label={t('concept.composer.linkLabel')}
+            placeholder={t('concept.composer.linkPlaceholder')}
+            value={linkValue}
+            disabled={busy}
+            onChange={(event) => {
+              setLinkValue(event.target.value);
+              setError(null);
+            }}
+            className="h-11 w-full rounded-[var(--radius-panel)] bg-[var(--surface)] px-3 text-[15px] text-[var(--text-strong)] outline-none disabled:cursor-not-allowed"
+          />
+          {policy.consentRequired ? (
+            <label className="flex min-h-11 items-center gap-2 text-[var(--text)]">
+              <input
+                type="checkbox"
+                checked={consent}
+                disabled={busy}
+                onChange={(event) => setConsent(event.target.checked)}
+              />
+              <span>{t('concept.composer.linkConsent')}</span>
+            </label>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-2">
+            <Button
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setLinkOpen(false);
+                setLinkValue('');
+                setConsent(false);
+                setError(null);
+              }}
+            >
+              {t('concept.composer.cancel')}
+            </Button>
+            <Button
+              disabled={
+                busy ||
+                linkValue.trim() === '' ||
+                (policy.consentRequired && !consent)
+              }
+              onClick={submitLink}
+            >
+              {t('concept.composer.attachLink')}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {error === null ? null : (
+        <p role="alert" data-slot="composer-error" className="text-[15px] text-[var(--text)]">
+          {error}
+        </p>
+      )}
+
+      <div
+        data-slot="composer-actions"
+        // One row at every width: wrapping would drop the send button onto a
+        // second line (WebKit sizes a select wider than Blink does) and make
+        // the docked box taller than the room a phone keyboard leaves it.
+        className="flex min-w-0 items-center gap-1.5"
+      >
+        <div data-slot="composer-plus" data-hit={TOUCH_TARGET} className="relative shrink-0">
+          <IconButton
+            label={t('concept.composer.plus')}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            disabled={busy}
+            onClick={() => {
+              if (!menuOpen) {
+                setMenuUp((rootRef.current?.getBoundingClientRect().top ?? 0) >= 260);
+              }
+              setMenuOpen((open) => !open);
+              setLinkOpen(false);
+              setError(null);
+            }}
+            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+            className="p-0"
+          >
+            <Plus aria-hidden size={20} />
+          </IconButton>
+          {menuOpen ? (
+            <div
+              role="menu"
+              aria-label={t('concept.composer.menuLabel')}
+              data-slot="composer-menu"
+              className={cn(
+                'absolute left-0 z-30 flex w-64 max-w-[calc(100vw-32px)] flex-col gap-1 rounded-[var(--radius-panel)] bg-[var(--surface)] p-1 shadow-lg',
+                menuUp ? 'bottom-[calc(100%+8px)]' : 'top-[calc(100%+8px)]',
+              )}
+            >
+              <MenuItem
+                label={t('concept.composer.addReference')}
+                onSelect={() => openPicker(referenceInput.current)}
+              />
+              <MenuItem
+                label={t('concept.composer.addLink')}
+                disabled={!policy.enabled}
+                reason={t('concept.composer.hostedLinkReason')}
+                onSelect={() => {
+                  setMenuOpen(false);
+                  setLinkOpen(true);
+                  setError(null);
+                }}
+              />
+              <MenuItem
+                label={t('concept.composer.addBgm')}
+                onSelect={() => openPicker(bgmInput.current)}
+              />
+              <MenuItem
+                label={t('concept.composer.addImage')}
+                disabled
+                soon={t('concept.composer.soon')}
+                reason={t('concept.composer.imageSoonReason')}
+                onSelect={() => undefined}
+              />
+              <MenuItem
+                label={t('concept.composer.addText')}
+                onSelect={() => openPicker(textInput.current)}
+              />
+            </div>
+          ) : null}
+        </div>
+
         {options}
-        <div className="flex-1" />
-        <IconButton
-          label={sendLabel}
-          disabled={!canSend}
-          onClick={() => onSubmit?.()}
-          className="bg-[var(--text-strong)] text-[var(--surface)] hover:bg-[var(--text)] disabled:bg-[var(--surface-sunken)] disabled:text-[var(--text-disabled)] disabled:hover:bg-[var(--surface-sunken)]"
-        >
-          <ArrowUp aria-hidden size={20} />
-        </IconButton>
+
+        {language === undefined ? null : onLanguageChange === undefined ? (
+          <Chip data-slot="composer-action" data-kind="language">
+            {languageName(language)}
+          </Chip>
+        ) : (
+          <Chip data-slot="composer-action" data-kind="language" className="min-w-0 shrink px-0">
+          <select
+            aria-label={t('concept.composer.languageLabel')}
+            value={language}
+            disabled={busy}
+            onChange={(event) => onLanguageChange(event.target.value as Language)}
+            className="h-9 w-full min-w-0 max-w-32 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+          >
+            {LANGUAGES.map((code) => (
+              <option key={code} value={code}>
+                {languageName(code)}
+              </option>
+            ))}
+          </select>
+          </Chip>
+        )}
+
+        {duration === undefined ? null : onDurationChange === undefined ? (
+          <Chip data-slot="composer-action" data-kind="duration">
+            {durationName(duration)}
+          </Chip>
+        ) : (
+          <Chip data-slot="composer-action" data-kind="duration" className="min-w-0 shrink px-0">
+          <select
+            aria-label={t('concept.composer.durationLabel')}
+            value={duration}
+            disabled={busy}
+            onChange={(event) => onDurationChange(Number(event.target.value))}
+            className="h-9 w-full min-w-0 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+          >
+            {DURATION_VALUES.map((seconds) => (
+              <option key={seconds} value={seconds}>
+                {durationName(seconds)}
+              </option>
+            ))}
+          </select>
+          </Chip>
+        )}
+
+        <div data-slot="composer-send" data-hit={TOUCH_TARGET} className="ml-auto shrink-0">
+          <IconButton
+            label={sendLabel}
+            disabled={!canSend}
+            onClick={() => void submit()}
+            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+            className="p-0 hover:bg-transparent disabled:hover:bg-transparent"
+          >
+            <span
+              aria-hidden
+              data-slot="composer-send-visual"
+              data-size={SEND_VISUAL}
+              className={cn(
+                'inline-flex size-8 items-center justify-center rounded-[var(--radius-capsule)]',
+                canSend
+                  ? 'bg-[var(--text-strong)] text-[var(--surface)]'
+                  : 'bg-[var(--surface-sunken)] text-[var(--text-disabled)]',
+              )}
+            >
+              <ArrowUp size={18} />
+            </span>
+          </IconButton>
+        </div>
       </div>
+
+      <input
+        ref={referenceInput}
+        data-slot="composer-file"
+        data-kind="reference"
+        type="file"
+        accept="video/*"
+        multiple
+        className="hidden"
+        onChange={(event) => onFileInput('reference', event)}
+      />
+      <input
+        ref={bgmInput}
+        data-slot="composer-file"
+        data-kind="bgm"
+        type="file"
+        accept="audio/*"
+        multiple
+        className="hidden"
+        onChange={(event) => onFileInput('bgm', event)}
+      />
+      <input
+        ref={textInput}
+        data-slot="composer-file"
+        data-kind="text"
+        type="file"
+        accept=".md,.txt,text/markdown,text/plain"
+        multiple
+        className="hidden"
+        onChange={(event) => onFileInput('text', event)}
+      />
     </div>
   );
 }
@@ -112,7 +784,7 @@ export function Composer({
 }: Omit<ComposerBoxProps, 'disabled' | 'value' | 'onChange' | 'onSubmit'> & {
   value: string;
   onChange: (value: string) => void;
-  onSubmit: () => void;
+  onSubmit: ComposerSubmit;
   disabled?: boolean;
 }) {
   return (
@@ -127,16 +799,82 @@ export function Composer({
 }
 
 /**
- * A box the shell shows but cannot use yet. The reason sits in a tooltip, so
- * the grey box never claims to work (SPEC 10a.1).
+ * The conversation rail. With a live concept it sends into that same concept
+ * state; only when no video session is open does it stay a named placeholder.
  */
 export function PlaceholderComposer({
   reason,
   ...rest
-}: Omit<ComposerBoxProps, 'value' | 'onChange' | 'onSubmit' | 'disabled'> & { reason: string }) {
+}: Omit<ComposerBoxProps, 'value' | 'onChange' | 'onSubmit' | 'disabled'> & {
+  reason?: string;
+}) {
+  const { t } = useLocale();
+  const snapshot = useConcept();
+  const deployment = useDeployment();
+
+  if (snapshot === null) {
+    return (
+      <Tooltip
+        label={reason ?? t('concept.composer.noSession')}
+        side="top"
+        className={cn('w-full')}
+      >
+        <ComposerBox {...rest} value="" disabled />
+      </Tooltip>
+    );
+  }
+
+  const settings = snapshot.document.settings;
+  const jobLabel =
+    snapshot.job === null
+      ? null
+      : t(
+          {
+            queued: 'concept.composer.jobQueued',
+            running: 'concept.composer.jobRunning',
+            succeeded: 'concept.composer.jobSucceeded',
+            failed: 'concept.composer.jobFailed',
+          }[snapshot.job.state],
+        );
+
   return (
-    <Tooltip label={reason} side="top" className={cn('w-full')}>
-      <ComposerBox {...rest} value="" disabled />
-    </Tooltip>
+    <div className="flex w-full flex-col gap-2">
+      {jobLabel === null ? null : (
+        <p
+          data-slot="composer-status"
+          role="status"
+          className="px-1 text-[15px] text-[var(--text-muted)]"
+        >
+          {jobLabel}
+        </p>
+      )}
+      {snapshot.error === null ? null : (
+        <p role="alert" className="px-1 text-[15px] text-[var(--text)]">
+          {t(snapshot.error)}
+        </p>
+      )}
+      {snapshot.notes.length === 0 && snapshot.unsupported.length === 0 && snapshot.pending === null ? null : (
+        <details className="max-h-48 overflow-y-auto px-1 text-[15px]">
+          <summary className="min-h-11 cursor-pointer">{t('concept.results')}</summary>
+          {snapshot.notes.map((note, index) => <p key={`n${index}`}>{note}</p>)}
+          {snapshot.unsupported.map((text, index) => <p key={`u${index}`}>{t('concept.unsupported')}: {text}</p>)}
+          {snapshot.pending?.status === 'proposed' ? (
+            <ChangeReview plan={snapshot.pending} settings={settings} busy={snapshot.busy} />
+          ) : null}
+        </details>
+      )}
+      <Composer
+        {...rest}
+        value={snapshot.draft}
+        onChange={setConceptDraft}
+        onSubmit={(attachments) => sendConcept(snapshot.draft, attachments)}
+        disabled={snapshot.busy}
+        language={settings.language}
+        duration={settings.target_duration_s}
+        onLanguageChange={(value) => chooseConcept('/language', value)}
+        onDurationChange={(value) => chooseConcept('/target_duration_s', value)}
+        deployment={deployment}
+      />
+    </div>
   );
 }

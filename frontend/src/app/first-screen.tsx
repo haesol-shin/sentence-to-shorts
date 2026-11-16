@@ -1,25 +1,14 @@
-import { listFormatCards, listRecentProjects } from '@/shared/api/client';
+import { useState } from 'react';
+
+import { listFormatCards, listRecentProjects, type Language } from '@/shared/api/client';
+import { beginConcept } from '@/features/concept/store';
+import type { Attachment } from '@/features/concept/types';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { useLoad } from '@/shared/lib/use-load';
 import { Button } from '@/shared/ui/button';
-import { Chip } from '@/shared/ui/chip';
-import { Tooltip } from '@/shared/ui/tooltip';
-
-import { Composer } from './shell/composer';
+import { useDeployment, Composer } from './shell/composer';
 import type { CardPick } from './shell/shell-config';
-
-function ComposerOptions() {
-  const { t } = useLocale();
-  return (
-    <Tooltip label={t('shell.first.optionsReason')} side="top">
-      <span role="group" aria-label={t('shell.first.optionsGroup')} className="flex items-center gap-1">
-        <Chip state="placeholder">{t('shell.first.languageChip')}</Chip>
-        <Chip state="placeholder">{t('shell.first.durationChip')}</Chip>
-      </span>
-    </Tooltip>
-  );
-}
 
 /**
  * The first screen: the heading, the input, the three cards and the recent
@@ -44,11 +33,26 @@ export function FirstScreen({
   onDraftChange: (value: string) => void;
   onPickCard: (card: CardPick) => void;
   onClearCard: () => void;
-  onSubmit: () => void;
+  /** The start boundary receives the whole material, not only the sentence. */
+  onSubmit: (text: string, attachments: Attachment[]) => void | Promise<void>;
 }) {
   const { t, language } = useLocale();
   const cards = useLoad(listFormatCards, ready);
   const projects = useLoad(listRecentProjects, ready);
+  const deployment = useDeployment(ready);
+  const [chosenLanguage, setChosenLanguage] = useState<Language>(language);
+  const [duration, setDuration] = useState(60);
+
+  const start = async (attachments: Attachment[]) => {
+    await beginConcept({
+      topic: draft,
+      cardId: card?.id ?? null,
+      language: chosenLanguage,
+      duration,
+      attachments,
+    });
+    await onSubmit(draft, attachments);
+  };
 
   return (
     // `my-auto` centres the column while it fits and lets it start at the top
@@ -66,10 +70,14 @@ export function FirstScreen({
           sendLabel={t('shell.first.send')}
           value={draft}
           onChange={onDraftChange}
-          onSubmit={onSubmit}
+          onSubmit={start}
           card={card}
           onClearCard={onClearCard}
-          options={<ComposerOptions />}
+          language={chosenLanguage}
+          duration={duration}
+          onLanguageChange={setChosenLanguage}
+          onDurationChange={setDuration}
+          deployment={deployment}
           disabled={submitting}
         />
         <section data-slot="first-cards" className="flex flex-col gap-3">

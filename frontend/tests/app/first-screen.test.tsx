@@ -1,5 +1,10 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, expect, test, vi } from 'vitest';
+
+import { FirstScreen } from '@/app/first-screen';
+import type { Attachment } from '@/features/concept/types';
+import { LocaleProvider } from '@/shared/lib/i18n/locale';
 
 import {
   DRAFT_JOB_PATH,
@@ -69,6 +74,21 @@ test('test_10a_sentence_send_starts_a_draft_job', async () => {
   expect(new Set(keys).size).toBe(3);
 });
 
+test('test_10a_first_screen_offers_real_language_and_length_values', async () => {
+  await renderApp();
+
+  const language = screen.getByLabelText('영상 언어') as HTMLSelectElement;
+  const duration = screen.getByLabelText('영상 길이') as HTMLSelectElement;
+  expect(language.value).toBe('ko');
+  expect(duration.value).toBe('60');
+
+  fireEvent.change(language, { target: { value: 'en' } });
+  fireEvent.change(duration, { target: { value: '120' } });
+
+  expect(language.value).toBe('en');
+  expect(duration.value).toBe('120');
+});
+
 test('test_16_language_switch_turns_the_screen_english', async () => {
   await renderApp();
 
@@ -87,4 +107,57 @@ test('test_10a_recent_projects_failure_does_not_claim_an_empty_list', async () =
 
   expect(await screen.findByText('최근 프로젝트를 불러오지 못했어요.')).toBeTruthy();
   expect(screen.queryByText('아직 만든 영상이 없어요.')).toBeNull();
+});
+
+function FirstScreenHarness({
+  onSubmit,
+}: {
+  onSubmit: (text: string, attachments: Attachment[]) => void;
+}) {
+  const [draft, setDraft] = useState('원두 이야기');
+  return (
+    <LocaleProvider language="ko" setLanguage={() => undefined}>
+      <FirstScreen
+        draft={draft}
+        card={null}
+        submitting={false}
+        ready={false}
+        onDraftChange={setDraft}
+        onPickCard={() => undefined}
+        onClearCard={() => undefined}
+        onSubmit={onSubmit}
+      />
+    </LocaleProvider>
+  );
+}
+
+test('test_10a_text_contents_reach_the_start_boundary_with_the_sentence', async () => {
+  const onSubmit = vi.fn();
+  render(<FirstScreenHarness onSubmit={onSubmit} />);
+
+  const fileInput = document.querySelector<HTMLInputElement>(
+    'input[type="file"][data-kind="text"]',
+  );
+  expect(fileInput).not.toBeNull();
+  if (fileInput === null) return;
+  fireEvent.change(fileInput, {
+    target: {
+      files: [new File(['원두는 신선도가 중요하다.'], 'notes.md', { type: 'text/markdown' })],
+    },
+  });
+  await waitFor(() =>
+    expect(document.querySelectorAll('[data-slot="composer-attachment"]')).toHaveLength(1),
+  );
+
+  fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+
+  await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+  const [text, attachments] = onSubmit.mock.calls[0] as [string, Attachment[]];
+  expect(text).toBe('원두 이야기');
+  expect(attachments).toHaveLength(1);
+  expect(attachments[0]).toMatchObject({
+    kind: 'text',
+    name: 'notes.md',
+    text: '원두는 신선도가 중요하다.',
+  });
 });
