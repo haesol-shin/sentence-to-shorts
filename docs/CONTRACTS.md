@@ -428,7 +428,7 @@ class TranscriberPort(Protocol):
 - typewriter 줄은 예외다. 표시 일정은 forced alignment 결과가 아니라 화면 표시 계획이므로, 화면 글의 grapheme cluster마다 구간 하나를 `TimingCaption.phrases`에 넣는다. 줄의 표시 길이를 D, cluster 수를 N이라 할 때 i번째 구간은 `[line.start_ms + floor(i*D/N), line.start_ms + floor((i+1)*D/N))`이다. `start_char`와 `end_char`는 `display_text`의 code point index다.
 - 렌더는 구간 시작에 글자를 누적 표시하고 줄 끝까지 유지한다. 소리 섞기도 같은 구간 시작을 쓴다.
 - 화면 글과 말할 글의 대응을 구절 단위로 기록한다. 대응이 끊기면 그 줄은 문장형이다.
-- 무음 cluster는 `cluster.isspace()`이거나 `unicodedata.category(cluster[0])`이 `P`로 시작하는 경우다. 렌더, 소리 배치, cache 대상 목록이 같은 판정을 쓴다.
+- 무음 cluster는 `cluster.isspace()`이거나 `unicodedata.category(cluster[0])`이 `P`로 시작하는 경우다. 소리 배치(`is_silent`)와 cache 대상 목록(`voiced_clusters`)만 무음 cluster를 건너뛰고, 렌더는 모든 cluster를 그 구간 시작에 표시한다.
 - `VoiceService.timing`은 video language를 필수 인자로 받는다. keyword 기본값과 language 생략 시 축소 동작은 없다.
 - `Caption.typing_sound`는 지정 revision의 `TypingSoundEntry`만 가리킨다. 생략과 null은 타자음 없음이고, `audio.sfx_enabled`가 false이면 내지 않는다. `TypingSoundEntry`는 1개에서 64개까지의 `KeySound`를 가지며 각 key는 20ms에서 1000ms다.
 - registry는 `keys`가 있는 sfx manifest를 `TypingSoundEntry`로 읽고 모든 key WAV와 license 파일의 경로, 존재, checksum을 검사한다. catalog 미디어 route의 샘플은 첫 key WAV다.

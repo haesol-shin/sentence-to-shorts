@@ -3,6 +3,9 @@
 The migration reads no registry: it knows only the two builtin typing ids, so a
 document that points at a user typing package keeps its cue for the semantic
 check ``typing_cue`` to reject when that document is used.
+
+A change plan can also hold the cues in a ``SetOp`` that sets the cue list or one
+cue, so the op values are filtered there before the document is walked.
 """
 
 from __future__ import annotations
@@ -24,6 +27,35 @@ def _is_builtin_typing_cue(cue: Any) -> bool:
     if isinstance(ref, dict):
         return ref.get("id") in BUILTIN_TYPING_IDS
     return isinstance(ref, str) and ref in BUILTIN_TYPING_IDS
+
+
+def _cue_path_shape(path: Any) -> str | None:
+    """``list`` at a cue list path, ``cue`` at one cue path, ``None`` elsewhere."""
+    if not isinstance(path, str):
+        return None
+    parent, _, leaf = path.rpartition("/")
+    if leaf == "sfx":
+        return "list"
+    if leaf.isascii() and leaf.isdigit() and parent.endswith("/sfx"):
+        return "cue"
+    return None
+
+
+def _filter_cue_ops(ops: list[Any]) -> list[Any]:
+    """Filter the builtin typing cues out of op values and drop their cue ops."""
+    kept: list[Any] = []
+    for op in ops:
+        if isinstance(op, dict):
+            shape = _cue_path_shape(op.get("path"))
+            value = op.get("value")
+            if shape == "list" and isinstance(value, list):
+                op["value"] = [
+                    cue for cue in value if not _is_builtin_typing_cue(cue)
+                ]
+            elif shape == "cue" and _is_builtin_typing_cue(value):
+                continue
+        kept.append(op)
+    return kept
 
 
 def _drop_typing_cues(value: Any) -> None:
@@ -49,6 +81,9 @@ def migrate(doc: dict[str, Any]) -> dict[str, Any]:
     migrated = copy.deepcopy(doc)
     if not is_cue_document(migrated):
         return migrated
+    ops = migrated.get("ops")
+    if isinstance(ops, list):
+        migrated["ops"] = _filter_cue_ops(ops)
     _drop_typing_cues(migrated)
     migrated["schema_version"] = TARGET_VERSION
     return migrated

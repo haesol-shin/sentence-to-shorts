@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "c_0k7y9c2t8gv6w5e4d3s2a1q0zp",
+  "video_id": "v_0hzb7bexv28termtt2ypc6trzt",
+  "base_revision": 1,
+  "created_at": "2026-11-14T12:00:00Z",
+  "source": "direct",
+  "target": {
+    "scene_id": "s_0nzvrzf0tp9wba44f6yvh6nzpr",
+    "pointer": "/scenes/s_0nzvrzf0tp9wba44f6yvh6nzpr/visual/sfx"
+  },
+  "ops": [
+    {
+      "op": "set",
+      "path": "/scenes/s_0nzvrzf0tp9wba44f6yvh6nzpr/visual/sfx",
+      "value": [
+        {
+          "sfx_id": {
+            "id": "pop",
+            "revision": "ed080bd5f08408574bca18e7b5e212b5b046df2ad8fedbecd511e7b7861d6b06"
+          },
+          "line_id": "l_079jmk94bf8vj82ct90jqj44km",
+          "at": "end",
+          "offset_ms": 120
+        }
+      ],
+      "origin": "user"
+    },
+    {
+      "op": "set",
+      "path": "/scenes/s_0nzvrzf0tp9wba44f6yvh6nzpr/visual/sfx/0",
+      "value": {
+        "sfx_id": {
+          "id": "pop",
+          "revision": "ed080bd5f08408574bca18e7b5e212b5b046df2ad8fedbecd511e7b7861d6b06"
+        },
+        "line_id": "l_079jmk94bf8vj82ct90jqj44km",
+        "at": "end",
+        "offset_ms": 240
+      },
+      "origin": "user"
+    }
+  ],
+  "effects": {
+    "script": false,
+    "scene_ids_text": [],
+    "scene_ids_tts": [],
+    "scene_ids_render": ["s_0nzvrzf0tp9wba44f6yvh6nzpr"],
+    "mix": true,
+    "assemble": true,
+    "locked_keys": [],
+    "overwrites_user_values": []
+  },
+  "requires_confirmation": false,
+  "confirmation_reasons": [],
+  "warnings": [],
+  "unsupported": [],
+  "notes": [],
+  "status": "proposed",
+  "applied_revision": null
+}
