@@ -230,7 +230,19 @@ def test_prepare_maps_a_full_disk_while_writing_to_disk_full(
 
 @pytest.mark.parametrize(
     "name",
-    ["../escape.txt", "/absolute.txt", "a/../../escape.txt", "C:/drive.txt", "back\\slash.txt"],
+    [
+        "../escape.txt",
+        "/absolute.txt",
+        "a/../../escape.txt",
+        "C:/drive.txt",
+        pytest.param(
+            "back\\slash.txt",
+            marks=pytest.mark.skipif(
+                sys.platform == "win32",
+                reason="zipfile rewrites a backslash member name to a separator on Windows",
+            ),
+        ),
+    ],
 )
 def test_prepare_rejects_zip_members_that_leave_the_install_folder(
     tmp_path: Path, name: str
@@ -245,6 +257,18 @@ def test_prepare_rejects_zip_members_that_leave_the_install_folder(
     assert not (settings.runtime_dir / "deno").exists()
     assert not (settings.runtime_dir / ".tmp").exists()
     assert journal.read(settings.runtime_dir) == {}
+
+
+def test_prepare_rejects_a_tar_member_name_with_a_backslash(tmp_path: Path) -> None:
+    blob = make_tar_bz2({"pyodide/pyodide.mjs": b"x", "back\\slash.txt": b"evil"})
+    item = lock_item("pyodide-core", "pyodide", "core.tar.bz2", blob)
+    settings = make_settings(tmp_path, [item])
+    with pytest.raises(AppError) as caught:
+        run_prepare(settings, [item], only(item, blob))
+    assert caught.value.code == "download_blocked"
+    assert caught.value.detail["reason"] == "bad_name"
+    assert not (settings.runtime_dir / "pyodide").exists()
+    assert not (settings.runtime_dir / ".tmp").exists()
 
 
 def test_prepare_accepts_a_tar_whose_members_start_with_dot_slash(tmp_path: Path) -> None:

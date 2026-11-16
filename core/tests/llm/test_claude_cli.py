@@ -411,14 +411,16 @@ def test_9a_cli_uses_verified_flags_and_private_empty_cwd(
     generation = calls[2]
     assert generation["argv"] == list(EXPECTED_GENERATION_ARGV)
     assert generation["cwd_entries"] == []
-    assert generation["cwd_mode"] == oct(0o700)
+    if os.name == "posix":
+        assert generation["cwd_mode"] == oct(0o700)
     cwd = Path(str(generation["cwd"]))
     root = _cache_root(settings)
     assert cwd.resolve().parent == root.resolve()
     assert not cwd.exists()
     assert not (cwd / "session.jsonl").exists()
     assert list(root.iterdir()) == []
-    assert stat.S_IMODE(root.stat().st_mode) == 0o700
+    if os.name == "posix":
+        assert stat.S_IMODE(root.stat().st_mode) == 0o700
     assert len({str(call["cwd"]) for call in calls}) == len(calls)
     for call in calls:
         assert Path(str(call["cwd"])).resolve().parent == root.resolve()
