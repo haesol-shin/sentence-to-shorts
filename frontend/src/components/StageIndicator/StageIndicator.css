@@ -1,0 +1,83 @@
+@import '../base.css';
+
+.stage-indicator {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-12);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.stage-indicator__step {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  min-width: var(--size-control);
+  height: var(--size-control);
+  padding-inline: var(--space-12);
+  border: var(--part-hairline) solid var(--card);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  white-space: nowrap;
+}
+
+.stage-indicator__label {
+  display: inline-flex;
+}
+
+.stage-indicator__step--past {
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.stage-indicator__step--past:hover,
+.stage-indicator__step--past[data-force-state~='hover'] {
+  background: var(--state-hover-white);
+  border-color: var(--state-hover-white);
+}
+
+.stage-indicator__step--past:active,
+.stage-indicator__step--past[data-force-state~='pressed'] {
+  background: var(--state-pressed-white);
+  border-color: var(--state-pressed-white);
+  color: var(--foreground);
+  /* The regular 15px text looks faded on the pressed gray, so the pressed
+     label goes bold; LabelBox keeps the width and height unchanged. */
+  font-weight: var(--font-weight-bold);
+}
+
+.stage-indicator__step--current {
+  font-weight: var(--font-weight-bold);
+}
+
+.stage-indicator__step--upcoming {
+  color: var(--muted-foreground);
+}
+
+.stage-indicator__dot {
+  width: var(--part-step-dot);
+  height: var(--part-step-dot);
+  border-radius: var(--radius-pill);
+  background: transparent;
+}
+
+.stage-indicator__step--current .stage-indicator__dot {
+  background: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-indicator__step--past {
+    transition: none;
+  }
+}

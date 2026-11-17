@@ -18,13 +18,13 @@ test.beforeEach(({}, testInfo) => {
   );
 });
 
-async function galleryReady(page: Page): Promise<void> {
+async function galleryReady(page: Page, batch: number): Promise<void> {
   // Tall enough that a cropped popup near a frame edge keeps its margin.
   await page.setViewportSize({ width: 2400, height: 1600 });
-  await page.goto(`${GALLERY}?batch=2`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  await page.goto(`${GALLERY}?batch=${batch}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await page.waitForFunction(
     (count) => document.querySelectorAll('[data-part]').length === count,
-    galleryParts.filter((part) => part.batch === 2).length,
+    galleryParts.filter((part) => part.batch === batch).length,
     { timeout: 120_000 },
   );
   await page.waitForFunction(
@@ -59,101 +59,115 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
     if (name.endsWith('.png')) rmSync(join(SHOTS, name), { force: true });
   }
 
-  await galleryReady(page);
-  await page.screenshot({ path: join(GALLERY_SHEETS, 'gallery-overview.png') });
-
-  for (const part of galleryParts.filter((candidate) => candidate.batch === 2)) {
-    for (const width of [390, 1920] as const) {
-      if (inlineCases(part).length > 0) {
-        const frame = page.frameLocator(`iframe[data-frame-group="${part.id}"][width="${width}"]`);
-        for (const entry of inlineCases(part)) {
-          await frame
-            .locator(`[data-case="${entry.label}"]`)
-            .screenshot({ path: join(SHOTS, `${entry.label}-${width}.png`) });
-        }
-      }
-      for (const entry of portalCases(part)) {
-        const selector = `iframe[data-frame-case="${entry.label}"][width="${width}"]`;
-        const iframe = page.locator(selector);
-        const frame = await frameOf(page, selector);
-        await frame
-          .locator('[role=menu], [role=listbox], [role=tooltip], [role=dialog], [role=alertdialog], [role=status]')
-          .first()
-          .waitFor({ timeout: 10_000 });
-        await page.waitForTimeout(250);
-        await frame.evaluate(() => {
-          const active = document.activeElement;
-          if (active instanceof HTMLElement) active.blur();
-        });
-        await iframe.scrollIntoViewIfNeeded();
-        const frameBox = await iframe.boundingBox();
-        if (frameBox === null) throw new Error(`missing frame box: ${selector}`);
-        const area = await frame.evaluate(() => {
-          const boxOf = (element: Element | null) => {
-            if (element === null) return null;
-            const box = element.getBoundingClientRect();
-            return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
-          };
-          const caseBox = boxOf(document.querySelector('[data-case]'));
-          const popups = [
-            ...document.querySelectorAll(
-              '.menu-positioner, .field-positioner, .tooltip-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop',
-            ),
-          ]
-            .map((element) => boxOf(element))
-            .filter((box): box is { left: number; top: number; right: number; bottom: number } => box !== null);
-          const boxes = [caseBox, ...popups].filter(
-            (box): box is { left: number; top: number; right: number; bottom: number } => box !== null,
-          );
-          return {
-            left: Math.max(0, Math.min(...boxes.map((box) => box.left)) - 24),
-            top: Math.max(0, Math.min(...boxes.map((box) => box.top)) - 24),
-            right: Math.min(window.innerWidth, Math.max(...boxes.map((box) => box.right)) + 24),
-            bottom: Math.min(window.innerHeight, Math.max(...boxes.map((box) => box.bottom)) + 24),
-          };
-        });
-        await page.screenshot({
-          path: join(SHOTS, `${entry.label}-${width}.png`),
-          clip: {
-            x: frameBox.x + area.left,
-            y: frameBox.y + area.top,
-            width: area.right - area.left,
-            height: area.bottom - area.top,
-          },
-        });
-      }
-    }
-  }
-
-  for (const part of galleryParts.filter((candidate) => candidate.batch === 2)) {
-    for (const entry of part.cases) {
-      for (const width of [390, 1920] as const) {
-        expect(existsSync(join(SHOTS, `${entry.label}-${width}.png`)), `${entry.label}-${width}`).toBe(true);
-      }
-    }
-  }
-
   const controls: (MeasuredControl & { part: string; width: number })[] = [];
   const overlaps: (MeasuredOverlap & { part: string; width: number })[] = [];
   let clipped = 0;
-  for (const part of galleryParts.filter((candidate) => candidate.batch === 2)) {
-    for (const width of [390, 1920] as const) {
-      const selectors: string[] = [];
-      if (inlineCases(part).length > 0) {
-        selectors.push(`iframe[data-frame-group="${part.id}"][width="${width}"]`);
+
+  for (const batch of [3] as const) {
+    await galleryReady(page, batch);
+    await page.screenshot({ path: join(GALLERY_SHEETS, `gallery-overview-${batch}.png`) });
+
+    for (const part of galleryParts.filter((candidate) => candidate.batch === batch)) {
+      for (const width of [390, 1920] as const) {
+        if (inlineCases(part).length > 0) {
+          const frame = page.frameLocator(`iframe[data-frame-group="${part.id}"][width="${width}"]`);
+          for (const entry of inlineCases(part)) {
+            await frame
+              .locator(`[data-case="${entry.label}"]`)
+              .screenshot({ path: join(SHOTS, `${entry.label}-${width}.png`) });
+          }
+        }
+        for (const entry of portalCases(part)) {
+          const selector = `iframe[data-frame-case="${entry.label}"][width="${width}"]`;
+          const iframe = page.locator(selector);
+          const frame = await frameOf(page, selector);
+          await frame
+            .locator('[role=menu], [role=listbox], [role=tooltip], [role=dialog], [role=alertdialog], [role=status]')
+            .first()
+            .waitFor({ timeout: 10_000 });
+          await page.waitForTimeout(250);
+          await frame.addStyleTag({
+            content: '*:focus, *:focus-visible { outline: none !important; box-shadow: none !important; }',
+          });
+          await iframe.scrollIntoViewIfNeeded();
+          const frameBox = await iframe.boundingBox();
+          if (frameBox === null) throw new Error(`missing frame box: ${selector}`);
+          const area = await frame.evaluate(() => {
+            const boxOf = (element: Element | null) => {
+              if (element === null) return null;
+              const box = element.getBoundingClientRect();
+              return { left: box.left, top: box.top, right: box.right, bottom: box.bottom };
+            };
+            const caseBox = boxOf(document.querySelector('[data-case]'));
+            const labelBox = boxOf(document.querySelector('.case__label'));
+            const popups = [
+              ...document.querySelectorAll(
+                '.menu-positioner, .field-positioner, .tooltip-positioner, .status-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop',
+              ),
+            ]
+              .map((element) => boxOf(element))
+              .filter((box): box is { left: number; top: number; right: number; bottom: number } => box !== null);
+            const boxes = [caseBox, labelBox, ...popups].filter(
+              (box): box is { left: number; top: number; right: number; bottom: number } => box !== null,
+            );
+            const safe = boxes.length > 0 ? boxes : [{ left: 0, top: 0, right: innerWidth, bottom: innerHeight }];
+            return {
+              left: Math.max(0, Math.min(...safe.map((box) => box.left)) - 24),
+              top: Math.max(0, Math.min(...safe.map((box) => box.top)) - 24),
+              right: Math.min(window.innerWidth, Math.max(...safe.map((box) => box.right)) + 24),
+              bottom: Math.min(window.innerHeight, Math.max(...safe.map((box) => box.bottom)) + 24),
+            };
+          });
+          await page.screenshot({
+            path: join(SHOTS, `${entry.label}-${width}.png`),
+            clip: {
+              x: frameBox.x + area.left,
+              y: frameBox.y + area.top,
+              width: area.right - area.left,
+              height: area.bottom - area.top,
+            },
+          });
+        }
       }
-      for (const entry of portalCases(part)) {
-        selectors.push(`iframe[data-frame-case="${entry.label}"][width="${width}"]`);
+    }
+
+    for (const range of galleryRanges.filter((candidate) =>
+      candidate.parts.some((part) => part.batch === batch),
+    )) {
+      await page.locator(`[data-range="${range.id}"]`).screenshot({
+        path: join(GALLERY_SHEETS, `gallery-parts-${range.id}.png`),
+      });
+    }
+
+    for (const part of galleryParts.filter((candidate) => candidate.batch === batch)) {
+      for (const width of [390, 1920] as const) {
+        const selectors: string[] = [];
+        if (inlineCases(part).length > 0) {
+          selectors.push(`iframe[data-frame-group="${part.id}"][width="${width}"]`);
+        }
+        for (const entry of portalCases(part)) {
+          selectors.push(`iframe[data-frame-case="${entry.label}"][width="${width}"]`);
+        }
+        for (const selector of selectors) {
+          const frame = await frameOf(page, selector);
+          const fallback = selector.includes('data-frame-case')
+            ? (selector.match(/data-frame-case="([^"]+)"/)?.[1] ?? '')
+            : '';
+          const result = await frame.evaluate(measureFrame, fallback);
+          for (const control of result.controls) controls.push({ ...control, part: part.id, width });
+          for (const overlap of result.overlaps) overlaps.push({ ...overlap, part: part.id, width });
+          clipped += result.clipped;
+        }
       }
-      for (const selector of selectors) {
-        const frame = await frameOf(page, selector);
-        const fallback = selector.includes('data-frame-case')
-          ? (selector.match(/data-frame-case="([^"]+)"/)?.[1] ?? '')
-          : '';
-        const result = await frame.evaluate(measureFrame, fallback);
-        for (const control of result.controls) controls.push({ ...control, part: part.id, width });
-        for (const overlap of result.overlaps) overlaps.push({ ...overlap, part: part.id, width });
-        clipped += result.clipped;
+    }
+  }
+
+  for (const batch of [3] as const) {
+    for (const part of galleryParts.filter((candidate) => candidate.batch === batch)) {
+      for (const entry of part.cases) {
+        for (const width of [390, 1920] as const) {
+          expect(existsSync(join(SHOTS, `${entry.label}-${width}.png`)), `${entry.label}-${width}`).toBe(true);
+        }
       }
     }
   }
@@ -174,12 +188,4 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
   expect(small).toEqual([]);
   expect(overlaps).toEqual([]);
   expect(controls.length).toBeGreaterThan(0);
-
-  for (const range of galleryRanges.filter((candidate) =>
-    candidate.parts.some((part) => part.batch === 2),
-  )) {
-    await page.locator(`[data-range="${range.id}"]`).screenshot({
-      path: join(GALLERY_SHEETS, `gallery-parts-${range.id}.png`),
-    });
-  }
 });

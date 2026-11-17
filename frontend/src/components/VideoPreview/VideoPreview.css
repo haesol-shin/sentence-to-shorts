@@ -1,0 +1,58 @@
+@import '../base.css';
+
+.video-preview {
+  position: relative;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  width: 100%;
+  aspect-ratio: 9 / 16;
+  overflow: hidden;
+  border-radius: var(--radius-media);
+  background: var(--muted);
+  color: var(--sub);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  text-align: center;
+  transition: background-color var(--motion-preview-duration) var(--motion-ease);
+}
+
+.video-preview__mark {
+  width: var(--icon-placeholder);
+  height: var(--icon-placeholder);
+  stroke-width: var(--icon-stroke);
+}
+
+.video-preview__mark--ready {
+  color: var(--foreground);
+}
+
+.video-preview__note {
+  max-width: calc(100% - var(--space-48));
+  color: var(--sub);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.video-preview__duration {
+  position: absolute;
+  right: var(--space-12);
+  bottom: var(--space-12);
+  padding-inline: var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--overlay-length);
+  color: var(--primary-foreground);
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-preview {
+    transition: none;
+  }
+}
