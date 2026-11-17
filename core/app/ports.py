@@ -18,6 +18,7 @@ from app.schemas.api import ActivitySpan, CatalogItem, Metrics
 from app.schemas.artifact import Artifact, ArtifactKind, Timing
 from app.schemas.change import ChangePlan, Op
 from app.schemas.common import ContractModel, EntityId, PinnedRef
+from app.schemas.credential import CredentialInfo
 from app.schemas.job import Checkpoint, Job, JobError, JobKind, Stage, Usage, WaitingOn
 from app.schemas.preset import Preset
 from app.schemas.project import Project
@@ -154,9 +155,47 @@ class LlmResult:
 
 
 class LlmPort(Protocol):
-    def complete(self, req: LlmRequest, *, cancel: CancelToken, deadline: float) -> LlmResult: ...
+    def complete(
+        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+    ) -> LlmResult: ...
 
-    def auth_state(self) -> Literal["ok", "missing", "expired", "unknown"]: ...
+    def auth_state(self, owner_id: str) -> Literal["ok", "missing", "expired", "unknown"]: ...
+
+
+@dataclass(frozen=True)
+class ResolvedCredential:
+    credential_id: str
+    secret: str
+
+
+class CredentialResolver(Protocol):
+    def resolve(self, owner_id: str, provider: str) -> ResolvedCredential | None:
+        """The owner's key for the provider; sets last_used_at when found."""
+        ...
+
+    def credential_id(self, owner_id: str, provider: str) -> str | None:
+        """The current credential id, or None when no row or no stored secret."""
+        ...
+
+
+class CredentialStore(Protocol):
+    def put(
+        self, owner_id: str, provider: str, secret: str, label: str | None
+    ) -> CredentialInfo: ...
+
+    def list(self, owner_id: str) -> list[CredentialInfo]: ...
+
+    def delete(self, owner_id: str, provider: str) -> None: ...
+
+
+class SecretVault(Protocol):
+    """Holds secret values only; metadata stays in the credentials table."""
+
+    def get(self, owner_id: str, provider: str, credential_id: str) -> str | None: ...
+
+    def put(self, owner_id: str, provider: str, credential_id: str, secret: str) -> None: ...
+
+    def delete(self, owner_id: str, provider: str, credential_id: str) -> None: ...
 
 
 @dataclass(frozen=True)

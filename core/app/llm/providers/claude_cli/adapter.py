@@ -45,7 +45,7 @@ from app.llm.common import (
     token_count,
 )
 from app.llm.providers.claude_cli.process import CliProcessResult, run
-from app.ports import AppSettings, CancelToken, LlmRequest, LlmTask
+from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest, LlmTask
 
 PROVIDER = "claude_cli"
 MINIMUM_VERSION = (2, 1, 325)
@@ -179,7 +179,7 @@ class ClaudeCliLlm(BaseLlm):
     def cli_version(self) -> str | None:
         return self._cli_version
 
-    def auth_state(self) -> str:
+    def auth_state(self, owner_id: str) -> str:
         if _resolve_executable(self.executable) is None:
             return "missing"
         return self._auth
@@ -192,6 +192,7 @@ class ClaudeCliLlm(BaseLlm):
         timeout: float,
         cancel: CancelToken,
         deadline: float,
+        key: str | None,
     ) -> ProviderReply:
         if req.task is LlmTask.reference_vision or any(
             part.kind == "png" for part in req.parts
@@ -323,7 +324,9 @@ class ClaudeCliLlm(BaseLlm):
         return result
 
 
-def create(settings: AppSettings) -> ClaudeCliLlm:
+def create(
+    settings: AppSettings, *, credentials: CredentialResolver | None = None
+) -> ClaudeCliLlm:
     return ClaudeCliLlm(settings)
 
 

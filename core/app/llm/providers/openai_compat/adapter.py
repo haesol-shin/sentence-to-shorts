@@ -20,8 +20,7 @@ from app.llm.common import (
     status_error,
     token_count,
 )
-from app.llm.credentials import Credentials, credential_source
-from app.ports import AppSettings, CancelToken, LlmRequest
+from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest
 
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
 
@@ -35,10 +34,10 @@ class OpenAiCompatLlm(BaseLlm):
     provider = "openai_compat"
 
     def __init__(self, settings: AppSettings, *, routing: Any = None,
-                 base_url: str | None = None, credentials: Credentials | None = None,
+                 base_url: str | None = None, credentials: CredentialResolver | None = None,
                  key_required: bool = False, key_env: str | None = None,
                  opener: Any = None) -> None:
-        super().__init__(settings, routing=routing)
+        super().__init__(settings, routing=routing, credentials=credentials)
         options = settings_options(settings, self.provider)
         base_url = base_url or options.get("base_url") or os.environ.get("APP_LLM_BASE_URL")
         if not base_url:
@@ -48,23 +47,18 @@ class OpenAiCompatLlm(BaseLlm):
                 or url.username or url.password or url.query or url.fragment):
             raise ValueError("OpenAI-compatible base_url must be an HTTP endpoint")
         self.url = base_url.rstrip("/") + "/chat/completions"
-        self.credentials = credentials or credential_source(
-            settings, self.provider, env_var=key_env or options.get("key_env")
-        )
-        self.key_required = key_required or options.get("key_required", False)
+        self.key_env = key_env or options.get("key_env")
+        self.requires_key = bool(key_required or options.get("key_required", False))
         self.opener = opener or urllib.request.build_opener(
             urllib.request.ProxyHandler({}), _NoRedirect()
         )
 
-    def auth_state(self) -> str:
-        if self._auth in ("ok", "expired", "missing"):
-            return self._auth
-        return "missing" if self.key_required and not self.credentials.read() else "unknown"
+    def _developer_key(self) -> str | None:
+        return None if not self.key_env else os.environ.get(self.key_env)
 
     def _invoke(self, req: LlmRequest, route: ResolvedRoute, *, timeout: float,
-                cancel: CancelToken, deadline: float) -> ProviderReply:
-        key = self.credentials.read()
-        if self.key_required and not key:
+                cancel: CancelToken, deadline: float, key: str | None) -> ProviderReply:
+        if self.requires_key and not key:
             raise ProviderError("llm_auth")
         payload = _request_payload(req, route)
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
@@ -150,5 +144,7 @@ def _reply(data: Any, route: ResolvedRoute) -> ProviderReply:
         raise ProviderError("llm_invalid_output") from None
 
 
-def create(settings: AppSettings) -> OpenAiCompatLlm:
-    return OpenAiCompatLlm(settings)
+def create(
+    settings: AppSettings, *, credentials: CredentialResolver | None = None
+) -> OpenAiCompatLlm:
+    return OpenAiCompatLlm(settings, credentials=credentials)

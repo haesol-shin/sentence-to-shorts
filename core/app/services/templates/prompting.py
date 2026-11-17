@@ -104,7 +104,9 @@ def complete_json(
         max_output_tokens=max_output_tokens,
     )
     with ctx.stage(Stage.code_llm):
-        first = llm.complete(request, cancel=ctx.cancel, deadline=ctx.deadline)
+        first = llm.complete(
+            request, owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+        )
         ctx.record_usage(first.usage)
         try:
             return CodeAnswer(_parsed(first, model), first.usage)
@@ -120,6 +122,7 @@ def complete_json(
                 output_schema=schema,
                 max_output_tokens=max_output_tokens,
             ),
+            owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
         )

@@ -117,7 +117,9 @@ class ScriptedLlm:
     def queue(self, *answers: dict[str, Any]) -> None:
         self.answers.extend(answers)
 
-    def complete(self, req: LlmRequest, *, cancel: Any, deadline: float) -> LlmResult:
+    def complete(
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
+    ) -> LlmResult:
         self.requests.append(req)
         if not self.answers:
             raise AssertionError(f"no answer queued for {req.route}")
@@ -136,7 +138,7 @@ class ScriptedLlm:
         )
         return LlmResult(text=json.dumps(answer), parsed=answer, usage=usage)
 
-    def auth_state(self) -> str:
+    def auth_state(self, owner_id: str) -> str:
         return "ok"
 
     def data(self, index: int) -> dict[str, Any]:

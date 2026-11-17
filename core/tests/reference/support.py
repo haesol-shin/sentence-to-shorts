@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from app.ports import Cancelled, LlmRequest, LlmResult
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import Effort, Stage, Usage
 from app.schemas.video import Video
 from tests.media import ffmpeg
@@ -40,6 +41,7 @@ class Context:
     """The part of ``JobContext`` the reference service uses."""
 
     job_dir: Path
+    owner_id: str = PERSONAL_OWNER_ID
     input: dict[str, Any] = field(default_factory=dict)
     cancel: Cancel = field(default_factory=Cancel)
     deadline: float = field(default_factory=lambda: time.monotonic() + 120)
@@ -81,14 +83,16 @@ class ScriptedLlm:
         self.answers = list(answers)
         self.requests: list[LlmRequest] = []
 
-    def complete(self, req: LlmRequest, *, cancel: Any, deadline: float) -> LlmResult:
+    def complete(
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
+    ) -> LlmResult:
         self.requests.append(req)
         parsed = self.answers.pop(0)
         return LlmResult(
             text=json.dumps(parsed or {}), parsed=parsed, usage=usage()
         )
 
-    def auth_state(self) -> str:
+    def auth_state(self, owner_id: str) -> str:
         return "ok"
 
 

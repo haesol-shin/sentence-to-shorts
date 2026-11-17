@@ -17,8 +17,7 @@ from app.llm.common import (
     status_error,
     token_count,
 )
-from app.llm.credentials import Credentials, credential_source
-from app.ports import AppSettings, CancelToken, LlmRequest
+from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest
 
 
 class _NoSdkPayloadLogs(logging.Filter):
@@ -36,24 +35,19 @@ for _name, _logger in list(logging.Logger.manager.loggerDict.items()):
 
 class AnthropicApiLlm(BaseLlm):
     provider = "anthropic_api"
+    requires_key = True
 
     def __init__(self, settings: AppSettings, *, routing: Any = None,
-                 credentials: Credentials | None = None, http_transport: Any = None) -> None:
-        super().__init__(settings, routing=routing)
-        self.credentials = credentials or credential_source(settings, self.provider)
+                 credentials: CredentialResolver | None = None,
+                 http_transport: Any = None) -> None:
+        super().__init__(settings, routing=routing, credentials=credentials)
         self.http_transport = http_transport
         self.base_url = settings_options(settings, self.provider).get(
             "base_url", "https://api.anthropic.com"
         )
 
-    def auth_state(self) -> str:
-        if self._auth in ("ok", "expired", "missing"):
-            return self._auth
-        return "unknown" if self.credentials.read() else "missing"
-
     def _invoke(self, req: LlmRequest, route: ResolvedRoute, *, timeout: float,
-                cancel: CancelToken, deadline: float) -> ProviderReply:
-        key = self.credentials.read()
+                cancel: CancelToken, deadline: float, key: str | None) -> ProviderReply:
         if not key:
             raise ProviderError("llm_auth")
         parts = []
@@ -121,5 +115,7 @@ def _reply(message: Any) -> ProviderReply:
         raise ProviderError("llm_invalid_output") from None
 
 
-def create(settings: AppSettings) -> AnthropicApiLlm:
-    return AnthropicApiLlm(settings)
+def create(
+    settings: AppSettings, *, credentials: CredentialResolver | None = None
+) -> AnthropicApiLlm:
+    return AnthropicApiLlm(settings, credentials=credentials)

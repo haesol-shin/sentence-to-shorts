@@ -52,7 +52,7 @@ def test_recorded_response_plays_back(path: Path) -> None:
     assert path.stem == request_digest(request)
 
     result = FixtureLlm(LLM_ROOT).complete(
-        request, cancel=_NotCancelled(), deadline=1.0
+        request, owner_id="owner", cancel=_NotCancelled(), deadline=1.0
     )
     assert result.text == payload["text"]
     assert result.parsed == payload["parsed"]

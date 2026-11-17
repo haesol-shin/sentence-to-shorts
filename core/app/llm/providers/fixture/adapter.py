@@ -195,7 +195,7 @@ class FixtureLlm(LlmPort):
         return payload
 
     def complete(
-        self, req: LlmRequest, *, cancel: CancelToken, deadline: float
+        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
     ) -> LlmResult:
         # Recorded playback has no provider call. Keep the original fixture
         # semantics: cancellation is observed, but an absolute wall-clock
@@ -240,9 +240,9 @@ class FixtureLlm(LlmPort):
             ),
         )
 
-    def auth_state(self) -> str:
+    def auth_state(self, owner_id: str) -> str:
         return "ok"
 
 
-def create(settings: AppSettings) -> FixtureLlm:
+def create(settings: AppSettings, *, credentials: Any = None) -> FixtureLlm:
     return FixtureLlm()

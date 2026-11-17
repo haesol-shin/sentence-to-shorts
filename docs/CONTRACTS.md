@@ -334,8 +334,9 @@ class LlmResult:
     usage: Usage                      # same fields as job usage; unknown values are None
 
 class LlmPort(Protocol):
-    def complete(self, req: LlmRequest, *, cancel: CancelToken, deadline: float) -> LlmResult: ...
-    def auth_state(self) -> Literal["ok", "missing", "expired", "unknown"]: ...
+    def complete(self, req: LlmRequest, *, owner_id: str, cancel: CancelToken,
+                 deadline: float) -> LlmResult: ...
+    def auth_state(self, owner_id: str) -> Literal["ok", "missing", "expired", "unknown"]: ...
 ```
 
 - 구현은 `core/app/llm/providers/<id>/adapter.py`다. provider SDK는 이 폴더 밖에서 import하지 않는다.
@@ -378,7 +379,9 @@ class LlmPort(Protocol):
 - CLI adapter는 앱 전용 빈 CWD에서 실행한다. 사용자와 프로젝트 settings를 불러오지 않는다. 내장 tools, MCP, hooks, plugins를 끈다. 정확한 flag는 실제 설치 버전에서 확인한 값만 쓴다. 권한 우회 flag는 쓰지 않는다.
 - CLI prompt는 stdin으로 보낸다. 환경변수는 allowlist다. API key 환경변수는 CLI process에 넘기지 않는다.
 - 앱은 CLI credential 파일을 읽거나 복사하지 않는다.
-- 배포판 API key는 backend만 가진다. Windows는 Credential Manager, Linux는 Secret Service를 쓴다. Linux에 keyring이 없으면 메모리에만 두고 그 사실을 알린다.
+- 배포판 API key는 backend만 가지며 소유자와 provider마다 credential 하나로 저장한다. job 입력에는 key도 credential 참조도 넣지 않는다. LLM 호출은 job 소유자의 `owner_id`를 받고, adapter는 호출을 시작할 때 `(owner_id, provider)`로 credential을 찾는다. 사용한 `credential_id`는 사용 기록에 남긴다.
+- 개인 모드는 Windows Credential Manager와 Linux Secret Service를 쓰며 계정 이름은 `<owner_id>:<provider>`다. 앱 시작 때 예전 이름 `<provider>`의 항목이 있으면 `CredentialStore.put`으로 `(owner, provider)`의 새 이름 항목과 `credentials` 행을 만든 뒤 예전 항목을 지운다. 새 항목 쓰기가 실패하면 예전 항목은 남긴다. 행은 있으나 보관소에 비밀값이 없으면(메모리 fallback 재시작 뒤) 그 credential은 없는 것으로 본다. Linux에 keyring이 없으면 메모리에만 두고 그 사실을 알린다.
+- 원문 key는 로그, job 입력, 멱등 응답, 오류 본문에 남기지 않는다. 화면에는 끝 4자리만 보인다.
 
 ### 10.5 Prompt 문체와 작은 검토
 
@@ -587,9 +590,29 @@ class JobInputStore(Protocol):
     def load(self, job_id: str) -> dict[str, Any] | None: ...              # 재시작·재시도용
 
 class JobSubmitter(Protocol):
-    def submit(self, kind: JobKind, *, project_id: str | None, video_id: str | None,
-               base_revision: int | None, request_digest: str,
+    def submit(self, kind: JobKind, *, owner_id: str, project_id: str | None,
+               video_id: str | None, base_revision: int | None, request_digest: str,
                input: Mapping[str, Any], idempotency_key: str | None) -> Job: ...
+
+@dataclass(frozen=True)
+class ResolvedCredential:
+    credential_id: str
+    secret: str
+
+class CredentialResolver(Protocol):
+    def resolve(self, owner_id: str, provider: str) -> ResolvedCredential | None: ...  # sets last_used_at
+    def credential_id(self, owner_id: str, provider: str) -> str | None: ...           # None when no row or the vault no longer holds the secret; no last_used_at
+
+class CredentialStore(Protocol):
+    def put(self, owner_id: str, provider: str, secret: str, label: str | None) -> CredentialInfo: ...
+    def list(self, owner_id: str) -> list[CredentialInfo]: ...
+    def delete(self, owner_id: str, provider: str) -> None: ...
+
+class SecretVault(Protocol):
+    """Holds secret values only; metadata stays in the credentials table."""
+    def get(self, owner_id: str, provider: str, credential_id: str) -> str | None: ...
+    def put(self, owner_id: str, provider: str, credential_id: str, secret: str) -> None: ...
+    def delete(self, owner_id: str, provider: str, credential_id: str) -> None: ...
 
 class CatalogPort(Protocol):
     def list(self, kind: str, *, video: Video | None = None) -> list[CatalogItem]: ...
@@ -688,7 +711,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 ```
 
 - `path`는 `find`, `get`, `publish`로 얻은 artifact ID에만 쓴다. 소유 확인은 그 세 메서드가 한다.
-- `JobContext`는 jobs가 만든다. `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다.
+- `JobContext`는 jobs가 만든다. `owner_id`, `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다. `owner_id`는 job의 소유자이며 서비스는 LLM 호출에 그대로 넘긴다.
 - 서비스는 결과 파일을 job 폴더에 쓴다. 공개와 index는 pipeline이 `ArtifactStore.publish`로 한다.
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.
 - `AssembleService.attributions`는 내장 BGM(`BuiltinBgm`), 효과음(`SfxEntry`), 타자음(`TypingSoundEntry`) 중 SPDX가 대소문자 구분 없이 `CC-BY`로 시작하는 항목만 처리한다. `license.attribution`이 null이 아니면 지정 언어의 문구를 그대로 쓰고, null이면 지정 언어의 `entry.label`로 `"{title}" - {author}, {spdx}, {source_url}`을 만든다. 입력 순서를 지키며 같은 문자열은 처음 한 번만 반환한다. 실제 사용 항목과 순서는 호출자가 정하고, 표시 위치와 호출 책임은 이 계약의 범위 밖이다.

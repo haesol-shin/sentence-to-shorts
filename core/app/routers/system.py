@@ -21,6 +21,7 @@ from app.schemas.api import (
     PairResponse,
     RuntimeStatus,
 )
+from app.schemas.common import PERSONAL_OWNER_ID
 
 router = APIRouter()
 
@@ -39,7 +40,7 @@ def get_health(request: Request) -> Health:
 def get_runtime(request: Request) -> RuntimeStatus:
     app = runtime(request)
     settings = app.settings
-    llm_state = app.llm.auth_state()
+    llm_state = app.llm.auth_state(PERSONAL_OWNER_ID)
     tts_ready = not app.tts.ready()
     return RuntimeStatus(
         app_version=settings.app_version,
@@ -95,7 +96,8 @@ def get_session_csrf(request: Request) -> CsrfResponse:
     status_code=204,
 )
 def put_credentials_llm(request: Request, body: ApiKeyRequest) -> None:
-    runtime(request).access.set_llm_credentials(body)
+    app = runtime(request)
+    app.credentials.put(PERSONAL_OWNER_ID, app.llm_adapter, body.api_key, None)
 
 
 @router.get(
@@ -104,7 +106,11 @@ def put_credentials_llm(request: Request, body: ApiKeyRequest) -> None:
     response_model=CredentialState,
 )
 def get_credentials_llm(request: Request) -> CredentialState:
-    return runtime(request).access.llm_credentials()
+    app = runtime(request)
+    configured = app.credentials.credential_id(
+        PERSONAL_OWNER_ID, app.llm_adapter
+    ) is not None or app.llm.auth_state(PERSONAL_OWNER_ID) != "missing"
+    return CredentialState(configured=configured)
 
 
 @router.delete(
@@ -114,4 +120,5 @@ def get_credentials_llm(request: Request) -> CredentialState:
     status_code=204,
 )
 def delete_credentials_llm(request: Request) -> None:
-    runtime(request).access.clear_llm_credentials()
+    app = runtime(request)
+    app.credentials.delete(PERSONAL_OWNER_ID, app.llm_adapter)

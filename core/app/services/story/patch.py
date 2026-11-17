@@ -415,7 +415,9 @@ def complete_json(
         output_schema=model.model_json_schema(),
         max_output_tokens=max_output_tokens,
     )
-    first = llm.complete(request, cancel=ctx.cancel, deadline=ctx.deadline)
+    first = llm.complete(
+        request, owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+    )
     ctx.record_usage(first.usage)
     try:
         return _validated(first, model, check)
@@ -428,7 +430,9 @@ def complete_json(
             output_schema=model.model_json_schema(),
             max_output_tokens=max_output_tokens,
         )
-        second = llm.complete(second_request, cancel=ctx.cancel, deadline=ctx.deadline)
+        second = llm.complete(
+            second_request, owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+        )
         ctx.record_usage(second.usage)
         try:
             return _validated(second, model, check)

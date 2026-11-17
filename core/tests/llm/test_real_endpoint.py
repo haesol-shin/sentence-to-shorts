@@ -67,7 +67,7 @@ def _request(task, parts):
 def test_10_real_structured_request_and_usage(real_client, record_property):
     result = real_client.complete(
         _request(LlmTask.draft, [LlmPart("text", text="Say hello briefly in Korean.")]),
-        cancel=_Cancel(), deadline=time.monotonic() + 180,
+        owner_id="owner", cancel=_Cancel(), deadline=time.monotonic() + 180,
     )
     assert isinstance(result.parsed["answer"], str)
     assert result.usage.input_tokens is not None
@@ -83,7 +83,7 @@ def test_10_real_image_is_supported_or_explicitly_refused(real_client, record_pr
         result = real_client.complete(
             _request(LlmTask.reference_vision, [LlmPart("text", text="Name the image color."),
                                                 LlmPart("png", png=image.getvalue())]),
-            cancel=_Cancel(), deadline=time.monotonic() + 180,
+            owner_id="owner", cancel=_Cancel(), deadline=time.monotonic() + 180,
         )
     except AppError as error:
         assert error.code == "llm_refused"

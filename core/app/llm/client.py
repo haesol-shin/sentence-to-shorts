@@ -15,16 +15,27 @@ from collections.abc import Mapping
 from typing import Any
 
 from app.llm.registry import create
-from app.ports import AppSettings, CancelToken, LlmRequest, LlmResult
+from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest, LlmResult
 
 
 class LlmClient:
     def __init__(self, settings: AppSettings, *, provider: str | None = None,
-                 routing: Any = None, options: Mapping[str, Any] | None = None) -> None:
-        self._provider = create(settings, provider=provider, routing=routing, options=options)
+                 routing: Any = None, options: Mapping[str, Any] | None = None,
+                 credentials: CredentialResolver | None = None) -> None:
+        self._provider = create(
+            settings,
+            provider=provider,
+            routing=routing,
+            options=options,
+            credentials=credentials,
+        )
 
-    def complete(self, req: LlmRequest, *, cancel: CancelToken, deadline: float) -> LlmResult:
-        return self._provider.complete(req, cancel=cancel, deadline=deadline)
+    def complete(
+        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+    ) -> LlmResult:
+        return self._provider.complete(
+            req, owner_id=owner_id, cancel=cancel, deadline=deadline
+        )
 
-    def auth_state(self) -> str:
-        return self._provider.auth_state()
+    def auth_state(self, owner_id: str) -> str:
+        return self._provider.auth_state(owner_id)

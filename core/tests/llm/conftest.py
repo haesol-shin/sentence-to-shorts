@@ -7,12 +7,49 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.ports import Cancelled, LlmPart, LlmRequest, LlmTask
+from app.ports import Cancelled, LlmPart, LlmRequest, LlmTask, ResolvedCredential
 
 SCHEMA = {
     "type": "object", "properties": {"answer": {"type": "string"}},
     "required": ["answer"], "additionalProperties": False,
 }
+
+OWNER = "owner"
+CREDENTIAL_ID = "k_01jdq7c3v8m4n5p6q7r8s9t0vw"
+
+
+class FakeResolver:
+    """One credential slot per (owner, provider); enough for adapter tests."""
+
+    def __init__(self, secret: str | None = None, credential_id: str = CREDENTIAL_ID) -> None:
+        self.keys: dict[tuple[str, str], ResolvedCredential] = {}
+        if secret is not None:
+            self.keys[(OWNER, "any")] = ResolvedCredential(credential_id, secret)
+        self.default_id = credential_id
+
+    def set(
+        self,
+        secret: str | None,
+        owner_id: str = OWNER,
+        credential_id: str | None = None,
+    ) -> None:
+        self.keys = {
+            key: value for key, value in self.keys.items() if key[0] != owner_id
+        }
+        if secret is not None:
+            self.keys[(owner_id, "any")] = ResolvedCredential(
+                credential_id or self.default_id, secret
+            )
+
+    def resolve(self, owner_id: str, provider: str) -> ResolvedCredential | None:
+        found = self.keys.get((owner_id, provider))
+        if found is not None:
+            return found
+        return self.keys.get((owner_id, "any"))
+
+    def credential_id(self, owner_id: str, provider: str) -> str | None:
+        resolved = self.resolve(owner_id, provider)
+        return None if resolved is None else resolved.credential_id
 
 
 class Cancel:

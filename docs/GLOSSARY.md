@@ -16,6 +16,7 @@
 ## 소유와 자격 증명
 
 - **소유자 (owner)**: 사용자 자료를 나누는 기준이다. project, video, preset, 업로드 BGM, job, artifact가 `owner_id`를 갖고 조회와 멱등 기록은 소유자 범위 안에서 한다. 개인 모드의 소유자는 `owner` 하나다. 규칙은 [CONTRACTS 1.1](CONTRACTS.md#11-문서-규칙)을 따른다.
+- **credential**: 소유자와 provider마다 하나인 LLM API key의 저장 단위다. 메타데이터는 `credentials` 행에, 비밀값은 개인 모드의 keyring에 둔다. LLM 호출은 job 소유자와 provider로 실행 시점에 찾는다. 규칙은 [CONTRACTS 10.4](CONTRACTS.md#104-보안-규칙)를 따른다.
 
 ## 입력과 내용
 

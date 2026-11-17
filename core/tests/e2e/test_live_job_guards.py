@@ -16,7 +16,7 @@ def test_10_authentication_state_controls_submission(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, state: str
 ) -> None:
     runtime = client.app.state.runtime  # type: ignore[attr-defined]
-    monkeypatch.setattr(runtime.llm, "auth_state", lambda: state)
+    monkeypatch.setattr(runtime.llm, "auth_state", lambda owner_id: state)
 
     def refuse(*args: Any, **kwargs: Any) -> Any:
         raise AppError("llm_auth")

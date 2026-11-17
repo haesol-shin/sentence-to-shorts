@@ -17,7 +17,15 @@ from jsonschema.validators import validator_for
 from referencing import Registry
 from referencing.exceptions import Unresolvable
 
-from app.ports import AppError, AppSettings, CancelToken, LlmPart, LlmRequest, LlmResult
+from app.ports import (
+    AppError,
+    AppSettings,
+    CancelToken,
+    CredentialResolver,
+    LlmPart,
+    LlmRequest,
+    LlmResult,
+)
 from app.schemas.job import Stage, Usage
 
 STAGES = {
@@ -142,23 +150,80 @@ def _add_known(old: int | None, new: int | None) -> int | None:
 
 class BaseLlm(ABC):
     provider: str
+    requires_key = False
 
-    def __init__(self, settings: AppSettings, *, routing: Any = None) -> None:
+    def __init__(
+        self,
+        settings: AppSettings,
+        *,
+        routing: Any = None,
+        credentials: CredentialResolver | None = None,
+    ) -> None:
         self.settings = settings
         self.routing = routing if routing is not None else settings.models
+        self.credentials = credentials
         self._auth = "unknown"
+        self._failed: dict[str, str | None] = {}
+        self._ok: dict[str, str | None] = {}
 
-    def auth_state(self) -> str:
-        return self._auth
+    def _developer_key(self) -> str | None:
+        """A developer environment key, when the bootstrap configured one."""
+        return None
+
+    def _available(self, owner_id: str) -> bool:
+        return True
+
+    def _slot(self, owner_id: str) -> str | None:
+        """What names the key currently in effect: `env` or a credential id."""
+        if self._developer_key() is not None:
+            return "env"
+        if self.credentials is None:
+            return None
+        return self.credentials.credential_id(owner_id, self.provider)
+
+    def _resolve(self, owner_id: str) -> tuple[str | None, str | None]:
+        """Resolve the key once at the start of a call: (slot, secret)."""
+        developer = self._developer_key()
+        if developer is not None:
+            return "env", developer
+        if self.credentials is None:
+            return None, None
+        resolved = self.credentials.resolve(owner_id, self.provider)
+        if resolved is None:
+            return None, None
+        return resolved.credential_id, resolved.secret
+
+    def auth_state(self, owner_id: str) -> str:
+        if not self._available(owner_id):
+            return "missing"
+        slot = self._slot(owner_id)
+        if slot is None:
+            if self.requires_key:
+                return "missing"
+            if owner_id in self._failed and self._failed[owner_id] is None:
+                return "expired"
+            if owner_id in self._ok and self._ok[owner_id] is None:
+                return "ok"
+            return "unknown"
+        if self._failed.get(owner_id) == slot:
+            return "expired"
+        return "ok" if self._ok.get(owner_id) == slot else "unknown"
 
     @abstractmethod
     def _invoke(self, req: LlmRequest, route: ResolvedRoute, *, timeout: float,
-                cancel: CancelToken, deadline: float) -> ProviderReply:
+                cancel: CancelToken, deadline: float,
+                key: str | None) -> ProviderReply:
         """Issue one attempt without changing the selected route."""
 
-    def complete(self, req: LlmRequest, *, cancel: CancelToken, deadline: float) -> LlmResult:
+    def complete(
+        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+    ) -> LlmResult:
         started = time.monotonic()
         check_active(cancel, deadline)
+        slot, key = self._resolve(owner_id)
+        if self.requires_key and key is None:
+            self._failed[owner_id] = slot
+            raise AppError("llm_auth")
         route = resolve_route(self.routing, req.route, self.provider)
         if sum(part.kind == "png" for part in req.parts) > 8:
             raise AppError("llm_refused")
@@ -174,10 +239,11 @@ class BaseLlm(ABC):
             try:
                 calls += 1
                 reply = self._invoke(current, route, timeout=timeout,
-                                     cancel=cancel, deadline=deadline)
+                                     cancel=cancel, deadline=deadline, key=key)
             except ProviderError as error:
                 check_active(cancel, deadline)
                 if error.code == "llm_auth":
+                    self._failed[owner_id] = slot
                     self._auth = "expired" if self._auth == "ok" else "missing"
                 cap = {"llm_timeout": 1, "llm_connection": 2, "llm_rate_limited": 2}.get(
                     error.code, 0
@@ -193,6 +259,7 @@ class BaseLlm(ABC):
                 continue
             check_active(cancel, deadline)
             self._auth = "ok"
+            self._ok[owner_id] = slot
             for name in counts:
                 counts[name] = _add_known(counts[name], getattr(reply, name))
             try:
