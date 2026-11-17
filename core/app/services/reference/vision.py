@@ -130,7 +130,9 @@ def ask(
         )
 
     with ctx.stage(Stage.ref_llm):
-        first = llm.complete(request(system, []), cancel=ctx.cancel, deadline=ctx.deadline)
+        first = llm.complete(
+            request(system, []), owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+        )
         ctx.record_usage(first.usage)
         try:
             return _parsed(first)
@@ -139,6 +141,7 @@ def ask(
             note = json.dumps({"validation_error": str(problem)[:1000]}, ensure_ascii=False)
         second = llm.complete(
             request(system + REPAIR_NOTE, [LlmPart(kind="text", text=note)]),
+            owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
         )

@@ -230,7 +230,7 @@ def test_26_build_view_resolves_current_keys_and_length(change_context, tmp_path
     path = tmp_path / "still.png"
     Image.new("RGB", (540, 960)).save(path)
     artifact = services.artifact_store.publish(
-        ArtifactKind.still_png, key, path, {"width": 540, "height": 960}, None
+        video.owner_id, ArtifactKind.still_png, key, path, {"width": 540, "height": 960}, None
     )
     view = build_view(video, services)
     assert view.scenes[scene_id].still.state is ArtifactState.fresh
@@ -244,13 +244,35 @@ def test_26_build_view_resolves_current_keys_and_length(change_context, tmp_path
     assert view.final.state is ArtifactState.missing
 
 
+def test_video_view_reads_owner_artifacts(change_context, tmp_path):
+    video, services = change_context
+    scene_id = video.scene_order[0]
+    key = Graph(video, services).scenes[scene_id].still
+    path = tmp_path / "still.png"
+    Image.new("RGB", (540, 960)).save(path)
+    other = services.artifact_store.publish(
+        "u_0hzb7bexv28termtt2ypc6trzt",
+        ArtifactKind.still_png,
+        key,
+        path,
+        {},
+        None,
+    )
+    view = build_view(video, services)
+    assert view.scenes[scene_id].still.artifact is None
+    assert other.owner_id != video.owner_id
+    assert services.artifact_store.find(video.owner_id, key) is None
+
+
 def test_26_build_view_never_calls_old_key_fresh(change_context, tmp_path):
     video, services = change_context
     scene_id = video.scene_order[0]
     key = Graph(video, services).scenes[scene_id].still
     path = tmp_path / "still.png"
     Image.new("RGB", (540, 960)).save(path)
-    artifact = services.artifact_store.publish(ArtifactKind.still_png, key, path, {}, None)
+    artifact = services.artifact_store.publish(
+        video.owner_id, ArtifactKind.still_png, key, path, {}, None
+    )
     services.previous_keys[(video.id, "still_png", scene_id, None)] = key
     changed = video.model_copy(deep=True)
     changed.scenes[scene_id].lines[0].display_text = "바뀐 화면 글"

@@ -58,8 +58,10 @@ class SqliteIdempotencyStore:
         self._ttl = timedelta(hours=ttl_hours)
         self._clock = clock
 
-    def begin(self, key: str, route: str, request_digest: str) -> StoredResponse | None:
-        """Reserve the key, or return the stored response of the same request."""
+    def begin(
+        self, owner_id: str, key: str, route: str, request_digest: str
+    ) -> StoredResponse | None:
+        """Reserve the owner's key, or return the stored response of the same request."""
         if not KEY_PATTERN.fullmatch(key):
             raise ValueError("invalid idempotency key")
         if not _DIGEST.fullmatch(request_digest):
@@ -68,8 +70,8 @@ class SqliteIdempotencyStore:
         with self._db.write() as conn:
             row = conn.execute(
                 "SELECT route, request_digest, state, status, body, expires_at "
-                "FROM idempotency WHERE key = ?",
-                (key,),
+                "FROM idempotency WHERE owner_id = ? AND key = ?",
+                (owner_id, key),
             ).fetchone()
             if row is not None and datetime.fromisoformat(row[5]) > now:
                 if row[0] != route or row[1] != request_digest:
@@ -79,31 +81,35 @@ class SqliteIdempotencyStore:
                 return StoredResponse(status=int(row[3]), body=json.loads(row[4]))
             conn.execute(
                 "INSERT OR REPLACE INTO idempotency "
-                "(key, route, request_digest, state, status, body, created_at, expires_at) "
-                "VALUES (?, ?, ?, 'pending', NULL, NULL, ?, ?)",
-                (key, route, request_digest, utc_text(now), utc_text(now + self._ttl)),
+                "(owner_id, key, route, request_digest, state, status, body, created_at, "
+                "expires_at) VALUES (?, ?, ?, ?, 'pending', NULL, NULL, ?, ?)",
+                (owner_id, key, route, request_digest, utc_text(now), utc_text(now + self._ttl)),
             )
         return None
 
-    def complete(self, key: str, route: str, request_digest: str, status: int, body: Any) -> None:
+    def complete(
+        self, owner_id: str, key: str, route: str, request_digest: str, status: int, body: Any
+    ) -> None:
         """Store the response of a reserved request. Later repeats get it back as is."""
         text = json.dumps(body, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         with self._db.write() as conn:
             updated = conn.execute(
                 "UPDATE idempotency SET state = 'done', status = ?, body = ? "
-                "WHERE key = ? AND route = ? AND request_digest = ? AND state = 'pending'",
-                (status, text, key, route, request_digest),
+                "WHERE owner_id = ? AND key = ? AND route = ? AND request_digest = ? "
+                "AND state = 'pending'",
+                (status, text, owner_id, key, route, request_digest),
             ).rowcount
         if updated != 1:
             raise RuntimeError("idempotency key was not reserved by this request")
 
-    def abort(self, key: str, route: str, request_digest: str) -> None:
+    def abort(self, owner_id: str, key: str, route: str, request_digest: str) -> None:
         """Free a reservation whose request failed before it had a response."""
         with self._db.write() as conn:
             conn.execute(
                 "DELETE FROM idempotency "
-                "WHERE key = ? AND route = ? AND request_digest = ? AND state = 'pending'",
-                (key, route, request_digest),
+                "WHERE owner_id = ? AND key = ? AND route = ? AND request_digest = ? "
+                "AND state = 'pending'",
+                (owner_id, key, route, request_digest),
             )
 
     def drop_pending(self) -> int:

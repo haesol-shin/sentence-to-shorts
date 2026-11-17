@@ -304,7 +304,7 @@ class _Builder:
     def published_timing(self, scene_id: str) -> Timing | None:
         """The scene's measured timing when an earlier generate published it."""
         if scene_id not in self._timings:
-            artifact = self.run.store.find(self.keys(scene_id).timing)
+            artifact = self.run.store.find(self.run.job.owner_id, self.keys(scene_id).timing)
             if artifact is None:
                 return None
             self._timings[scene_id] = _load_timing(self.run, artifact, scene_id)

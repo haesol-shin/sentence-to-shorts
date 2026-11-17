@@ -14,6 +14,7 @@ from app.schemas.common import (
     ContractModel,
     Digest,
     EntityId,
+    OwnerId,
     PinnedRef,
     RelPath,
     Timestamp,
@@ -52,6 +53,7 @@ class MediaMeta(TypedDict, total=False):
 class Artifact(ContractModel):
     id: EntityId
     kind: ArtifactKind
+    owner_id: OwnerId
     digest: Digest
     bytes: Annotated[int, Field(ge=1)]
     cache_key: Digest

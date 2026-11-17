@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Header, Request
+from fastapi import APIRouter, Header, Request, Response
 
 from app.ports import AppError, canonical_digest
 from app.routers.deps import runtime
 from app.schemas.api import BaseRevision, Job
 from app.schemas.change import ChangePlan, ChangeStatus
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import JobKind
 from app.schemas.video import Video
 
@@ -30,6 +31,7 @@ def get_change(request: Request, cid: str) -> ChangePlan:
 def preview_change(
     request: Request,
     cid: str,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
     app = runtime(request)
@@ -37,8 +39,9 @@ def preview_change(
     if plan.status is not ChangeStatus.proposed:
         raise AppError("change_stale")
     payload = {"change_id": plan.id}
-    return app.submitter.submit(
+    result = app.submitter.submit(
         JobKind.preview,
+        owner_id=PERSONAL_OWNER_ID,
         project_id=None,
         video_id=plan.video_id,
         base_revision=plan.base_revision,
@@ -46,6 +49,8 @@ def preview_change(
         input=payload,
         idempotency_key=idempotency_key,
     )
+    response.status_code = result.status
+    return result.job
 
 
 @router.post("/changes/{cid}/apply", operation_id="applyChange", response_model=Video)

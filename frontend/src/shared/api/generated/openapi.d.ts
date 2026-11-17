@@ -47,10 +47,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Upload Bgm
-         * @description Validate upload metadata; submission integration is tracked separately.
-         */
+        /** Upload Bgm */
         post: operations["uploadBgm"];
         delete?: never;
         options?: never;
@@ -1361,6 +1358,7 @@ export interface components {
             kind: components["schemas"]["JobKind"];
             /** Max Attempts */
             max_attempts: number;
+            owner_id: components["schemas"]["OwnerId"];
             /** Partial */
             partial: boolean;
             progress: components["schemas"]["Progress"];

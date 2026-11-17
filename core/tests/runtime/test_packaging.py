@@ -18,6 +18,7 @@ import pytest
 
 from app.ports import canonical_digest
 from app.runtime.launcher import adapter_choices, read_distribution
+from app.schemas.common import PERSONAL_OWNER_ID
 
 REPO = Path(__file__).resolve().parents[3]
 PACKAGING = REPO / "packaging"
@@ -195,7 +196,7 @@ def test_packaging_profiles_select_the_effective_llm_provider(
     settings.providers.adapters.update(adapter_choices(dist, settings.profile, {}))
     assert settings.providers.adapters["llm"] == adapter
     built = ADAPTER_FACTORIES["llm"][adapter](settings)
-    assert built.auth_state() in {"ok", "missing", "expired", "unknown"}
+    assert built.auth_state(PERSONAL_OWNER_ID) in {"ok", "missing", "expired", "unknown"}
 
 
 def test_packaging_python_lock_pins_one_hashed_interpreter_per_platform() -> None:

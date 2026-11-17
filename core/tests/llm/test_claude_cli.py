@@ -20,6 +20,9 @@ from app.llm.providers.claude_cli import adapter as claude_cli
 from app.llm.providers.claude_cli.adapter import ClaudeCliLlm, create
 from app.llm.registry import create as create_llm
 from app.ports import AppError, Cancelled, LlmPart, LlmTask
+from tests.llm.conftest import OWNER
+
+DEADLINE = time.monotonic() + 3600
 
 VERSION = "2.1.325 (Claude Code)"
 EXPECTED_MODEL = "claude-cli-2026-synthetic"
@@ -396,7 +399,7 @@ def test_9a_cli_uses_verified_flags_and_private_empty_cwd(
     cli = _fake_cli(tmp_path, write_session=True)
     model = _adapter(settings, cli)
 
-    result = model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert result.parsed == {"answer": "ok"}
     assert result.text == SUCCESS_RESULT["result"]
@@ -479,7 +482,7 @@ def test_9a_structured_output_and_model_usage_become_the_reply(
     )
     model = _adapter(settings, cli)
 
-    result = model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert result.parsed == {"answer": "structured"}
     assert json.loads(result.text) == {"answer": "structured"}
@@ -497,7 +500,7 @@ def test_9a_reported_tokens_over_the_request_budget_are_rejected(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
     assert cli.generation_calls()
@@ -517,7 +520,7 @@ def test_9a_unknown_usage_stays_none_and_modelusage_names_the_model(
     )
     model = _adapter(settings, cli)
 
-    result = model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert result.parsed == {"answer": "unknown usage"}
     assert result.usage.model == "cli-haiku"
@@ -535,11 +538,11 @@ def test_9a_missing_help_flag_fails_closed(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_auth"
     assert cli.generation_calls() == []
-    assert model.auth_state() == "missing"
+    assert model.auth_state(OWNER) == "missing"
 
 
 @pytest.mark.parametrize("version", ["2.1.324 (Claude Code)", "not a version"])
@@ -550,7 +553,7 @@ def test_9a_unverified_version_fails_closed(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_auth"
     assert cli.generation_calls() == []
@@ -586,7 +589,7 @@ def test_9a_image_parts_are_refused_without_starting_the_cli(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_refused"
     assert cli.calls() == []
@@ -621,7 +624,7 @@ def test_9a_tool_activity_output_is_rejected(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
     assert not marker.exists()
@@ -650,7 +653,7 @@ def test_9a_untrusted_text_is_only_input_data(
     cli = _fake_cli(tmp_path)
     model = _adapter(settings, cli)
 
-    result = model.complete(request, cancel=cancel, deadline=time.monotonic() + 30)
+    result = model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert result.parsed == {"answer": "ok"}
     assert not marker.exists()
@@ -766,7 +769,7 @@ def test_9a_cli_failures_use_safe_error_codes(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == expected
     message = str(caught.value)
@@ -781,12 +784,12 @@ def test_9a_auth_state_is_observed_without_a_generation_probe(
 ) -> None:
     cli = _fake_cli(tmp_path)
     model = _adapter(settings, cli)
-    assert model.auth_state() == "unknown"
+    assert model.auth_state(OWNER) == "unknown"
     assert cli.calls() == []
 
-    result = model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert result.parsed == {"answer": "ok"}
-    assert model.auth_state() == "ok"
+    assert model.auth_state(OWNER) == "ok"
 
     cli.configure(
         result={
@@ -797,13 +800,13 @@ def test_9a_auth_state_is_observed_without_a_generation_probe(
         }
     )
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert caught.value.code == "llm_auth"
-    assert model.auth_state() == "expired"
+    assert model.auth_state(OWNER) == "expired"
 
     cli.configure(result=SUCCESS_RESULT)
-    model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
-    assert model.auth_state() == "ok"
+    model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+    assert model.auth_state(OWNER) == "ok"
 
 
 def test_9a_missing_executable_reports_missing_and_fails_auth(
@@ -812,9 +815,9 @@ def test_9a_missing_executable_reports_missing_and_fails_auth(
     missing = tmp_path / "does-not-exist"
     model = ClaudeCliLlm(settings, routing=_routing(), executable=str(missing))
 
-    assert model.auth_state() == "missing"
+    assert model.auth_state(OWNER) == "missing"
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert caught.value.code == "llm_auth"
     assert not missing.exists()
     assert not _cache_root(settings).exists()
@@ -839,7 +842,7 @@ def test_9a_registry_passes_injected_executable(
         options={"executable": str(cli.path)},
     )
 
-    result = model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert result.parsed == {"answer": "ok"}
     assert cli.generation_calls()
@@ -852,7 +855,7 @@ def test_9a_timeout_kills_the_process_tree(
     model = _adapter(settings, cli, timeout_s=2.0, retries=0)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_timeout"
     generation = cli.generation_calls()[0]
@@ -872,7 +875,7 @@ def test_9a_cancel_kills_the_process_tree(
 
     def run_complete() -> None:
         try:
-            model.complete(request_data, cancel=token, deadline=time.monotonic() + 30)
+            model.complete(request_data, owner_id=OWNER, cancel=token, deadline=DEADLINE)
         except BaseException as error:
             failures.append(error)
 
@@ -901,7 +904,7 @@ def test_9a_oversized_stdout_is_bounded(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
 
@@ -928,7 +931,7 @@ def test_9a_cli_usage_error_is_not_retried_as_connection(
     model = _adapter(settings, cli, retries=2)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
     assert len(cli.generation_calls()) == 1
@@ -945,7 +948,7 @@ def test_9a_tool_call_in_an_intermediate_stream_event_is_rejected(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
 
@@ -957,6 +960,6 @@ def test_9a_stream_without_result_event_is_invalid_output(
     model = _adapter(settings, cli)
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, cancel=cancel, deadline=time.monotonic() + 30)
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"

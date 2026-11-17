@@ -95,6 +95,7 @@
       "tests/access",
       "tests/e2e",
       "tests/jobs",
+      "tests/llm",
       "tests/pipeline",
       "tests/project",
       "tests/recovery",

@@ -30,7 +30,7 @@ from app.schemas.change import (
     SetScriptOp,
     Target,
 )
-from app.schemas.common import Origin
+from app.schemas.common import Mood, Origin
 from app.schemas.job import Job
 from app.schemas.video import CreatedBy, Video
 from app.services.pipeline.dependencies import plan_change
@@ -157,7 +157,13 @@ def run_bgm_upload(body: dict[str, Any], ctx: JobContext, services: Services) ->
     project_id = body.get("project_id")
     if not isinstance(project_id, str):
         raise AppError("validation_failed", detail={"field": "project_id"})
-    entry = services.sound.import_upload(_upload_path(ctx), project_id, ctx=ctx)
+    try:
+        mood = Mood(body.get("mood", Mood.calm.value))
+    except ValueError:
+        raise AppError("validation_failed", detail={"field": "mood"}) from None
+    entry = services.sound.import_upload(
+        _bgm_upload_path(ctx), project_id, ctx=ctx, mood=mood
+    )
     return {
         "bgm_id": entry.id,
         "upload_id": getattr(entry, "upload_id", None),
@@ -437,6 +443,18 @@ def _upload_path(ctx: JobContext) -> Any:
     path = Path(value)
     if not path.is_file():
         raise AppError("validation_failed", detail={"field": "upload_path"})
+    return path
+
+
+def _bgm_upload_path(ctx: JobContext) -> Any:
+    value = ctx.input.get("staging_path", ctx.input.get("upload_path"))
+    if not isinstance(value, str) or not value:
+        raise AppError("validation_failed", detail={"field": "staging_path"})
+    from pathlib import Path
+
+    path = Path(value)
+    if not path.is_file():
+        raise AppError("validation_failed", detail={"field": "staging_path"})
     return path
 
 

@@ -13,7 +13,7 @@ import pytest
 
 from app.ports import AppError, LlmRequest, LlmResult, LlmTask, UnknownCatalogId
 from app.schemas.change import Target
-from app.schemas.common import ContractModel, Origin, PinnedRef
+from app.schemas.common import PERSONAL_OWNER_ID, ContractModel, Origin, PinnedRef
 from app.schemas.format_card import FormatCard, StoryStructure
 from app.schemas.job import Stage, Usage
 from app.schemas.style_manifest import StyleManifest
@@ -61,6 +61,10 @@ class FakeContext:
         self.progress_calls: list[tuple[int, int]] = []
 
     @property
+    def owner_id(self) -> str:
+        return PERSONAL_OWNER_ID
+
+    @property
     def cancel(self) -> NotCancelled:
         return NotCancelled()
 
@@ -97,7 +101,7 @@ class RecordingLlm:
         self.requests: list[LlmRequest] = []
 
     def complete(
-        self, req: LlmRequest, *, cancel: Any, deadline: float
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
     ) -> LlmResult:
         self.requests.append(req)
         if not self.responses:
@@ -122,7 +126,7 @@ class RecordingLlm:
             ),
         )
 
-    def auth_state(self) -> str:
+    def auth_state(self, owner_id: str) -> str:
         return "ok"
 
 

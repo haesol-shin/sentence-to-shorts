@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.jobs import JobRunner, RunJob, SqliteJobStore
 from app.schemas.artifact import Artifact, ArtifactKind
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import Job, JobKind, JobState, Progress, WaitingOn
 from app.storage.artifacts import FileArtifactStore
 from app.storage.job_inputs import LocalJobInputStore
@@ -37,6 +38,7 @@ class Env:
             self.inputs,
             run_job,
             cache_dir=self.layout.cache,
+            bgm_staging_dir=self.layout.data / "staging" / "bgm",
             poll_s=0.02,
             watch_s=0.02,
         )
@@ -63,6 +65,7 @@ def new_job(
     return Job(
         id=new_typeid("j"),
         kind=kind,
+        owner_id=PERSONAL_OWNER_ID,
         state=JobState.queued,
         project_id=None,
         video_id=video_id,
@@ -92,7 +95,12 @@ def publish_clip(
     tmp = staging / f"{hashlib.sha256(data).hexdigest()[:12]}.mp4"
     tmp.write_bytes(data)
     return artifacts.publish(
-        ArtifactKind.clip_mp4, hashlib.sha256(data).hexdigest(), tmp, {}, job_id
+        PERSONAL_OWNER_ID,
+        ArtifactKind.clip_mp4,
+        hashlib.sha256(data).hexdigest(),
+        tmp,
+        {},
+        job_id,
     )
 
 

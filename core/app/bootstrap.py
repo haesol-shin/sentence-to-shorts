@@ -23,6 +23,7 @@ from typing import Any, TypeVar, cast
 from app.access import SessionGuard
 from app.access import create as create_access
 from app.jobs import JobRunner, LocalJobContext, SqliteJobStore
+from app.llm.credentials import KeyringVault
 from app.llm.providers.anthropic_api.adapter import create as create_anthropic
 from app.llm.providers.claude_cli.adapter import create as create_claude_cli
 from app.llm.providers.fixture.adapter import create as create_fixture_llm
@@ -42,6 +43,7 @@ from app.ports import (
     Proposal,
     SandboxPort,
     ServiceDeps,
+    SubmitResult,
     TranscriberPort,
     TtsPort,
 )
@@ -49,7 +51,7 @@ from app.runtime import RuntimeSetup
 from app.runtime import create as create_runtime_setup
 from app.schemas.api import PrecheckReport
 from app.schemas.change import Op, SetOp, Target
-from app.schemas.common import Mood, Origin
+from app.schemas.common import PERSONAL_OWNER_ID, Mood, Origin
 from app.schemas.job import Job, JobKind, JobState, Progress, WaitingOn
 from app.schemas.video import STAGE_ORDER, Video, VideoStage
 from app.services.assemble import service as assemble_service
@@ -72,6 +74,7 @@ from app.services.templates import service as templates_service
 from app.services.voice import service as voice_service
 from app.settings import Settings
 from app.storage.artifacts import FileArtifactStore
+from app.storage.credentials import SqliteCredentialStore
 from app.storage.job_inputs import create_job_input_store
 from app.storage.paths import Layout
 from app.storage.projects import SqliteProjectStore, new_typeid
@@ -216,31 +219,33 @@ class LocalJobs:
         self,
         kind: JobKind,
         *,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,
         request_digest: str,
         input: Mapping[str, Any],
         idempotency_key: str | None,
-    ) -> Job:
+    ) -> SubmitResult:
         if kind in UNAVAILABLE_JOB_KINDS:
             raise NotImplementedError(kind.value)
         with self._lock:
             if project_id is not None:
                 self._projects.get_project(project_id)
-            self._check(kind, video_id, base_revision)
-            active = self._active(kind, video_id, project_id)
+            self._check(owner_id, kind, video_id, base_revision)
+            active = self._active(owner_id, kind, video_id, project_id)
             if active is not None:
                 if active.request_digest == request_digest:
-                    return active
+                    return SubmitResult(job=active, status=200)
                 raise AppError("job_running", detail={"job_id": active.id})
             job = self._new_job(
-                kind, project_id, video_id, base_revision, request_digest, idempotency_key
+                kind, owner_id, project_id, video_id, base_revision, request_digest,
+                idempotency_key,
             )
             self._inputs.save(job.id, input)
             created = self._store.create(job)
         self._wake()
-        return created
+        return SubmitResult(job=created, status=202)
 
     def retry(self, job_id: str) -> Job:
         """Queue the next attempt, unless another job of the same video and kind is active."""
@@ -251,7 +256,7 @@ class LocalJobs:
             if job.video_id is not None:
                 self._projects.get_video(job.video_id)
             self._check_runtime(job.kind)
-            active = self._active(job.kind, job.video_id, job.project_id)
+            active = self._active(job.owner_id, job.kind, job.video_id, job.project_id)
             if active is not None and active.id != job_id:
                 raise AppError("job_running", detail={"job_id": active.id})
             queued = self._store.requeue(job_id)
@@ -288,7 +293,9 @@ class LocalJobs:
     def open_for_video(self, video_id: str) -> list[Job]:
         return [job for job in self._store.unfinished() if job.video_id == video_id]
 
-    def _check(self, kind: JobKind, video_id: str | None, base_revision: int | None) -> None:
+    def _check(
+        self, owner_id: str, kind: JobKind, video_id: str | None, base_revision: int | None
+    ) -> None:
         if video_id is not None:
             head = self._projects.get_video(video_id)
             if base_revision is not None and base_revision != head.revision:
@@ -296,7 +303,10 @@ class LocalJobs:
             gate = STAGE_GATES.get(kind)
             if gate is not None and STAGE_ORDER.index(head.stage) < STAGE_ORDER.index(gate[0]):
                 raise AppError(gate[1], detail={"stage": head.stage.value})
-        if kind in LLM_JOB_KINDS and self._llm.auth_state() in {"missing", "expired"}:
+        if (
+            kind in LLM_JOB_KINDS
+            and self._llm.auth_state(owner_id) in {"missing", "expired"}
+        ):
             raise AppError("llm_auth_required")
         self._check_runtime(kind)
 
@@ -304,8 +314,12 @@ class LocalJobs:
         if kind is JobKind.generate and not _render_ready(self._media):
             raise AppError("runtime_not_ready")
 
-    def _active(self, kind: JobKind, video_id: str | None, project_id: str | None) -> Job | None:
+    def _active(
+        self, owner_id: str, kind: JobKind, video_id: str | None, project_id: str | None
+    ) -> Job | None:
         for job in self._store.unfinished():
+            if job.owner_id != owner_id:
+                continue
             if (job.kind, job.video_id, job.project_id) == (kind, video_id, project_id):
                 return job
         return None
@@ -313,6 +327,7 @@ class LocalJobs:
     def _new_job(
         self,
         kind: JobKind,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,
@@ -322,6 +337,7 @@ class LocalJobs:
         return Job(
             id=new_typeid("j"),
             kind=kind,
+            owner_id=owner_id,
             state=JobState.queued,
             project_id=project_id,
             video_id=video_id,
@@ -429,6 +445,7 @@ class AppRuntime:
     catalog: Registry
     llm: LlmPort
     llm_adapter: str
+    credentials: SqliteCredentialStore
     tts: TtsPort
     media: MediaPort
     sandbox: SandboxPort
@@ -485,7 +502,7 @@ def _selected(name: str, settings: Settings) -> str | None:
     return table.get(name)
 
 
-def _build_adapter(name: str, settings: Settings) -> Built:
+def _build_adapter(name: str, settings: Settings, **options: Any) -> Built:
     implementations = ADAPTER_FACTORIES[name]
     selected = _selected(name, settings)
     if selected is None:
@@ -501,7 +518,7 @@ def _build_adapter(name: str, settings: Settings) -> Built:
             f"{name} adapter 'skeleton' is only available in the fixture profile"
         )
     try:
-        return cast(Built, factory(settings))
+        return cast(Built, factory(settings, **options) if options else factory(settings))
     except NotImplementedError as error:
         raise RuntimeError(
             f"{name} adapter {selected!r} is not implemented"
@@ -537,21 +554,47 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
     artifact_store = FileArtifactStore(cast(Database, state_db), layout)
     job_store = SqliteJobStore(state_db, deadlines_s=resolved.app.jobs.deadlines_s)
     job_inputs = create_job_input_store(resolved)
+    vault = KeyringVault(resolved.brand.app_id)
+    credentials = SqliteCredentialStore(cast(Database, state_db), vault)
+    llm = _build_adapter("llm", resolved, credentials=credentials)
+    selected_llm = cast(str, _selected("llm", resolved))
+    if selected_llm in ("anthropic_api", "openai_compat"):
+        vault.move_legacy(credentials, PERSONAL_OWNER_ID, selected_llm)
+    tts = _build_adapter("tts", resolved)
+    aligner = _build_adapter("aligner", resolved)
+    transcriber = _build_adapter("transcriber", resolved)
+    media = _build_adapter("media", resolved)
+    sandbox = _build_adapter("sandbox", resolved)
+    downloader = _build_adapter("downloader", resolved)
+    staging = resolved.data_dir / "staging" / "bgm"
+
+    submitter = LocalJobs(
+        store=job_store,
+        inputs=job_inputs,
+        projects=project_store,
+        llm=cast(LlmPort, llm),
+        media=cast(MediaPort, media),
+        db=state_db,
+        max_attempts=resolved.app.jobs.max_attempts,
+        wake=lambda: runner.notify(),
+    )
     deps = ServiceDeps(
         project_store=project_store,
         artifact_store=artifact_store,
         job_store=job_store,
         catalog=catalog,
-        llm=_build_adapter("llm", resolved),
-        tts=_build_adapter("tts", resolved),
-        aligner=_build_adapter("aligner", resolved),
-        transcriber=_build_adapter("transcriber", resolved),
-        media=_build_adapter("media", resolved),
-        sandbox=_build_adapter("sandbox", resolved),
-        downloader=_build_adapter("downloader", resolved),
+        llm=cast(LlmPort, llm),
+        tts=tts,
+        aligner=aligner,
+        transcriber=transcriber,
+        media=media,
+        sandbox=sandbox,
+        downloader=downloader,
+        submitter=submitter,
+        bgm_staging_dir=resolved.data_dir / "staging" / "bgm",
     )
     services = _build_services(resolved, deps)
-    runtime_setup = create_runtime_setup(resolved, deps.downloader, job_store)
+    runtime_setup = create_runtime_setup(resolved, downloader, job_store)
 
     def run_job(job: Job, ctx: LocalJobContext) -> Mapping[str, Any]:
         if job.kind is JobKind.runtime_prepare:
@@ -564,23 +607,15 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         job_inputs,
         run_job,
         cache_dir=resolved.cache_dir,
-    )
-    submitter = LocalJobs(
-        store=job_store,
-        inputs=job_inputs,
-        projects=project_store,
-        llm=deps.llm,
-        media=deps.media,
-        db=state_db,
-        max_attempts=resolved.app.jobs.max_attempts,
-        wake=runner.notify,
+        bgm_staging_dir=staging,
     )
     access = create_access(resolved)
     return AppRuntime(
         settings=resolved,
         catalog=catalog,
         llm=deps.llm,
-        llm_adapter=cast(str, _selected("llm", resolved)),
+        llm_adapter=selected_llm,
+        credentials=credentials,
         tts=deps.tts,
         media=deps.media,
         sandbox=deps.sandbox,

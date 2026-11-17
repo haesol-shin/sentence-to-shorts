@@ -7,7 +7,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from app.ports import AppError
+from app.ports import AppError, SubmitResult
 from app.schemas.api import CsrfResponse
 from app.schemas.job import Job
 from tests.conftest import browser_client, load_json, pair
@@ -171,7 +171,9 @@ def test_submit_receives_the_validated_body(client: TestClient, monkeypatch) -> 
     def capture(kind, **kwargs):  # type: ignore[no-untyped-def]
         seen["kind"] = kind
         seen.update(kwargs)
-        return Job.model_validate(load_json("contracts/valid/job_queued.json"))
+        return SubmitResult(
+            job=Job.model_validate(load_json("contracts/valid/job_queued.json")), status=202
+        )
 
     monkeypatch.setattr(runtime.submitter, "submit", capture)
     body = {"base_revision": 1, "message": "합성 주제", "card_id": None}
@@ -216,9 +218,11 @@ def test_uploads_pass_file_streams_to_services(
     staged_seen: list[Path] = []
     sound_seen: list[bytes] = []
 
-    def capture_sound(project_id, upload, key):  # type: ignore[no-untyped-def]
+    def capture_sound(project_id, upload, mood, key):  # type: ignore[no-untyped-def]
         sound_seen.append(upload.stream.read())
-        raise NotImplementedError
+        return SubmitResult(
+            job=Job.model_validate(load_json("contracts/valid/job_queued.json")), status=202
+        )
 
     monkeypatch.setattr(runtime.services.sound, "submit_upload", capture_sound)
 
@@ -246,7 +250,7 @@ def test_uploads_pass_file_streams_to_services(
             data={"project_id": "p_synthetic"},
             files={"file": ("same.wav", content, "audio/wav")},
         )
-        assert response.status_code == 501
+        assert response.status_code == 202
     assert len(set(staged_seen)) == 2
     assert [path.read_bytes() for path in staged_seen] == [
         b"first-bytes",

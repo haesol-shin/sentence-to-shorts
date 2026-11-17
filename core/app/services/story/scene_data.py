@@ -156,6 +156,7 @@ def ask_json(
                 output_schema=schema,
                 max_output_tokens=max_output_tokens,
             ),
+            owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
         )

@@ -91,7 +91,9 @@ def _write(root: Path, req: LlmRequest, payload: Any) -> Path:
 
 
 def _complete(root: Path, req: LlmRequest):
-    return FixtureLlm(root).complete(req, cancel=_NotCancelled(), deadline=1.0)
+    return FixtureLlm(root).complete(
+        req, owner_id="owner", cancel=_NotCancelled(), deadline=1.0
+    )
 
 
 def test_request_digest_covers_every_public_request_field() -> None:

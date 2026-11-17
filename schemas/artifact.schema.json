@@ -46,6 +46,9 @@
         "media": {
           "$ref": "#/$defs/MediaMeta"
         },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
         "path": {
           "$ref": "#/$defs/RelPath"
         },
@@ -56,6 +59,7 @@
       "required": [
         "id",
         "kind",
+        "owner_id",
         "digest",
         "bytes",
         "cache_key",
@@ -214,6 +218,10 @@
       },
       "title": "MediaMeta",
       "type": "object"
+    },
+    "OwnerId": {
+      "pattern": "^[a-z0-9_-]{1,32}$",
+      "type": "string"
     },
     "PinnedRef": {
       "additionalProperties": false,

@@ -28,7 +28,7 @@ class ScriptedLlm:
         self.requests: list[LlmRequest] = []
 
     def complete(
-        self, req: LlmRequest, *, cancel: Any, deadline: float
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
     ) -> LlmResult:
         self.requests.append(req)
         payload = self.responses.pop(0)
@@ -49,7 +49,7 @@ class ScriptedLlm:
             ),
         )
 
-    def auth_state(self) -> str:
+    def auth_state(self, owner_id: str) -> str:
         return "ok"
 
 

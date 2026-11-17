@@ -146,6 +146,9 @@
           "title": "Max Attempts",
           "type": "integer"
         },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
         "partial": {
           "title": "Partial",
           "type": "boolean"
@@ -219,6 +222,7 @@
       "required": [
         "id",
         "kind",
+        "owner_id",
         "state",
         "project_id",
         "video_id",
@@ -356,6 +360,10 @@
         "cancelled"
       ],
       "title": "JobState",
+      "type": "string"
+    },
+    "OwnerId": {
+      "pattern": "^[a-z0-9_-]{1,32}$",
       "type": "string"
     },
     "Progress": {

@@ -3,11 +3,14 @@ transactions."""
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
 import pytest
 
+from app.schemas.common import PERSONAL_OWNER_ID
+from app.schemas.job import Job
 from app.storage.artifacts import FileArtifactStore
 from app.storage.paths import Layout
 from app.storage.projects import SqliteProjectStore
@@ -130,7 +133,7 @@ def test_short_transaction_wraps_every_store_write(
     projects.append_revision(video)
     projects.append_revision(next_revision(video))
     published = artifacts.publish(
-        "tts_wav", CACHE_KEY, staged(tmp_path / "job", b"RIFF"), {}, None
+        PERSONAL_OWNER_ID, "tts_wav", CACHE_KEY, staged(tmp_path / "job", b"RIFF"), {}, None
     )
     artifacts.hold([published.id], f"rev:{video.id}:2")
     artifacts.release(f"rev:{video.id}:2")
@@ -153,3 +156,84 @@ def test_short_transaction_wraps_every_store_write(
             writes += 1
     assert not open_transaction
     assert writes > 0
+
+
+def test_migration_v3_assigns_personal_owner(layout: Layout) -> None:
+    version_two = tuple(m for m in registered_migrations() if m.version <= 2)
+    database = Database.open(layout.state_db, migrations=version_two)
+    job = {
+        "id": "j_08c71zekrt8ceaqnmy5jjy5zvn",
+        "kind": "draft",
+        "state": "queued",
+        "project_id": None,
+        "video_id": None,
+        "base_revision": None,
+        "request_digest": "0" * 64,
+        "idempotency_key": None,
+        "attempt": 1,
+        "max_attempts": 3,
+        "created_at": "2026-11-14T12:00:00Z",
+        "started_at": None,
+        "ended_at": None,
+        "deadline_at": None,
+        "progress": {"stage": None, "done": 0, "total": 0, "waiting_on": "queue"},
+        "stages": [],
+        "checkpoints": [],
+        "usage": [],
+        "result": None,
+        "error": None,
+        "partial": False,
+    }
+    with database.write() as conn:
+        conn.execute(
+            "INSERT INTO jobs (id, kind, queue, state, attempt, video_id, created_at, doc) "
+            "VALUES (?, 'draft', 'light', 'queued', 1, NULL, ?, ?)",
+            (job["id"], job["created_at"], json.dumps(job)),
+        )
+        conn.execute(
+            "INSERT INTO artifacts "
+            "(id, kind, digest, bytes, cache_key, root, path, created_at, job_id, media) "
+            "VALUES ('a_08c71zekrt8ceaqnmy5jjy5zvn', 'srt', ?, 1, ?, 'cache', "
+            "'a/00/x.srt', ?, NULL, '{}')",
+            ("0" * 64, CACHE_KEY, job["created_at"]),
+        )
+        conn.execute(
+            "INSERT INTO idempotency "
+            "(key, route, request_digest, state, status, body, created_at, expires_at) "
+            "VALUES ('migration-key-01', 'POST /api/v1/projects', ?, 'done', 201, '{}', ?, ?)",
+            ("0" * 64, job["created_at"], "2027-11-14T12:00:00+00:00"),
+        )
+    database.close()
+
+    migrated = Database.open(layout.state_db)
+    try:
+        assert migrated.user_version == 3
+        with migrated.read() as conn:
+            assert conn.execute("SELECT DISTINCT owner_id FROM jobs").fetchall() == [("owner",)]
+            assert conn.execute("SELECT DISTINCT owner_id FROM artifacts").fetchall() == [
+                ("owner",)
+            ]
+            doc = json.loads(conn.execute("SELECT doc FROM jobs").fetchone()[0])
+            assert doc["owner_id"] == "owner"
+            assert Job.model_validate(doc).owner_id == "owner"
+            assert conn.execute(
+                "SELECT owner_id, key FROM idempotency"
+            ).fetchall() == [("owner", "migration-key-01")]
+    finally:
+        migrated.close()
+    assert layout.state_db.with_name("state.db.bak-2").is_file()
+
+    reopened = Database.open(layout.state_db)
+    try:
+        with reopened.write() as conn:
+            conn.execute(
+                "INSERT INTO idempotency "
+                "(owner_id, key, route, request_digest, state, status, body, created_at, "
+                "expires_at) VALUES ('u_0hzb7bexv28termtt2ypc6trzt', 'migration-key-01', "
+                "'POST /api/v1/projects', ?, 'done', 201, '{}', ?, ?)",
+                ("0" * 64, job["created_at"], "2027-11-14T12:00:00+00:00"),
+            )
+            assert conn.execute("SELECT COUNT(*) FROM idempotency").fetchone()[0] == 2
+    finally:
+        reopened.close()
+

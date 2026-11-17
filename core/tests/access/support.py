@@ -10,6 +10,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.ports import SubmitResult
 from app.schemas.job import Job, JobKind
 from app.storage.projects import new_typeid
 from tests.conftest import LOOPBACK_CLIENT, browser_client
@@ -73,9 +74,9 @@ def install_draft_submit(monkeypatch: Any, app: FastAPI) -> tuple[Job, list[Any]
     job = new_job(JobKind.draft, video_id=new_typeid("v"))
     calls: list[Any] = []
 
-    def submit(*args: Any, **kwargs: Any) -> Job:
+    def submit(*args: Any, **kwargs: Any) -> SubmitResult:
         calls.append((args, kwargs))
-        return job
+        return SubmitResult(job=job, status=202)
 
     monkeypatch.setattr(app.state.runtime.submitter, "submit", submit)
     return job, calls
@@ -100,11 +101,11 @@ def install_reference_submit(monkeypatch: Any, app: FastAPI) -> list[Any]:
     runtime = app.state.runtime
     calls: list[Any] = []
 
-    def submit(*args: Any, **kwargs: Any) -> Job:
+    def submit(*args: Any, **kwargs: Any) -> SubmitResult:
         calls.append((args, kwargs))
         job = new_job(JobKind.reference, video_id=kwargs["video_id"])
         runtime.job_inputs.save(job.id, kwargs["input"])
-        return job
+        return SubmitResult(job=job, status=202)
 
     monkeypatch.setattr(runtime.submitter, "submit", submit)
     return calls

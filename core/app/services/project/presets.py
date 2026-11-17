@@ -26,7 +26,7 @@ from app.schemas.change import (
     SetOp,
     Target,
 )
-from app.schemas.common import Origin
+from app.schemas.common import PERSONAL_OWNER_ID, Origin
 from app.schemas.preset import Preset
 from app.schemas.settings import PresetSettings, Settings
 from app.schemas.video import CreatedBy, DerivedFrom, Video, VideoStage
@@ -145,7 +145,7 @@ def _draft(settings: Settings) -> Video:
         schema_version=2,
         id=_DRAFT_VIDEO,
         project_id=_DRAFT_PROJECT,
-        owner_id="owner",
+        owner_id=PERSONAL_OWNER_ID,
         revision=1,
         parent_revision=None,
         created_at=revision.now(),

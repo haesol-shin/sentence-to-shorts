@@ -27,13 +27,16 @@ from app.ports import (
     AppSettings,
     CatalogPort,
     JobContext,
+    JobSubmitter,
     MediaPort,
     MixItem,
     MixPlan,
     ServiceDeps,
+    SubmitResult,
     UnknownCatalogId,
     UploadSource,
     canonical_digest,
+    canonical_json,
     scene_starts_ms,
 )
 from app.schemas.artifact import Timing
@@ -46,8 +49,8 @@ from app.schemas.bgm_entry import (
     TypingSoundEntry,
     UploadBgm,
 )
-from app.schemas.common import CaptionMode, LocalizedText, Mood, PinnedRef
-from app.schemas.job import Job
+from app.schemas.common import PERSONAL_OWNER_ID, CaptionMode, LocalizedText, Mood, PinnedRef
+from app.schemas.job import JobKind
 from app.schemas.scene import CueAt, Scene
 from app.schemas.settings import BgmSettings, Settings
 from app.schemas.text import is_silent
@@ -81,14 +84,14 @@ MAX_BGM_MS = 600_000
 MIN_UPLOAD_MS = 500
 """Shortest accepted upload, the schema's duration floor."""
 
-UPLOAD_OWNER_ID = "owner"
-"""Single-user owner id. Multi-user runs replace it with the signed-in owner."""
-
 UPLOAD_LABEL = LocalizedText(ko="업로드한 BGM", en="Uploaded BGM")
 """Label of every upload; the original file name is never stored."""
 
 UPLOAD_MOOD = Mood.calm
-"""Mood of an upload until the user picks one; the upload request carries none."""
+"""Mood of an upload until the user picks one; the request carries none."""
+
+UPLOAD_CHUNK = 1 << 20
+"""Bytes read per step while staging an upload, so the file never sits in memory."""
 
 BGM_DIR = "bgm"
 MIX_DIR = "mix"
@@ -222,12 +225,16 @@ class SoundService:
         self,
         media: MediaPort,
         catalog: CatalogPort,
+        submitter: JobSubmitter,
         *,
+        staging_dir: Path,
         max_upload_bytes: int,
         max_upload_ms: int,
     ) -> None:
         self.media = media
         self.catalog = catalog
+        self.submitter = submitter
+        self.staging_dir = staging_dir
         self.max_upload_bytes = max_upload_bytes
         self.max_upload_ms = max_upload_ms
 
@@ -258,14 +265,20 @@ class SoundService:
         return self.catalog.pin("bgm", pool[index])
 
     def import_upload(
-        self, src: Path, project_id: str, *, ctx: JobContext
+        self,
+        src: Path,
+        project_id: str,
+        *,
+        ctx: JobContext,
+        mood: Mood | None = None,
     ) -> BgmEntry:
         """Convert an uploaded file to 44.1 kHz mono PCM16 WAV under a new upload id.
 
         The file opens only through the media adapter's fixed demuxer list. Too
         many bytes, too long, too short, or a file that does not decode fails
         with ``upload_invalid``. The WAV is named by the upload id; the original
-        name is not read or stored.
+        name is not read or stored. A missing mood in an older job input is
+        ``calm``.
         """
         ctx.cancel.raise_if_set()
         size = src.stat().st_size
@@ -307,7 +320,7 @@ class SoundService:
             schema_version=1,
             id=upload_id,
             label=UPLOAD_LABEL,
-            mood=UPLOAD_MOOD,
+            mood=UPLOAD_MOOD if mood is None else mood,
             file=out.name,
             sha256=_sha256(out),
             duration_ms=duration_ms,
@@ -316,7 +329,7 @@ class SoundService:
             loudness_lufs_x10=None,
             true_peak_dbtp_x10=None,
             source="upload",
-            owner_id=UPLOAD_OWNER_ID,
+            owner_id=PERSONAL_OWNER_ID,
             project_id=project_id,
             upload_id=upload_id,
             original_bytes=size,
@@ -324,9 +337,57 @@ class SoundService:
         )
 
     def submit_upload(
-        self, project_id: str, upload: UploadSource, idempotency_key: str | None
-    ) -> Job:
-        raise NotImplementedError
+        self,
+        project_id: str,
+        upload: UploadSource,
+        mood: Mood,
+        idempotency_key: str | None,
+    ) -> SubmitResult:
+        """Copy one upload to staging, then queue its import job.
+
+        The copy hashes while it streams, so the file is never held in memory;
+        crossing the size limit stops with 413. A submission that fails or that
+        returns an existing job deletes the newly received file.
+        """
+        upload_id = _upload_id()
+        self.staging_dir.mkdir(parents=True, exist_ok=True)
+        staged = self.staging_dir / upload_id
+        digest = hashlib.sha256()
+        total = 0
+        try:
+            with staged.open("xb") as handle:
+                while chunk := upload.stream.read(UPLOAD_CHUNK):
+                    total += len(chunk)
+                    if total > self.max_upload_bytes:
+                        raise AppError("payload_too_large")
+                    digest.update(chunk)
+                    handle.write(chunk)
+                handle.flush()
+            if total == 0:
+                raise AppError("validation_failed")
+            fields = {"mood": mood.value, "project_id": project_id}
+            text = digest.hexdigest() + canonical_json(fields).decode("utf-8")
+            result = self.submitter.submit(
+                JobKind.bgm_upload,
+                owner_id=PERSONAL_OWNER_ID,
+                project_id=project_id,
+                video_id=None,
+                base_revision=None,
+                request_digest=hashlib.sha256(text.encode("utf-8")).hexdigest(),
+                input={
+                    "project_id": project_id,
+                    "mood": mood.value,
+                    "upload_id": upload_id,
+                    "staging_path": str(staged),
+                },
+                idempotency_key=idempotency_key,
+            )
+        except BaseException:
+            staged.unlink(missing_ok=True)
+            raise
+        if result.status != 202:
+            staged.unlink(missing_ok=True)
+        return result
 
     def mix(
         self,
@@ -506,6 +567,8 @@ def create(settings: AppSettings, deps: ServiceDeps) -> SoundService:
     return SoundService(
         deps.media,
         deps.catalog,
+        deps.submitter,
+        staging_dir=deps.bgm_staging_dir,
         max_upload_bytes=uploads.bgm_max_bytes,
         max_upload_ms=uploads.bgm_max_ms,
     )

@@ -31,7 +31,7 @@ class MemoryStore:
     def __init__(self) -> None:
         self.entries: dict[str, SimpleNamespace] = {}
 
-    def find(self, key: str) -> SimpleNamespace | None:
+    def find(self, owner_id: str, key: str) -> SimpleNamespace | None:
         return self.entries.get(key)
 
     def publish(self, key: str, digest: str) -> None:

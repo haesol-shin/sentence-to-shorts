@@ -53,8 +53,11 @@ _HOLDER = re.compile(
     rf"^(rev:{_ID}:[1-9][0-9]*|undo:{_ID}|style:[0-9a-f]{{16,64}}|preset:{_ID})$"
 )
 _DIGEST = re.compile(DIGEST_PATTERN)
+_OWNER = re.compile(r"^[a-z0-9_-]{1,32}$")
 _MEDIA = TypeAdapter(MediaMeta)
-_COLUMNS = "id, kind, digest, bytes, cache_key, root, path, created_at, job_id, media"
+_COLUMNS = (
+    "id, kind, owner_id, digest, bytes, cache_key, root, path, created_at, job_id, media"
+)
 
 
 class ArtifactRejected(ValueError):
@@ -65,14 +68,15 @@ def _row_artifact(row: tuple[Any, ...]) -> Artifact:
     return Artifact(
         id=row[0],
         kind=row[1],
-        digest=row[2],
-        bytes=row[3],
-        cache_key=row[4],
-        root=row[5],
-        path=row[6],
-        created_at=datetime.fromisoformat(row[7]),
-        job_id=row[8],
-        media=json.loads(row[9]),
+        owner_id=row[2],
+        digest=row[3],
+        bytes=row[4],
+        cache_key=row[5],
+        root=row[6],
+        path=row[7],
+        created_at=datetime.fromisoformat(row[8]),
+        job_id=row[9],
+        media=json.loads(row[10]),
     )
 
 
@@ -80,6 +84,12 @@ def _check_holder(holder: str) -> str:
     if not _HOLDER.fullmatch(holder):
         raise ValueError(f"invalid holder: {holder!r}")
     return holder
+
+
+def _check_owner(owner_id: str) -> str:
+    if not _OWNER.fullmatch(owner_id):
+        raise ValueError(f"invalid owner id: {owner_id!r}")
+    return owner_id
 
 
 class FileArtifactStore:
@@ -97,13 +107,14 @@ class FileArtifactStore:
             return False
         return file_digest(path) == (artifact.digest, artifact.bytes)
 
-    def find(self, cache_key: str) -> Artifact | None:
-        """Newest indexed artifact for the key whose file exists with the indexed digest."""
+    def find(self, owner_id: str, cache_key: str) -> Artifact | None:
+        """Newest indexed artifact for the owner's key whose file matches its digest."""
+        _check_owner(owner_id)
         with self._db.read() as conn:
             rows = conn.execute(
-                f"SELECT {_COLUMNS} FROM artifacts WHERE cache_key = ? "
+                f"SELECT {_COLUMNS} FROM artifacts WHERE owner_id = ? AND cache_key = ? "
                 "ORDER BY created_at DESC, id DESC",
-                (cache_key,),
+                (owner_id, cache_key),
             ).fetchall()
         for row in rows:
             artifact = _row_artifact(row)
@@ -113,12 +124,14 @@ class FileArtifactStore:
 
     def publish(
         self,
+        owner_id: str,
         kind: ArtifactKind,
         cache_key: str,
         tmp: Path,
         media: dict[str, Any],
         job_id: str | None,
     ) -> Artifact:
+        _check_owner(owner_id)
         kind = ArtifactKind(kind)
         if not _DIGEST.fullmatch(cache_key):
             raise ArtifactRejected("cache key is not a SHA-256 digest")
@@ -127,7 +140,7 @@ class FileArtifactStore:
         digest, size = file_digest(tmp)
         if size == 0:
             raise ArtifactRejected("staged artifact is empty")
-        existing = self.find(cache_key)
+        existing = self.find(owner_id, cache_key)
         if existing is not None and existing.digest == digest:
             tmp.unlink()
             return existing
@@ -135,6 +148,7 @@ class FileArtifactStore:
         artifact = Artifact(
             id=artifact_id,
             kind=kind,
+            owner_id=owner_id,
             digest=digest,
             bytes=size,
             cache_key=cache_key,
@@ -155,10 +169,12 @@ class FileArtifactStore:
                 raise ArtifactRejected("artifact changed after verification")
             with self._db.write() as conn:
                 conn.execute(
-                    f"INSERT INTO artifacts ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    f"INSERT INTO artifacts ({_COLUMNS}) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         artifact.id,
                         artifact.kind.value,
+                        artifact.owner_id,
                         artifact.digest,
                         artifact.bytes,
                         artifact.cache_key,
@@ -182,13 +198,22 @@ class FileArtifactStore:
             raise AppError("not_found")
         return _row_artifact(row)
 
+    def get(self, owner_id: str, artifact_id: str) -> Artifact:
+        """An artifact id of this owner; another owner's id is `not_found`."""
+        with self._db.read() as conn:
+            artifact = self._get(conn, artifact_id)
+        if artifact.owner_id != owner_id:
+            raise AppError("not_found")
+        return artifact
+
     def path(self, artifact_id: str) -> Path:
         with self._db.read() as conn:
             artifact = self._get(conn, artifact_id)
         return self._absolute(artifact)
 
-    def download_path(self, video_id: str, kind: str) -> Path:
+    def download_path(self, owner_id: str, video_id: str, kind: str) -> Path:
         """The final file held by the newest revision, copied once to DATA_DIR/o/."""
+        _check_owner(owner_id)
         artifact_kind = DOWNLOAD_KINDS.get(kind)
         if artifact_kind is None:
             raise AppError("not_found")
@@ -197,8 +222,8 @@ class FileArtifactStore:
             rows = conn.execute(
                 f"SELECT h.holder, {', '.join('a.' + c for c in _COLUMNS.split(', '))} "
                 "FROM holds h JOIN artifacts a ON a.id = h.artifact_id "
-                "WHERE a.kind = ? AND substr(h.holder, 1, ?) = ?",
-                (artifact_kind.value, len(prefix), prefix),
+                "WHERE a.owner_id = ? AND a.kind = ? AND substr(h.holder, 1, ?) = ?",
+                (owner_id, artifact_kind.value, len(prefix), prefix),
             ).fetchall()
         if not rows:
             raise AppError("not_built")

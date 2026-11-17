@@ -154,7 +154,7 @@ class RunState:
         if cache_key is None:
             return None
         self.guard()
-        artifact = self.store.find(cache_key)
+        artifact = self.store.find(self.job.owner_id, cache_key)
         if artifact is None:
             return None
         self._keep(artifact)
@@ -187,7 +187,9 @@ class RunState:
     ) -> Artifact:
         """Publish a verified job-folder file, keep it, then checkpoint it."""
         self.guard()
-        artifact = self.store.publish(kind, cache_key, staged, media or {}, self.job.id)
+        artifact = self.store.publish(
+            self.job.owner_id, kind, cache_key, staged, media or {}, self.job.id
+        )
         self._keep(artifact)
         self.ctx.checkpoint(
             Checkpoint(

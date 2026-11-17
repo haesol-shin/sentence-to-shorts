@@ -1,27 +1,36 @@
-"""Explicit OS credential storage with an in-memory-only fallback.
+"""Keyring vault for personal-mode keys with an in-memory-only fallback.
 
 Only Windows Credential Manager and Linux Secret Service are selected. A missing
 OS store never enables a plaintext backend. Keys are never written to app state.
+The account name is `<owner_id>:<provider>`; an item stored under the old account
+name `<provider>` is moved once at startup through the credential store.
 """
 
 from __future__ import annotations
 
-import os
 import sys
 from collections.abc import Callable
 from typing import Any
 
 
-class Credentials:
-    def __init__(self, service: str, account: str, *, env_var: str | None = None,
-                 backend_factory: Callable[[], Any] | None = None) -> None:
+def _account(owner_id: str, provider: str) -> str:
+    return f"{owner_id}:{provider}"
+
+
+class KeyringVault:
+    """SecretVault over the OS keyring, with a process-memory fallback."""
+
+    def __init__(
+        self,
+        service: str,
+        *,
+        backend_factory: Callable[[], Any] | None = None,
+    ) -> None:
         self.service = service
-        self.account = account
-        self.env_var = env_var
-        self._memory: str | None = None
+        self._memory: dict[str, str] = {}
+        self._deleted: set[str] = set()
         self._factory = backend_factory or _os_backend
         self.persistent = False
-        self._deleted = False
 
     def _backend(self) -> Any:
         try:
@@ -31,43 +40,73 @@ class Credentials:
         self.persistent = backend is not None
         return backend
 
-    def read(self) -> str | None:
-        if self._deleted:
+    def _read_account(self, account: str) -> str | None:
+        if account in self._deleted:
             return None
-        if self._memory is not None:
-            return self._memory
-        if self.env_var and os.environ.get(self.env_var):
-            return os.environ[self.env_var]
+        if account in self._memory:
+            return self._memory[account]
         backend = self._backend()
         if backend is not None:
             try:
-                return backend.get_password(self.service, self.account) or None
+                return backend.get_password(self.service, account) or None
             except Exception:
                 self.persistent = False
         return None
 
-    def set(self, value: str) -> None:
-        self._deleted = False
+    def get(self, owner_id: str, provider: str, credential_id: str) -> str | None:
+        return self._read_account(_account(owner_id, provider))
+
+    def put(self, owner_id: str, provider: str, credential_id: str, secret: str) -> None:
+        account = _account(owner_id, provider)
+        self._deleted.discard(account)
         backend = self._backend()
         if backend is not None:
             try:
-                backend.set_password(self.service, self.account, value)
-                self._memory = None
+                backend.set_password(self.service, account, secret)
+                self._memory.pop(account, None)
                 return
             except Exception:
                 self.persistent = False
-        self._memory = value
+        self._memory[account] = secret
 
-    def delete(self) -> None:
-        self._memory = None
+    def delete(self, owner_id: str, provider: str, credential_id: str) -> None:
+        account = _account(owner_id, provider)
+        self._deleted.add(account)
+        self._memory.pop(account, None)
         backend = self._backend()
         if backend is not None:
             try:
-                backend.delete_password(self.service, self.account)
+                backend.delete_password(self.service, account)
             except Exception:
                 self.persistent = False
 
-        self._deleted = True
+    # One-time move from the old account name. The legacy item is removed only
+    # after the new item and its row exist, so a failed write keeps the old key.
+
+    def legacy(self, provider: str) -> str | None:
+        return self._read_account(provider)
+
+    def delete_legacy(self, provider: str) -> None:
+        self._deleted.add(provider)
+        backend = self._backend()
+        if backend is not None:
+            try:
+                backend.delete_password(self.service, provider)
+                return
+            except Exception:
+                self.persistent = False
+        self._memory.pop(provider, None)
+
+    def move_legacy(self, store: Any, owner_id: str, provider: str) -> bool:
+        """Copy an old `<provider>` key into the store once; True when it moved."""
+        if store.credential_id(owner_id, provider) is not None:
+            return False
+        secret = self.legacy(provider)
+        if not secret:
+            return False
+        store.put(owner_id, provider, secret, None)
+        self.delete_legacy(provider)
+        return True
 
 
 def _os_backend() -> Any:
@@ -80,5 +119,4 @@ def _os_backend() -> Any:
     return None
 
 
-def credential_source(settings: Any, provider: str, *, env_var: str | None = None) -> Credentials:
-    return Credentials(settings.brand.app_id, provider, env_var=env_var)
+__all__ = ["KeyringVault"]

@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from app.ports import AppSettings, LlmPort
+from app.ports import AppSettings, CredentialResolver, LlmPort
 
 DEFAULT_PROVIDERS = {
     "fixture": "fixture", "dev": "openai_compat", "release": "anthropic_api",
@@ -19,7 +19,8 @@ DEFAULT_PROVIDERS = {
 
 
 def create(settings: AppSettings, *, provider: str | None = None,
-           routing: Any = None, options: Mapping[str, Any] | None = None) -> LlmPort:
+           routing: Any = None, options: Mapping[str, Any] | None = None,
+           credentials: CredentialResolver | None = None) -> LlmPort:
     try:
         selected = provider or DEFAULT_PROVIDERS[settings.profile]
     except KeyError:
@@ -31,10 +32,14 @@ def create(settings: AppSettings, *, provider: str | None = None,
         return FixtureLlm(**dict(options or {}))
     if selected == "anthropic_api":
         from app.llm.providers.anthropic_api.adapter import AnthropicApiLlm
-        return AnthropicApiLlm(settings, routing=routing, **dict(options or {}))
+        return AnthropicApiLlm(
+            settings, routing=routing, credentials=credentials, **dict(options or {})
+        )
     if selected == "openai_compat":
         from app.llm.providers.openai_compat.adapter import OpenAiCompatLlm
-        return OpenAiCompatLlm(settings, routing=routing, **dict(options or {}))
+        return OpenAiCompatLlm(
+            settings, routing=routing, credentials=credentials, **dict(options or {})
+        )
     if selected == "claude_cli":
         from app.llm.providers.claude_cli.adapter import ClaudeCliLlm
         return ClaudeCliLlm(settings, routing=routing, **dict(options or {}))

@@ -1933,6 +1933,9 @@
             "title": "Max Attempts",
             "type": "integer"
           },
+          "owner_id": {
+            "$ref": "#/components/schemas/OwnerId"
+          },
           "partial": {
             "title": "Partial",
             "type": "boolean"
@@ -2006,6 +2009,7 @@
         "required": [
           "id",
           "kind",
+          "owner_id",
           "state",
           "project_id",
           "video_id",
@@ -5875,7 +5879,6 @@
     },
     "/api/v1/bgm/uploads": {
       "post": {
-        "description": "Validate upload metadata; submission integration is tracked separately.",
         "operationId": "uploadBgm",
         "parameters": [
           {

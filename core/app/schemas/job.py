@@ -7,7 +7,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from app.schemas.common import ContractModel, Digest, EntityId, Timestamp
+from app.schemas.common import ContractModel, Digest, EntityId, OwnerId, Timestamp
 
 
 class JobKind(StrEnum):
@@ -172,6 +172,7 @@ class JobError(ContractModel):
 class Job(ContractModel):
     id: EntityId
     kind: JobKind
+    owner_id: OwnerId
     state: JobState
     project_id: EntityId | None
     video_id: EntityId | None

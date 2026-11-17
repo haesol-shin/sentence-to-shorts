@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import math
 import wave
 from array import array
@@ -40,10 +41,24 @@ class NoMedia:
         raise AssertionError(f"media.{name} must not be called")
 
 
-def _service(registry: Registry, media: Any = None, **limits: int) -> SoundService:
+class NoSubmit:
+    def submit(self, *args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("submitter.submit must not be called")
+
+
+def _service(
+    registry: Registry,
+    media: Any = None,
+    *,
+    submitter: Any = None,
+    staging_dir: Path | None = None,
+    **limits: int,
+) -> SoundService:
     return SoundService(
         media if media is not None else NoMedia(),
         registry,
+        submitter if submitter is not None else NoSubmit(),
+        staging_dir=staging_dir or Path("staging"),
         max_upload_bytes=limits.get("max_upload_bytes", LIMIT_BYTES),
         max_upload_ms=limits.get("max_upload_ms", LIMIT_MS),
     )
@@ -388,3 +403,104 @@ def test_14_mix_output_is_cut_at_the_plan_duration(tmp_path: Path) -> None:
     out = ffmpeg.adapter().mix(plan, out=tmp_path / "cut.wav", cancel=Token())
     assert out.duration_ms is not None
     assert abs(out.duration_ms - 1000) <= 50
+
+
+class RecordingSubmitter:
+    def __init__(self, status: int = 202) -> None:
+        self.status = status
+        self.calls: list[dict[str, Any]] = []
+
+    def submit(self, kind: Any, **kwargs: Any) -> Any:
+        from app.ports import SubmitResult
+        from tests.jobs.support import new_job
+
+        self.calls.append({"kind": kind, **kwargs})
+        return SubmitResult(job=new_job(kind), status=self.status)
+
+
+def _upload(data: bytes) -> Any:
+    from app.ports import UploadSource
+
+    return UploadSource("synthetic.wav", "audio/wav", io.BytesIO(data))
+
+
+def test_39_upload_is_staged_and_the_mood_reaches_the_job_input(
+    registry: Registry, tmp_path: Path
+) -> None:
+    from app.schemas.common import Mood
+    from app.schemas.job import JobKind
+
+    submitter = RecordingSubmitter()
+    staging = tmp_path / "staging" / "bgm"
+    service = _service(registry, submitter=submitter, staging_dir=staging)
+    result = service.submit_upload(
+        "p_06pxfteaw88hs93kkckw5j51ng", _upload(b"synthetic audio"), Mood.curious, "key-00000001"
+    )
+    assert result.status == 202
+    call = submitter.calls[0]
+    assert call["kind"] is JobKind.bgm_upload
+    assert call["project_id"] == "p_06pxfteaw88hs93kkckw5j51ng"
+    assert call["input"]["mood"] == "curious"
+    assert call["input"]["project_id"] == "p_06pxfteaw88hs93kkckw5j51ng"
+    staged = Path(call["input"]["staging_path"])
+    assert staged.parent == staging
+    assert staged.read_bytes() == b"synthetic audio"
+    assert staged.name == call["input"]["upload_id"]
+
+
+def test_39_upload_over_the_limit_is_stopped_and_the_partial_file_removed(
+    registry: Registry, tmp_path: Path
+) -> None:
+    from app.schemas.common import Mood
+
+    submitter = RecordingSubmitter()
+    staging = tmp_path / "staging" / "bgm"
+    service = _service(
+        registry, submitter=submitter, staging_dir=staging, max_upload_bytes=4
+    )
+    with pytest.raises(AppError) as caught:
+        service.submit_upload(
+            "p_06pxfteaw88hs93kkckw5j51ng", _upload(b"too many bytes"), Mood.calm, "key-00000001"
+        )
+    assert caught.value.code == "payload_too_large"
+    assert list(staging.iterdir()) == []
+    assert submitter.calls == []
+
+
+def test_39_reused_job_deletes_the_newly_received_file(
+    registry: Registry, tmp_path: Path
+) -> None:
+    from app.schemas.common import Mood
+
+    submitter = RecordingSubmitter(status=200)
+    staging = tmp_path / "staging" / "bgm"
+    service = _service(registry, submitter=submitter, staging_dir=staging)
+    service.submit_upload(
+        "p_06pxfteaw88hs93kkckw5j51ng", _upload(b"synthetic audio"), Mood.calm, "key-00000001"
+    )
+    assert list(staging.iterdir()) == []
+
+
+@ffmpeg.requires_ffmpeg
+def test_39_import_upload_records_the_stored_mood(registry: Registry, tmp_path: Path) -> None:
+    from app.schemas.common import Mood
+
+    src = tone_wav(tmp_path / "tone", duration_ms=1500)
+    entry = _service(registry, ffmpeg.adapter()).import_upload(
+        src,
+        "p_06pxfteaw88hs93kkckw5j51ng",
+        ctx=Ctx(tmp_path / "job"),
+        mood=Mood.tense,
+    )
+    assert entry.mood is Mood.tense
+
+
+@ffmpeg.requires_ffmpeg
+def test_39_import_upload_without_a_mood_uses_calm(registry: Registry, tmp_path: Path) -> None:
+    from app.schemas.common import Mood
+
+    src = tone_wav(tmp_path / "tone", duration_ms=1500)
+    entry = _service(registry, ffmpeg.adapter()).import_upload(
+        src, "p_06pxfteaw88hs93kkckw5j51ng", ctx=Ctx(tmp_path / "job")
+    )
+    assert entry.mood is Mood.calm

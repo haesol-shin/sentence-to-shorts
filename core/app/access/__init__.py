@@ -21,8 +21,6 @@ from starlette.requests import cookie_parser
 
 from app.ports import AppError, AppSettings
 from app.schemas.api import (
-    ApiKeyRequest,
-    CredentialState,
     CsrfResponse,
     PairRequest,
     PairResponse,
@@ -203,17 +201,6 @@ class SessionGuard:
     def _from_loopback(self, host: str, client: str | None) -> bool:
         name = host.rsplit(":", 1)[0] if not host.endswith("]") else host
         return name in LOOPBACK_NAMES and _is_loopback(client)
-
-    # Credentials: the loopback rule is enforced in `check`; storage is not built yet.
-
-    def set_llm_credentials(self, body: ApiKeyRequest) -> None:
-        raise NotImplementedError
-
-    def llm_credentials(self) -> CredentialState:
-        raise NotImplementedError
-
-    def clear_llm_credentials(self) -> None:
-        raise NotImplementedError
 
 
 def create(settings: AppSettings) -> SessionGuard:

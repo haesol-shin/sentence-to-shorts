@@ -187,7 +187,7 @@ def _status(
     scene_id: str | None = None,
     line_id: str | None = None,
 ) -> ArtifactStatus:
-    artifact = None if key is None else services.artifact_store.find(key)
+    artifact = None if key is None else services.artifact_store.find(video.owner_id, key)
     if artifact is not None:
         return ArtifactStatus(
             state=ArtifactState.fresh,
@@ -204,7 +204,11 @@ def _status(
             error_code=record.get("error_code"),
         )
     previous = services.previous_keys.get((video.id, kind.value, scene_id, line_id))
-    stale = None if previous is None or previous == key else services.artifact_store.find(previous)
+    stale = (
+        None
+        if previous is None or previous == key
+        else services.artifact_store.find(video.owner_id, previous)
+    )
     return ArtifactStatus(
         state=ArtifactState.stale if stale is not None else ArtifactState.missing,
         cache_key=key,
@@ -262,7 +266,7 @@ def build_view(video: Video, services: Services) -> VideoBuild:
             complete_timing = False
     final = _status(video, services, ArtifactKind.final_mp4, graph.final)
     if final.artifact is not None and final.state is ArtifactState.fresh:
-        artifact = services.artifact_store.find(graph.final)
+        artifact = services.artifact_store.find(video.owner_id, graph.final)
         if artifact is not None and "duration_ms" in artifact.media:
             actual_ms = artifact.media["duration_ms"]
     return VideoBuild(

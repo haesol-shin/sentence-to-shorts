@@ -17,15 +17,12 @@ from app.schemas.api import (
     PresetRequest,
 )
 from app.schemas.change import ChangePlan, ChangeStatus, Op
-from app.schemas.common import Origin
+from app.schemas.common import PERSONAL_OWNER_ID, Origin
 from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.settings import Settings
 from app.schemas.video import STAGE_ORDER, CreatedBy, Video, VideoStage
 from app.services.project import revision, state
-
-OWNER_ID = "owner"
-"""Single-user runs use one fixed owner (SPEC 1)."""
 
 DEFAULT_TITLE = {"ko": "새 프로젝트", "en": "New project"}
 
@@ -44,7 +41,7 @@ class ProjectService:
         project = Project(
             schema_version=1,
             id=self.projects.new_id("p"),
-            owner_id=OWNER_ID,
+            owner_id=PERSONAL_OWNER_ID,
             title=req.title or DEFAULT_TITLE[req.language.value],
             created_at=created,
             updated_at=created,

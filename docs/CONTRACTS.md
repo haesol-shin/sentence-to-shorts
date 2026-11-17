@@ -30,6 +30,8 @@
 - 장면 순서는 `scene_order`만 바꾼다. scene ID는 바꾸지 않는다.
 - 다음 영상은 settings를 복사하고 topic, material, reference, script, scenes를 비운다. `derived_from`에 출처를 남긴다. 과거 snapshot은 다음 영상 수정으로 바뀌지 않는다.
 - 프로젝트 설정과 영상별 snapshot이 제작 상태의 원본이다. 대화 이력과 요약은 원본을 대신하거나 확정값·lock을 덮지 못한다.
+- 사용자 자료의 소유자는 `owner_id`다. project, video, preset, 업로드 BGM, job, artifact는 `owner_id`를 직접 갖는다. scene, line, change, revision은 부모 video나 project를 통해 귀속한다. 저장 조회와 멱등 기록은 소유자 범위 안에서 한다.
+- 개인 모드의 소유자는 `owner` 하나다. 이 값은 `app.schemas.common.PERSONAL_OWNER_ID` 한 곳에만 둔다.
 - 컨셉 확정은 `stage`의 `concept_confirmed`다. 확정 뒤 이야기 방식(`format.story_structure`)·그림체(`visual.art_style`)·캐릭터(`visual.character`)를 바꾸는 계획은 409 `concept_locked`로 거절한다. 대본 재작성은 stage를 `concept_confirmed`로만 되돌리고 컨셉 값은 바꾸지 않는다. 프로젝트 간 locked/varied와 별개다.
 - 프로젝트 기본값은 현재 영상 수정으로 바뀌지 않는다. 프리셋 저장은 명시 요청으로만 한다.
 
@@ -88,10 +90,13 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 영상을 바꾸는 요청은 `base_revision`을 받는다. head와 다르면 409 `revision_conflict` problem과 `current_revision` 확장 멤버를 돌려준다. 서버는 병합하지 않는다. 이미 적용된 계획의 적용 재시도는 4.1절의 예외를 따른다.
 - 자원이나 job을 만드는 POST는 `Idempotency-Key` header(8~64자 `[A-Za-z0-9_-]`)를 요구한다.
 - 같은 key와 같은 요청 digest는 저장한 응답을 그대로 돌려준다. 같은 key와 다른 digest는 409 `idempotency_mismatch`다. key는 24시간 보관한다.
+- 멱등 기록의 key는 `(owner_id, Idempotency-Key)`다. 다른 소유자가 같은 key를 써도 서로 다른 기록이다.
+- 활성 job 중복과 충돌 판정은 같은 소유자의 job 안에서 한다.
 - 요청 digest는 SHA-256이다. JSON 본문은 canonical JSON(8절 규칙)의 SHA-256이다. multipart 본문은 `file` 파트의 SHA-256과 나머지 필드를 이름 순으로 canonical JSON으로 만든 값을 이어 붙인 문자열의 SHA-256이다. 서버는 업로드를 임시 파일로 받으며 해시를 계산하므로 파일 전체를 메모리에 올리지 않는다. 한도를 넘으면 해시 계산 중에도 413으로 끊는다.
 - BGM 업로드의 multipart digest는 `mood` 생략 시 `calm`을 먼저 적용한 `{mood, project_id}`를 이름 순 canonical JSON으로 만든다. 같은 파일과 프로젝트에서 생략과 명시적 `calm`은 같은 요청이고, 같은 key로 분위기만 바꾸면 409 `idempotency_mismatch`다. 이 기본값은 다른 multipart 경로에는 적용하지 않는다.
 - 같은 영상, 같은 kind, 같은 요청 digest의 활성 job이 있으면 새 job 대신 그 job을 200으로 돌려준다.
 - 같은 영상, 같은 kind의 다른 활성 job이 있으면 409 `job_running` problem과 `job_id` 확장 멤버를 돌려준다.
+- BGM 업로드의 활성 job 중복은 `(project_id, kind)` 범위로 본다. 새 job은 202, 같은 요청의 활성 job을 다시 쓰면 200이다.
 - 오류 응답은 [3.1절](#31-오류-본문)의 RFC 9457 problem이다.
 - 오류 코드 구분: HTTP 응답 코드 `llm_auth_required`(503)는 job이 시작되기 전에 인증이 없을 때다. job 오류 `llm_auth`는 실행 중 인증이 없거나 만료됐을 때다. HTTP 응답 코드 `revision_conflict`(409)는 요청의 base_revision이 head와 다를 때다. job 오류 `stale_revision`은 job이 끝났는데 영상 head가 이미 바뀌어 결과를 적용하지 않고 버릴 때다.
 - 202 응답 본문은 `Job`이다. client는 `GET /jobs/{id}`를 보이는 탭에서 1초, 숨은 탭에서 5초 간격으로 조회한다. 기술 선택: SSE와 WebSocket을 쓰지 않는다. 이유: 인증·origin 검사 경로를 하나로 유지한다.
@@ -188,6 +193,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 상태 전이·queue·복구 세부는 [열린 질문](#저장과-job-구현)의 제안이다.
 
 - 검증된 요청 본문은 `JobSubmitter.submit`에 넘기고 서버 전용 저장소에 보존한다. 재시작과 재시도는 `JobContext.input`으로 다시 읽는다. 공개 `Job` 응답에는 넣지 않는다.
+- job은 요청한 소유자의 `owner_id`를 갖는다. job 입력에는 API key 원문도 credential 참조도 넣지 않는다. LLM 호출은 실행 시점에 job 소유자와 provider로 credential을 찾는다. job 입력과 업로드 staging 파일은 job 소유자의 자료이며 job 종료 정리 규칙을 따른다.
 
 ## 6. 저장 경로
 
@@ -225,6 +231,9 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 | `final_mp4` | 순서 있는 clip digest, mix digest, encoder 설정 | UI 상태 |
 | `srt` | 순서 있는 timing digest, display_text | BGM |
 
+- artifact 조회는 `(owner_id, cache_key)`로 한다. cache key 계산식은 바꾸지 않는다. 소유자가 다르면 같은 key라도 따로 만들고 따로 보관한다.
+- 소유자 사이에 공유하는 것은 앱에 동봉한 catalog package뿐이다.
+- 앱이 LLM 응답을 재사용하는 cache를 두면 그 key에 `owner_id`와 `credential_id`를 넣는다. provider의 prompt cache는 소유 경계로 보지 않는다.
 - typewriter 표시 일정이 바뀌어도 `timing_json`을 재사용하지 않도록 그 key의 `api_version`은 2다.
 - 무음 글자만 바뀌어도 `mix_wav` key가 갈리도록 소리를 내는 구간 목록을 넣는다. 무음 판정은 11.2절과 같다.
 - 진행 표시 문구는 장면 안의 beat 기준이다. 순서만 바뀌면 clip key는 그대로다.
@@ -284,7 +293,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 
 - template_layer worker는 같은 job 안의 같은 `video revision + template digest`에서만 재사용한다.
 - 다른 영상, 코드 변경, 취소, 오류 뒤에는 worker를 폐기한다. 전역 warm pool은 없다.
-- 결과 cache key는 code digest, runtime digest, kind, canonical input, seed다. hit면 sandbox를 실행하지 않는다.
+- 결과 조회는 `(owner_id, cache_key)`로 하고, cache key는 code digest, runtime digest, kind, canonical input, seed다. hit면 sandbox를 실행하지 않는다.
 - 실패하면 이전 package와 이전 BGM을 그대로 둔다.
 
 ### 9.6 거부 시험
@@ -326,8 +335,9 @@ class LlmResult:
     usage: Usage                      # same fields as job usage; unknown values are None
 
 class LlmPort(Protocol):
-    def complete(self, req: LlmRequest, *, cancel: CancelToken, deadline: float) -> LlmResult: ...
-    def auth_state(self) -> Literal["ok", "missing", "expired", "unknown"]: ...
+    def complete(self, req: LlmRequest, *, owner_id: str, cancel: CancelToken,
+                 deadline: float) -> LlmResult: ...
+    def auth_state(self, owner_id: str) -> Literal["ok", "missing", "expired", "unknown"]: ...
 ```
 
 - 구현은 `core/app/llm/providers/<id>/adapter.py`다. provider SDK는 이 폴더 밖에서 import하지 않는다.
@@ -370,7 +380,9 @@ class LlmPort(Protocol):
 - CLI adapter는 앱 전용 빈 CWD에서 실행한다. 사용자와 프로젝트 settings를 불러오지 않는다. 내장 tools, MCP, hooks, plugins를 끈다. 정확한 flag는 실제 설치 버전에서 확인한 값만 쓴다. 권한 우회 flag는 쓰지 않는다.
 - CLI prompt는 stdin으로 보낸다. 환경변수는 allowlist다. API key 환경변수는 CLI process에 넘기지 않는다.
 - 앱은 CLI credential 파일을 읽거나 복사하지 않는다.
-- 배포판 API key는 backend만 가진다. Windows는 Credential Manager, Linux는 Secret Service를 쓴다. Linux에 keyring이 없으면 메모리에만 두고 그 사실을 알린다.
+- 배포판 API key는 backend만 가지며 소유자와 provider마다 credential 하나로 저장한다. job 입력에는 key도 credential 참조도 넣지 않는다. LLM 호출은 job 소유자의 `owner_id`를 받고, adapter는 호출을 시작할 때 `(owner_id, provider)`로 credential을 찾는다. 사용한 `credential_id`는 사용 기록에 남긴다.
+- 개인 모드는 Windows Credential Manager와 Linux Secret Service를 쓰며 계정 이름은 `<owner_id>:<provider>`다. 앱 시작 때 예전 이름 `<provider>`의 항목이 있으면 `CredentialStore.put`으로 `(owner, provider)`의 새 이름 항목과 `credentials` 행을 만든 뒤 예전 항목을 지운다. 새 항목 쓰기가 실패하면 예전 항목은 남긴다. 행은 있으나 보관소에 비밀값이 없으면(메모리 fallback 재시작 뒤) 그 credential은 없는 것으로 본다. Linux에 keyring이 없으면 메모리에만 두고 그 사실을 알린다.
+- 원문 key는 로그, job 입력, 멱등 응답, 오류 본문에 남기지 않는다. 화면에는 끝 4자리만 보인다.
 
 ### 10.5 Prompt 문체와 작은 검토
 
@@ -551,14 +563,15 @@ class ProjectStore(Protocol):
     def add_activity(self, video_id: str, spans: list[ActivitySpan]) -> None: ...
 
 class ArtifactStore(Protocol):
-    def find(self, cache_key: str) -> Artifact | None: ...      # checks file existence and digest
-    def publish(self, kind: ArtifactKind, cache_key: str, tmp: Path, media: dict,
-                job_id: str | None) -> Artifact: ...            # verify, atomic rename, index
-    def path(self, artifact_id: str) -> Path: ...
+    def find(self, owner_id: str, cache_key: str) -> Artifact | None: ...   # checks file existence and digest
+    def get(self, owner_id: str, artifact_id: str) -> Artifact: ...         # AppError("not_found") for another owner
+    def publish(self, owner_id: str, kind: ArtifactKind, cache_key: str, tmp: Path,
+                media: dict, job_id: str | None) -> Artifact: ...
+    def path(self, artifact_id: str) -> Path: ...    # local file of an id obtained from find, get or publish
     def job_dir(self, job_id: str) -> Path: ...
     def hold(self, artifact_ids: list[str], holder: str) -> None: ...
     def release(self, holder: str) -> None: ...
-    def sweep(self) -> int: ...                                  # removes unheld cache artifacts
+    def sweep(self) -> int: ...
 
 class JobStore(Protocol):
     def create(self, job: Job) -> Job: ...
@@ -577,10 +590,35 @@ class JobInputStore(Protocol):
     def save(self, job_id: str, payload: Mapping[str, Any]) -> None: ...   # 검증된 요청 본문
     def load(self, job_id: str) -> dict[str, Any] | None: ...              # 재시작·재시도용
 
+@dataclass(frozen=True)
+class SubmitResult:
+    job: Job
+    status: int                      # 202 for a new job, 200 for a reused active job
+
 class JobSubmitter(Protocol):
-    def submit(self, kind: JobKind, *, project_id: str | None, video_id: str | None,
-               base_revision: int | None, request_digest: str,
-               input: Mapping[str, Any], idempotency_key: str | None) -> Job: ...
+    def submit(self, kind: JobKind, *, owner_id: str, project_id: str | None,
+               video_id: str | None, base_revision: int | None, request_digest: str,
+               input: Mapping[str, Any], idempotency_key: str | None) -> SubmitResult: ...
+
+@dataclass(frozen=True)
+class ResolvedCredential:
+    credential_id: str
+    secret: str
+
+class CredentialResolver(Protocol):
+    def resolve(self, owner_id: str, provider: str) -> ResolvedCredential | None: ...  # sets last_used_at
+    def credential_id(self, owner_id: str, provider: str) -> str | None: ...           # None when no row or the vault no longer holds the secret; no last_used_at
+
+class CredentialStore(Protocol):
+    def put(self, owner_id: str, provider: str, secret: str, label: str | None) -> CredentialInfo: ...
+    def list(self, owner_id: str) -> list[CredentialInfo]: ...
+    def delete(self, owner_id: str, provider: str) -> None: ...
+
+class SecretVault(Protocol):
+    """Holds secret values only; metadata stays in the credentials table."""
+    def get(self, owner_id: str, provider: str, credential_id: str) -> str | None: ...
+    def put(self, owner_id: str, provider: str, credential_id: str, secret: str) -> None: ...
+    def delete(self, owner_id: str, provider: str, credential_id: str) -> None: ...
 
 class CatalogPort(Protocol):
     def list(self, kind: str, *, video: Video | None = None) -> list[CatalogItem]: ...
@@ -653,9 +691,12 @@ class VoiceService:            # services/voice, ports: TtsPort, AlignerPort, Ar
     def timing(self, scene: Scene, voice: PinnedRef, tts: Mapping[str, ArtifactRef],
                caption_mode: str, language: Language, *, ctx: JobContext) -> Timing: ...
 
-class SoundService:            # services/sound, ports: MediaPort, CatalogPort
+class SoundService:            # services/sound, ports: MediaPort, CatalogPort, JobSubmitter
     def pick_bgm(self, settings: Settings, recent: list[str], seed: int) -> PinnedRef: ...
-    def import_upload(self, src: Path, project_id: str, *, ctx: JobContext) -> BgmEntry: ...
+    def submit_upload(self, project_id: str, upload: UploadSource, mood: Mood,
+                      idempotency_key: str | None) -> SubmitResult: ...
+    def import_upload(self, src: Path, project_id: str, *, ctx: JobContext,
+                      mood: Mood | None = None) -> BgmEntry: ...
     def mix(self, video: Video, timings: list[Timing], tts: dict[str, Path], *, ctx: JobContext) -> Path: ...
 
 class AssembleService:         # services/assemble, ports: MediaPort
@@ -678,12 +719,13 @@ def plan_change(video: Video, ops: list[Op], source: str, target: Target,
 def build_view(video: Video, services: Services) -> VideoBuild: ...
 ```
 
-- `JobContext`는 jobs가 만든다. `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다.
+- `path`는 `find`, `get`, `publish`로 얻은 artifact ID에만 쓴다. 소유 확인은 그 세 메서드가 한다.
+- `JobContext`는 jobs가 만든다. `owner_id`, `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다. `owner_id`는 job의 소유자이며 서비스는 LLM 호출에 그대로 넘긴다.
 - 서비스는 결과 파일을 job 폴더에 쓴다. 공개와 index는 pipeline이 `ArtifactStore.publish`로 한다.
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.
 - `AssembleService.attributions`는 내장 BGM(`BuiltinBgm`), 효과음(`SfxEntry`), 타자음(`TypingSoundEntry`) 중 SPDX가 대소문자 구분 없이 `CC-BY`로 시작하는 항목만 처리한다. `license.attribution`이 null이 아니면 지정 언어의 문구를 그대로 쓰고, null이면 지정 언어의 `entry.label`로 `"{title}" - {author}, {spdx}, {source_url}`을 만든다. 입력 순서를 지키며 같은 문자열은 처음 한 번만 반환한다. 실제 사용 항목과 순서는 호출자가 정하고, 표시 위치와 호출 책임은 이 계약의 범위 밖이다.
 
-- BGM 업로드의 `mood`는 요청 검증과 digest 정규화에 반영한다. 업로드 제출 경로의 통합 전에는 기존과 같이 501이며, 서버 job 입력에 분위기를 저장하고 실행자가 `import_upload`에 전달하는 연결은 계약 요청 #39의 제출 경로 구현을 기다린다. 현재 `SoundService.import_upload`는 분위기를 `calm`으로 기록한다.
+- `SoundService.submit_upload`는 검증한 `mood`를 서버 전용 job 입력에 저장하고 job 실행자는 그 값을 `import_upload`에 넘긴다. 값이 없는 과거 job 입력은 `calm`을 쓴다.
 
 ### 14.3 모듈별 소유 파일
 
@@ -747,7 +789,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 ### 16.1 원본과 runtime
 
 - 기술 설계: frontend는 React 18, TypeScript 5.7, Vite 6, Tailwind 4다. 화면 부품은 shadcn/ui on Base UI다([ADR 0023](decisions/0023-build-components-on-shadcn-base-ui.md)). core는 Python 3.11, FastAPI, Pydantic v2, Poetry다.
-- 기술 설계: 여럿 실행에 대비해 `owner_id`를 두고 한 명 실행은 고정값을 쓴다. 실행 형태의 제품 범위는 [SPEC 1](SPEC.md#1-범위와-실행-형태)을 따른다.
+- 기술 설계: 소유 경계는 1.1절을 따른다. 개인 모드는 `owner`를 쓰고 서버 모드는 계정 ID를 `owner_id`로 쓴다.
 - 계약 구현은 stable scene·line ID, schema_version, base revision, style/template digest, origins, lock, artifact 참조를 Pydantic 원본과 OpenAPI로 만든다. 조사 예시 JSON은 실행 규격이 아니다. 한영 정상 fixture와 잘못된 ID·중복 순서·오래된 revision fixture를 둔다. API method·path·입출력·오류·중복·충돌과 TS 생성은 0~4절을 따른다.
 - 재시작과 긴 대화 뒤에도 직접값, lock, 과거 영상이 바뀌지 않는지 시험한다.
 - 저장과 job 세부는 아래 제안의 상태를 유지한다. 재시작 뒤 성공 결과와 마지막 저장 상태를 재사용하는 제품 수락은 [SPEC 기준 27](SPEC.md#106-복구와-품질-검수-2630)을 따른다.
@@ -855,6 +897,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 5. 그 밖에는 failed와 `interrupted`로 닫는다. 사용자가 재시도한다.
 6. 재개한 job은 checkpoint의 artifact 존재와 digest를 다시 검사한다. 통과한 것만 재사용한다.
 7. `CACHE_DIR/j/`와 `CACHE_DIR/r/`에서 활성 job이 아닌 폴더를 지운다. 앱 소유 prefix와 job ID 형식이 맞는 폴더만 지운다. symlink는 따라가지 않는다.
+8. `DATA_DIR/staging/bgm/`에서 활성 job이나 재시도 가능한 job이 입력으로 가리키지 않는 파일을 지운다. job이 terminal 상태가 되면 그 job의 파일을 지운다. 실행 전에 취소된 queued job의 파일도 지운다.
 
 ### 5.4 부분 결과, 재시도, 취소
 
@@ -884,7 +927,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 ```text
 DATA_DIR/
-  state.db                      projects, videos, revisions index, changes, presets, jobs, artifacts, holds, idempotency, uploads, activity, catalog_user
+  state.db                      projects, videos, revisions, changes, presets, jobs, artifacts, holds, idempotency, activity, credentials
   p/<project_id>/project.json
   p/<project_id>/v/<video_id>/r/<revision>.json
   p/<project_id>/u/<upload_id>.wav
@@ -893,6 +936,7 @@ DATA_DIR/
   catalog/index.json            kind·id·revision catalog 인덱스 (시작 때 복원)
   c/<digest16>/                 참조한 내장 package 불변 사본 (kind·id·revision으로 조회)
   j/<job_id>.json               서버 전용 검증된 job 입력 (공개 Job 응답에 없음)
+  staging/bgm/<upload_id>       업로드 BGM 원본 staging (job 종료 때 지운다)
   models/<runtime_item>/<rev12>/
   rt-journal.json               기기별 설치 journal
   log/app.log                   회전 로그
@@ -913,6 +957,7 @@ CACHE_DIR/
 | `state.db` | `storage` | migration 백업만 남긴다 |
 | `p/` | `storage` (project 서비스 요청) | 프로젝트 삭제 때 해당 프로젝트만 지운다 |
 | `p/<pid>/u/` | `storage` (sound 서비스 요청) | 프로젝트가 참조하는 동안 보존한다 |
+| `staging/bgm/` | `storage` (sound 서비스 요청) | job 입력이 가리키는 동안 보존하고 job terminal 상태와 시작 복구에서 지운다 |
 | `o/` | `storage` (assemble 결과 공개) | 영상이나 프로젝트 삭제 때만 지운다 |
 | `s/` | `plugins/registry` (templates 서비스 요청) | 참조하는 revision, 프리셋, catalog 항목이 없을 때만 지운다 |
 | `models/` | `runtime` | uninstall 기본 보존 |

@@ -18,6 +18,7 @@ from app.schemas.api import ActivitySpan, CatalogItem, Metrics
 from app.schemas.artifact import Artifact, ArtifactKind, Timing
 from app.schemas.change import ChangePlan, Op
 from app.schemas.common import ContractModel, EntityId, PinnedRef
+from app.schemas.credential import CredentialInfo
 from app.schemas.job import Checkpoint, Job, JobError, JobKind, Stage, Usage, WaitingOn
 from app.schemas.preset import Preset
 from app.schemas.project import Project
@@ -154,9 +155,47 @@ class LlmResult:
 
 
 class LlmPort(Protocol):
-    def complete(self, req: LlmRequest, *, cancel: CancelToken, deadline: float) -> LlmResult: ...
+    def complete(
+        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+    ) -> LlmResult: ...
 
-    def auth_state(self) -> Literal["ok", "missing", "expired", "unknown"]: ...
+    def auth_state(self, owner_id: str) -> Literal["ok", "missing", "expired", "unknown"]: ...
+
+
+@dataclass(frozen=True)
+class ResolvedCredential:
+    credential_id: str
+    secret: str
+
+
+class CredentialResolver(Protocol):
+    def resolve(self, owner_id: str, provider: str) -> ResolvedCredential | None:
+        """The owner's key for the provider; sets last_used_at when found."""
+        ...
+
+    def credential_id(self, owner_id: str, provider: str) -> str | None:
+        """The current credential id, or None when no row or no stored secret."""
+        ...
+
+
+class CredentialStore(Protocol):
+    def put(
+        self, owner_id: str, provider: str, secret: str, label: str | None
+    ) -> CredentialInfo: ...
+
+    def list(self, owner_id: str) -> list[CredentialInfo]: ...
+
+    def delete(self, owner_id: str, provider: str) -> None: ...
+
+
+class SecretVault(Protocol):
+    """Holds secret values only; metadata stays in the credentials table."""
+
+    def get(self, owner_id: str, provider: str, credential_id: str) -> str | None: ...
+
+    def put(self, owner_id: str, provider: str, credential_id: str, secret: str) -> None: ...
+
+    def delete(self, owner_id: str, provider: str, credential_id: str) -> None: ...
 
 
 @dataclass(frozen=True)
@@ -372,10 +411,13 @@ class ProjectStore(Protocol):
 
 
 class ArtifactStore(Protocol):
-    def find(self, cache_key: str) -> Artifact | None: ...
+    def find(self, owner_id: str, cache_key: str) -> Artifact | None: ...
+
+    def get(self, owner_id: str, artifact_id: str) -> Artifact: ...
 
     def publish(
         self,
+        owner_id: str,
         kind: ArtifactKind,
         cache_key: str,
         tmp: Path,
@@ -385,7 +427,7 @@ class ArtifactStore(Protocol):
 
     def path(self, artifact_id: str) -> Path: ...
 
-    def download_path(self, video_id: str, kind: str) -> Path: ...
+    def download_path(self, owner_id: str, video_id: str, kind: str) -> Path: ...
 
     def job_dir(self, job_id: str) -> Path: ...
 
@@ -487,6 +529,9 @@ class ReferenceOutcome:
 
 class JobContext(Protocol):
     @property
+    def owner_id(self) -> str: ...
+
+    @property
     def cancel(self) -> CancelToken: ...
 
     @property
@@ -518,6 +563,14 @@ class JobInputStore(Protocol):
     def load(self, job_id: str) -> dict[str, Any] | None: ...
 
 
+@dataclass(frozen=True)
+class SubmitResult:
+    """One submission: the new job (202) or the active job it deduplicated to (200)."""
+
+    job: Job
+    status: int
+
+
 class JobSubmitter(Protocol):
     """Creates a queued job or returns the active job for the same request."""
 
@@ -525,21 +578,23 @@ class JobSubmitter(Protocol):
         self,
         kind: JobKind,
         *,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,
         request_digest: str,
         input: Mapping[str, Any],
         idempotency_key: str | None,
-    ) -> Job: ...
+    ) -> SubmitResult: ...
 
 
 @dataclass(frozen=True)
 class UploadSource:
     """One multipart file handed to a service without reading it into memory.
 
-    The stream is open and positioned at the start. A background implementation
-    copies it to a durable path before returning from submit_upload.
+    The stream is open and positioned at the start. The service copies it to a
+    durable path under `DATA_DIR/staging/bgm/<upload_id>` before returning; the
+    job that imports it owns that file and deletes it at its terminal state.
     """
 
     filename: str | None
@@ -562,3 +617,5 @@ class ServiceDeps:
     media: MediaPort
     sandbox: SandboxPort
     downloader: DownloaderPort
+    submitter: JobSubmitter
+    bgm_staging_dir: Path
