@@ -89,7 +89,7 @@ def test_10_3_backoff_doubles_and_records_usage(settings, request_data, clock):
     assert result.usage.wall_ms == 3000
     assert result.usage.model == "actual-model"
     assert result.usage.effort == "low"
-    assert result.usage.cost_usd is None
+    assert result.usage.cache_write_tokens is None
 
 
 def test_10_3_retry_after_wait_cancels_within_quarter_second(settings, request_data, clock):

@@ -136,9 +136,18 @@ def _reply(data: Any, route: ResolvedRoute) -> ProviderReply:
         details = usage.get("prompt_tokens_details") or {}
         if not isinstance(text, str) or not isinstance(model, str):
             raise TypeError
+        prompt_tokens = token_count(usage.get("prompt_tokens"))
+        cached_tokens = token_count(details.get("cached_tokens"))
+        if prompt_tokens is None:
+            input_tokens = None
+        elif cached_tokens is None:
+            input_tokens = prompt_tokens
+        else:
+            input_tokens = prompt_tokens - cached_tokens
         return ProviderReply(
-            text, model, token_count(usage.get("prompt_tokens")),
-            token_count(usage.get("completion_tokens")), token_count(details.get("cached_tokens")),
+            text, model, input_tokens,
+            token_count(usage.get("completion_tokens")), cached_tokens,
+            token_count(usage.get("cache_write_tokens")),
         )
     except (KeyError, IndexError, TypeError, AttributeError):
         raise ProviderError("llm_invalid_output") from None

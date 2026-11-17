@@ -527,7 +527,7 @@ def test_9a_unknown_usage_stays_none_and_modelusage_names_the_model(
     assert result.usage.input_tokens is None
     assert result.usage.output_tokens is None
     assert result.usage.cache_read_tokens is None
-    assert result.usage.cost_usd is None
+    assert result.usage.cache_write_tokens is None
 
 
 @pytest.mark.parametrize("flag", EXPECTED_FLAGS)

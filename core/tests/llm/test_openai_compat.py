@@ -55,7 +55,7 @@ def test_10_1_optional_key_and_usage(settings, request_data, cancel, key):
     assert sent.full_url == "https://api.invalid/v1/chat/completions"
     assert sent.get_header("Authorization") == (f"Bearer {key}" if key else None)
     assert result.parsed == {"answer": "합성"}
-    assert result.usage.input_tokens == 11
+    assert result.usage.input_tokens == 9
     assert result.usage.output_tokens == 7
     assert result.usage.cache_read_tokens == 2
     assert result.usage.model == "actual-synthetic"
@@ -156,12 +156,20 @@ def test_10_4_tool_or_refusal_response_is_not_adopted(settings, request_data, ca
         llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
 
+def test_openai_input_excludes_cached(settings, request_data, cancel):
+    llm, _ = adapter(settings, [response()])
+    result = llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+    assert result.usage.input_tokens == 9
+    assert result.usage.cache_read_tokens == 2
+    assert result.usage.cache_write_tokens is None
+
+
 def test_10_1_unknown_usage_remains_unknown(settings, request_data, cancel):
     llm, _ = adapter(settings, [response(usage=None)])
     result = llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert result.usage.input_tokens is None
     assert result.usage.output_tokens is None
-    assert result.usage.cost_usd is None
+    assert result.usage.cache_write_tokens is None
 
 
 def test_10_1_required_missing_key_prevents_http(settings, request_data, cancel):

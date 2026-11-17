@@ -105,7 +105,11 @@ def complete_json(
     )
     with ctx.stage(Stage.code_llm):
         first = llm.complete(
-            request, owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+            request,
+            owner_id=ctx.owner_id,
+            cancel=ctx.cancel,
+            deadline=ctx.deadline,
+            on_request=ctx.record_request,
         )
         ctx.record_usage(first.usage)
         try:
@@ -125,6 +129,7 @@ def complete_json(
             owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
+            on_request=ctx.record_request,
         )
         ctx.record_usage(second.usage)
         try:

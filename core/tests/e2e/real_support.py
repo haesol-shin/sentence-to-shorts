@@ -64,7 +64,7 @@ class Evidence:
             )} for stage in job["stages"]],
             "usage": [{key: usage[key] for key in (
                 "stage", "provider", "model", "effort", "input_tokens", "output_tokens",
-                "cache_read_tokens", "cost_usd", "wall_ms", "retries"
+                "cache_read_tokens", "cache_write_tokens", "wall_ms", "retries"
             )} for usage in job["usage"]],
         })
 

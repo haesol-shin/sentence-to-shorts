@@ -1780,17 +1780,17 @@
           "title": "Active Ms",
           "type": "integer"
         },
-        "cost_usd": {
+        "cost_micro_usd": {
           "anyOf": [
             {
               "minimum": 0,
-              "type": "number"
+              "type": "integer"
             },
             {
               "type": "null"
             }
           ],
-          "title": "Cost Usd"
+          "title": "Cost Micro Usd"
         },
         "input_tokens": {
           "anyOf": [
@@ -1840,7 +1840,7 @@
         "job_wall_ms",
         "input_tokens",
         "output_tokens",
-        "cost_usd",
+        "cost_micro_usd",
         "regenerated_scene_ids"
       ],
       "title": "Metrics",
@@ -3394,17 +3394,18 @@
           ],
           "title": "Cache Read Tokens"
         },
-        "cost_usd": {
+        "cache_write_tokens": {
           "anyOf": [
             {
               "minimum": 0,
-              "type": "number"
+              "type": "integer"
             },
             {
               "type": "null"
             }
           ],
-          "title": "Cost Usd"
+          "default": null,
+          "title": "Cache Write Tokens"
         },
         "effort": {
           "anyOf": [
@@ -3472,7 +3473,6 @@
         "input_tokens",
         "output_tokens",
         "cache_read_tokens",
-        "cost_usd",
         "wall_ms",
         "retries"
       ],

@@ -118,7 +118,8 @@ class ScriptedLlm:
         self.answers.extend(answers)
 
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float,
+        on_request: Any = None,
     ) -> LlmResult:
         self.requests.append(req)
         if not self.answers:
@@ -132,7 +133,7 @@ class ScriptedLlm:
             input_tokens=None,
             output_tokens=None,
             cache_read_tokens=None,
-            cost_usd=None,
+            cache_write_tokens=None,
             wall_ms=0,
             retries=0,
         )

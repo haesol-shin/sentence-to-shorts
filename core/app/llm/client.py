@@ -15,7 +15,14 @@ from collections.abc import Mapping
 from typing import Any
 
 from app.llm.registry import create
-from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest, LlmResult
+from app.ports import (
+    AppSettings,
+    CancelToken,
+    CredentialResolver,
+    LlmRequest,
+    LlmResult,
+    RequestCallback,
+)
 
 
 class LlmClient:
@@ -31,10 +38,20 @@ class LlmClient:
         )
 
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+        self,
+        req: LlmRequest,
+        *,
+        owner_id: str,
+        cancel: CancelToken,
+        deadline: float,
+        on_request: RequestCallback | None = None,
     ) -> LlmResult:
         return self._provider.complete(
-            req, owner_id=owner_id, cancel=cancel, deadline=deadline
+            req,
+            owner_id=owner_id,
+            cancel=cancel,
+            deadline=deadline,
+            on_request=on_request,
         )
 
     def auth_state(self, owner_id: str) -> str:

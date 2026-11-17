@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ import pytest
 from app.ports import AppError
 from app.schemas.artifact import Timing
 from app.schemas.change import ChangePlan
+from app.schemas.job import Job
 from app.schemas.project import Project
 from app.schemas.video import Video
 from app.storage.migrations import (
@@ -18,9 +20,12 @@ from app.storage.migrations import (
     upgrade_document,
 )
 from app.storage.migrations.v1_to_v2 import migrate
+from app.storage.paths import Layout
+from app.storage.sqlite import Database, registered_migrations
 from tests.conftest import load_json
 
 MIGRATIONS = Path(__file__).resolve().parents[3] / "fixtures" / "contracts" / "migrations"
+JOB_ID = "j_08c71zekrt8ceaqnmy5jjy5zvn"
 
 
 def _cue(item_id: str) -> dict:
@@ -109,3 +114,94 @@ def test_a_document_newer_than_its_type_is_refused() -> None:
 def test_migration_is_idempotent() -> None:
     after = load_json("contracts/migrations/video_v2_typing_cue.json")
     assert migrate(after) == after
+
+
+def _job_doc() -> dict:
+    return {
+        "id": JOB_ID,
+        "kind": "draft",
+        "owner_id": "owner",
+        "state": "queued",
+        "project_id": None,
+        "video_id": None,
+        "base_revision": None,
+        "request_digest": "0" * 64,
+        "idempotency_key": None,
+        "attempt": 1,
+        "max_attempts": 3,
+        "created_at": "2026-11-14T12:00:00Z",
+        "started_at": None,
+        "ended_at": None,
+        "deadline_at": None,
+        "progress": {"stage": None, "done": 0, "total": 0, "waiting_on": "queue"},
+        "stages": [],
+        "checkpoints": [],
+        "usage": [
+            {
+                "stage": "llm_draft",
+                "provider": "fixture",
+                "model": "fixture",
+                "effort": None,
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "cache_read_tokens": None,
+                "cost_usd": None,
+                "wall_ms": 12,
+                "retries": 0,
+            }
+        ],
+        "result": None,
+        "error": None,
+        "partial": False,
+    }
+
+
+def _v3_with_job(layout: Layout, doc: dict) -> None:
+    version_three = tuple(m for m in registered_migrations() if m.version <= 3)
+    database = Database.open(layout.state_db, migrations=version_three)
+    try:
+        with database.write() as conn:
+            conn.execute(
+                "INSERT INTO jobs (id, owner_id, kind, queue, state, attempt, video_id, "
+                "created_at, doc) VALUES (?, 'owner', 'draft', 'light', 'queued', 1, NULL, "
+                "?, ?)",
+                (JOB_ID, "2026-11-14T12:00:00Z", json.dumps(doc)),
+            )
+    finally:
+        database.close()
+
+
+def test_migration_v4_drops_cost_usd_and_creates_events(layout: Layout) -> None:
+    _v3_with_job(layout, _job_doc())
+    migrated = Database.open(layout.state_db)
+    try:
+        assert migrated.user_version == registered_migrations()[-1].version
+        with migrated.read() as conn:
+            tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                )
+            }
+            assert "usage_events" in tables
+            doc = json.loads(conn.execute("SELECT doc FROM jobs").fetchone()[0])
+        job = Job.model_validate(doc)
+        assert "cost_usd" not in doc["usage"][0]
+        assert job.usage[0].cache_write_tokens is None
+        assert job.usage[0].input_tokens == 10
+    finally:
+        migrated.close()
+    assert layout.state_db.with_name("state.db.bak-3").is_file()
+
+
+def test_migration_v4_keeps_an_empty_usage_list(layout: Layout) -> None:
+    doc = _job_doc()
+    doc["usage"] = []
+    _v3_with_job(layout, doc)
+    migrated = Database.open(layout.state_db)
+    try:
+        with migrated.read() as conn:
+            stored = json.loads(conn.execute("SELECT doc FROM jobs").fetchone()[0])
+        assert stored["usage"] == []
+    finally:
+        migrated.close()

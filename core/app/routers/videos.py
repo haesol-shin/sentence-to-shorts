@@ -355,7 +355,12 @@ def record_activity(request: Request, vid: str, body: ActivityRequest) -> None:
 
 @router.get("/videos/{vid}/metrics", operation_id="getMetrics", response_model=Metrics)
 def get_metrics(request: Request, vid: str) -> Metrics:
-    return runtime(request).project_store.metrics(vid)
+    app = runtime(request)
+    video = app.project_store.get_video(vid)
+    metrics = app.project_store.metrics(vid)
+    return metrics.model_copy(
+        update={"cost_micro_usd": app.usage.video_cost(video.owner_id, vid)}
+    )
 
 
 @router.get(

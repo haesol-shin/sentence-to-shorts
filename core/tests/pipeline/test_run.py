@@ -775,7 +775,7 @@ def test_4_1_precheck_gate_and_usage_are_exact(harness: Harness) -> None:
         input_tokens=3,
         output_tokens=5,
         cache_read_tokens=None,
-        cost_usd=None,
+        cache_write_tokens=None,
         wall_ms=7,
         retries=0,
     )

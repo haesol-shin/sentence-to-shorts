@@ -67,12 +67,15 @@ class Context:
     def record_usage(self, usage: Usage) -> None:
         self.usages.append(usage)
 
+    def record_request(self, request: Any) -> None:
+        return None
+
 
 def usage() -> Usage:
     return Usage(
         stage=Stage.ref_llm, provider="fixture", model="synthetic", effort=Effort.medium,
-        input_tokens=1, output_tokens=1, cache_read_tokens=None, cost_usd=None,
-        wall_ms=1, retries=0,
+        input_tokens=1, output_tokens=1, cache_read_tokens=None,
+        cache_write_tokens=None, wall_ms=1, retries=0,
     )
 
 
@@ -84,7 +87,8 @@ class ScriptedLlm:
         self.requests: list[LlmRequest] = []
 
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float,
+        on_request: Any = None,
     ) -> LlmResult:
         self.requests.append(req)
         parsed = self.answers.pop(0)

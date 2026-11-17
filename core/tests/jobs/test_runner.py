@@ -101,7 +101,7 @@ def test_runner_success_records_result_progress_stages_and_usage(env: Env) -> No
                     input_tokens=10,
                     output_tokens=5,
                     cache_read_tokens=None,
-                    cost_usd=None,
+                    cache_write_tokens=None,
                     wall_ms=3,
                     retries=0,
                 )

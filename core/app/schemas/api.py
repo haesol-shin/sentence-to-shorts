@@ -365,7 +365,7 @@ class Metrics(ContractModel):
     job_wall_ms: Annotated[int, Field(ge=0)]
     input_tokens: Annotated[int, Field(ge=0)] | None
     output_tokens: Annotated[int, Field(ge=0)] | None
-    cost_usd: Annotated[float, Field(ge=0)] | None
+    cost_micro_usd: Annotated[int, Field(ge=0)] | None
     regenerated_scene_ids: list[EntityId]
 
 

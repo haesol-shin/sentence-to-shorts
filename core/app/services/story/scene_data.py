@@ -159,6 +159,7 @@ def ask_json(
             owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
+            on_request=ctx.record_request,
         )
         ctx.record_usage(result.usage)
         model, problems = _checked(result, schema_model, validate)

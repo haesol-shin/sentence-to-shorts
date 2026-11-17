@@ -91,6 +91,9 @@ class UnavailableJobStore:
     def usage(self, job_id: str, attempt: int, usage: dict[str, Any]) -> None:
         raise NotImplementedError("storage")
 
+    def usage_event(self, job_id: str, attempt: int, event: dict[str, Any]) -> None:
+        raise NotImplementedError("storage")
+
     def finish(
         self,
         job_id: str,
