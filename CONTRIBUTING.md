@@ -57,7 +57,7 @@
 - 따로 나눌 수 없는 큰 변경은 커밋마다 시험이 통과하는 단계로 나눠 주세요. 이런 PR은 단계 커밋을 남겨 병합합니다([관리 안내](MAINTAINING.md#병합)).
 - `git add <path>`로 정확한 경로만 stage합니다.
 
-PR 커밋은 `scripts/check_commit_messages.py`가 CI에서 검사합니다. Merge commit은 검사하지 않습니다. PR은 squash merge로 병합되어 main에 남지 않기 때문입니다.
+PR 커밋은 `scripts/check_commit_messages.py`가 CI에서 검사합니다. Merge commit은 검사하지 않습니다. 기본인 squash merge는 브랜치의 merge commit을 main에 남기지 않기 때문입니다. 단계 커밋을 남기는 PR은 브랜치에 merge commit이 있으면 그 커밋이 검사 없이 main에 남습니다. 이런 PR은 `main`을 merge하지 말고 rebase로 갱신해 주세요.
 
 ## 명령
 
