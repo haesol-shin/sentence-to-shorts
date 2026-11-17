@@ -4,12 +4,13 @@
 
 ## 명령
 
-전체 명령은 [CONTRIBUTING의 명령](CONTRIBUTING.md#명령)에 있다. 빠른 확인은 아래와 같다.
+전체 명령은 [CONTRIBUTING의 명령](CONTRIBUTING.md#명령)에 있다. 리뷰 전 확인은 빠른 검사 하나로 하고, 전체 시험은 PR CI가 돈다.
 
 ```sh
-python scripts/check_brand.py
-uv run --with markdown-it-py==3.0.0 python scripts/check_public_docs.py
+python scripts/check_fast.py
 ```
+
+빠른 검사는 CI와 같은 검사를 같은 인자로 돌리고 시험은 [시험 선택](scripts/select_tests.py)이 고른 것만 돈다. 시험이 `tests` 전체면 로컬에서 돌리지 않고 `CI only`로 남긴다. 생성 파일 검사는 생성기를 다시 돌리므로 차이가 나면 그 파일을 커밋한다.
 
 ## 저장소 규칙
 

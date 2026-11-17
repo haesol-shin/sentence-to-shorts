@@ -61,7 +61,15 @@ PR 커밋은 `scripts/check_commit_messages.py`가 CI에서 검사합니다. Mer
 
 ## 명령
 
-저장소 root에서 실행합니다. `uv`가 필요합니다. 검사 스크립트의 의존성은 실행할 때마다 격리 환경에 설치되므로 `pyproject.toml`이 필요 없습니다.
+저장소 root에서 실행합니다. 리뷰 전 확인은 빠른 검사 하나로 합니다. `python`, `uv`, `poetry`, `node`가 필요하고, `core/`는 `poetry install`로, `frontend/`는 `npm ci`로 의존성을 미리 설치합니다.
+
+```sh
+python scripts/check_fast.py
+```
+
+빠른 검사는 커밋한 브랜치가 `main`과 갈라진 뒤 바뀐 경로로 CI와 같은 검사를 같은 인자로 돌립니다. 대상은 brand, 공개 문서, 검사 스크립트 시험, 커밋 글, Ruff, import 계약, ESLint, TypeScript, Vitest, 생성 파일, 그리고 [시험 선택](scripts/select_tests.py)이 고른 시험입니다. 시험이 `tests` 전체를 고르면 로컬에서 돌리지 않고 `CI only`로 남깁니다. 전체 시험은 PR CI가 돕니다. PR 제목과 squash 본문은 `--title-file`과 `--squash-file`로 함께 검사합니다. 검사가 실패하면 이름과 출력 끝을 찍고 0이 아닌 코드로 끝납니다. 커밋하지 않은 변경은 대상이 아니므로 커밋한 뒤에 실행합니다.
+
+아래 개별 명령은 같은 검사를 직접 돌릴 때 씁니다. 검사 스크립트의 의존성은 실행할 때마다 격리 환경에 설치되므로 `pyproject.toml`이 필요 없습니다.
 
 ```sh
 python scripts/check_brand.py
@@ -70,13 +78,13 @@ uv run --with markdown-it-py==3.0.0 python -m unittest discover -s scripts/tests
 python scripts/check_commit_messages.py --range <base>..<head>
 ```
 
-`core/`의 Python 프로젝트가 저장소에 들어온 뒤에는 아래 명령도 씁니다.
+빠른 검사가 부르는 `core/` 명령은 아래와 같습니다. 시험 대상은 위 선택기가 고른 폴더이고, 아래 예시는 변경이 없을 때의 기본 대상입니다. 마커 필터는 sandbox, 모델, 실제 provider 시험을 뺍니다.
 
 ```sh
-cd core && poetry install && poetry run ruff check . && poetry run lint-imports && poetry run pytest tests/contracts tests/architecture tests/tools -q
+cd core && poetry install && poetry run ruff check . && poetry run lint-imports && poetry run pytest tests/architecture tests/contracts tests/tools -q -rfE -m "not sandbox and not models and not realllm"
 ```
 
-변경과 관련된 시험을 먼저 실행합니다. PR CI는 map이 고른 시험을, `main` push는 전체 시험을 돌립니다. 고른 시험을 로컬에서 보려면 `git diff --name-only origin/main...HEAD | python scripts/select_tests.py`를 실행합니다. 시험 함수 이름은 `test_<criterion>_<behavior>`입니다.
+변경과 관련된 시험을 먼저 실행합니다. PR CI는 시험 선택 map이 고른 시험을, `main` push는 전체 시험을 돌립니다. 고른 시험을 로컬에서 보려면 `git diff --name-only origin/main...HEAD | python scripts/select_tests.py`를 실행합니다. 시험 함수 이름은 `test_<criterion>_<behavior>`입니다.
 
 ## Markdown
 
