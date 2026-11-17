@@ -78,10 +78,10 @@ uv run --with markdown-it-py==3.0.0 python -m unittest discover -s scripts/tests
 python scripts/check_commit_messages.py --range <base>..<head>
 ```
 
-빠른 검사가 부르는 `core/` 명령은 아래와 같습니다.
+빠른 검사가 부르는 `core/` 명령은 아래와 같습니다. 시험 대상은 위 선택기가 고른 폴더이고, 아래 예시는 변경이 없을 때의 기본 대상입니다. 마커 필터는 sandbox, 모델, 실제 provider 시험을 뺍니다.
 
 ```sh
-cd core && poetry install && poetry run ruff check . && poetry run lint-imports && poetry run pytest tests/contracts tests/architecture tests/tools -q
+cd core && poetry install && poetry run ruff check . && poetry run lint-imports && poetry run pytest tests/architecture tests/contracts tests/tools -q -rfE -m "not sandbox and not models and not realllm"
 ```
 
 변경과 관련된 시험을 먼저 실행합니다. PR CI는 시험 선택 map이 고른 시험을, `main` push는 전체 시험을 돌립니다. 고른 시험을 로컬에서 보려면 `git diff --name-only origin/main...HEAD | python scripts/select_tests.py`를 실행합니다. 시험 함수 이름은 `test_<criterion>_<behavior>`입니다.

@@ -224,7 +224,6 @@
     "probes/",
     "scripts/check_brand.py",
     "scripts/check_commit_messages.py",
-    "scripts/check_fast.py",
     "scripts/check_public_docs.py",
     "scripts/compare_prompt_style.py",
     "scripts/export_openapi.py",
