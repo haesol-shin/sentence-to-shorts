@@ -1,0 +1,166 @@
+@import '../base.css';
+
+.top-bar-status__trigger {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  height: var(--size-control);
+  min-width: var(--size-control);
+  padding-inline: var(--space-12);
+  border: var(--part-hairline) solid var(--background);
+  border-radius: var(--radius-pill);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.top-bar-status__label {
+  display: inline-flex;
+}
+
+.top-bar-status__icon,
+.top-bar-status__chevron {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-bar-status__icon svg,
+.top-bar-status__chevron svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  stroke-width: var(--icon-stroke);
+}
+
+.top-bar-status__trigger[data-tone='error'] .top-bar-status__icon {
+  color: var(--destructive);
+}
+
+.top-bar-status__trigger[data-tone='saved'] .top-bar-status__icon {
+  color: var(--muted-foreground);
+}
+
+.top-bar-status__trigger[data-tone='saving'] .top-bar-status__icon {
+  color: var(--sub);
+}
+
+.top-bar-status__chevron {
+  transition: transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.top-bar-status__trigger:hover:not(:disabled),
+.top-bar-status__trigger[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.top-bar-status__trigger:active:not(:disabled),
+.top-bar-status__trigger[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+}
+
+.top-bar-status__trigger[data-popup-open],
+.top-bar-status__trigger[data-force-state~='open'] {
+  background: var(--state-selected);
+  border-color: var(--state-selected);
+  font-weight: var(--font-weight-bold);
+}
+
+.top-bar-status__trigger[data-popup-open] .top-bar-status__chevron,
+.top-bar-status__trigger[data-force-state~='open'] .top-bar-status__chevron {
+  transform: rotate(180deg);
+}
+
+.top-bar-status__trigger:disabled {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+.status-positioner {
+  z-index: var(--z-panel);
+  isolation: isolate;
+  outline: none;
+}
+
+.status-panel {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: var(--part-menu-width);
+  max-width: calc(100vw - var(--space-48));
+  padding: var(--space-20);
+  border-radius: var(--radius-surface);
+  background: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-float);
+  font-family: var(--font-family-sans);
+  outline: none;
+  transform-origin: var(--transform-origin);
+  transition:
+    opacity var(--motion-panel-duration) var(--motion-ease),
+    transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.status-panel[data-starting-style],
+.status-panel[data-ending-style] {
+  opacity: 0;
+  transform: translateY(calc(var(--space-4) * -1));
+}
+
+.status-panel__title {
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  font-weight: var(--font-weight-bold);
+}
+
+.status-panel__description {
+  margin: 0;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+  text-wrap: balance;
+}
+
+.status-panel__detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-radius: var(--radius-content);
+  background: var(--muted);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.status-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-bar-status__trigger,
+  .top-bar-status__chevron,
+  .status-panel {
+    transition: none;
+  }
+}

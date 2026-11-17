@@ -1,8 +1,19 @@
 import type { ReactElement, ReactNode } from 'react';
-import { AlertCircle, AlertTriangle, ChevronDown, FileText, Info, Settings, Sparkles } from 'lucide-react';
+import {
+  AlertCircle,
+  AlertTriangle,
+  ChevronDown,
+  Clapperboard,
+  FileText,
+  Info,
+  Library,
+  Settings,
+  Sparkles,
+} from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
 import { BottomSheet, BottomSheetClose } from '@/components/BottomSheet/BottomSheet';
+import { Card } from '@/components/Card/Card';
 import { Chip } from '@/components/Chip/Chip';
 import { CloseButton } from '@/components/CloseButton/CloseButton';
 import { Composer } from '@/components/Composer/Composer';
@@ -14,19 +25,26 @@ import { FileDropZone } from '@/components/FileDropZone/FileDropZone';
 import { IconButton } from '@/components/IconButton/IconButton';
 import { MenuButton, type MenuItemSpec } from '@/components/MenuButton/MenuButton';
 import { Notice, type NoticeTone } from '@/components/Notice/Notice';
+import { PlaybackControls } from '@/components/PlaybackControls/PlaybackControls';
 import { Progress } from '@/components/Progress/Progress';
 import { RadioGroup } from '@/components/RadioGroup/RadioGroup';
 import { RangeDialog } from '@/components/RangeDialog/RangeDialog';
+import { ReorderList } from '@/components/ReorderList/ReorderList';
 import { SendButton } from '@/components/SendButton/SendButton';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
+import { SidebarItem } from '@/components/SidebarItem/SidebarItem';
 import { Skeleton } from '@/components/Skeleton/Skeleton';
+import { StageIndicator } from '@/components/StageIndicator/StageIndicator';
 import { Switch } from '@/components/Switch/Switch';
 import { Tabs } from '@/components/Tabs/Tabs';
 import { Tag, type TagVariant } from '@/components/Tag/Tag';
 import { TextField } from '@/components/TextField/TextField';
 import { Toast } from '@/components/Toast/Toast';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
+import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
+import { TopBarStatus } from '@/components/TopBarStatus/TopBarStatus';
 import { ValueField, type ValueFieldItem } from '@/components/ValueField/ValueField';
+import { VideoPreview } from '@/components/VideoPreview/VideoPreview';
 import type { GalleryCase } from './items';
 
 const SOON_TAG = (
@@ -200,6 +218,39 @@ const RANGE_SCOPE = [
   '장면 1, 2의 목소리와 렌더를 다시 만듦',
   '바뀌지 않은 장면 3, 4의 파일은 그대로 둠',
 ];
+
+const STAGES = [
+  { value: 'concept', label: '컨셉' },
+  { value: 'script', label: '대본' },
+  { value: 'edit', label: '편집' },
+  { value: 'export', label: '내보내기' },
+];
+
+const REORDER_ITEMS = [
+  { id: 'scene-1', label: '편의점 앞' },
+  { id: 'scene-2', label: '재고 세기' },
+  { id: 'scene-3', label: '점수판' },
+];
+
+const TOP_BAR_MENU: readonly MenuItemSpec[] = [
+  { value: 'rename', label: '이름 바꾸기' },
+  { value: 'settings', label: '영상 설정' },
+  { value: 'copy', label: '영상 복제' },
+];
+
+const STATUS_DETAIL = (
+  <>
+    <span>마지막 저장: 2분 전</span>
+    <span>저장하지 못한 값: 목소리, 배경 음악</span>
+  </>
+);
+
+const STATUS_ACTIONS = (
+  <>
+    <Button variant="secondary">나중에</Button>
+    <Button>다시 시도</Button>
+  </>
+);
 
 const DIALOG_ACTIONS = (
   <>
@@ -641,6 +692,141 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
             ? '연결이 끊겨서 만들던 영상을 마치지 못했어요. 만들던 내용은 저장돼 있으니 다시 시도해 주세요. 계속 실패하면 앱을 다시 열어 주세요.'
             : '링크가 공개 상태인지 확인하고 다시 붙여넣어 주세요.'}
         </EmptyState>
+      );
+    case 'sidebar-item':
+      if (entry.portal) {
+        return (
+          <Tooltip content="내 영상" side="right" forceOpen>
+            <SidebarItem label="내 영상">
+              <Library />
+            </SidebarItem>
+          </Tooltip>
+        );
+      }
+      return (
+        <SidebarItem
+          label="새 영상"
+          selected={state === 'selected'}
+          forceState={state}
+        >
+          <Clapperboard />
+        </SidebarItem>
+      );
+    case 'top-bar-item':
+      if (entry.portal) {
+        return (
+          <MenuButton
+            trigger={<TopBarItem label="영상 설정" />}
+            label="영상 설정"
+            items={TOP_BAR_MENU}
+            defaultOpen
+          />
+        );
+      }
+      return <TopBarItem label="영상 설정" forceState={state} />;
+    case 'top-bar-status':
+      return (
+        <TopBarStatus
+          label="저장 실패"
+          tone="error"
+          title="저장하지 못했어요"
+          description="연결이 끊겨 이 기기에 저장하지 못했어요. 다시 시도하면 이어서 저장해요."
+          detail={STATUS_DETAIL}
+          actions={STATUS_ACTIONS}
+          defaultOpen={entry.portal}
+          forceState={entry.portal ? undefined : state}
+        />
+      );
+    case 'stage-indicator':
+      return (
+        <StageIndicator
+          label="단계"
+          stages={STAGES}
+          current="edit"
+          forceState={state}
+          forceStep="script"
+        />
+      );
+    case 'card': {
+      const format = entry.variant === 'format';
+      return (
+        <Card
+          variant={format ? 'format' : 'scene'}
+          label={format ? '세로 영상' : '편의점 앞'}
+          description={format ? '9:16, 1분' : undefined}
+          number={format ? undefined : 3}
+          duration={format ? undefined : '약 3초'}
+          selected={state === 'selected'}
+          disabled={state === 'disabled'}
+          forceState={state}
+        />
+      );
+    }
+    case 'reorder-list':
+      return (
+        <ReorderList
+          label="장면 순서"
+          items={REORDER_ITEMS}
+          forceState={state}
+          forceItem="scene-2"
+        />
+      );
+    case 'playback-controls': {
+      const progressCase = entry.slug.startsWith('progress');
+      return (
+        <PlaybackControls
+          label="재생 조절"
+          playing={entry.slug === 'playing'}
+          position={progressCase ? 40 : 0}
+          current={progressCase ? '0:03' : '0:00'}
+          duration="약 0:07"
+          disabled={state === 'disabled'}
+          forceState={progressCase ? undefined : state}
+          forceProgressState={entry.slug === 'progress-focus-visible' ? 'focus-visible' : undefined}
+        />
+      );
+    }
+    case 'video-preview':
+      return (
+        <VideoPreview
+          label={entry.slug === 'ready' ? '완성된 영상 미리보기' : '장면 3 미리보기'}
+          state={entry.slug as 'empty' | 'loading' | 'ready'}
+          duration={entry.slug === 'ready' ? '0:07' : undefined}
+        />
+      );
+    case 'result-card':
+      return (
+        <Dialog
+          defaultOpen
+          className="demo-result-dialog"
+          title={
+            <span className="demo-result__title-row">
+              <span>완성된 영상</span>
+              <DialogClose render={<CloseButton label="결과 카드 닫기" />} />
+            </span>
+          }
+          actions={
+            <>
+              <Button variant="secondary" size="sm">
+                SRT 저장
+              </Button>
+              <Button variant="secondary" size="sm">
+                크게 보기
+              </Button>
+              <DialogClose render={<Button>편집으로</Button>} />
+            </>
+          }
+        >
+          <div className="demo-result__media">
+            <VideoPreview label="완성된 영상 미리보기" state="ready" duration="0:07" />
+          </div>
+          <PlaybackControls
+            label="완성된 영상 재생 조절"
+            position={100}
+            current="0:07"
+            duration="0:07"
+          />
+        </Dialog>
       );
     default:
       return null;

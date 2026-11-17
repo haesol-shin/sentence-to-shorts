@@ -1,0 +1,66 @@
+@import '../base.css';
+
+.sidebar-item {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--size-control);
+  height: var(--size-control);
+  padding: 0;
+  border: var(--part-hairline) solid var(--background);
+  border-radius: var(--radius-pill);
+  background: var(--background);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.sidebar-item__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-item svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+  stroke-width: var(--icon-stroke);
+}
+
+.sidebar-item:hover:not(:disabled),
+.sidebar-item[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+  color: var(--foreground);
+}
+
+.sidebar-item:active:not(:disabled),
+.sidebar-item[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+  color: var(--foreground);
+}
+
+.sidebar-item[data-selected],
+.sidebar-item[data-force-state~='selected'] {
+  background: var(--state-selected);
+  border-color: var(--state-selected);
+  color: var(--foreground);
+}
+
+.sidebar-item:disabled {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-item {
+    transition: none;
+  }
+}

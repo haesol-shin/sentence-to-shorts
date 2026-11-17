@@ -34,11 +34,12 @@ describe('gallery state list', () => {
   test('test_10a_gallery_lists_every_shared_part', () => {
     expect(galleryParts.map((part) => part.id)).toEqual([...SHARED_PART_IDS]);
     for (const part of galleryParts) {
-      expect([1, 2]).toContain(part.batch);
+      expect([1, 2, 3]).toContain(part.batch);
       expect(part.cases.length).toBeGreaterThan(0);
     }
     expect(galleryParts.filter((part) => part.batch === 1)).toHaveLength(16);
     expect(galleryParts.filter((part) => part.batch === 2)).toHaveLength(14);
+    expect(galleryParts.filter((part) => part.batch === 3)).toHaveLength(9);
   });
 
   test('test_10a_gallery_numbers_are_generated_in_order_and_unique', () => {
@@ -98,6 +99,8 @@ describe('gallery state list', () => {
       'confirm-delete': true,
       'confirm-range': true,
       'bottom-sheet': true,
+      'sidebar-item': true,
+      'result-card': true,
     };
     for (const part of galleryParts) {
       for (const entry of [...inlineCases(part), ...portalCases(part)]) {

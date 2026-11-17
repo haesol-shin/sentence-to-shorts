@@ -216,7 +216,15 @@ body {
   white-space: nowrap;
 }
 
-.case[data-portal] .case__label {
+.case-frame[data-portal] {
+  padding-top: var(--space-4);
+}
+
+.case-frame[data-portal] .case {
+  padding-top: var(--space-4);
+}
+
+.case-frame[data-portal] .case__label {
   position: relative;
   z-index: calc(var(--z-file-drop) + 1);
 }
@@ -249,6 +257,25 @@ body {
   overflow: hidden;
   border-radius: var(--radius-content);
   background: var(--card);
+}
+
+.demo-result__title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  width: 100%;
+}
+
+.demo-result__media {
+  width: var(--part-preview-width);
+  max-width: 100%;
+  margin-inline: auto;
+}
+
+.demo-result-dialog .dialog__actions {
+  align-items: center;
+  gap: var(--space-12);
 }
 
 /* ---- interactive probe ---- */

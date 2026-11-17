@@ -1,0 +1,85 @@
+@import '../base.css';
+
+.top-bar-item {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  height: var(--size-control);
+  min-width: var(--size-control);
+  padding-inline: var(--space-12);
+  border: var(--part-hairline) solid var(--background);
+  border-radius: var(--radius-pill);
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-weight: var(--font-weight-regular);
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease),
+    color var(--motion-state-duration) var(--motion-ease);
+}
+
+.top-bar-item__label {
+  display: inline-flex;
+}
+
+.top-bar-item__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.top-bar-item__icon svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  stroke-width: var(--icon-stroke);
+}
+
+.top-bar-item__icon--end {
+  transition: transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.top-bar-item:hover:not(:disabled),
+.top-bar-item[data-force-state~='hover']:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.top-bar-item:active:not(:disabled),
+.top-bar-item[data-force-state~='pressed']:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+}
+
+.top-bar-item[data-popup-open],
+.top-bar-item[data-force-state~='open'] {
+  background: var(--state-selected);
+  border-color: var(--state-selected);
+  font-weight: var(--font-weight-bold);
+}
+
+.top-bar-item[data-popup-open] .top-bar-item__icon--end,
+.top-bar-item[data-force-state~='open'] .top-bar-item__icon--end {
+  transform: rotate(180deg);
+}
+
+.top-bar-item:disabled {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--disabled-foreground);
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .top-bar-item,
+  .top-bar-item__icon--end {
+    transition: none;
+  }
+}

@@ -50,8 +50,15 @@ async function frameOf(page: Page, selector: string): Promise<Frame> {
   return frame;
 }
 
+function labelOf(partId: string, slug: string): string {
+  const part = galleryParts.find((candidate) => candidate.id === partId);
+  const entry = part?.cases.find((candidate) => candidate.slug === slug);
+  if (entry === undefined) throw new Error(`missing case: ${partId} ${slug}`);
+  return entry.label;
+}
+
 test('test_10a_gallery_lists_every_part_and_numbered_case_in_order', async ({ page }) => {
-  for (const batch of [1, 2] as const) {
+  for (const batch of [1, 2, 3] as const) {
     await galleryReady(page, undefined, batch);
     const batchParts = galleryParts.filter((part) => part.batch === batch);
 
@@ -614,6 +621,177 @@ test('test_10a_menu_and_tooltip_stack_in_token_order', async ({ page }) => {
   expect(menuZ).toBe('40');
   expect(tooltipZ).toBe('20');
   expect(Number(menuZ)).toBeGreaterThan(Number(tooltipZ));
+
+  await galleryReady(page, 'top-bar-status', 3);
+  const statusFrame = await frameOf(page, `iframe[data-frame-case="${labelOf('top-bar-status', 'panel-open')}"][width="390"]`);
+  await statusFrame.locator('.status-panel').waitFor();
+  const statusZ = await statusFrame
+    .locator('.status-positioner')
+    .evaluate((element) => getComputedStyle(element).zIndex);
+  expect(statusZ).toBe('45');
+  expect(Number(statusZ)).toBeGreaterThan(Number(menuZ));
+});
+
+test('test_10a_batch_three_panel_ends_motion_immediately_when_reduced', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(PROBE, { waitUntil: 'domcontentloaded' });
+
+  await page.locator('[data-probe="status"] button').first().click();
+  const panel = page.getByRole('dialog', { name: '저장하지 못했어요' });
+  await expect(panel).toBeVisible();
+  const durations = await panel.evaluate((element) => getComputedStyle(element).transitionDuration);
+  expect(durations.split(',').every((value) => value.trim() === '0s')).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+});
+
+test('test_10a_result_card_uses_the_shared_dialog', async ({ page }) => {
+  const label = labelOf('result-card', 'default');
+  const selector = `iframe[data-frame-case="${label}"][width="390"]`;
+
+  await galleryReady(page, 'result-card', 3);
+  const frame = await frameOf(page, selector);
+  const dialog = frame.locator('[role=dialog]');
+  await expect(dialog).toBeVisible();
+  await expect(frame.locator('.dialog__actions button')).toHaveCount(3);
+  await frame.getByRole('button', { name: '결과 카드 닫기' }).click();
+  await expect(dialog).toHaveCount(0);
+
+  await galleryReady(page, 'result-card', 3);
+  const reopened = await frameOf(page, selector);
+  await reopened.getByRole('button', { name: '결과 카드 닫기' }).press('Escape');
+  await expect(reopened.locator('[role=dialog]')).toHaveCount(0);
+});
+
+test('test_10a_batch_three_forced_open_shows_the_same_chevron_direction', async ({ page }) => {
+  await galleryReady(page, 'top-bar-item', 3);
+  const itemFrame = await frameOf(page, 'iframe[data-frame-group="top-bar-item"][width="390"]');
+  const itemArrow = await itemFrame
+    .locator(`[data-case="${labelOf('top-bar-item', 'open')}"] .top-bar-item__icon--end`)
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(itemArrow).not.toBe('none');
+
+  await galleryReady(page, 'top-bar-status', 3);
+  const statusFrame = await frameOf(page, 'iframe[data-frame-group="top-bar-status"][width="390"]');
+  const statusArrow = await statusFrame
+    .locator(`[data-case="${labelOf('top-bar-status', 'open')}"] .top-bar-status__chevron`)
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(statusArrow).not.toBe('none');
+});
+
+test('test_10a_batch_three_parts_keep_their_boxes_across_states', async ({ page }) => {
+  const sizesOf = async (
+    partId: string,
+    slugs: readonly string[],
+    selector: string,
+  ): Promise<[number, number][]> => {
+    await galleryReady(page, partId, 3);
+    const frame = await frameOf(page, `iframe[data-frame-group="${partId}"][width="390"]`);
+    const sizes: [number, number][] = [];
+    for (const slug of slugs) {
+      const size = await frame
+        .locator(`[data-case="${labelOf(partId, slug)}"] ${selector}`)
+        .first()
+        .evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          return [box.width, box.height];
+        });
+      sizes.push([Math.round(size[0] * 10) / 10, Math.round(size[1] * 10) / 10]);
+    }
+    return sizes;
+  };
+  const equal = (sizes: [number, number][]) =>
+    expect(new Set(sizes.map(([width, height]) => `${width}x${height}`)).size).toBe(1);
+
+  equal(await sizesOf('sidebar-item', ['default', 'hover', 'pressed', 'selected', 'disabled', 'focus-visible'], 'button'));
+  equal(await sizesOf('top-bar-item', ['default', 'hover', 'pressed', 'open', 'disabled', 'focus-visible'], 'button'));
+  equal(await sizesOf('top-bar-status', ['default', 'hover', 'pressed', 'open', 'disabled', 'focus-visible'], 'button'));
+
+  const format = await sizesOf('card', ['format-default', 'format-pressed', 'format-selected', 'format-disabled', 'format-focus-visible'], '.card--format');
+  equal(format);
+  expect(format[0][0]).toBe(264);
+  const scene = await sizesOf('card', ['scene-default', 'scene-pressed', 'scene-selected', 'scene-disabled', 'scene-focus-visible'], '.card--scene');
+  equal(scene);
+  expect(scene[0][0]).toBe(120);
+
+  const player = await sizesOf('playback-controls', ['default', 'playing', 'hover', 'pressed', 'disabled', 'focus-visible'], '.player__control');
+  equal(player);
+  expect(player[0]).toEqual([40, 40]);
+});
+
+test('test_10a_batch_three_controls_open_move_and_toggle', async ({ page }) => {
+  await page.goto(PROBE, { waitUntil: 'domcontentloaded' });
+
+  const menuTrigger = page.locator('[data-probe="top-bar-item"] button').first();
+  await menuTrigger.focus();
+  await menuTrigger.press('Enter');
+  const menu = page.getByRole('menu', { name: '영상 설정' });
+  await expect(menu).toBeVisible();
+  await expect(menuTrigger).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(menu).toHaveCount(0);
+  await expect(menuTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(menuTrigger).toBeFocused();
+
+  const statusTrigger = page.locator('[data-probe="status"] button').first();
+  await statusTrigger.click();
+  const panel = page.getByRole('dialog', { name: '저장하지 못했어요' });
+  await expect(panel).toBeVisible();
+  await expect(statusTrigger).toHaveAttribute('aria-expanded', 'true');
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+  await expect(statusTrigger).toHaveAttribute('aria-expanded', 'false');
+  await expect(statusTrigger).toBeFocused();
+
+  await page.locator('[data-probe="stage"]').getByRole('button', { name: '대본' }).click();
+  await expect(page.locator('[data-probe="stage"] [aria-current="step"]')).toContainText('대본');
+  await expect(page.locator('[data-probe="log"]')).toHaveText('stage:script');
+
+  await page.locator('[data-probe="reorder"]').getByRole('button', { name: '아래로 이동: 첫 장면' }).click();
+  await expect(page.locator('[data-probe="log"]')).toHaveText('order:scene-2,scene-1,scene-3');
+  await expect(
+    page.locator('[data-probe="reorder"] .reorder-row').first().getByRole('button', {
+      name: '순서 바꾸기: 둘째 장면',
+    }),
+  ).toBeVisible();
+
+  await page.locator('[data-probe="card"]').getByRole('button', { name: '세로 영상' }).click();
+  await expect(
+    page.locator('[data-probe="card"]').getByRole('button', { name: '세로 영상' }),
+  ).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-probe="log"]')).toHaveText('card:format');
+
+  const playback = page.locator('[data-probe="playback"]');
+  await playback.getByRole('button', { name: '재생' }).click();
+  await expect(playback.getByRole('button', { name: '일시정지' })).toBeVisible();
+  const slider = playback.getByRole('slider', { name: '재생 위치' });
+  await slider.focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(slider).toHaveValue('21');
+  await expect(page.locator('[data-probe="log"]')).toHaveText('seek:21');
+  await playback.getByRole('button', { name: '소리 끄기' }).click();
+  await expect(playback.getByRole('button', { name: '소리 켜기' })).toBeVisible();
+});
+
+test('test_10a_toast_open_transition_runs', async ({ page }) => {
+  await page.goto(PROBE, { waitUntil: 'domcontentloaded' });
+  await page.evaluate(() => {
+    const state = window as Window & { __toastTransitions?: string[] };
+    state.__toastTransitions = [];
+    document.addEventListener('transitionstart', (event) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.classList.contains('toast-surface')) {
+        state.__toastTransitions?.push(`${event.propertyName}:${target.dataset.state ?? ''}`);
+      }
+    });
+  });
+
+  await page.getByRole('button', { name: '알림 열기' }).click();
+  await expect(page.getByRole('status')).toHaveAttribute('data-state', 'open');
+  await page.waitForFunction(() => {
+    const state = window as Window & { __toastTransitions?: string[] };
+    return (state.__toastTransitions ?? []).includes('opacity:open');
+  });
 });
 
 test('test_10a_gallery_has_no_ref_warnings', async ({ page }) => {
@@ -632,6 +810,16 @@ test('test_10a_gallery_has_no_ref_warnings', async ({ page }) => {
   await page.keyboard.press('Escape');
   await page.locator('[data-probe="tooltip"] button').first().focus();
   await expect(page.getByRole('tooltip')).toBeVisible();
+
+  await page.locator('[data-probe="top-bar-item"] button').first().click();
+  await expect(page.getByRole('menu', { name: '영상 설정' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('menu')).toHaveCount(0);
+
+  await page.locator('[data-probe="status"] button').first().click();
+  await expect(page.getByRole('dialog', { name: '저장하지 못했어요' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   expect(messages.filter((message) => message.includes('Function components cannot be given refs'))).toEqual(
     [],

@@ -40,6 +40,10 @@ function CaseBody({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {
 const CASE_HEIGHT: Record<string, number> = {
   composer: 300,
   skeleton: 320,
+  card: 340,
+  'reorder-list': 280,
+  'playback-controls': 160,
+  'video-preview': 700,
 };
 
 const BARE_PARTS: Record<string, true> = {
@@ -50,6 +54,7 @@ const BARE_PARTS: Record<string, true> = {
   toast: true,
   'file-drop': true,
   'bottom-sheet': true,
+  'result-card': true,
 };
 
 function frameHeight(part: GalleryPart, width: number, portal: boolean): number {
@@ -60,7 +65,12 @@ function frameHeight(part: GalleryPart, width: number, portal: boolean): number 
 
 function CaseFrame({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {
   return (
-    <div className="case-frame" data-layout={entry.layout} data-part-id={part.id}>
+    <div
+      className="case-frame"
+      data-layout={entry.layout}
+      data-part-id={part.id}
+      data-portal={entry.portal ? '' : undefined}
+    >
       <CaseBody part={part} entry={entry} />
     </div>
   );
