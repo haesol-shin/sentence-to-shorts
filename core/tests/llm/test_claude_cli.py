@@ -380,6 +380,10 @@ def _wait_dead(pid: int, timeout: float = 5.0) -> bool:
     return not _alive(pid)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the batch-file shim re-parses the empty --tools value on Windows",
+)
 def test_9a_cli_uses_verified_flags_and_private_empty_cwd(
     settings, request_data, cancel, tmp_path, monkeypatch
 ) -> None:

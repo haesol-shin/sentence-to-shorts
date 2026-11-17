@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check commit messages from a Git range or a UTF-8 message file."""
+"""Check commit messages from a Git range or a UTF-8 message file, or a PR title."""
 
 from __future__ import annotations
 
@@ -10,7 +10,18 @@ import sys
 from pathlib import Path
 
 MAX_BULLETS = 5
+MAX_TITLE = 72
 TITLE = re.compile(r"[a-z][a-z0-9-]*\([A-Za-z0-9][A-Za-z0-9_./-]*\)!?: [!-~](?:[ -~]*[!-~])?")
+
+
+def check_title(title: str) -> list[str]:
+    """Check a PR title, which becomes the squash subject; no ` (#N)` is appended yet."""
+    problems = []
+    if not TITLE.fullmatch(title):
+        problems.append("title must be English type(scope): summary")
+    if len(title) > MAX_TITLE:
+        problems.append(f"title is {len(title)} characters; at most {MAX_TITLE}")
+    return problems
 
 
 def check_message(message: str) -> list[str]:
@@ -52,9 +63,12 @@ def main(argv: list[str] | None = None) -> int:
     source = parser.add_mutually_exclusive_group(required=True)
     source.add_argument("--range", dest="revision_range", help="base..head (all PR commits)")
     source.add_argument("--message-file", type=Path)
+    source.add_argument("--pr-title", metavar="TITLE", help="one PR or squash title")
     args = parser.parse_args(argv)
     try:
-        if args.message_file is not None:
+        if args.pr_title is not None:
+            problems = check_title(args.pr_title)
+        elif args.message_file is not None:
             problems = check_message(args.message_file.read_text(encoding="utf-8"))
         else:
             problems = check_range(args.revision_range)

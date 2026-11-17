@@ -1,0 +1,45 @@
+# `pip` is the ecosystem that handles Poetry v2 (core/pyproject.toml and
+# core/poetry.lock). The tool pins under packaging/ and the FFmpeg locks stay a
+# manual, reviewed change. The prefix keeps the squash subject in the commit
+# title format that scripts/check_commit_messages.py checks.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "build(deps): "
+
+  - package-ecosystem: pip
+    directory: /core
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps): "
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "build(deps): "

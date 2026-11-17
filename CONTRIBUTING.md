@@ -5,9 +5,18 @@
 ## 작업 흐름
 
 - 저장소 모델은 [ADR 0013](docs/decisions/0013-use-public-mainline-repository.md)을 따릅니다. 변경은 `main`에서 만든 짧은 브랜치에서 PR로 제출해 주세요. 미완성 기능은 PR 브랜치 빌드로 시험합니다.
-- 필수 CI check가 모두 통과해야 병합할 수 있습니다.
-- 리뷰 bot(cubic)의 지적과 cubic을 대신한 독립 리뷰의 지적은 수정하거나 근거를 들어 답변해 주세요.
+- 필수 CI check는 workflow마다 집계 job 하나입니다. 필수 check는 `gate | ci`와 `gate | pr title`입니다. 집계 job 이름을 바꾸면 저장소 설정의 필수 check도 같은 날 바꿉니다.
+- PR CI는 변경이 덮는 시험만 돌리고, `main` push는 전체 시험을 돌립니다. 어느 시험을 돌릴지는 [시험 선택](scripts/select_tests.py)과 [map](scripts/test_selection.json)이 정합니다.
 - 구조 결정을 바꾸는 변경만 새 ADR과 [index](docs/decisions/README.md)를 갱신합니다. 새 ADR은 대체하는 ADR에 링크합니다. 제품·UX·기여 절차 변경은 해당 원본 문서만 고칩니다.
+
+## 리뷰 bot
+
+- cubic은 draft가 아닌 PR을 자동으로 검토합니다. 지적은 P0부터 P3까지 우선순위가 붙습니다.
+- P0와 P1은 병합 전에 고칩니다. 오탐이라고 판단하면 근거를 답글로 남깁니다. 해결 처리는 병합 담당자가 합니다.
+- P2와 P3은 고치거나, 이유를 답글로 남기거나, `review-followup` 라벨 이슈로 남기고 답글에 링크합니다. 셋 중 하나 없이 병합하지 않습니다.
+- 푸시한 뒤 cubic이 고쳐졌다고 판단한 스레드는 자동으로 해결 처리됩니다. 봇이 답했다는 사실만으로 해결된 것으로 보지 않습니다.
+- cubic 사용량이 차서 검토가 멈추면 병합 담당자가 같은 diff를 독립 리뷰로 대신합니다. 그 리뷰의 지적은 수정하거나 근거를 들어 답변합니다.
+- `agent/*`와 `dependabot/*` 브랜치는 자동 검토하지 않습니다. 실행 설정의 원본은 [cubic.yaml](cubic.yaml)입니다.
 
 ## Pull request
 
@@ -64,10 +73,10 @@ python scripts/check_commit_messages.py --range <base>..<head>
 `core/`의 Python 프로젝트가 저장소에 들어온 뒤에는 아래 명령도 씁니다.
 
 ```sh
-cd core && poetry install && poetry run ruff check . && poetry run lint-imports && poetry run pytest tests/contracts tests/architecture -q
+cd core && poetry install && poetry run ruff check . && poetry run lint-imports && poetry run pytest tests/contracts tests/architecture tests/tools -q
 ```
 
-변경과 관련된 시험을 먼저 실행합니다. 전체 시험은 CI가 한 번 실행합니다. 시험 함수 이름은 `test_<criterion>_<behavior>`입니다.
+변경과 관련된 시험을 먼저 실행합니다. PR CI는 map이 고른 시험을, `main` push는 전체 시험을 돌립니다. 고른 시험을 로컬에서 보려면 `git diff --name-only origin/main...HEAD | python scripts/select_tests.py`를 실행합니다. 시험 함수 이름은 `test_<criterion>_<behavior>`입니다.
 
 ## Markdown
 
@@ -105,4 +114,4 @@ cd core && poetry install && poetry run ruff check . && poetry run lint-imports 
 
 ## 열린 질문
 
-- 제안: 향후 필수 CI는 core, frontend, drift, sandbox, brand로 나눕니다. workflow는 최소 권한을 유지합니다. action은 full SHA로 고정합니다. 검사 자체도 고의 위반에서 실패하는지 시험합니다. diff의 secret·leak 검사도 적용합니다. sandbox 시험 수가 0이면 실패시킵니다. runtime 존재 시험을 실제 거부 시험의 증거로 쓰지 않습니다.
+- workflow는 최소 권한을 유지합니다. action은 full SHA로 고정합니다. 검사 자체도 고의 위반에서 실패하는지 시험합니다. diff의 secret·leak 검사도 적용합니다. sandbox 시험 수가 0이면 실패시킵니다. runtime 존재 시험을 실제 거부 시험의 증거로 쓰지 않습니다.

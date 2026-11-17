@@ -54,10 +54,12 @@ priority = "explicit"
 httpx2 = "2.16.0"
 import-linter = "2.16"
 pytest = "9.2.0"
+pytest-timeout = "2.4.0"
 ruff = "0.17.5"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+timeout = 180
 markers = [
     "sandbox: needs the bundled Deno and Pyodide runtime files",
     "models: needs downloaded model files",
