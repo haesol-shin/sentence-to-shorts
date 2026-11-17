@@ -77,11 +77,18 @@ class PriceTable:
         cache_read_tokens: int | None,
         cache_write_tokens: int | None,
     ) -> int | None:
-        """One model's token lines in integer micro USD, rounded once per line."""
+        """One model's token lines in integer micro USD, rounded once per line.
+
+        Every token class must have a price: a model entry with any null rate is
+        an unknown price, so its total is null rather than a partial or zero sum.
+        """
         if model is None:
             return None
         price = self.llm.get((provider, model))
         if price is None:
+            return None
+        rates = (price.input, price.output, price.cache_read, price.cache_write)
+        if any(rate is None for rate in rates):
             return None
         tokens = (
             input_tokens,
@@ -89,13 +96,10 @@ class PriceTable:
             cache_read_tokens,
             cache_write_tokens,
         )
-        rates = (price.input, price.output, price.cache_read, price.cache_write)
         total = 0
         for count, rate in zip(tokens, rates, strict=True):
             if count is None or count == 0:
                 continue
-            if rate is None:
-                return None
             total += _round_half_up(count * rate)
         return total
 

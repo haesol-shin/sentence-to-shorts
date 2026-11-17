@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
@@ -56,6 +57,35 @@ def test_unknown_price_is_null_not_zero(db: Database) -> None:
     assert reader.video_cost("owner", VIDEO) is None
 
 
+def test_listed_null_price_is_null_not_zero(db: Database) -> None:
+    store, job = _job(db)
+    event = _event(job.id, job.attempt, 1).model_copy(
+        update={"input_tokens": None, "outcome": "failed"}
+    )
+    store.usage_event(job.id, job.attempt, event.model_dump(mode="json"))
+    prices = PriceTable(
+        version="test",
+        llm={
+            ("fixture", "fixture"): TokenPrice(
+                input=None, output=None, cache_read=None, cache_write=None
+            )
+        },
+    )
+    assert SqliteUsageReader(db, prices).video_cost("owner", VIDEO) is None
+
+
+def test_shipped_null_price_stays_null() -> None:
+    prices = PriceTable.load(Path(__file__).resolve().parents[2] / "config" / "prices.yaml")
+    assert prices.line_cost(
+        "anthropic_api",
+        "claude-haiku-5-5",
+        input_tokens=None,
+        output_tokens=None,
+        cache_read_tokens=None,
+        cache_write_tokens=None,
+    ) is None
+
+
 def test_cost_rounds_once_per_line(db: Database) -> None:
     store, job = _job(db)
     for call_seq in (1, 2):
@@ -65,7 +95,7 @@ def test_cost_rounds_once_per_line(db: Database) -> None:
         version="test",
         llm={
             ("fixture", "fixture"): TokenPrice(
-                input=1_500_000, output=None, cache_read=None, cache_write=None
+                input=1_500_000, output=0, cache_read=0, cache_write=0
             )
         },
     )

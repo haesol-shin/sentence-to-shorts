@@ -29,7 +29,7 @@ def test_cost_rounds_once_per_line(client: TestClient) -> None:
         version="test",
         llm={
             ("fixture", "fixture"): TokenPrice(
-                input=1_000_000, output=None, cache_read=None, cache_write=None
+                input=1_000_000, output=0, cache_read=0, cache_write=0
             )
         },
     )
