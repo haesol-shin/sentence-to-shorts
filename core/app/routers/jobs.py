@@ -48,6 +48,7 @@ def cancel_job(request: Request, jid: str) -> Job:
     app = runtime(request)
     job = app.job_store.request_cancel(jid)
     app.runner.discard_reference_upload(jid)
+    app.runner.discard_bgm_upload(jid)
     return job
 
 

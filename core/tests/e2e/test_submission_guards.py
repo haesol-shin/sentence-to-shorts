@@ -97,7 +97,7 @@ def test_deletion_and_job_submission_cannot_both_succeed(
                 request_digest="a" * 64,
                 input={},
                 idempotency_key=None,
-            )
+            ).job
 
         action: Callable[[], Any] = submit
         if retry:

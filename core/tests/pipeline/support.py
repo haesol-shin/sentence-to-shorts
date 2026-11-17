@@ -337,12 +337,21 @@ class FakeSound:
     def pick_bgm(self, settings: Any, recent: list[str], seed: int) -> PinnedRef:
         return self.catalog.pin("bgm", "builtin_loop")
 
-    def import_upload(self, src: Path, project_id: str, *, ctx: JobContext) -> UploadBgm:
+    def import_upload(
+        self,
+        src: Path,
+        project_id: str,
+        *,
+        ctx: JobContext,
+        mood: Any = None,
+    ) -> UploadBgm:
         self.import_calls.append(str(src))
         raw = load_json("contracts/valid/bgm_upload.json")
         raw["project_id"] = project_id
         raw["upload_id"] = new_typeid("u")
         raw["id"] = raw["upload_id"]
+        if mood is not None:
+            raw["mood"] = mood.value
         return UploadBgm.model_validate(raw)
 
     def mix(

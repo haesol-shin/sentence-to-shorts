@@ -221,6 +221,7 @@ def test_runner_context_failure_fails_the_job_and_keeps_the_queue(env: Env) -> N
         env.inputs,
         lambda job, ctx: {},
         cache_dir=env.layout.cache,
+        bgm_staging_dir=env.layout.data / "staging" / "bgm",
         poll_s=0.02,
         watch_s=0.02,
     )
@@ -242,6 +243,7 @@ def test_runner_deadline_crossed_between_watcher_ticks_is_a_timeout(tmp_path: Pa
         env.inputs,
         lambda job, ctx: time.sleep(1.1) or {"late": True},
         cache_dir=env.layout.cache,
+        bgm_staging_dir=env.layout.data / "staging" / "bgm",
         watch_s=60,
     )
     try:

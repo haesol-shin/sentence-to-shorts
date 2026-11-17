@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, Header, Request, UploadFile
+from fastapi import APIRouter, File, Form, Header, Request, Response, UploadFile
 
-from app.ports import UploadSource
+from app.ports import SubmitResult, UploadSource
 from app.routers.deps import request_digest, runtime
 from app.schemas.api import BgmCodeRequest, Job, StyleRequest, TemplateRequest
 from app.schemas.common import PERSONAL_OWNER_ID, Mood
@@ -23,7 +23,7 @@ def _submit(
     video_id: str | None,
     project_id: str | None,
     key: str | None,
-) -> Job:
+) -> SubmitResult:
     return app.submitter.submit(
         kind,
         owner_id=PERSONAL_OWNER_ID,
@@ -36,19 +36,28 @@ def _submit(
     )
 
 
+def _returned(response: Response, result: SubmitResult) -> Job:
+    response.status_code = result.status
+    return result.job
+
+
 @router.post("/styles", operation_id="createStyle", response_model=Job, status_code=202)
 def create_style(
     request: Request,
     body: StyleRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(
-        runtime(request),
-        JobKind.style,
-        body,
-        video_id=body.video_id,
-        project_id=None,
-        key=idempotency_key,
+    return _returned(
+        response,
+        _submit(
+            runtime(request),
+            JobKind.style,
+            body,
+            video_id=body.video_id,
+            project_id=None,
+            key=idempotency_key,
+        ),
     )
 
 
@@ -61,15 +70,19 @@ def create_style(
 def create_template(
     request: Request,
     body: TemplateRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(
-        runtime(request),
-        JobKind.template,
-        body,
-        video_id=body.video_id,
-        project_id=None,
-        key=idempotency_key,
+    return _returned(
+        response,
+        _submit(
+            runtime(request),
+            JobKind.template,
+            body,
+            video_id=body.video_id,
+            project_id=None,
+            key=idempotency_key,
+        ),
     )
 
 
@@ -82,15 +95,19 @@ def create_template(
 def create_bgm_code(
     request: Request,
     body: BgmCodeRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(
-        runtime(request),
-        JobKind.bgm_code,
-        body,
-        video_id=None,
-        project_id=body.project_id,
-        key=idempotency_key,
+    return _returned(
+        response,
+        _submit(
+            runtime(request),
+            JobKind.bgm_code,
+            body,
+            video_id=None,
+            project_id=body.project_id,
+            key=idempotency_key,
+        ),
     )
 
 
@@ -103,6 +120,7 @@ def create_bgm_code(
 async def upload_bgm(
     request: Request,
     project_id: Annotated[str, Form()],
+    response: Response,
     file: UploadFile = File(...),
     mood: Mood = Form(
         default_factory=lambda: Mood.calm,
@@ -110,7 +128,10 @@ async def upload_bgm(
     ),
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    """Validate upload metadata; submission integration is tracked separately."""
-    return runtime(request).services.sound.submit_upload(
-        project_id, UploadSource(file.filename, file.content_type, file.file), idempotency_key
+    result = runtime(request).services.sound.submit_upload(
+        project_id,
+        UploadSource(file.filename, file.content_type, file.file),
+        mood,
+        idempotency_key,
     )
+    return _returned(response, result)

@@ -96,6 +96,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - BGM 업로드의 multipart digest는 `mood` 생략 시 `calm`을 먼저 적용한 `{mood, project_id}`를 이름 순 canonical JSON으로 만든다. 같은 파일과 프로젝트에서 생략과 명시적 `calm`은 같은 요청이고, 같은 key로 분위기만 바꾸면 409 `idempotency_mismatch`다. 이 기본값은 다른 multipart 경로에는 적용하지 않는다.
 - 같은 영상, 같은 kind, 같은 요청 digest의 활성 job이 있으면 새 job 대신 그 job을 200으로 돌려준다.
 - 같은 영상, 같은 kind의 다른 활성 job이 있으면 409 `job_running` problem과 `job_id` 확장 멤버를 돌려준다.
+- BGM 업로드의 활성 job 중복은 `(project_id, kind)` 범위로 본다. 새 job은 202, 같은 요청의 활성 job을 다시 쓰면 200이다.
 - 오류 응답은 [3.1절](#31-오류-본문)의 RFC 9457 problem이다.
 - 오류 코드 구분: HTTP 응답 코드 `llm_auth_required`(503)는 job이 시작되기 전에 인증이 없을 때다. job 오류 `llm_auth`는 실행 중 인증이 없거나 만료됐을 때다. HTTP 응답 코드 `revision_conflict`(409)는 요청의 base_revision이 head와 다를 때다. job 오류 `stale_revision`은 job이 끝났는데 영상 head가 이미 바뀌어 결과를 적용하지 않고 버릴 때다.
 - 202 응답 본문은 `Job`이다. client는 `GET /jobs/{id}`를 보이는 탭에서 1초, 숨은 탭에서 5초 간격으로 조회한다. 기술 선택: SSE와 WebSocket을 쓰지 않는다. 이유: 인증·origin 검사 경로를 하나로 유지한다.
@@ -589,10 +590,15 @@ class JobInputStore(Protocol):
     def save(self, job_id: str, payload: Mapping[str, Any]) -> None: ...   # 검증된 요청 본문
     def load(self, job_id: str) -> dict[str, Any] | None: ...              # 재시작·재시도용
 
+@dataclass(frozen=True)
+class SubmitResult:
+    job: Job
+    status: int                      # 202 for a new job, 200 for a reused active job
+
 class JobSubmitter(Protocol):
     def submit(self, kind: JobKind, *, owner_id: str, project_id: str | None,
                video_id: str | None, base_revision: int | None, request_digest: str,
-               input: Mapping[str, Any], idempotency_key: str | None) -> Job: ...
+               input: Mapping[str, Any], idempotency_key: str | None) -> SubmitResult: ...
 
 @dataclass(frozen=True)
 class ResolvedCredential:
@@ -685,9 +691,12 @@ class VoiceService:            # services/voice, ports: TtsPort, AlignerPort, Ar
     def timing(self, scene: Scene, voice: PinnedRef, tts: Mapping[str, ArtifactRef],
                caption_mode: str, language: Language, *, ctx: JobContext) -> Timing: ...
 
-class SoundService:            # services/sound, ports: MediaPort, CatalogPort
+class SoundService:            # services/sound, ports: MediaPort, CatalogPort, JobSubmitter
     def pick_bgm(self, settings: Settings, recent: list[str], seed: int) -> PinnedRef: ...
-    def import_upload(self, src: Path, project_id: str, *, ctx: JobContext) -> BgmEntry: ...
+    def submit_upload(self, project_id: str, upload: UploadSource, mood: Mood,
+                      idempotency_key: str | None) -> SubmitResult: ...
+    def import_upload(self, src: Path, project_id: str, *, ctx: JobContext,
+                      mood: Mood | None = None) -> BgmEntry: ...
     def mix(self, video: Video, timings: list[Timing], tts: dict[str, Path], *, ctx: JobContext) -> Path: ...
 
 class AssembleService:         # services/assemble, ports: MediaPort
@@ -716,7 +725,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.
 - `AssembleService.attributions`는 내장 BGM(`BuiltinBgm`), 효과음(`SfxEntry`), 타자음(`TypingSoundEntry`) 중 SPDX가 대소문자 구분 없이 `CC-BY`로 시작하는 항목만 처리한다. `license.attribution`이 null이 아니면 지정 언어의 문구를 그대로 쓰고, null이면 지정 언어의 `entry.label`로 `"{title}" - {author}, {spdx}, {source_url}`을 만든다. 입력 순서를 지키며 같은 문자열은 처음 한 번만 반환한다. 실제 사용 항목과 순서는 호출자가 정하고, 표시 위치와 호출 책임은 이 계약의 범위 밖이다.
 
-- BGM 업로드의 `mood`는 요청 검증과 digest 정규화에 반영한다. 업로드 제출 경로의 통합 전에는 기존과 같이 501이며, 서버 job 입력에 분위기를 저장하고 실행자가 `import_upload`에 전달하는 연결은 계약 요청 #39의 제출 경로 구현을 기다린다. 현재 `SoundService.import_upload`는 분위기를 `calm`으로 기록한다.
+- `SoundService.submit_upload`는 검증한 `mood`를 서버 전용 job 입력에 저장하고 job 실행자는 그 값을 `import_upload`에 넘긴다. 값이 없는 과거 job 입력은 `calm`을 쓴다.
 
 ### 14.3 모듈별 소유 파일
 
@@ -888,6 +897,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 5. 그 밖에는 failed와 `interrupted`로 닫는다. 사용자가 재시도한다.
 6. 재개한 job은 checkpoint의 artifact 존재와 digest를 다시 검사한다. 통과한 것만 재사용한다.
 7. `CACHE_DIR/j/`와 `CACHE_DIR/r/`에서 활성 job이 아닌 폴더를 지운다. 앱 소유 prefix와 job ID 형식이 맞는 폴더만 지운다. symlink는 따라가지 않는다.
+8. `DATA_DIR/staging/bgm/`에서 활성 job이나 재시도 가능한 job이 입력으로 가리키지 않는 파일을 지운다. job이 terminal 상태가 되면 그 job의 파일을 지운다. 실행 전에 취소된 queued job의 파일도 지운다.
 
 ### 5.4 부분 결과, 재시도, 취소
 
@@ -926,6 +936,7 @@ DATA_DIR/
   catalog/index.json            kind·id·revision catalog 인덱스 (시작 때 복원)
   c/<digest16>/                 참조한 내장 package 불변 사본 (kind·id·revision으로 조회)
   j/<job_id>.json               서버 전용 검증된 job 입력 (공개 Job 응답에 없음)
+  staging/bgm/<upload_id>       업로드 BGM 원본 staging (job 종료 때 지운다)
   models/<runtime_item>/<rev12>/
   rt-journal.json               기기별 설치 journal
   log/app.log                   회전 로그
@@ -946,6 +957,7 @@ CACHE_DIR/
 | `state.db` | `storage` | migration 백업만 남긴다 |
 | `p/` | `storage` (project 서비스 요청) | 프로젝트 삭제 때 해당 프로젝트만 지운다 |
 | `p/<pid>/u/` | `storage` (sound 서비스 요청) | 프로젝트가 참조하는 동안 보존한다 |
+| `staging/bgm/` | `storage` (sound 서비스 요청) | job 입력이 가리키는 동안 보존하고 job terminal 상태와 시작 복구에서 지운다 |
 | `o/` | `storage` (assemble 결과 공개) | 영상이나 프로젝트 삭제 때만 지운다 |
 | `s/` | `plugins/registry` (templates 서비스 요청) | 참조하는 revision, 프리셋, catalog 항목이 없을 때만 지운다 |
 | `models/` | `runtime` | uninstall 기본 보존 |

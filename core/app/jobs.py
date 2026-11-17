@@ -33,7 +33,7 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.ports import AppError, ArtifactStore, Cancelled, CancelToken, JobInputStore
+from app.ports import AppError, ArtifactStore, Cancelled, CancelToken, JobInputStore, SubmitResult
 from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import (
     Checkpoint,
@@ -88,6 +88,7 @@ _ENTITY_ID = re.compile(r"^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _CHUNK = 1 << 20
 REFERENCE_UPLOAD_DIR = "reference-uploads"
 REFERENCE_UPLOAD_NAME = re.compile(r"^upload-[A-Za-z0-9_-]{1,64}\.(?:part|src)$")
+BGM_UPLOAD_NAME = re.compile(r"^u_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 
 log = logging.getLogger(__name__)
 
@@ -209,7 +210,7 @@ class UnavailableJobSubmitter:
         request_digest: str,
         input: Mapping[str, Any],
         idempotency_key: str | None,
-    ) -> Job:
+    ) -> SubmitResult:
         raise NotImplementedError("jobs")
 
 
@@ -714,6 +715,7 @@ class JobRunner:
         run_job: RunJob,
         *,
         cache_dir: Path,
+        bgm_staging_dir: Path,
         poll_s: float = 0.5,
         watch_s: float = 0.1,
     ) -> None:
@@ -722,6 +724,7 @@ class JobRunner:
         self._inputs = inputs
         self._run_job = run_job
         self._cache_dir = cache_dir
+        self._bgm_staging_dir = bgm_staging_dir
         self._poll_s = poll_s
         self._watch_s = watch_s
         self._active: dict[str, _Active] = {}
@@ -785,6 +788,7 @@ class JobRunner:
                 if JOB_ID.fullmatch(entry.name) and entry.name not in active:
                     _remove_dir(entry)
         self.cleanup_reference_uploads()
+        self.cleanup_bgm_uploads()
         return changed
 
     # reference sources
@@ -893,6 +897,74 @@ class JobRunner:
             if REFERENCE_UPLOAD_NAME.fullmatch(entry.name) and entry not in keep:
                 _unlink_upload(entry)
 
+    # BGM uploads
+
+    def _staged_bgm(self, job: Job) -> Path | None:
+        """The app-owned staged upload of a bgm_upload job, when its input names one."""
+        if job.kind is not JobKind.bgm_upload:
+            return None
+        payload = self._inputs.load(job.id)
+        if payload is None:
+            raise ValueError("bgm upload job input is unavailable")
+        value = payload.get("staging_path")
+        if not isinstance(value, str):
+            return None
+        root = self._bgm_staging_dir
+        if root.is_symlink():
+            return None
+        path = Path(value)
+        if path.parent != root or not BGM_UPLOAD_NAME.fullmatch(path.name):
+            return None
+        return path
+
+    def discard_bgm_upload(self, job_id: str) -> bool:
+        """Delete the staged BGM once no attempt can read it again.
+
+        True means a file was removed; a queued, running or cancelling job keeps it.
+        """
+        try:
+            job = self._store.get(job_id)
+        except AppError:
+            return False
+        if _keeps_upload(job):
+            return False
+        try:
+            path = self._staged_bgm(job)
+        except (OSError, ValueError):
+            log.warning(
+                "bgm upload cleanup deferred",
+                extra=_job_fields(job, event="bgm_cleanup_deferred"),
+            )
+            return False
+        if path is None:
+            return False
+        return _unlink_upload(path)
+
+    def cleanup_bgm_uploads(self) -> None:
+        """Remove staged BGM files that no active or retryable job references."""
+        folder = self._bgm_staging_dir
+        if folder.is_symlink() or not folder.is_dir():
+            return
+        try:
+            entries = list(folder.iterdir())
+        except OSError:
+            return
+        keep: set[Path] = set()
+        for job in (*self._store.unfinished(), *self._store.retryable_failures()):
+            try:
+                path = self._staged_bgm(job)
+            except (OSError, ValueError):
+                log.warning(
+                    "bgm upload cleanup deferred",
+                    extra=_job_fields(job, event="bgm_cleanup_deferred"),
+                )
+                return
+            if path is not None:
+                keep.add(path)
+        for entry in entries:
+            if BGM_UPLOAD_NAME.fullmatch(entry.name) and entry not in keep:
+                _unlink_upload(entry)
+
     # execution
 
     def run_once(self, queue: str) -> Job | None:
@@ -970,6 +1042,8 @@ class JobRunner:
             _remove_dir(self._cache_dir / "r" / claimed.id)
             if claimed.kind is JobKind.reference:
                 self.discard_reference_upload(claimed.id)
+            if claimed.kind is JobKind.bgm_upload:
+                self.discard_bgm_upload(claimed.id)
 
     def _run(self, job: Job, active: _Active, started: float, *, has_checkpoints: bool) -> None:
         store = self._store

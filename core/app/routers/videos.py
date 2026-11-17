@@ -34,9 +34,15 @@ router = APIRouter()
 
 
 def _submit(
-    app: Any, kind: JobKind, body: Any, *, video_id: str | None, key: str | None
+    app: Any,
+    response: Response,
+    kind: JobKind,
+    body: Any,
+    *,
+    video_id: str | None,
+    key: str | None,
 ) -> Job:
-    return app.submitter.submit(
+    result = app.submitter.submit(
         kind,
         owner_id=PERSONAL_OWNER_ID,
         project_id=None,
@@ -46,6 +52,8 @@ def _submit(
         input=body.model_dump(mode="json", by_alias=True),
         idempotency_key=key,
     )
+    response.status_code = result.status
+    return result.job
 
 
 @router.post(
@@ -58,9 +66,12 @@ def create_draft(
     request: Request,
     vid: str,
     body: DraftRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.draft, body, video_id=vid, key=idempotency_key)
+    return _submit(
+        runtime(request), response, JobKind.draft, body, video_id=vid, key=idempotency_key
+    )
 
 
 @router.post(
@@ -73,9 +84,12 @@ def run_script(
     request: Request,
     vid: str,
     body: BaseRevision,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.script, body, video_id=vid, key=idempotency_key)
+    return _submit(
+        runtime(request), response, JobKind.script, body, video_id=vid, key=idempotency_key
+    )
 
 
 @router.post(
@@ -116,9 +130,12 @@ def create_previews(
     request: Request,
     vid: str,
     body: PreviewRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.preview, body, video_id=vid, key=idempotency_key)
+    return _submit(
+        runtime(request), response, JobKind.preview, body, video_id=vid, key=idempotency_key
+    )
 
 
 @router.post(
@@ -168,9 +185,12 @@ def send_message(
     request: Request,
     vid: str,
     body: MessageRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.chat, body, video_id=vid, key=idempotency_key)
+    return _submit(
+        runtime(request), response, JobKind.chat, body, video_id=vid, key=idempotency_key
+    )
 
 
 @router.post("/videos/{vid}/undo", operation_id="undoVideo", response_model=Video)
@@ -193,9 +213,12 @@ def run_precheck(
     request: Request,
     vid: str,
     body: BaseRevision,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.precheck, body, video_id=vid, key=idempotency_key)
+    return _submit(
+        runtime(request), response, JobKind.precheck, body, video_id=vid, key=idempotency_key
+    )
 
 
 @router.post(
@@ -208,9 +231,12 @@ def generate_video(
     request: Request,
     vid: str,
     body: BaseRevision,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
-    return _submit(runtime(request), JobKind.generate, body, video_id=vid, key=idempotency_key)
+    return _submit(
+        runtime(request), response, JobKind.generate, body, video_id=vid, key=idempotency_key
+    )
 
 
 def _sync_directory(path: Path) -> None:
@@ -272,7 +298,7 @@ async def upload_reference(
         os.replace(temporary, path)
         _sync_directory(folder)
         text = digest.hexdigest().encode("ascii") + canonical_json(fields)
-        job = app.submitter.submit(
+        result = app.submitter.submit(
             JobKind.reference,
             owner_id=PERSONAL_OWNER_ID,
             project_id=None,
@@ -283,13 +309,13 @@ async def upload_reference(
             idempotency_key=idempotency_key,
         )
         keep = True
-        saved = app.job_inputs.load(job.id)
+        saved = app.job_inputs.load(result.job.id)
         if saved is None:
             raise AppError("internal")
-        if saved.get("upload_path") != str(path):
+        if result.status == 200 and saved.get("upload_path") != str(path):
             keep = False
-            response.status_code = 200
-        return job
+        response.status_code = result.status
+        return result.job
     finally:
         temporary.unlink(missing_ok=True)
         if not keep:
@@ -307,13 +333,14 @@ def link_reference(
     request: Request,
     vid: str,
     body: LinkRequest,
+    response: Response,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Job:
     app = runtime(request)
     if app.settings.deployment == "hosted":
         raise AppError("link_disabled")
     platform_of(body.url)
-    return _submit(app, JobKind.reference, body, video_id=vid, key=idempotency_key)
+    return _submit(app, response, JobKind.reference, body, video_id=vid, key=idempotency_key)
 
 
 @router.post(

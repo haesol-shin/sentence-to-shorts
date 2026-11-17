@@ -47,10 +47,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /**
-         * Upload Bgm
-         * @description Validate upload metadata; submission integration is tracked separately.
-         */
+        /** Upload Bgm */
         post: operations["uploadBgm"];
         delete?: never;
         options?: never;

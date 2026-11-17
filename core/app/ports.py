@@ -563,6 +563,14 @@ class JobInputStore(Protocol):
     def load(self, job_id: str) -> dict[str, Any] | None: ...
 
 
+@dataclass(frozen=True)
+class SubmitResult:
+    """One submission: the new job (202) or the active job it deduplicated to (200)."""
+
+    job: Job
+    status: int
+
+
 class JobSubmitter(Protocol):
     """Creates a queued job or returns the active job for the same request."""
 
@@ -577,15 +585,16 @@ class JobSubmitter(Protocol):
         request_digest: str,
         input: Mapping[str, Any],
         idempotency_key: str | None,
-    ) -> Job: ...
+    ) -> SubmitResult: ...
 
 
 @dataclass(frozen=True)
 class UploadSource:
     """One multipart file handed to a service without reading it into memory.
 
-    The stream is open and positioned at the start. A background implementation
-    copies it to a durable path before returning from submit_upload.
+    The stream is open and positioned at the start. The service copies it to a
+    durable path under `DATA_DIR/staging/bgm/<upload_id>` before returning; the
+    job that imports it owns that file and deletes it at its terminal state.
     """
 
     filename: str | None
@@ -608,3 +617,5 @@ class ServiceDeps:
     media: MediaPort
     sandbox: SandboxPort
     downloader: DownloaderPort
+    submitter: JobSubmitter
+    bgm_staging_dir: Path

@@ -43,6 +43,7 @@ from app.ports import (
     Proposal,
     SandboxPort,
     ServiceDeps,
+    SubmitResult,
     TranscriberPort,
     TtsPort,
 )
@@ -225,7 +226,7 @@ class LocalJobs:
         request_digest: str,
         input: Mapping[str, Any],
         idempotency_key: str | None,
-    ) -> Job:
+    ) -> SubmitResult:
         if kind in UNAVAILABLE_JOB_KINDS:
             raise NotImplementedError(kind.value)
         with self._lock:
@@ -235,7 +236,7 @@ class LocalJobs:
             active = self._active(owner_id, kind, video_id, project_id)
             if active is not None:
                 if active.request_digest == request_digest:
-                    return active
+                    return SubmitResult(job=active, status=200)
                 raise AppError("job_running", detail={"job_id": active.id})
             job = self._new_job(
                 kind, owner_id, project_id, video_id, base_revision, request_digest,
@@ -244,7 +245,7 @@ class LocalJobs:
             self._inputs.save(job.id, input)
             created = self._store.create(job)
         self._wake()
-        return created
+        return SubmitResult(job=created, status=202)
 
     def retry(self, job_id: str) -> Job:
         """Queue the next attempt, unless another job of the same video and kind is active."""
@@ -559,21 +560,41 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
     selected_llm = cast(str, _selected("llm", resolved))
     if selected_llm in ("anthropic_api", "openai_compat"):
         vault.move_legacy(credentials, PERSONAL_OWNER_ID, selected_llm)
+    tts = _build_adapter("tts", resolved)
+    aligner = _build_adapter("aligner", resolved)
+    transcriber = _build_adapter("transcriber", resolved)
+    media = _build_adapter("media", resolved)
+    sandbox = _build_adapter("sandbox", resolved)
+    downloader = _build_adapter("downloader", resolved)
+    staging = resolved.data_dir / "staging" / "bgm"
+
+    submitter = LocalJobs(
+        store=job_store,
+        inputs=job_inputs,
+        projects=project_store,
+        llm=cast(LlmPort, llm),
+        media=cast(MediaPort, media),
+        db=state_db,
+        max_attempts=resolved.app.jobs.max_attempts,
+        wake=lambda: runner.notify(),
+    )
     deps = ServiceDeps(
         project_store=project_store,
         artifact_store=artifact_store,
         job_store=job_store,
         catalog=catalog,
         llm=cast(LlmPort, llm),
-        tts=_build_adapter("tts", resolved),
-        aligner=_build_adapter("aligner", resolved),
-        transcriber=_build_adapter("transcriber", resolved),
-        media=_build_adapter("media", resolved),
-        sandbox=_build_adapter("sandbox", resolved),
-        downloader=_build_adapter("downloader", resolved),
+        tts=tts,
+        aligner=aligner,
+        transcriber=transcriber,
+        media=media,
+        sandbox=sandbox,
+        downloader=downloader,
+        submitter=submitter,
+        bgm_staging_dir=resolved.data_dir / "staging" / "bgm",
     )
     services = _build_services(resolved, deps)
-    runtime_setup = create_runtime_setup(resolved, deps.downloader, job_store)
+    runtime_setup = create_runtime_setup(resolved, downloader, job_store)
 
     def run_job(job: Job, ctx: LocalJobContext) -> Mapping[str, Any]:
         if job.kind is JobKind.runtime_prepare:
@@ -586,16 +607,7 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         job_inputs,
         run_job,
         cache_dir=resolved.cache_dir,
-    )
-    submitter = LocalJobs(
-        store=job_store,
-        inputs=job_inputs,
-        projects=project_store,
-        llm=deps.llm,
-        media=deps.media,
-        db=state_db,
-        max_attempts=resolved.app.jobs.max_attempts,
-        wake=runner.notify,
+        bgm_staging_dir=staging,
     )
     access = create_access(resolved)
     return AppRuntime(

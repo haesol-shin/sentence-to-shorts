@@ -38,6 +38,7 @@ class Env:
             self.inputs,
             run_job,
             cache_dir=self.layout.cache,
+            bgm_staging_dir=self.layout.data / "staging" / "bgm",
             poll_s=0.02,
             watch_s=0.02,
         )

@@ -5879,7 +5879,6 @@
     },
     "/api/v1/bgm/uploads": {
       "post": {
-        "description": "Validate upload metadata; submission integration is tracked separately.",
         "operationId": "uploadBgm",
         "parameters": [
           {

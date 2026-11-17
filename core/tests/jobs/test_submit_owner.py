@@ -76,7 +76,7 @@ def test_submit_checks_llm_auth_per_owner(tmp_path: Path) -> None:
             request_digest="a" * 64,
             input={"message": "synthetic"},
             idempotency_key=None,
-        )
+        ).job
         assert job.owner_id == ALLOWED_OWNER
 
         with pytest.raises(AppError) as refused:
@@ -111,7 +111,7 @@ def test_job_input_never_contains_api_key(tmp_path: Path) -> None:
             request_digest="c" * 64,
             input={"message": "synthetic"},
             idempotency_key=None,
-        )
+        ).job
         saved = env.inputs.load(job.id)
         assert saved == {"message": "synthetic"}
         assert SECRET not in json.dumps(saved)

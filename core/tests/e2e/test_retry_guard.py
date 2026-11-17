@@ -29,7 +29,7 @@ def test_retry_is_refused_while_a_newer_job_of_the_kind_is_active(app_settings) 
                 request_digest=digest,
                 input={},
                 idempotency_key=None,
-            )
+            ).job
 
         old = submit("a" * 64)
         runtime.job_store.request_cancel(old.id)
