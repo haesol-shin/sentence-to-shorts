@@ -94,7 +94,12 @@ def publish_clip(
     tmp = staging / f"{hashlib.sha256(data).hexdigest()[:12]}.mp4"
     tmp.write_bytes(data)
     return artifacts.publish(
-        ArtifactKind.clip_mp4, hashlib.sha256(data).hexdigest(), tmp, {}, job_id
+        PERSONAL_OWNER_ID,
+        ArtifactKind.clip_mp4,
+        hashlib.sha256(data).hexdigest(),
+        tmp,
+        {},
+        job_id,
     )
 
 

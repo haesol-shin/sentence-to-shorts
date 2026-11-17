@@ -230,6 +230,9 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 | `final_mp4` | 순서 있는 clip digest, mix digest, encoder 설정 | UI 상태 |
 | `srt` | 순서 있는 timing digest, display_text | BGM |
 
+- artifact 조회는 `(owner_id, cache_key)`로 한다. cache key 계산식은 바꾸지 않는다. 소유자가 다르면 같은 key라도 따로 만들고 따로 보관한다.
+- 소유자 사이에 공유하는 것은 앱에 동봉한 catalog package뿐이다.
+- 앱이 LLM 응답을 재사용하는 cache를 두면 그 key에 `owner_id`와 `credential_id`를 넣는다. provider의 prompt cache는 소유 경계로 보지 않는다.
 - typewriter 표시 일정이 바뀌어도 `timing_json`을 재사용하지 않도록 그 key의 `api_version`은 2다.
 - 무음 글자만 바뀌어도 `mix_wav` key가 갈리도록 소리를 내는 구간 목록을 넣는다. 무음 판정은 11.2절과 같다.
 - 진행 표시 문구는 장면 안의 beat 기준이다. 순서만 바뀌면 clip key는 그대로다.
@@ -289,7 +292,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 
 - template_layer worker는 같은 job 안의 같은 `video revision + template digest`에서만 재사용한다.
 - 다른 영상, 코드 변경, 취소, 오류 뒤에는 worker를 폐기한다. 전역 warm pool은 없다.
-- 결과 cache key는 code digest, runtime digest, kind, canonical input, seed다. hit면 sandbox를 실행하지 않는다.
+- 결과 조회는 `(owner_id, cache_key)`로 하고, cache key는 code digest, runtime digest, kind, canonical input, seed다. hit면 sandbox를 실행하지 않는다.
 - 실패하면 이전 package와 이전 BGM을 그대로 둔다.
 
 ### 9.6 거부 시험
@@ -556,14 +559,15 @@ class ProjectStore(Protocol):
     def add_activity(self, video_id: str, spans: list[ActivitySpan]) -> None: ...
 
 class ArtifactStore(Protocol):
-    def find(self, cache_key: str) -> Artifact | None: ...      # checks file existence and digest
-    def publish(self, kind: ArtifactKind, cache_key: str, tmp: Path, media: dict,
-                job_id: str | None) -> Artifact: ...            # verify, atomic rename, index
-    def path(self, artifact_id: str) -> Path: ...
+    def find(self, owner_id: str, cache_key: str) -> Artifact | None: ...   # checks file existence and digest
+    def get(self, owner_id: str, artifact_id: str) -> Artifact: ...         # AppError("not_found") for another owner
+    def publish(self, owner_id: str, kind: ArtifactKind, cache_key: str, tmp: Path,
+                media: dict, job_id: str | None) -> Artifact: ...
+    def path(self, artifact_id: str) -> Path: ...    # local file of an id obtained from find, get or publish
     def job_dir(self, job_id: str) -> Path: ...
     def hold(self, artifact_ids: list[str], holder: str) -> None: ...
     def release(self, holder: str) -> None: ...
-    def sweep(self) -> int: ...                                  # removes unheld cache artifacts
+    def sweep(self) -> int: ...
 
 class JobStore(Protocol):
     def create(self, job: Job) -> Job: ...
@@ -683,6 +687,7 @@ def plan_change(video: Video, ops: list[Op], source: str, target: Target,
 def build_view(video: Video, services: Services) -> VideoBuild: ...
 ```
 
+- `path`는 `find`, `get`, `publish`로 얻은 artifact ID에만 쓴다. 소유 확인은 그 세 메서드가 한다.
 - `JobContext`는 jobs가 만든다. `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다.
 - 서비스는 결과 파일을 job 폴더에 쓴다. 공개와 index는 pipeline이 `ArtifactStore.publish`로 한다.
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.

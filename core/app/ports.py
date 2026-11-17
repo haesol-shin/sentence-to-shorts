@@ -372,10 +372,13 @@ class ProjectStore(Protocol):
 
 
 class ArtifactStore(Protocol):
-    def find(self, cache_key: str) -> Artifact | None: ...
+    def find(self, owner_id: str, cache_key: str) -> Artifact | None: ...
+
+    def get(self, owner_id: str, artifact_id: str) -> Artifact: ...
 
     def publish(
         self,
+        owner_id: str,
         kind: ArtifactKind,
         cache_key: str,
         tmp: Path,
@@ -385,7 +388,7 @@ class ArtifactStore(Protocol):
 
     def path(self, artifact_id: str) -> Path: ...
 
-    def download_path(self, video_id: str, kind: str) -> Path: ...
+    def download_path(self, owner_id: str, video_id: str, kind: str) -> Path: ...
 
     def job_dir(self, job_id: str) -> Path: ...
 

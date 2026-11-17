@@ -139,7 +139,7 @@ def generated(request, engine, tmp_path_factory):  # type: ignore[no-untyped-def
         graph = Graph(video, services)
         timings = {}
         for scene_id in video.scene_order:
-            artifact = harness.artifacts.find(graph.scenes[scene_id].timing)
+            artifact = harness.artifacts.find(video.owner_id, graph.scenes[scene_id].timing)
             assert artifact is not None
             timings[scene_id] = Timing.model_validate_json(
                 harness.artifacts.path(artifact.id).read_text(encoding="utf-8")

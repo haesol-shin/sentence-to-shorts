@@ -190,7 +190,7 @@ class Graph:
             return key
         if key in self._dependencies:
             return self._dependencies[key]
-        artifact = self.services.artifact_store.find(key)
+        artifact = self.services.artifact_store.find(self.video.owner_id, key)
         value = key if artifact is None else artifact.digest
         self._dependencies[key] = value
         return value

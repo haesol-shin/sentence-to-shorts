@@ -337,5 +337,7 @@ def get_metrics(request: Request, vid: str) -> Metrics:
     response_model=None,
 )
 def download_video(request: Request, vid: str, kind: str) -> FileResponse:
-    path = runtime(request).artifact_store.download_path(vid, kind)
+    app = runtime(request)
+    video = app.project_store.get_video(vid)
+    path = app.artifact_store.download_path(video.owner_id, vid, kind)
     return FileResponse(path, filename=f"{vid}{path.suffix}")

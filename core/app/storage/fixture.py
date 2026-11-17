@@ -115,11 +115,15 @@ class UnavailableJobStore:
 class UnavailableArtifactStore:
     """ArtifactStore placeholder. The file implementation replaces it."""
 
-    def find(self, cache_key: str) -> Artifact | None:
+    def find(self, owner_id: str, cache_key: str) -> Artifact | None:
+        raise NotImplementedError("storage")
+
+    def get(self, owner_id: str, artifact_id: str) -> Artifact:
         raise NotImplementedError("storage")
 
     def publish(
         self,
+        owner_id: str,
         kind: ArtifactKind,
         cache_key: str,
         tmp: Path,
@@ -131,7 +135,7 @@ class UnavailableArtifactStore:
     def path(self, artifact_id: str) -> Path:
         raise NotImplementedError("storage")
 
-    def download_path(self, video_id: str, kind: str) -> Path:
+    def download_path(self, owner_id: str, video_id: str, kind: str) -> Path:
         raise NotImplementedError("storage")
 
     def job_dir(self, job_id: str) -> Path:

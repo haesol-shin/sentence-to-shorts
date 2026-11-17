@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import Job
 from app.storage.artifacts import FileArtifactStore
 from app.storage.paths import Layout
@@ -132,7 +133,7 @@ def test_short_transaction_wraps_every_store_write(
     projects.append_revision(video)
     projects.append_revision(next_revision(video))
     published = artifacts.publish(
-        "tts_wav", CACHE_KEY, staged(tmp_path / "job", b"RIFF"), {}, None
+        PERSONAL_OWNER_ID, "tts_wav", CACHE_KEY, staged(tmp_path / "job", b"RIFF"), {}, None
     )
     artifacts.hold([published.id], f"rev:{video.id}:2")
     artifacts.release(f"rev:{video.id}:2")
