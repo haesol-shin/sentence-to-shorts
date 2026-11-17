@@ -7,9 +7,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, BinaryIO, Literal, Protocol
@@ -24,6 +25,7 @@ from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.sandbox_io import SandboxRequest
 from app.schemas.scene import Scene
+from app.schemas.usage import UsagePage
 from app.schemas.video import RevisionInfo, Video
 from app.schemas.voice_manifest import VoiceManifest
 
@@ -154,9 +156,40 @@ class LlmResult:
     usage: Usage
 
 
+@dataclass(frozen=True)
+class ProviderRequest:
+    """One provider request, reported when it ends, before a retry or a raise.
+
+    `try_index` is the index inside one `complete` call, so the first request is
+    0 and a schema repair or a retry adds one. Tokens follow the normalized
+    meaning: `input_tokens` excludes cache reads and cache writes, and a value
+    the provider did not report is None.
+    """
+
+    try_index: int
+    stage: Stage
+    provider: str
+    model: str | None
+    credential_id: str | None
+    input_tokens: int | None
+    output_tokens: int | None
+    cache_read_tokens: int | None
+    cache_write_tokens: int | None
+    outcome: Literal["ok", "failed"]
+
+
+RequestCallback = Callable[[ProviderRequest], None]
+
+
 class LlmPort(Protocol):
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+        self,
+        req: LlmRequest,
+        *,
+        owner_id: str,
+        cancel: CancelToken,
+        deadline: float,
+        on_request: RequestCallback | None = None,
     ) -> LlmResult: ...
 
     def auth_state(self, owner_id: str) -> Literal["ok", "missing", "expired", "unknown"]: ...
@@ -453,6 +486,9 @@ class JobStore(Protocol):
 
     def usage(self, job_id: str, attempt: int, usage: dict[str, Any]) -> None: ...
 
+    def usage_event(self, job_id: str, attempt: int, event: dict[str, Any]) -> None:
+        """Insert one ledger row; a repeated id is ignored."""
+
     def finish(
         self,
         job_id: str,
@@ -468,6 +504,20 @@ class JobStore(Protocol):
     def requeue(self, job_id: str) -> Job: ...
 
     def unfinished(self) -> list[Job]: ...
+
+
+class UsageReader(Protocol):
+    def events(
+        self,
+        owner_id: str,
+        start: datetime,
+        end: datetime,
+        cursor: str | None,
+        limit: int,
+    ) -> UsagePage: ...
+
+    def video_cost(self, owner_id: str, video_id: str) -> int | None:
+        """Sum the video's ledger lines in integer micro USD, one rounding per line."""
 
 
 class CatalogPort(Protocol):
@@ -552,7 +602,11 @@ class JobContext(Protocol):
 
     def checkpoint(self, record: Checkpoint) -> None: ...
 
-    def record_usage(self, usage: Usage) -> None: ...
+    def record_request(self, request: ProviderRequest) -> None:
+        """Append one usage event; `call_seq` advances when `try_index` is 0."""
+
+    def record_usage(self, usage: Usage) -> None:
+        """Append the summary of one successful LLM call; never summed."""
 
 
 class JobInputStore(Protocol):

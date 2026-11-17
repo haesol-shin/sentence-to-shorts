@@ -156,7 +156,7 @@ class Usage(ContractModel):
     input_tokens: Annotated[int, Field(ge=0)] | None
     output_tokens: Annotated[int, Field(ge=0)] | None
     cache_read_tokens: Annotated[int, Field(ge=0)] | None
-    cost_usd: Annotated[float, Field(ge=0)] | None
+    cache_write_tokens: Annotated[int, Field(ge=0)] | None = None
     wall_ms: Annotated[int, Field(ge=0)]
     retries: Annotated[int, Field(ge=0)]
 

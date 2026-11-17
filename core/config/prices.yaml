@@ -1,0 +1,14 @@
+# Versioned token prices for the usage ledger. Values are integer micro USD per
+# million tokens; null means the price is unknown, never zero. Cost is computed
+# when events are summed, so a price change applies to old rows too.
+version: "2026-11-17"
+
+llm:
+  anthropic_api:
+    claude-haiku-5-5: {input: null, output: null, cache_read: null, cache_write: null}
+    claude-sonnet-5-5: {input: null, output: null, cache_read: null, cache_write: null}
+  claude_cli:
+    haiku: {input: null, output: null, cache_read: null, cache_write: null}
+    sonnet: {input: null, output: null, cache_read: null, cache_write: null}
+  openai_compat: {}
+  fixture: {}

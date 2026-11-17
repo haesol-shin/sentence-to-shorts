@@ -110,6 +110,7 @@ def _reply(message: Any) -> ProviderReply:
             text, message.model, token_count(usage.input_tokens),
             token_count(usage.output_tokens),
             token_count(getattr(usage, "cache_read_input_tokens", None)),
+            token_count(getattr(usage, "cache_creation_input_tokens", None)),
         )
     except (TypeError, AttributeError):
         raise ProviderError("llm_invalid_output") from None

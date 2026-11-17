@@ -23,7 +23,8 @@ def _job() -> dict[str, Any]:
                     "ended_ms": 20, "cache_hits": 0, "rebuilt_scene_ids": []}],
         "usage": [{"stage": "draft", "provider": "openai_compat", "model": "synthetic-model",
                    "effort": "low", "input_tokens": None, "output_tokens": None,
-                   "cache_read_tokens": None, "cost_usd": None, "wall_ms": 10, "retries": 0}],
+                   "cache_read_tokens": None, "cache_write_tokens": None,
+                   "wall_ms": 10, "retries": 0}],
     }
 
 
@@ -36,7 +37,8 @@ def test_10_evidence_records_usage_and_timings_without_private_content(tmp_path:
     record = events[-1]
     assert record["usage"][0]["provider"] == "openai_compat"
     assert record["usage"][0]["model"] == "synthetic-model"
-    assert record["usage"][0]["cost_usd"] is None
+    assert record["usage"][0]["cache_write_tokens"] is None
+    assert "cost_usd" not in record["usage"][0]
     assert record["stages"][0]["ended_ms"] - record["stages"][0]["started_ms"] == 10
     rendered = "".join(path.read_text() for path in evidence.root.iterdir())
     for private in (

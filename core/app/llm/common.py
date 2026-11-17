@@ -25,6 +25,8 @@ from app.ports import (
     LlmPart,
     LlmRequest,
     LlmResult,
+    ProviderRequest,
+    RequestCallback,
 )
 from app.schemas.job import Stage, Usage
 
@@ -52,6 +54,7 @@ class ProviderReply:
     input_tokens: int | None = None
     output_tokens: int | None = None
     cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
 
 
 class ProviderError(AppError):
@@ -216,11 +219,19 @@ class BaseLlm(ABC):
         """Issue one attempt without changing the selected route."""
 
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+        self,
+        req: LlmRequest,
+        *,
+        owner_id: str,
+        cancel: CancelToken,
+        deadline: float,
+        on_request: RequestCallback | None = None,
     ) -> LlmResult:
         started = time.monotonic()
         check_active(cancel, deadline)
         slot, key = self._resolve(owner_id)
+        credential_id = slot if slot not in (None, "env") else None
+        stage = STAGES[req.task.value]
         if self.requires_key and key is None:
             self._failed[owner_id] = slot
             raise AppError("llm_auth")
@@ -228,7 +239,7 @@ class BaseLlm(ABC):
         if sum(part.kind == "png" for part in req.parts) > 8:
             raise AppError("llm_refused")
         counts: dict[str, int | None] = dict.fromkeys(
-            ("input_tokens", "output_tokens", "cache_read_tokens"), 0
+            ("input_tokens", "output_tokens", "cache_read_tokens", "cache_write_tokens"), 0
         )
         failures: dict[str, int] = {}
         calls = 0
@@ -236,11 +247,19 @@ class BaseLlm(ABC):
         current = req
         while True:
             timeout = min(route.timeout_s, check_active(cancel, deadline))
+            calls += 1
+            try_index = calls - 1
             try:
-                calls += 1
                 reply = self._invoke(current, route, timeout=timeout,
                                      cancel=cancel, deadline=deadline, key=key)
             except ProviderError as error:
+                _report(on_request, ProviderRequest(
+                    try_index=try_index, stage=stage, provider=self.provider,
+                    model=route.model, credential_id=credential_id,
+                    input_tokens=None, output_tokens=None,
+                    cache_read_tokens=None, cache_write_tokens=None,
+                    outcome="failed",
+                ))
                 check_active(cancel, deadline)
                 if error.code == "llm_auth":
                     self._failed[owner_id] = slot
@@ -257,6 +276,13 @@ class BaseLlm(ABC):
                 wait_active(delay if delay is not None else 2.0 ** used,
                             cancel=cancel, deadline=deadline)
                 continue
+            _report(on_request, ProviderRequest(
+                try_index=try_index, stage=stage, provider=self.provider,
+                model=reply.model, credential_id=credential_id,
+                input_tokens=reply.input_tokens, output_tokens=reply.output_tokens,
+                cache_read_tokens=reply.cache_read_tokens,
+                cache_write_tokens=reply.cache_write_tokens, outcome="ok",
+            ))
             check_active(cancel, deadline)
             self._auth = "ok"
             self._ok[owner_id] = slot
@@ -278,13 +304,19 @@ class BaseLlm(ABC):
                 continue
             check_active(cancel, deadline)
             return LlmResult(reply.text, parsed, Usage(
-                stage=STAGES[req.task.value], provider=self.provider, model=reply.model,
+                stage=stage, provider=self.provider, model=reply.model,
                 effort=route.effort, input_tokens=counts["input_tokens"],
                 output_tokens=counts["output_tokens"],
                 cache_read_tokens=counts["cache_read_tokens"],
-                cost_usd=None, wall_ms=max(0, int((time.monotonic() - started) * 1000)),
+                cache_write_tokens=counts["cache_write_tokens"],
+                wall_ms=max(0, int((time.monotonic() - started) * 1000)),
                 retries=calls - 1,
             ))
+
+
+def _report(callback: RequestCallback | None, request: ProviderRequest) -> None:
+    if callback is not None:
+        callback(request)
 
 
 def settings_options(settings: AppSettings, provider: str) -> Mapping[str, Any]:

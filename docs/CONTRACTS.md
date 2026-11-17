@@ -206,7 +206,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 ## 7. 로그
 
 - 형식은 JSON lines다. 위치는 `DATA_DIR/log/app.log`다. 5MB 회전, 3개 보관이다.
-- 기록 필드: `ts`, `level`, `event`, `job_id`, `attempt`, `kind`, `stage`, `project_id`, `video_id`, `scene_id`, `error_code`, `http_status`, `provider`, `model`, `effort`, `input_tokens`, `output_tokens`, `cache_hit`, `duration_ms`(monotonic), `retries`.
+- 기록 필드: `ts`, `level`, `event`, `job_id`, `attempt`, `kind`, `stage`, `project_id`, `video_id`, `scene_id`, `error_code`, `http_status`, `provider`, `model`, `effort`, `input_tokens`, `output_tokens`, `cache_write_tokens`, `cache_hit`, `duration_ms`(monotonic), `retries`.
 - 기록하지 않는 것: prompt, 대본, 화면 글, 말할 글, 재료, 대화 문장, 참고 URL과 파일명, 프레임, 전사, LLM 원본 응답, provider 오류 본문, API key, Authorization과 cookie와 CSRF 값, pairing code, CLI stdout, 환경변수 dump, 절대 home 경로.
 - 경로가 필요하면 root 이름과 상대 경로만 쓴다.
 - 생성 코드의 traceback은 LLM 수정 요청에만 쓰고 로그에 쓰지 않는다.
@@ -336,7 +336,8 @@ class LlmResult:
 
 class LlmPort(Protocol):
     def complete(self, req: LlmRequest, *, owner_id: str, cancel: CancelToken,
-                 deadline: float) -> LlmResult: ...
+                 deadline: float,
+                 on_request: Callable[[ProviderRequest], None] | None = None) -> LlmResult: ...
     def auth_state(self, owner_id: str) -> Literal["ok", "missing", "expired", "unknown"]: ...
 ```
 
@@ -580,11 +581,17 @@ class JobStore(Protocol):
     def stage(self, job_id: str, attempt: int, record: dict) -> None: ...
     def checkpoint(self, job_id: str, attempt: int, cp: dict) -> None: ...
     def usage(self, job_id: str, attempt: int, usage: dict) -> None: ...
+    def usage_event(self, job_id: str, attempt: int, event: dict) -> None: ...  # repeated id ignored
     def finish(self, job_id: str, attempt: int, state: str, result: dict | None,
                error: JobError | None, partial: bool) -> bool: ...   # False when stale
     def request_cancel(self, job_id: str) -> Job: ...
     def requeue(self, job_id: str) -> Job: ...
     def unfinished(self) -> list[Job]: ...
+
+class UsageReader(Protocol):        # reads the ledger, never Job.usage
+    def events(self, owner_id: str, start: datetime, end: datetime,
+               cursor: str | None, limit: int) -> UsagePage: ...
+    def video_cost(self, owner_id: str, video_id: str) -> int | None: ...  # micro USD, one rounding per line
 
 class JobInputStore(Protocol):
     def save(self, job_id: str, payload: Mapping[str, Any]) -> None: ...   # 검증된 요청 본문
@@ -720,7 +727,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 ```
 
 - `path`는 `find`, `get`, `publish`로 얻은 artifact ID에만 쓴다. 소유 확인은 그 세 메서드가 한다.
-- `JobContext`는 jobs가 만든다. `owner_id`, `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_usage()`를 제공한다. `owner_id`는 job의 소유자이며 서비스는 LLM 호출에 그대로 넘긴다.
+- `JobContext`는 jobs가 만든다. `owner_id`, `cancel`, `deadline`, `job_dir`, `input`, `progress()`, `stage()` context manager, `checkpoint()`, `record_request()`, `record_usage()`를 제공한다. `owner_id`는 job의 소유자이며 서비스는 LLM 호출에 그대로 넘긴다. `record_request()`는 provider 요청 하나를 usage event로 남기고, `record_usage()`는 성공한 호출의 요약을 job 문서에 더한다.
 - 서비스는 결과 파일을 job 폴더에 쓴다. 공개와 index는 pipeline이 `ArtifactStore.publish`로 한다.
 - 외부 실패는 adapter에서 `AppError(code)`로 바꾼다. 서비스는 provider 예외를 보지 않는다.
 - `AssembleService.attributions`는 내장 BGM(`BuiltinBgm`), 효과음(`SfxEntry`), 타자음(`TypingSoundEntry`) 중 SPDX가 대소문자 구분 없이 `CC-BY`로 시작하는 항목만 처리한다. `license.attribution`이 null이 아니면 지정 언어의 문구를 그대로 쓰고, null이면 지정 언어의 `entry.label`로 `"{title}" - {author}, {spdx}, {source_url}`을 만든다. 입력 순서를 지키며 같은 문자열은 처음 한 번만 반환한다. 실제 사용 항목과 순서는 호출자가 정하고, 표시 위치와 호출 책임은 이 계약의 범위 밖이다.
@@ -811,7 +818,12 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 ### 16.4 기록과 연결 상태
 
 - job·attempt·stage·provider/model·effort·cache hit·usage·재생성 scene ID·monotonic 시작과 끝을 기록한다. 전체 wall time과 병렬 단계 시간을 구분한다. 로그 수집 범위는 7절을 따른다.
-- 사용자 조작 시간은 초안 편집 시작부터 다음 행동까지 활성 구간이다. 대기와 비활성 탭은 분리한다. provider 사용량을 API 현금 비용으로 환산하지 않으며 미확인 비용은 0이 아닌 null이다.
+- 사용자 조작 시간은 초안 편집 시작부터 다음 행동까지 활성 구간이다. 대기와 비활성 탭은 분리한다.
+- provider 요청마다 usage event 하나를 남긴다. 재시도한 요청도 각각 남긴다. event ID는 `<job_id>:<attempt>:<call_seq>:<try>`이고 같은 ID를 다시 쓰면 무시한다. 항목은 소유자, job, attempt, stage, provider, model, `credential_id`, 입력·출력·cache 읽기·cache 쓰기 token, 결과(`ok`, `failed`), 기록 때의 단가 버전이다.
+- `input_tokens`는 cache 읽기와 cache 쓰기를 뺀 기본 단가 입력 token이다. provider가 cache를 포함한 입력 합계를 주면 adapter가 cache token을 빼서 기록한다. provider가 주지 않은 값은 null이다.
+- usage event가 사용량의 원본이다. event는 provider 요청이 끝날 때마다 바로 쓴다. 실패로 끝난 LLM 호출의 요청도 남는다. `Job.usage`는 성공한 호출의 job별 요약이며 합계와 명세에 쓰지 않는다.
+- 비용은 event에 저장하지 않고 합계를 낼 때 계산한다. 단가는 `core/config/prices.yaml`의 버전 있는 표(백만 token당 정수 micro USD)를 쓴다. 합계 줄마다 token 합에 단가를 곱한 값을 한 번 계산해 micro USD 정수로 half-up 반올림한다. 단가가 없는 model의 비용은 0이 아닌 null이다.
+- 사용자 key로 낸 호출의 비용은 사용자가 provider에 직접 내는 추정치다. 서비스 청구액에 더하지 않는다.
 - offline은 기존 프로젝트 열기·편집·결과 재생의 가능 범위를 표시한다. 로컬 모델 준비 여부에 따라 음성·렌더 가능 경로와 누락 모델을 정확히 알린다. LLM 생성·참고 분석은 연결이 필요하다. 전체 offline 앱이라고 설명하지 않는다.
 
 ### 16.5 기기 검증
@@ -927,7 +939,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 ```text
 DATA_DIR/
-  state.db                      projects, videos, revisions, changes, presets, jobs, artifacts, holds, idempotency, activity, credentials
+  state.db                      projects, videos, revisions, changes, presets, jobs, artifacts, holds, idempotency, activity, credentials, usage_events
   p/<project_id>/project.json
   p/<project_id>/v/<video_id>/r/<revision>.json
   p/<project_id>/u/<upload_id>.wav

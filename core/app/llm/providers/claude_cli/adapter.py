@@ -535,13 +535,14 @@ def _reply(payload: Mapping[str, Any], route: ResolvedRoute) -> ProviderReply:
     if text is None:
         raise ProviderError("llm_invalid_output")
     model = _actual_model(payload, route.model)
-    input_tokens, output_tokens, cache_read_tokens = _usage(payload)
+    input_tokens, output_tokens, cache_read_tokens, cache_write_tokens = _usage(payload)
     return ProviderReply(
         text=text,
         model=model,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
         cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
     )
 
 
@@ -597,26 +598,37 @@ def _model_output_tokens(entry: Any) -> int:
     return value if value is not None else 0
 
 
-def _usage(payload: Mapping[str, Any]) -> tuple[int | None, int | None, int | None]:
+def _usage(payload: Mapping[str, Any]) -> tuple[int | None, int | None, int | None, int | None]:
     usage = payload.get("usage")
     if isinstance(usage, Mapping):
         direct = (
             _token(usage, ("input_tokens", "inputTokens")),
             _token(usage, ("output_tokens", "outputTokens")),
             _token(usage, ("cache_read_input_tokens", "cacheReadInputTokens")),
+            _token(usage, ("cache_creation_input_tokens", "cacheCreationInputTokens")),
         )
         if all(value is not None for value in direct):
             return direct
     else:
-        direct = (None, None, None)
+        direct = (None, None, None, None)
     model_usage = payload.get("modelUsage")
     if not isinstance(model_usage, Mapping):
         return direct
     entries = [entry for entry in model_usage.values() if isinstance(entry, Mapping)]
     totals: list[int | None] = []
     for snake, camel_name, present in zip(
-        ("input_tokens", "output_tokens", "cache_read_input_tokens"),
-        ("inputTokens", "outputTokens", "cacheReadInputTokens"),
+        (
+            "input_tokens",
+            "output_tokens",
+            "cache_read_input_tokens",
+            "cache_creation_input_tokens",
+        ),
+        (
+            "inputTokens",
+            "outputTokens",
+            "cacheReadInputTokens",
+            "cacheCreationInputTokens",
+        ),
         direct,
         strict=True,
     ):
@@ -629,7 +641,7 @@ def _usage(payload: Mapping[str, Any]) -> tuple[int | None, int | None, int | No
             if value is not None:
                 total = value if total is None else total + value
         totals.append(total)
-    return totals[0], totals[1], totals[2]
+    return totals[0], totals[1], totals[2], totals[3]
 
 
 def _token(usage: Mapping[str, Any], names: tuple[str, str]) -> int | None:

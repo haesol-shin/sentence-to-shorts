@@ -131,7 +131,11 @@ def ask(
 
     with ctx.stage(Stage.ref_llm):
         first = llm.complete(
-            request(system, []), owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+            request(system, []),
+            owner_id=ctx.owner_id,
+            cancel=ctx.cancel,
+            deadline=ctx.deadline,
+            on_request=ctx.record_request,
         )
         ctx.record_usage(first.usage)
         try:
@@ -144,6 +148,7 @@ def ask(
             owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
+            on_request=ctx.record_request,
         )
         ctx.record_usage(second.usage)
         try:

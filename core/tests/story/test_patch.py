@@ -92,6 +92,9 @@ class FakeContext:
     def record_usage(self, usage: Usage) -> None:
         self.usages.append(usage)
 
+    def record_request(self, request: Any) -> None:
+        return None
+
 
 class RecordingLlm:
     """LLM double that replays queued parsed payloads and records requests."""
@@ -101,7 +104,8 @@ class RecordingLlm:
         self.requests: list[LlmRequest] = []
 
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float
+        self, req: LlmRequest, *, owner_id: str, cancel: Any, deadline: float,
+        on_request: Any = None,
     ) -> LlmResult:
         self.requests.append(req)
         if not self.responses:
@@ -120,7 +124,7 @@ class RecordingLlm:
                 input_tokens=None,
                 output_tokens=None,
                 cache_read_tokens=None,
-                cost_usd=None,
+                cache_write_tokens=None,
                 wall_ms=0,
                 retries=0,
             ),

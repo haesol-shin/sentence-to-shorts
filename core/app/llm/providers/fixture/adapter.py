@@ -19,6 +19,8 @@ from app.ports import (
     LlmRequest,
     LlmResult,
     LlmTask,
+    ProviderRequest,
+    RequestCallback,
     canonical_digest,
 )
 from app.schemas.job import Stage, Usage
@@ -195,7 +197,13 @@ class FixtureLlm(LlmPort):
         return payload
 
     def complete(
-        self, req: LlmRequest, *, owner_id: str, cancel: CancelToken, deadline: float
+        self,
+        req: LlmRequest,
+        *,
+        owner_id: str,
+        cancel: CancelToken,
+        deadline: float,
+        on_request: RequestCallback | None = None,
     ) -> LlmResult:
         # Recorded playback has no provider call. Keep the original fixture
         # semantics: cancellation is observed, but an absolute wall-clock
@@ -223,18 +231,32 @@ class FixtureLlm(LlmPort):
             if recorded_parsed is not None and recorded_parsed != parsed:
                 raise _record_error(req.task, "parsed")
         cancel.raise_if_set()
+        stage = STAGE_BY_TASK[req.task]
+        if on_request is not None:
+            on_request(ProviderRequest(
+                try_index=0,
+                stage=stage,
+                provider="fixture",
+                model="fixture",
+                credential_id=None,
+                input_tokens=None,
+                output_tokens=None,
+                cache_read_tokens=None,
+                cache_write_tokens=None,
+                outcome="ok",
+            ))
         return LlmResult(
             text=text,
             parsed=parsed,
             usage=Usage(
-                stage=STAGE_BY_TASK[req.task],
+                stage=stage,
                 provider="fixture",
                 model="fixture",
                 effort=None,
                 input_tokens=None,
                 output_tokens=None,
                 cache_read_tokens=None,
-                cost_usd=None,
+                cache_write_tokens=None,
                 wall_ms=0,
                 retries=0,
             ),

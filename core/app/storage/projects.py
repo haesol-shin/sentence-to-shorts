@@ -336,7 +336,7 @@ class SqliteProjectStore:
             job_wall_ms=0,
             input_tokens=None,
             output_tokens=None,
-            cost_usd=None,
+            cost_micro_usd=None,
             regenerated_scene_ids=[],
         )
 

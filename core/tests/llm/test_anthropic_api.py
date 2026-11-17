@@ -20,7 +20,8 @@ def message(text='{"answer":"합성"}', **extra):
     return {"id": "msg_synthetic", "type": "message", "role": "assistant",
             "model": "claude-synthetic-actual", "content": [{"type": "text", "text": text}],
             "stop_reason": "end_turn", "stop_sequence": None,
-            "usage": {"input_tokens": 13, "output_tokens": 5, "cache_read_input_tokens": 3},
+            "usage": {"input_tokens": 13, "output_tokens": 5, "cache_read_input_tokens": 3,
+                      "cache_creation_input_tokens": 4},
             **extra}
 
 
@@ -65,6 +66,7 @@ def test_10_1_official_sdk_structured_png_and_usage(settings, request_data, canc
     assert result.parsed == {"answer": "합성"}
     assert result.usage.input_tokens == 13
     assert result.usage.cache_read_tokens == 3
+    assert result.usage.cache_write_tokens == 4
     assert result.usage.model == "claude-synthetic-actual"
     assert llm.auth_state(OWNER) == "ok"
 

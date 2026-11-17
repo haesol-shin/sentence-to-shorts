@@ -207,7 +207,7 @@ def test_migration_v3_assigns_personal_owner(layout: Layout) -> None:
 
     migrated = Database.open(layout.state_db)
     try:
-        assert migrated.user_version == 3
+        assert migrated.user_version == LATEST
         with migrated.read() as conn:
             assert conn.execute("SELECT DISTINCT owner_id FROM jobs").fetchall() == [("owner",)]
             assert conn.execute("SELECT DISTINCT owner_id FROM artifacts").fetchall() == [

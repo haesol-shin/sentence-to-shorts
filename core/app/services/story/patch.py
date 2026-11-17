@@ -416,7 +416,11 @@ def complete_json(
         max_output_tokens=max_output_tokens,
     )
     first = llm.complete(
-        request, owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+        request,
+        owner_id=ctx.owner_id,
+        cancel=ctx.cancel,
+        deadline=ctx.deadline,
+        on_request=ctx.record_request,
     )
     ctx.record_usage(first.usage)
     try:
@@ -431,7 +435,11 @@ def complete_json(
             max_output_tokens=max_output_tokens,
         )
         second = llm.complete(
-            second_request, owner_id=ctx.owner_id, cancel=ctx.cancel, deadline=ctx.deadline
+            second_request,
+            owner_id=ctx.owner_id,
+            cancel=ctx.cancel,
+            deadline=ctx.deadline,
+            on_request=ctx.record_request,
         )
         ctx.record_usage(second.usage)
         try:

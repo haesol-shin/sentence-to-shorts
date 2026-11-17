@@ -46,6 +46,7 @@ from app.ports import (
     SubmitResult,
     TranscriberPort,
     TtsPort,
+    UsageReader,
 )
 from app.runtime import RuntimeSetup
 from app.runtime import create as create_runtime_setup
@@ -79,6 +80,7 @@ from app.storage.job_inputs import create_job_input_store
 from app.storage.paths import Layout
 from app.storage.projects import SqliteProjectStore, new_typeid
 from app.storage.sqlite import Database
+from app.storage.usage import PriceTable, SqliteUsageReader
 from app.tools.align import adapter as align_adapter
 from app.tools.asr import adapter as asr_adapter
 from app.tools.downloaders import adapter as downloader_adapter
@@ -455,6 +457,7 @@ class AppRuntime:
     project_store: ProjectStore
     artifact_store: ArtifactStore
     job_store: SqliteJobStore
+    usage: UsageReader
     job_inputs: JobInputStore
     submitter: LocalJobs
     runner: JobRunner
@@ -553,6 +556,8 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
     project_store = SqliteProjectStore(cast(Database, state_db), layout)
     artifact_store = FileArtifactStore(cast(Database, state_db), layout)
     job_store = SqliteJobStore(state_db, deadlines_s=resolved.app.jobs.deadlines_s)
+    prices = PriceTable.load(resolved.config_dir / "prices.yaml")
+    usage = SqliteUsageReader(cast(Database, state_db), prices)
     job_inputs = create_job_input_store(resolved)
     vault = KeyringVault(resolved.brand.app_id)
     credentials = SqliteCredentialStore(cast(Database, state_db), vault)
@@ -608,6 +613,7 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         run_job,
         cache_dir=resolved.cache_dir,
         bgm_staging_dir=staging,
+        price_version=prices.version,
     )
     access = create_access(resolved)
     return AppRuntime(
@@ -625,6 +631,7 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         project_store=project_store,
         artifact_store=artifact_store,
         job_store=job_store,
+        usage=usage,
         job_inputs=job_inputs,
         submitter=submitter,
         runner=runner,

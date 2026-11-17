@@ -33,7 +33,15 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Protocol
 
-from app.ports import AppError, ArtifactStore, Cancelled, CancelToken, JobInputStore, SubmitResult
+from app.ports import (
+    AppError,
+    ArtifactStore,
+    Cancelled,
+    CancelToken,
+    JobInputStore,
+    ProviderRequest,
+    SubmitResult,
+)
 from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import (
     Checkpoint,
@@ -48,6 +56,7 @@ from app.schemas.job import (
     Usage,
     WaitingOn,
 )
+from app.schemas.usage import UsageEvent
 
 LIGHT = "light"
 HEAVY = "heavy"
@@ -126,6 +135,7 @@ ProgressCallback = Callable[[int, int, WaitingOn | None], None]
 StageCallback = Callable[[Stage, str], None]
 CheckpointCallback = Callable[[Checkpoint], None]
 UsageCallback = Callable[[Usage], None]
+UsageEventCallback = Callable[[UsageEvent], None]
 
 
 @dataclass
@@ -136,12 +146,17 @@ class LocalJobContext:
     deadline: float
     job_dir: Path
     owner_id: str = PERSONAL_OWNER_ID
+    job_id: str = ""
+    attempt: int = 1
+    price_version: str | None = None
     input_payload: dict[str, Any] = field(default_factory=dict)
     on_progress: ProgressCallback | None = None
     on_stage: StageCallback | None = None
     on_checkpoint: CheckpointCallback | None = None
     on_usage: UsageCallback | None = None
+    on_request: UsageEventCallback | None = None
     _stages: list[tuple[Stage, str]] = field(default_factory=list)
+    _call_seq: int = field(default=0, repr=False)
 
     @property
     def cancel(self) -> CancelToken:
@@ -183,6 +198,33 @@ class LocalJobContext:
     def checkpoint(self, record: Checkpoint) -> None:
         if self.on_checkpoint is not None:
             self.on_checkpoint(record)
+
+    def record_request(self, request: ProviderRequest) -> None:
+        if request.try_index == 0:
+            self._call_seq += 1
+        elif self._call_seq == 0:
+            self._call_seq = 1
+        if self.on_request is None:
+            return
+        self.on_request(UsageEvent(
+            id=f"{self.job_id}:{self.attempt}:{self._call_seq}:{request.try_index}",
+            owner_id=self.owner_id,
+            occurred_at=_now(),
+            job_id=self.job_id,
+            attempt=self.attempt,
+            call_seq=self._call_seq,
+            try_index=request.try_index,
+            stage=request.stage,
+            provider=request.provider,
+            model=request.model,
+            credential_id=request.credential_id,
+            input_tokens=request.input_tokens,
+            output_tokens=request.output_tokens,
+            cache_read_tokens=request.cache_read_tokens,
+            cache_write_tokens=request.cache_write_tokens,
+            outcome=request.outcome,
+            price_version=self.price_version,
+        ))
 
     def record_usage(self, usage: Usage) -> None:
         if self.on_usage is not None:
@@ -234,6 +276,7 @@ LOG_FIELDS = (
     "effort",
     "input_tokens",
     "output_tokens",
+    "cache_write_tokens",
     "cache_hit",
     "duration_ms",
     "retries",
@@ -487,6 +530,44 @@ class SqliteJobStore:
             lambda job: job.model_copy(update={"usage": [*job.usage, value]}),
         )
 
+    def usage_event(self, job_id: str, attempt: int, event: dict[str, Any]) -> None:
+        """Insert one ledger row; a repeated id and a stale attempt change nothing."""
+        value = UsageEvent.model_validate(event)
+        if value.job_id != job_id or value.attempt != attempt:
+            raise ValueError("usage event does not belong to the job and attempt")
+        with self._db.write() as conn:
+            job = _load(conn, job_id)
+            if job.attempt != attempt or job.state not in (
+                JobState.running, JobState.cancelling
+            ):
+                return
+            conn.execute(
+                "INSERT OR IGNORE INTO usage_events "
+                "(id, owner_id, occurred_at, job_id, attempt, call_seq, try_index, stage, "
+                "provider, model, credential_id, input_tokens, output_tokens, "
+                "cache_read_tokens, cache_write_tokens, outcome, price_version) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    value.id,
+                    value.owner_id,
+                    _utc_text(value.occurred_at),
+                    value.job_id,
+                    value.attempt,
+                    value.call_seq,
+                    value.try_index,
+                    value.stage.value,
+                    value.provider,
+                    value.model,
+                    value.credential_id,
+                    value.input_tokens,
+                    value.output_tokens,
+                    value.cache_read_tokens,
+                    value.cache_write_tokens,
+                    value.outcome,
+                    value.price_version,
+                ),
+            )
+
     def finish(
         self,
         job_id: str,
@@ -716,6 +797,7 @@ class JobRunner:
         *,
         cache_dir: Path,
         bgm_staging_dir: Path,
+        price_version: str | None = None,
         poll_s: float = 0.5,
         watch_s: float = 0.1,
     ) -> None:
@@ -725,6 +807,7 @@ class JobRunner:
         self._run_job = run_job
         self._cache_dir = cache_dir
         self._bgm_staging_dir = bgm_staging_dir
+        self._price_version = price_version
         self._poll_s = poll_s
         self._watch_s = watch_s
         self._active: dict[str, _Active] = {}
@@ -1098,11 +1181,31 @@ class JobRunner:
                     effort=None if usage.effort is None else usage.effort.value,
                     input_tokens=usage.input_tokens,
                     output_tokens=usage.output_tokens,
+                    cache_write_tokens=usage.cache_write_tokens,
                     cache_hit=None
                     if usage.cache_read_tokens is None
                     else usage.cache_read_tokens > 0,
                     duration_ms=usage.wall_ms,
                     retries=usage.retries,
+                ),
+            )
+
+        def on_request(event: UsageEvent) -> None:
+            store.usage_event(job.id, job.attempt, event.model_dump(mode="json"))
+            log.info(
+                "llm request",
+                extra=_job_fields(
+                    job,
+                    event="job_request",
+                    stage=event.stage.value,
+                    provider=event.provider,
+                    model=event.model,
+                    input_tokens=event.input_tokens,
+                    output_tokens=event.output_tokens,
+                    cache_write_tokens=event.cache_write_tokens,
+                    cache_hit=None
+                    if event.cache_read_tokens is None
+                    else event.cache_read_tokens > 0,
                 ),
             )
 
@@ -1116,11 +1219,15 @@ class JobRunner:
                 deadline=active.deadline,
                 job_dir=self._artifacts.job_dir(job.id),
                 owner_id=job.owner_id,
+                job_id=job.id,
+                attempt=job.attempt,
+                price_version=self._price_version,
                 input_payload=self._inputs.load(job.id) or {},
                 on_progress=on_progress,
                 on_stage=on_stage,
                 on_checkpoint=on_checkpoint,
                 on_usage=on_usage,
+                on_request=on_request,
             )
             result = self._run_job(job, ctx)
         except Exception as error:  # noqa: BLE001 - every failure becomes a job error

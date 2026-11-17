@@ -1520,8 +1520,8 @@ export interface components {
         Metrics: {
             /** Active Ms */
             active_ms: number;
-            /** Cost Usd */
-            cost_usd: number | null;
+            /** Cost Micro Usd */
+            cost_micro_usd: number | null;
             /** Input Tokens */
             input_tokens: number | null;
             /** Job Wall Ms */
@@ -2320,8 +2320,8 @@ export interface components {
         Usage: {
             /** Cache Read Tokens */
             cache_read_tokens: number | null;
-            /** Cost Usd */
-            cost_usd: number | null;
+            /** Cache Write Tokens */
+            cache_write_tokens?: number | null;
             effort: components["schemas"]["Effort"] | null;
             /** Input Tokens */
             input_tokens: number | null;
