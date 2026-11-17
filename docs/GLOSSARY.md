@@ -13,6 +13,10 @@
 - **artifact**: 검증한 PNG, WAV, timing, 장면 clip, mp4 같은 생성 결과다.
 - **피드 (feed)**: 프로젝트의 영상을 세로로 넘겨 보는 화면이다. 제품 범위는 [INTENT](INTENT.md#하지-않는-것-non-goals-mvp)를 따른다.
 
+## 소유와 자격 증명
+
+- **소유자 (owner)**: 사용자 자료를 나누는 기준이다. project, video, preset, 업로드 BGM, job, artifact가 `owner_id`를 갖고 조회와 멱등 기록은 소유자 범위 안에서 한다. 개인 모드의 소유자는 `owner` 하나다. 규칙은 [CONTRACTS 1.1](CONTRACTS.md#11-문서-규칙)을 따른다.
+
 ## 입력과 내용
 
 - **주제 (topic)**: 사용자가 영상으로 만들려는 내용이다.

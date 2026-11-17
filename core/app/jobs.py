@@ -34,6 +34,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 from app.ports import AppError, ArtifactStore, Cancelled, CancelToken, JobInputStore
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import (
     Checkpoint,
     Job,
@@ -133,6 +134,7 @@ class LocalJobContext:
     cancel_token: CancelToken
     deadline: float
     job_dir: Path
+    owner_id: str = PERSONAL_OWNER_ID
     input_payload: dict[str, Any] = field(default_factory=dict)
     on_progress: ProgressCallback | None = None
     on_stage: StageCallback | None = None
@@ -200,6 +202,7 @@ class UnavailableJobSubmitter:
         self,
         kind: JobKind,
         *,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,
@@ -369,10 +372,12 @@ class SqliteJobStore:
             raise ValueError("job id must use the j_ prefix")
         with self._db.write() as conn:
             conn.execute(
-                "INSERT INTO jobs (id, kind, queue, state, attempt, video_id, created_at, doc) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT INTO jobs "
+                "(id, owner_id, kind, queue, state, attempt, video_id, created_at, doc) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     job.id,
+                    job.owner_id,
                     job.kind.value,
                     QUEUE_BY_KIND[job.kind],
                     job.state.value,
@@ -1036,6 +1041,7 @@ class JobRunner:
                 cancel_token=active.flag,
                 deadline=active.deadline,
                 job_dir=self._artifacts.job_dir(job.id),
+                owner_id=job.owner_id,
                 input_payload=self._inputs.load(job.id) or {},
                 on_progress=on_progress,
                 on_stage=on_stage,

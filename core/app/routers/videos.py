@@ -24,6 +24,7 @@ from app.schemas.api import (
     PreviewRequest,
 )
 from app.schemas.change import ChangePlan
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import JobKind
 from app.schemas.video import Video
 from app.services.pipeline.dependencies import plan_change
@@ -37,6 +38,7 @@ def _submit(
 ) -> Job:
     return app.submitter.submit(
         kind,
+        owner_id=PERSONAL_OWNER_ID,
         project_id=None,
         video_id=video_id,
         base_revision=getattr(body, "base_revision", None),
@@ -272,6 +274,7 @@ async def upload_reference(
         text = digest.hexdigest().encode("ascii") + canonical_json(fields)
         job = app.submitter.submit(
             JobKind.reference,
+            owner_id=PERSONAL_OWNER_ID,
             project_id=None,
             video_id=vid,
             base_revision=base_revision,

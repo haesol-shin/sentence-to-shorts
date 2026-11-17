@@ -1291,6 +1291,9 @@
           "title": "Max Attempts",
           "type": "integer"
         },
+        "owner_id": {
+          "$ref": "#/$defs/OwnerId"
+        },
         "partial": {
           "title": "Partial",
           "type": "boolean"
@@ -1364,6 +1367,7 @@
       "required": [
         "id",
         "kind",
+        "owner_id",
         "state",
         "project_id",
         "video_id",

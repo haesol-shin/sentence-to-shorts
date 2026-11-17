@@ -18,13 +18,13 @@ from app.schemas.api import (
     VideoView,
 )
 from app.schemas.change import ChangeStatus
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.video import Video
 from app.services.pipeline.dependencies import build_view
 
 router = APIRouter()
-OWNER_ID = "owner"
 PageItem = TypeVar("PageItem")
 
 
@@ -57,7 +57,7 @@ def list_projects(
     cursor: str | None = None,
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> ProjectList:
-    projects = runtime(request).project_store.list_projects(OWNER_ID)
+    projects = runtime(request).project_store.list_projects(PERSONAL_OWNER_ID)
     summaries = [
         ProjectSummary(
             id=project.id,

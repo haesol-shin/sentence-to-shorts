@@ -7,6 +7,7 @@ import pytest
 from app.bootstrap import build_runtime
 from app.ports import AppError
 from app.schemas.api import CreateProjectRequest
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import JobKind, JobState
 
 
@@ -21,6 +22,7 @@ def test_retry_is_refused_while_a_newer_job_of_the_kind_is_active(app_settings) 
         def submit(digest: str):  # type: ignore[no-untyped-def]
             return jobs.submit(
                 JobKind.draft,
+                owner_id=PERSONAL_OWNER_ID,
                 project_id=project,
                 video_id=None,
                 base_revision=None,

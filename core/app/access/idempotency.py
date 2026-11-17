@@ -30,7 +30,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from app.access.instance import acquire_instance_lock
 from app.access.middleware import DETAILS, Reject
 from app.ports import AppError, canonical_digest, canonical_json
-from app.schemas.common import Mood
+from app.schemas.common import PERSONAL_OWNER_ID, Mood
 from app.storage.idempotency import (
     KEY_PATTERN,
     IdempotencyInProgress,
@@ -303,7 +303,9 @@ class IdempotencyMiddleware:
                 if not KEY_PATTERN.fullmatch(key):
                     raise AppError("validation_failed")
                 digest = await self._digest(route, headers, receive, spool)
-                stored = await run_in_threadpool(gate.store.begin, key, name, digest)
+                stored = await run_in_threadpool(
+                    gate.store.begin, PERSONAL_OWNER_ID, key, name, digest
+                )
             except ClientDisconnect:
                 return
             except IdempotencyInProgress:
@@ -315,7 +317,13 @@ class IdempotencyMiddleware:
             if stored is not None:
                 await _stored_response(stored.status, stored.body)(scope, receive, send)
                 return
-            await self._run_once(scope, _replay(spool, receive), send, gate, (key, name, digest))
+            await self._run_once(
+                scope,
+                _replay(spool, receive),
+                send,
+                gate,
+                (PERSONAL_OWNER_ID, key, name, digest),
+            )
 
     async def _digest(
         self, route: KeyedRoute, headers: Headers, receive: Receive, spool: IO[bytes]
@@ -340,7 +348,7 @@ class IdempotencyMiddleware:
         receive: Receive,
         send: Send,
         gate: IdempotencyGate,
-        record: tuple[str, str, str],
+        record: tuple[str, str, str, str],
     ) -> None:
         messages: list[Message] = []
 
@@ -358,7 +366,7 @@ class IdempotencyMiddleware:
 
     @staticmethod
     def _record(
-        store: SqliteIdempotencyStore, record: tuple[str, str, str], messages: list[Message]
+        store: SqliteIdempotencyStore, record: tuple[str, str, str, str], messages: list[Message]
     ) -> None:
         start = next((m for m in messages if m["type"] == "http.response.start"), None)
         body = b"".join(m.get("body", b"") for m in messages if m["type"] == "http.response.body")

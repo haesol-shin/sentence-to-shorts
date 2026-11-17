@@ -487,6 +487,9 @@ class ReferenceOutcome:
 
 class JobContext(Protocol):
     @property
+    def owner_id(self) -> str: ...
+
+    @property
     def cancel(self) -> CancelToken: ...
 
     @property
@@ -525,6 +528,7 @@ class JobSubmitter(Protocol):
         self,
         kind: JobKind,
         *,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,

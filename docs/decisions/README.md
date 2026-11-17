@@ -11,7 +11,7 @@
 | [0002](0002-render-media-with-code.md) | 영상은 코드로 렌더링한다 | Accepted |
 | [0003](0003-separate-llm-providers-and-routing.md) | LLM provider와 실행 profile을 분리한다 | Accepted |
 | [0005](0005-run-generated-code-in-pyodide-deno.md) | 생성 코드는 Pyodide on Deno에서 실행한다 | Accepted |
-| [0007](0007-persist-storage-and-job-state.md) | 저장과 job 모델을 제안한다 | Proposed |
+| [0007](0007-persist-storage-and-job-state.md) | 저장과 job 모델을 쓴다(소유 경계는 [0024](0024-scope-data-by-owner-in-server-and-personal-modes.md)) | Accepted |
 | [0011](0011-version-media-output-profiles.md) | 버전이 있는 미디어 profile을 제안한다 | Proposed |
 | [0012](0012-package-for-windows-and-linux.md) | Windows와 Linux 설치물을 제공한다 | Accepted |
 | [0013](0013-use-public-mainline-repository.md) | 공개 단일 main 저장소를 사용한다 | Accepted |
@@ -19,3 +19,4 @@
 | [0017](0017-build-react-components-with-gallery.md) | 실제 React 부품과 개발용 갤러리를 사용한다 | Accepted |
 | [0018](0018-store-prompts-as-files.md) | prompt를 코드 밖 파일로 분리한다 | Proposed |
 | [0023](0023-build-components-on-shadcn-base-ui.md) | shadcn/ui on Base UI로 화면 부품을 만든다 | Accepted |
+| [0024](0024-scope-data-by-owner-in-server-and-personal-modes.md) | 서버 모드와 개인 모드에서 자료를 소유자별로 나눈다(저장 모델은 [0007](0007-persist-storage-and-job-state.md)) | Accepted |

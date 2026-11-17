@@ -14,6 +14,7 @@ from app.ports import canonical_digest
 from app.storage.idempotency import IdempotencyInProgress
 
 KEY = "instance-request-01"
+OWNER = "owner"
 ROUTE = "POST /api/v1/projects"
 DIGEST = canonical_digest({"title": "synthetic"})
 
@@ -22,17 +23,17 @@ def test_second_gate_preserves_live_reservation_and_response(tmp_path: Path) -> 
     path = tmp_path / "data" / "state.db"
     owner = IdempotencyGate.open(path, ttl_hours=24)
     try:
-        assert owner.store.begin(KEY, ROUTE, DIGEST) is None
+        assert owner.store.begin(OWNER, KEY, ROUTE, DIGEST) is None
         with pytest.raises(RuntimeError, match="already in use"):
             IdempotencyGate.open(path, ttl_hours=24)
         with pytest.raises(IdempotencyInProgress):
-            owner.store.begin(KEY, ROUTE, DIGEST)
-        owner.store.complete(KEY, ROUTE, DIGEST, 201, {"result": "created"})
+            owner.store.begin(OWNER, KEY, ROUTE, DIGEST)
+        owner.store.complete(OWNER, KEY, ROUTE, DIGEST, 201, {"result": "created"})
     finally:
         owner.close()
     reopened = IdempotencyGate.open(path, ttl_hours=24)
     try:
-        response = reopened.store.begin(KEY, ROUTE, DIGEST)
+        response = reopened.store.begin(OWNER, KEY, ROUTE, DIGEST)
         assert response is not None
         assert response.status == 201
         assert response.body == {"result": "created"}
@@ -57,7 +58,7 @@ def test_second_process_cannot_erase_a_live_reservation(tmp_path: Path) -> None:
     path = tmp_path / "state.db"
     owner = IdempotencyGate.open(path, ttl_hours=24)
     try:
-        owner.store.begin(KEY, ROUTE, DIGEST)
+        owner.store.begin(OWNER, KEY, ROUTE, DIGEST)
         child = _child(
             "from pathlib import Path\n"
             "import sys\n"
@@ -74,8 +75,8 @@ def test_second_process_cannot_erase_a_live_reservation(tmp_path: Path) -> None:
         )
         assert child.stdout.strip() == "locked"
         with pytest.raises(IdempotencyInProgress):
-            owner.store.begin(KEY, ROUTE, DIGEST)
-        owner.store.complete(KEY, ROUTE, DIGEST, 201, {"result": "created"})
+            owner.store.begin(OWNER, KEY, ROUTE, DIGEST)
+        owner.store.complete(OWNER, KEY, ROUTE, DIGEST, 201, {"result": "created"})
     finally:
         owner.close()
 
@@ -87,14 +88,14 @@ def test_process_exit_releases_lock_and_recovers_abandoned_request(tmp_path: Pat
         "import os, sys\n"
         "from app.access.idempotency import IdempotencyGate\n"
         "gate = IdempotencyGate.open(Path(sys.argv[1]), ttl_hours=24)\n"
-        f"gate.store.begin({KEY!r}, {ROUTE!r}, {DIGEST!r})\n"
+        f"gate.store.begin({OWNER!r}, {KEY!r}, {ROUTE!r}, {DIGEST!r})\n"
         "os._exit(0)\n",
         path,
     )
     owner = IdempotencyGate.open(path, ttl_hours=24)
     try:
-        assert owner.store.begin(KEY, ROUTE, DIGEST) is None
-        owner.store.complete(KEY, ROUTE, DIGEST, 201, {"result": "recovered"})
+        assert owner.store.begin(OWNER, KEY, ROUTE, DIGEST) is None
+        owner.store.complete(OWNER, KEY, ROUTE, DIGEST, 201, {"result": "recovered"})
     finally:
         owner.close()
 
@@ -110,6 +111,6 @@ def test_database_open_failure_releases_instance_lock(tmp_path: Path, monkeypatc
             IdempotencyGate.open(path, ttl_hours=24)
     owner = IdempotencyGate.open(path, ttl_hours=24)
     try:
-        assert owner.store.begin(KEY, ROUTE, DIGEST) is None
+        assert owner.store.begin(OWNER, KEY, ROUTE, DIGEST) is None
     finally:
         owner.close()

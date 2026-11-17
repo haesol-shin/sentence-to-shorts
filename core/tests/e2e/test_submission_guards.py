@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.bootstrap import AppRuntime, build_runtime
 from app.ports import AppError
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import Job, JobKind, JobState
 from app.schemas.project import Project
 from app.schemas.video import Video
@@ -89,6 +90,7 @@ def test_deletion_and_job_submission_cannot_both_succeed(
         def submit() -> Job:
             return runtime.submitter.submit(
                 JobKind.draft,
+                owner_id=PERSONAL_OWNER_ID,
                 project_id=None if video_scoped else project.id,
                 video_id=video.id if video_scoped else None,
                 base_revision=video.revision if video_scoped else None,

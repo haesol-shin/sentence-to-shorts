@@ -24,6 +24,7 @@ from app.schemas.artifact import Timing, TimingCaption, TimingLine
 from app.schemas.bgm_entry import UploadBgm
 from app.schemas.change import Op, SetOp, Target
 from app.schemas.common import (
+    PERSONAL_OWNER_ID,
     ArtifactRef,
     CaptionMode,
     Language,
@@ -590,6 +591,7 @@ class Harness:
         job = Job(
             id=new_typeid("j"),
             kind=kind,
+            owner_id=PERSONAL_OWNER_ID,
             state=JobState.queued,
             project_id=current.project_id if not needs_video else None,
             video_id=video_id,

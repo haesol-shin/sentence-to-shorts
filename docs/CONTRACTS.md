@@ -30,6 +30,8 @@
 - 장면 순서는 `scene_order`만 바꾼다. scene ID는 바꾸지 않는다.
 - 다음 영상은 settings를 복사하고 topic, material, reference, script, scenes를 비운다. `derived_from`에 출처를 남긴다. 과거 snapshot은 다음 영상 수정으로 바뀌지 않는다.
 - 프로젝트 설정과 영상별 snapshot이 제작 상태의 원본이다. 대화 이력과 요약은 원본을 대신하거나 확정값·lock을 덮지 못한다.
+- 사용자 자료의 소유자는 `owner_id`다. project, video, preset, 업로드 BGM, job, artifact는 `owner_id`를 직접 갖는다. scene, line, change, revision은 부모 video나 project를 통해 귀속한다. 저장 조회와 멱등 기록은 소유자 범위 안에서 한다.
+- 개인 모드의 소유자는 `owner` 하나다. 이 값은 `app.schemas.common.PERSONAL_OWNER_ID` 한 곳에만 둔다.
 - 컨셉 확정은 `stage`의 `concept_confirmed`다. 확정 뒤 이야기 방식(`format.story_structure`)·그림체(`visual.art_style`)·캐릭터(`visual.character`)를 바꾸는 계획은 409 `concept_locked`로 거절한다. 대본 재작성은 stage를 `concept_confirmed`로만 되돌리고 컨셉 값은 바꾸지 않는다. 프로젝트 간 locked/varied와 별개다.
 - 프로젝트 기본값은 현재 영상 수정으로 바뀌지 않는다. 프리셋 저장은 명시 요청으로만 한다.
 
@@ -88,6 +90,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 영상을 바꾸는 요청은 `base_revision`을 받는다. head와 다르면 409 `revision_conflict` problem과 `current_revision` 확장 멤버를 돌려준다. 서버는 병합하지 않는다. 이미 적용된 계획의 적용 재시도는 4.1절의 예외를 따른다.
 - 자원이나 job을 만드는 POST는 `Idempotency-Key` header(8~64자 `[A-Za-z0-9_-]`)를 요구한다.
 - 같은 key와 같은 요청 digest는 저장한 응답을 그대로 돌려준다. 같은 key와 다른 digest는 409 `idempotency_mismatch`다. key는 24시간 보관한다.
+- 멱등 기록의 key는 `(owner_id, Idempotency-Key)`다. 다른 소유자가 같은 key를 써도 서로 다른 기록이다.
+- 활성 job 중복과 충돌 판정은 같은 소유자의 job 안에서 한다.
 - 요청 digest는 SHA-256이다. JSON 본문은 canonical JSON(8절 규칙)의 SHA-256이다. multipart 본문은 `file` 파트의 SHA-256과 나머지 필드를 이름 순으로 canonical JSON으로 만든 값을 이어 붙인 문자열의 SHA-256이다. 서버는 업로드를 임시 파일로 받으며 해시를 계산하므로 파일 전체를 메모리에 올리지 않는다. 한도를 넘으면 해시 계산 중에도 413으로 끊는다.
 - BGM 업로드의 multipart digest는 `mood` 생략 시 `calm`을 먼저 적용한 `{mood, project_id}`를 이름 순 canonical JSON으로 만든다. 같은 파일과 프로젝트에서 생략과 명시적 `calm`은 같은 요청이고, 같은 key로 분위기만 바꾸면 409 `idempotency_mismatch`다. 이 기본값은 다른 multipart 경로에는 적용하지 않는다.
 - 같은 영상, 같은 kind, 같은 요청 digest의 활성 job이 있으면 새 job 대신 그 job을 200으로 돌려준다.
@@ -188,6 +192,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 상태 전이·queue·복구 세부는 [열린 질문](#저장과-job-구현)의 제안이다.
 
 - 검증된 요청 본문은 `JobSubmitter.submit`에 넘기고 서버 전용 저장소에 보존한다. 재시작과 재시도는 `JobContext.input`으로 다시 읽는다. 공개 `Job` 응답에는 넣지 않는다.
+- job은 요청한 소유자의 `owner_id`를 갖는다. job 입력에는 API key 원문도 credential 참조도 넣지 않는다. LLM 호출은 실행 시점에 job 소유자와 provider로 credential을 찾는다. job 입력과 업로드 staging 파일은 job 소유자의 자료이며 job 종료 정리 규칙을 따른다.
 
 ## 6. 저장 경로
 
@@ -747,7 +752,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 ### 16.1 원본과 runtime
 
 - 기술 설계: frontend는 React 18, TypeScript 5.7, Vite 6, Tailwind 4다. 화면 부품은 shadcn/ui on Base UI다([ADR 0023](decisions/0023-build-components-on-shadcn-base-ui.md)). core는 Python 3.11, FastAPI, Pydantic v2, Poetry다.
-- 기술 설계: 여럿 실행에 대비해 `owner_id`를 두고 한 명 실행은 고정값을 쓴다. 실행 형태의 제품 범위는 [SPEC 1](SPEC.md#1-범위와-실행-형태)을 따른다.
+- 기술 설계: 소유 경계는 1.1절을 따른다. 개인 모드는 `owner`를 쓰고 서버 모드는 계정 ID를 `owner_id`로 쓴다.
 - 계약 구현은 stable scene·line ID, schema_version, base revision, style/template digest, origins, lock, artifact 참조를 Pydantic 원본과 OpenAPI로 만든다. 조사 예시 JSON은 실행 규격이 아니다. 한영 정상 fixture와 잘못된 ID·중복 순서·오래된 revision fixture를 둔다. API method·path·입출력·오류·중복·충돌과 TS 생성은 0~4절을 따른다.
 - 재시작과 긴 대화 뒤에도 직접값, lock, 과거 영상이 바뀌지 않는지 시험한다.
 - 저장과 job 세부는 아래 제안의 상태를 유지한다. 재시작 뒤 성공 결과와 마지막 저장 상태를 재사용하는 제품 수락은 [SPEC 기준 27](SPEC.md#106-복구와-품질-검수-2630)을 따른다.
@@ -884,7 +889,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 ```text
 DATA_DIR/
-  state.db                      projects, videos, revisions index, changes, presets, jobs, artifacts, holds, idempotency, uploads, activity, catalog_user
+  state.db                      projects, videos, revisions, changes, presets, jobs, artifacts, holds, idempotency, activity, credentials
   p/<project_id>/project.json
   p/<project_id>/v/<video_id>/r/<revision>.json
   p/<project_id>/u/<upload_id>.wav

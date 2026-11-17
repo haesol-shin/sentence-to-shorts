@@ -10,6 +10,7 @@ from app.ports import AppError, canonical_digest
 from app.routers.deps import runtime
 from app.schemas.api import BaseRevision, Job
 from app.schemas.change import ChangePlan, ChangeStatus
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import JobKind
 from app.schemas.video import Video
 
@@ -39,6 +40,7 @@ def preview_change(
     payload = {"change_id": plan.id}
     return app.submitter.submit(
         JobKind.preview,
+        owner_id=PERSONAL_OWNER_ID,
         project_id=None,
         video_id=plan.video_id,
         base_revision=plan.base_revision,

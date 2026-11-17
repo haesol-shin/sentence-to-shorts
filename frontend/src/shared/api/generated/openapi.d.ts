@@ -1361,6 +1361,7 @@ export interface components {
             kind: components["schemas"]["JobKind"];
             /** Max Attempts */
             max_attempts: number;
+            owner_id: components["schemas"]["OwnerId"];
             /** Partial */
             partial: boolean;
             progress: components["schemas"]["Progress"];

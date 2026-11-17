@@ -22,6 +22,7 @@
 - 생성 모델 대신 코드 렌더링을 쓰는 구조는 [ADR 0002](decisions/0002-render-media-with-code.md)를 따른다. 새로운 형태와 동작은 [sandbox](decisions/0005-run-generated-code-in-pyodide-deno.md) 경계 안에서 확장한다.
 - LLM 연결은 [provider 분리](decisions/0003-separate-llm-providers-and-routing.md), 설치물은 [OS별 packaging](decisions/0012-package-for-windows-and-linux.md), 저장소와 코드 라이선스는 [공개 단일 main](decisions/0013-use-public-mainline-repository.md) 결정을 따른다.
 - 외부 의존성을 최소로 둔다. 코드는 복잡해지지 않게 쓴다. 관리와 확장이 쉬운지가 기준이며 상속도 이 기준으로 판단한다. 코드 구조 참고 저장소는 리뷰를 거쳐 정한다.
+- 서버 모드와 개인 모드를 함께 지원하고 누구나 설치할 수 있게 쓴다. 특정 플랫폼 제출에 필요한 신원, 응답 형식, 경로 변환은 바깥 adapter에 둔다.
 - 포트폴리오와 사업화를 고려한다. 특정 제출 요건만을 위한 것은 바깥 층에 모아 교체·제거할 수 있게 한다. 모델·에셋·음원은 상업 사용 가능 여부를 기록한다.
 
 ## MVP 범위의 원본
@@ -32,7 +33,7 @@
 
 - 생성형 이미지·영상·음악 모델. 코드로 만든 음악은 여기에 들지 않는다.
 - 타임라인 편집, 사진으로 캐릭터 만들기.
-- 프로젝트 피드, 시리즈 화면, 공유, 로그인. 이후 구현 때 인스타그램 등 SNS를 참고한다.
+- 프로젝트 피드, 시리즈 화면, 공유, 자체 비밀번호 로그인, 실제 결제. 이후 구현 때 인스타그램 등 SNS를 참고한다.
 - 그 밖의 기능별 시점과 발음 수정 제외는 [SPEC 11](SPEC.md#11-mvp에서-하지-않는-것)을 따른다.
 
 ## 열린 질문

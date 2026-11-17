@@ -12,6 +12,7 @@ from app.ports import AppSettings, DownloaderPort, JobContext, JobStore, canonic
 from app.runtime import download
 from app.runtime.prepare import Hooks, prepare, status
 from app.schemas.api import RuntimeItem
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import Job, JobKind, JobState, Progress, Stage, WaitingOn
 
 DEFAULT_MAX_ATTEMPTS = 3
@@ -62,18 +63,22 @@ class RuntimeSetup:
     def status(self) -> list[RuntimeItem]:
         return status(self.settings)
 
-    def submit_prepare(self, *, idempotency_key: str | None) -> Job:
+    def submit_prepare(
+        self, *, idempotency_key: str | None, owner_id: str = PERSONAL_OWNER_ID
+    ) -> Job:
         """Queue the prepare job, or return the one that is already queued or running."""
         for job in self.jobs.unfinished():
-            if job.kind is JobKind.runtime_prepare and job.state in (
-                JobState.queued,
-                JobState.running,
+            if (
+                job.owner_id == owner_id
+                and job.kind is JobKind.runtime_prepare
+                and job.state in (JobState.queued, JobState.running)
             ):
                 return job
         attempts = _max_attempts(self.settings)
         job = Job(
             id=_new_job_id(),
             kind=JobKind.runtime_prepare,
+            owner_id=owner_id,
             state=JobState.queued,
             project_id=None,
             video_id=None,

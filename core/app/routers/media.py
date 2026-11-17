@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, Form, Header, Request, UploadFile
 from app.ports import UploadSource
 from app.routers.deps import request_digest, runtime
 from app.schemas.api import BgmCodeRequest, Job, StyleRequest, TemplateRequest
-from app.schemas.common import Mood
+from app.schemas.common import PERSONAL_OWNER_ID, Mood
 from app.schemas.job import JobKind
 
 router = APIRouter()
@@ -26,6 +26,7 @@ def _submit(
 ) -> Job:
     return app.submitter.submit(
         kind,
+        owner_id=PERSONAL_OWNER_ID,
         project_id=project_id,
         video_id=video_id,
         base_revision=getattr(body, "base_revision", None),

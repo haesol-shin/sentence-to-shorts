@@ -216,6 +216,7 @@ class LocalJobs:
         self,
         kind: JobKind,
         *,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,
@@ -229,13 +230,14 @@ class LocalJobs:
             if project_id is not None:
                 self._projects.get_project(project_id)
             self._check(kind, video_id, base_revision)
-            active = self._active(kind, video_id, project_id)
+            active = self._active(owner_id, kind, video_id, project_id)
             if active is not None:
                 if active.request_digest == request_digest:
                     return active
                 raise AppError("job_running", detail={"job_id": active.id})
             job = self._new_job(
-                kind, project_id, video_id, base_revision, request_digest, idempotency_key
+                kind, owner_id, project_id, video_id, base_revision, request_digest,
+                idempotency_key,
             )
             self._inputs.save(job.id, input)
             created = self._store.create(job)
@@ -251,7 +253,7 @@ class LocalJobs:
             if job.video_id is not None:
                 self._projects.get_video(job.video_id)
             self._check_runtime(job.kind)
-            active = self._active(job.kind, job.video_id, job.project_id)
+            active = self._active(job.owner_id, job.kind, job.video_id, job.project_id)
             if active is not None and active.id != job_id:
                 raise AppError("job_running", detail={"job_id": active.id})
             queued = self._store.requeue(job_id)
@@ -304,8 +306,12 @@ class LocalJobs:
         if kind is JobKind.generate and not _render_ready(self._media):
             raise AppError("runtime_not_ready")
 
-    def _active(self, kind: JobKind, video_id: str | None, project_id: str | None) -> Job | None:
+    def _active(
+        self, owner_id: str, kind: JobKind, video_id: str | None, project_id: str | None
+    ) -> Job | None:
         for job in self._store.unfinished():
+            if job.owner_id != owner_id:
+                continue
             if (job.kind, job.video_id, job.project_id) == (kind, video_id, project_id):
                 return job
         return None
@@ -313,6 +319,7 @@ class LocalJobs:
     def _new_job(
         self,
         kind: JobKind,
+        owner_id: str,
         project_id: str | None,
         video_id: str | None,
         base_revision: int | None,
@@ -322,6 +329,7 @@ class LocalJobs:
         return Job(
             id=new_typeid("j"),
             kind=kind,
+            owner_id=owner_id,
             state=JobState.queued,
             project_id=project_id,
             video_id=video_id,

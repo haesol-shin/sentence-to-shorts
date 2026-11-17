@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.jobs import JobRunner, RunJob, SqliteJobStore
 from app.schemas.artifact import Artifact, ArtifactKind
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.job import Job, JobKind, JobState, Progress, WaitingOn
 from app.storage.artifacts import FileArtifactStore
 from app.storage.job_inputs import LocalJobInputStore
@@ -63,6 +64,7 @@ def new_job(
     return Job(
         id=new_typeid("j"),
         kind=kind,
+        owner_id=PERSONAL_OWNER_ID,
         state=JobState.queued,
         project_id=None,
         video_id=video_id,

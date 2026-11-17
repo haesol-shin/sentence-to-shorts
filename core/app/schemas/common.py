@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Final
 
 from pydantic import AfterValidator, AnyUrl, BaseModel, ConfigDict, Field
 from typing_extensions import TypeAliasType
@@ -200,6 +200,9 @@ class LocalizedText(ContractModel):
 OwnerId = TypeAliasType(
     "OwnerId", Annotated[str, Field(pattern=r"^[a-z0-9_-]{1,32}$")]
 )
+
+PERSONAL_OWNER_ID: Final = "owner"
+"""The owner of every document in personal mode; the one literal value (CONTRACTS 1.1)."""
 
 
 class ArtifactRef(ContractModel):

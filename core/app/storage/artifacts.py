@@ -22,7 +22,7 @@ from pydantic import TypeAdapter
 
 from app.ports import AppError
 from app.schemas.artifact import Artifact, ArtifactKind, ArtifactRoot, MediaMeta
-from app.schemas.common import DIGEST_PATTERN, TYPEID_PATTERN
+from app.schemas.common import DIGEST_PATTERN, PERSONAL_OWNER_ID, TYPEID_PATTERN
 from app.storage.paths import Layout, check_id, copy_atomic, file_digest, fsync_dir
 from app.storage.projects import new_typeid, utc_text
 from app.storage.sqlite import Database
@@ -54,7 +54,9 @@ _HOLDER = re.compile(
 )
 _DIGEST = re.compile(DIGEST_PATTERN)
 _MEDIA = TypeAdapter(MediaMeta)
-_COLUMNS = "id, kind, digest, bytes, cache_key, root, path, created_at, job_id, media"
+_COLUMNS = (
+    "id, kind, owner_id, digest, bytes, cache_key, root, path, created_at, job_id, media"
+)
 
 
 class ArtifactRejected(ValueError):
@@ -65,14 +67,15 @@ def _row_artifact(row: tuple[Any, ...]) -> Artifact:
     return Artifact(
         id=row[0],
         kind=row[1],
-        digest=row[2],
-        bytes=row[3],
-        cache_key=row[4],
-        root=row[5],
-        path=row[6],
-        created_at=datetime.fromisoformat(row[7]),
-        job_id=row[8],
-        media=json.loads(row[9]),
+        owner_id=row[2],
+        digest=row[3],
+        bytes=row[4],
+        cache_key=row[5],
+        root=row[6],
+        path=row[7],
+        created_at=datetime.fromisoformat(row[8]),
+        job_id=row[9],
+        media=json.loads(row[10]),
     )
 
 
@@ -135,6 +138,7 @@ class FileArtifactStore:
         artifact = Artifact(
             id=artifact_id,
             kind=kind,
+            owner_id=PERSONAL_OWNER_ID,
             digest=digest,
             bytes=size,
             cache_key=cache_key,
@@ -155,10 +159,12 @@ class FileArtifactStore:
                 raise ArtifactRejected("artifact changed after verification")
             with self._db.write() as conn:
                 conn.execute(
-                    f"INSERT INTO artifacts ({_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    f"INSERT INTO artifacts ({_COLUMNS}) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         artifact.id,
                         artifact.kind.value,
+                        artifact.owner_id,
                         artifact.digest,
                         artifact.bytes,
                         artifact.cache_key,
@@ -181,6 +187,11 @@ class FileArtifactStore:
         if row is None:
             raise AppError("not_found")
         return _row_artifact(row)
+
+    def get(self, artifact_id: str) -> Artifact:
+        """The indexed artifact by id; the owner check arrives with scoped lookup."""
+        with self._db.read() as conn:
+            return self._get(conn, artifact_id)
 
     def path(self, artifact_id: str) -> Path:
         with self._db.read() as conn:

@@ -12,7 +12,7 @@ import pytest
 from app.jobs import HEAVY, LIGHT, SqliteJobStore
 from app.ports import AppError
 from app.schemas.job import Job, JobError, JobErrorCode, JobKind, JobState
-from app.storage.sqlite import SCHEMA_V1, Database, Migration
+from app.storage.sqlite import SCHEMA_V1, Database, Migration, registered_migrations
 from tests.jobs.support import DEADLINES, Env, new_job, open_env
 
 
@@ -174,7 +174,8 @@ def test_migration_v2_adds_job_tables_without_touching_v1(tmp_path: Path) -> Non
     finally:
         raw.close()
 
-    database = Database.open(path)
+    through_two = tuple(m for m in registered_migrations() if m.version <= 2)
+    database = Database.open(path, migrations=through_two)
     try:
         assert database.user_version == 2
         with database.read() as conn:

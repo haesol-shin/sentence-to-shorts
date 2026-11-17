@@ -46,7 +46,7 @@ from app.schemas.bgm_entry import (
     TypingSoundEntry,
     UploadBgm,
 )
-from app.schemas.common import CaptionMode, LocalizedText, Mood, PinnedRef
+from app.schemas.common import PERSONAL_OWNER_ID, CaptionMode, LocalizedText, Mood, PinnedRef
 from app.schemas.job import Job
 from app.schemas.scene import CueAt, Scene
 from app.schemas.settings import BgmSettings, Settings
@@ -80,9 +80,6 @@ MAX_BGM_MS = 600_000
 
 MIN_UPLOAD_MS = 500
 """Shortest accepted upload, the schema's duration floor."""
-
-UPLOAD_OWNER_ID = "owner"
-"""Single-user owner id. Multi-user runs replace it with the signed-in owner."""
 
 UPLOAD_LABEL = LocalizedText(ko="업로드한 BGM", en="Uploaded BGM")
 """Label of every upload; the original file name is never stored."""
@@ -316,7 +313,7 @@ class SoundService:
             loudness_lufs_x10=None,
             true_peak_dbtp_x10=None,
             source="upload",
-            owner_id=UPLOAD_OWNER_ID,
+            owner_id=PERSONAL_OWNER_ID,
             project_id=project_id,
             upload_id=upload_id,
             original_bytes=size,
