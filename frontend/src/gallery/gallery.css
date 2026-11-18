@@ -352,6 +352,24 @@ body {
   gap: var(--space-16);
 }
 
+.demo-dialog-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin: var(--space-12) 0 0;
+  padding: 0;
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  list-style: none;
+}
+
+/* A long picker stacks so the sheet has to scroll, as a long real list would. */
+.demo-sheet-voices {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .demo-control-field {
   width: calc(var(--space-48) * 4.5);
 }

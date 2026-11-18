@@ -11,7 +11,10 @@ export type GallerySurface = 'card' | 'background';
 export type GalleryLayout = 'default' | 'top' | 'center' | 'bottom' | 'tight';
 
 export type GalleryCase = {
-  /** The state row this case shows from the approved matrix. */
+  /**
+   * The state this case shows. Matrix states keep the matrix name; a work
+   * state the matrix does not list uses its own name.
+   */
   state: string;
   /** The last piece of the number label, for example `hover`. */
   slug: string;
@@ -227,7 +230,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'button-primary',
     batch: 1,
     title: '주 단추',
-    description: '한 번 실행하는 대표 동작이다. 로딩은 글자를 지우지 않고 진행 표시만 더한다.',
+    description: '한 번 실행하는 대표 동작이다. 실행 중에는 같은 자리에서 ■ 멈춤 단추가 되고 작업이 끝나면 돌아온다.',
     matrixPart: 'button.primary',
     matrixParts: ['button.primary'],
     notApplicable: MATRIX_SKIP.primary,
@@ -500,7 +503,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'send-button',
     batch: 2,
     title: '보내기',
-    description: '보이는 원은 32이고 투명 영역으로 44를 채운다. 로딩은 화살표 자리에 진행 표시를 둔다.',
+    description: '보이는 원은 32이고 투명 영역으로 44를 채운다. 답을 기다리는 동안 화살표 자리에 ■가 들어가고 이름은 멈추기가 된다.',
     matrixPart: 'button.send',
     matrixParts: ['button.send'],
     notApplicable: MATRIX_SKIP.send,
@@ -517,7 +520,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'composer',
     batch: 2,
     title: '입력창',
-    description: '글 칸이 위, 단추 줄이 아래다. 열 줄 240까지 자라고 넘으면 칸 안에서 스크롤하며 위쪽을 흐린다. 반경은 28 고정이다.',
+    description: '글 칸이 위, 단추 줄이 아래다. 열 줄 240까지 자라고 넘으면 칸 안에서 스크롤하며 가려진 쪽을 흐린다. 반경은 28 고정이다.',
     matrixPart: 'composer.surface',
     matrixParts: ['composer.surface', 'composer.textarea', 'composer.placeholder'],
     notApplicable: MATRIX_SKIP.textSurface,
@@ -638,7 +641,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'progress',
     batch: 2,
     title: '진행 표시',
-    description: '진행 막대는 높이 6이고 바탕과 채운 부분 모두 끝이 둥글다. 회색 바탕에 foreground로 채우고 값은 줄 오른쪽에 둔다.',
+    description: '진행 막대는 높이 6이고 바탕과 채운 부분 모두 끝이 둥글다. 막대는 foreground로 채우고 이름과 값은 숫자까지 진행 파랑이다.',
     matrixPart: '',
     matrixParts: [],
     notApplicable: {},
@@ -647,6 +650,7 @@ const SPECS: readonly PartSpec[] = [
       { state: 'default', slug: 'label', width: 420, note: '값 줄' },
       { state: 'default', slug: 'complete', width: 420 },
       { state: 'default', slug: 'indeterminate', width: 420, note: '값 없음' },
+      { state: 'default', slug: 'count', width: 420, note: '3 / 5' },
     ],
   },
   {
@@ -730,7 +734,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'top-bar-status',
     batch: 3,
     title: '상단바 상태',
-    description: '저장 상태를 한 줄로 보이고 누르면 그 판을 연다. 뜻 색은 아이콘에만 쓰고 판은 336 폭이다.',
+    description: '저장 상태와 진행 상태를 한 줄로 보이고 누르면 그 판을 연다. 진행 중에는 spinner와 진행 글자(숫자 포함)가 파랑이고 판을 여는 화살표는 회색이다.',
     matrixPart: 'button.trigger',
     matrixParts: ['button.trigger', 'panel.surface'],
     notApplicable: MATRIX_SKIP.trigger,
@@ -742,6 +746,7 @@ const SPECS: readonly PartSpec[] = [
       { state: 'disabled', slug: 'disabled', surface: 'background' },
       { state: 'focus-visible', slug: 'focus-visible', surface: 'background' },
       { state: 'open', slug: 'panel-open', portal: true, surface: 'background', layout: 'top', note: '상태 판 열림' },
+      { state: 'busy', slug: 'working-open', portal: true, surface: 'background', layout: 'top', note: '진행 글자와 판, 멈춤 단추 없음' },
     ],
   },
   {
@@ -765,7 +770,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'card',
     batch: 3,
     title: '카드',
-    description: '포맷 카드는 4:3 그림과 이름, 장면 카드는 9:16 그림과 번호와 한 줄이다. 고른 카드는 같은 크기로 글자만 굵어지고 다른 그림은 흐려진다.',
+    description: '포맷 카드는 4:3 그림과 이름, 장면 카드는 9:16 그림과 번호와 한 줄이다. 고른 카드는 같은 크기로 글자만 굵어지고 다른 그림은 흐려진다. 고치는 동안에는 이름 줄이 파란 spinner와 고치는 중으로 바뀌고 테두리에 띠가 돈다.',
     matrixPart: 'card.surface',
     matrixParts: ['card.surface'],
     notApplicable: MATRIX_SKIP.card,
@@ -780,6 +785,7 @@ const SPECS: readonly PartSpec[] = [
       { state: 'selected', slug: 'scene-selected', variant: 'scene', width: 320 },
       { state: 'disabled', slug: 'scene-disabled', variant: 'scene', width: 320 },
       { state: 'focus-visible', slug: 'scene-focus-visible', variant: 'scene', width: 320 },
+      { state: 'busy', slug: 'scene-busy', variant: 'scene', width: 320, note: '고치는 중' },
     ],
   },
   {

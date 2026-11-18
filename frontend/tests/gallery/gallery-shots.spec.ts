@@ -63,7 +63,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
   const overlaps: (MeasuredOverlap & { part: string; width: number })[] = [];
   let clipped = 0;
 
-  for (const batch of [3] as const) {
+  for (const batch of [1, 2, 3] as const) {
     await galleryReady(page, batch);
     await page.screenshot({ path: join(GALLERY_SHEETS, `gallery-overview-${batch}.png`) });
 
@@ -162,7 +162,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
     }
   }
 
-  for (const batch of [3] as const) {
+  for (const batch of [1, 2, 3] as const) {
     for (const part of galleryParts.filter((candidate) => candidate.batch === batch)) {
       for (const entry of part.cases) {
         for (const width of [390, 1920] as const) {

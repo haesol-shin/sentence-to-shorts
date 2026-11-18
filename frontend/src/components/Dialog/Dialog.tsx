@@ -3,6 +3,7 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { cn } from '@/shared/lib/utils';
 
 import { PopupContainerContext } from '../PopupContainer';
+import { useOverflowFade } from '../use-overflow-fade';
 
 import './Dialog.css';
 
@@ -54,6 +55,8 @@ export function Dialog({
   className,
 }: DialogProps) {
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
+  const [scroll, setScroll] = useState<HTMLDivElement | null>(null);
+  const fade = useOverflowFade(scroll, null);
 
   return (
     <DialogPrimitive.Root
@@ -73,21 +76,26 @@ export function Dialog({
             aria-label={label}
           >
             <PopupContainerContext.Provider value={popup}>
-              <div className="dialog__scroll">
-                <DialogPrimitive.Title className="dialog__title">
-                  {icon === undefined ? null : (
-                    <span className="dialog__icon" aria-hidden="true">
-                      {icon}
-                    </span>
+              <div
+                className="dialog__scroll-frame scroll-fade"
+                data-fade={fade === 'none' ? undefined : fade}
+              >
+                <div className="dialog__scroll" ref={setScroll}>
+                  <DialogPrimitive.Title className="dialog__title">
+                    {icon === undefined ? null : (
+                      <span className="dialog__icon" aria-hidden="true">
+                        {icon}
+                      </span>
+                    )}
+                    {title}
+                  </DialogPrimitive.Title>
+                  {description === undefined ? null : (
+                    <DialogPrimitive.Description className="dialog__description">
+                      {description}
+                    </DialogPrimitive.Description>
                   )}
-                  {title}
-                </DialogPrimitive.Title>
-                {description === undefined ? null : (
-                  <DialogPrimitive.Description className="dialog__description">
-                    {description}
-                  </DialogPrimitive.Description>
-                )}
-                {children === undefined ? null : <div className="dialog__content">{children}</div>}
+                  {children === undefined ? null : <div className="dialog__content">{children}</div>}
+                </div>
               </div>
               {actions === undefined ? null : <div className="dialog__actions">{actions}</div>}
             </PopupContainerContext.Provider>

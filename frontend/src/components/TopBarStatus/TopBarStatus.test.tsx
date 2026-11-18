@@ -64,4 +64,23 @@ describe('TopBarStatus', () => {
     );
     expect(onOpenChange).not.toHaveBeenCalled();
   });
+
+  test('test_10a_top_bar_status_working_shows_a_spinner_without_a_panel_cancel', async () => {
+    render(
+      <TopBarStatus
+        label="영상 만드는 중 3 / 5"
+        tone="working"
+        title="영상 만드는 중"
+        description="장면을 만드는 동안에도 다른 값을 고칠 수 있어요."
+        defaultOpen
+      />,
+    );
+
+    const trigger = screen.getByRole('button', { name: '영상 만드는 중 3 / 5' });
+    expect(trigger.getAttribute('data-tone')).toBe('working');
+    expect(trigger.querySelector('.spinner')).not.toBeNull();
+
+    const panel = await screen.findByRole('dialog', { name: '영상 만드는 중' });
+    expect(panel.querySelectorAll('button')).toHaveLength(0);
+  });
 });

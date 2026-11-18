@@ -1,6 +1,6 @@
 import {
+  useCallback,
   useEffect,
-  useRef,
   useState,
   type ReactNode,
   type TextareaHTMLAttributes,
@@ -14,6 +14,7 @@ import './Composer.css';
 import { IconButton } from '../IconButton/IconButton';
 import { SendButton } from '../SendButton/SendButton';
 import { statesOf, type ForceState } from '../force-state';
+import { useOverflowFade } from '../use-overflow-fade';
 
 export type ComposerProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'onChange' | 'value' | 'defaultValue'> & {
   /** The accessible name of the text field. */
@@ -66,12 +67,15 @@ export function Composer({
   const forced = statesOf(forceState);
   const isDisabled = disabled || forced.includes('disabled');
   const [inner, setInner] = useState(defaultValue);
-  const [overflowing, setOverflowing] = useState(false);
-  const field = useRef<HTMLTextAreaElement | null>(null);
+  const [fieldNode, setFieldNode] = useState<HTMLTextAreaElement | null>(null);
+  const fade = useOverflowFade(fieldNode, null);
   const text = value ?? inner;
+  const attachField = useCallback((node: HTMLTextAreaElement | null) => {
+    setFieldNode(node);
+  }, []);
 
   useEffect(() => {
-    const element = field.current;
+    const element = fieldNode;
     if (element === null) return;
     const measure = () => {
       element.style.height = 'auto';
@@ -81,27 +85,25 @@ export function Composer({
       if (element.scrollHeight > element.clientHeight + 1) {
         element.scrollTop = element.scrollHeight;
       }
-      setOverflowing(element.scrollHeight > element.clientHeight + 1);
     };
     measure();
     if (typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [text]);
+  }, [text, fieldNode]);
 
   return (
     <div
       className={cn('composer', className)}
       data-drop={dropActive ? '' : undefined}
-      data-overflow={overflowing ? '' : undefined}
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
     >
       {attachments === undefined ? null : <div className="composer__attachments">{attachments}</div>}
-      <div className="composer__field">
+      <div className="composer__field scroll-fade" data-fade={fade === 'none' ? undefined : fade}>
         <textarea
           {...rest}
-          ref={field}
+          ref={attachField}
           className="composer__input"
           aria-label={label}
           placeholder={placeholder}

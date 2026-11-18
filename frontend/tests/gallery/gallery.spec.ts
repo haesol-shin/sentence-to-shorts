@@ -127,10 +127,15 @@ test('test_10a_visible_box_stays_equal_across_states', async ({ page }) => {
   equal(
     await sizesOf(
       'button-primary',
-      ['1-1-default', '1-2-hover', '1-3-pressed', '1-4-disabled', '1-5-loading', '1-6-focus-visible'],
+      ['1-1-default', '1-2-hover', '1-3-pressed', '1-4-disabled', '1-6-focus-visible'],
       'button',
     ),
   );
+  // The stop control keeps the height and hit area; the label decides the width.
+  const runningButton = await sizesOf('button-primary', ['1-5-loading'], 'button');
+  const startButton = await sizesOf('button-primary', ['1-1-default'], 'button');
+  expect(runningButton[0][1]).toBe(44);
+  expect(runningButton[0][0]).toBeGreaterThan(startButton[0][0]);
   const chip = await sizesOf('chip', ['6-1-default'], '.chip');
   expect(chip[0][1]).toBe(36);
   equal(await sizesOf('chip', ['6-1-default', '6-2-loading', '6-3-error', '6-4-focus-visible'], '.chip'));
@@ -481,11 +486,181 @@ test('test_10a_heading_menu_keeps_half_a_row_at_the_scroll_end', async ({ page }
   expect(Math.abs(geometry.remainder - geometry.pitch / 2)).toBeLessThan(1.5);
 });
 
-test('test_10a_loading_button_keeps_its_accessible_name', async ({ page }) => {
+test('test_10a_running_buttons_become_their_stop_controls', async ({ page }) => {
   await galleryReady(page, 'button-primary');
   const frame = await frameOf(page, 'iframe[data-frame-group="button-primary"][width="390"]');
   const button = frame.locator('[data-case="1-5-loading"] button');
-  await expect(button).toHaveAccessibleName('영상 만들기');
+  await expect(button).toHaveAccessibleName('만들기 멈추기');
+  await expect(button).toBeEnabled();
+  await expect(button).toContainText('■');
+  await expect(button.locator('.spinner')).toHaveCount(0);
+
+  await galleryReady(page, 'send-button', 2);
+  const sendFrame = await frameOf(page, 'iframe[data-frame-group="send-button"][width="390"]');
+  const send = sendFrame.locator('[data-case="17-5-loading"] button');
+  await expect(send).toHaveAccessibleName('멈추기');
+  await expect(send).toBeEnabled();
+  await expect(send).toContainText('■');
+  await expect(send.locator('.spinner')).toHaveCount(0);
+});
+
+test('test_10a_batch_four_progress_text_uses_the_progress_token', async ({ page }) => {
+  await galleryReady(page, 'progress', 2);
+  const frame = await frameOf(page, 'iframe[data-frame-group="progress"][width="390"]');
+  const label = labelOf('progress', 'count');
+  await expect(frame.locator(`[data-case="${label}"]`)).toContainText('3 / 5');
+
+  const colors = await frame.evaluate((caseLabel) => {
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    const resolve = (name: string) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const progress = resolve('--progress');
+    probe.remove();
+    const box = document.querySelector(`[data-case="${caseLabel}"]`);
+    const labelElement = box?.querySelector('.progress__label') ?? null;
+    const valueElement = box?.querySelector('.progress__value') ?? null;
+    return {
+      progress,
+      label: labelElement === null ? '' : getComputedStyle(labelElement).color,
+      value: valueElement === null ? '' : getComputedStyle(valueElement).color,
+    };
+  }, label);
+
+  expect(colors.label).toBe(colors.progress);
+  expect(colors.value).toBe(colors.progress);
+});
+
+test('test_10a_batch_four_top_bar_working_tone_is_blue_with_a_gray_chevron', async ({ page }) => {
+  await galleryReady(page, 'top-bar-status', 3);
+  const label = labelOf('top-bar-status', 'working-open');
+  const frame = await frameOf(page, `iframe[data-frame-case="${label}"][width="390"]`);
+  const trigger = frame.locator(`[data-case="${label}"] .top-bar-status__trigger`);
+  await expect(trigger).toContainText('영상 만드는 중 3 / 5');
+  await expect(trigger.locator('.spinner')).toHaveCount(1);
+
+  const colors = await frame.evaluate((caseLabel) => {
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    const resolve = (name: string) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const progress = resolve('--progress');
+    const emphasis = resolve('--emphasis');
+    const foreground = resolve('--foreground');
+    probe.remove();
+    const box = document.querySelector(`[data-case="${caseLabel}"]`);
+    const labelElement = box?.querySelector('.top-bar-status__label') ?? null;
+    const iconElement = box?.querySelector('.top-bar-status__icon') ?? null;
+    const chevronElement = box?.querySelector('.top-bar-status__chevron') ?? null;
+    return {
+      progress,
+      emphasis,
+      foreground,
+      label: labelElement === null ? '' : getComputedStyle(labelElement).color,
+      icon: iconElement === null ? '' : getComputedStyle(iconElement).color,
+      chevron: chevronElement === null ? '' : getComputedStyle(chevronElement).color,
+    };
+  }, label);
+
+  expect(colors.label).toBe(colors.progress);
+  expect(colors.icon).toBe(colors.emphasis);
+  expect(colors.chevron).toBe(colors.foreground);
+
+  const panel = frame.getByRole('dialog', { name: '영상 만드는 중' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('button')).toHaveCount(0);
+});
+
+test('test_10a_batch_four_scene_card_shows_the_work_state', async ({ page }) => {
+  await galleryReady(page, 'card', 3);
+  const frame = await frameOf(page, 'iframe[data-frame-group="card"][width="390"]');
+  const label = labelOf('card', 'scene-busy');
+  const card = frame.locator(`[data-case="${label}"] .card`);
+  await expect(card).toHaveAttribute('data-busy', '');
+  await expect(card.locator('.card__status')).toContainText('고치는 중');
+  await expect(card.locator('.card__status .spinner')).toHaveCount(1);
+  await expect(card.locator('.card__band')).toHaveCount(1);
+
+  const colors = await frame.evaluate((caseLabel) => {
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    const resolve = (name: string) => {
+      probe.style.color = `var(${name})`;
+      return getComputedStyle(probe).color;
+    };
+    const emphasis = resolve('--emphasis');
+    const progress = resolve('--progress');
+    probe.remove();
+    const box = document.querySelector(`[data-case="${caseLabel}"]`);
+    const cardElement = box?.querySelector('.card') ?? null;
+    const statusElement = box?.querySelector('.card__status') ?? null;
+    return {
+      emphasis,
+      progress,
+      border: cardElement === null ? '' : getComputedStyle(cardElement).borderTopColor,
+      status: statusElement === null ? '' : getComputedStyle(statusElement).color,
+    };
+  }, label);
+
+  expect(colors.border).toBe(colors.emphasis);
+  expect(colors.status).toBe(colors.progress);
+
+  const defaultBox = await frame
+    .locator(`[data-case="${labelOf('card', 'scene-default')}"] .card`)
+    .boundingBox();
+  const busyBox = await card.boundingBox();
+  expect(busyBox?.width).toBe(defaultBox?.width);
+  expect(busyBox?.height).toBe(defaultBox?.height);
+});
+
+test('test_10a_batch_four_scroll_surfaces_fade_by_scroll_position', async ({ page }) => {
+  await galleryReady(page, 'composer', 2);
+  const composer = await frameOf(page, 'iframe[data-frame-group="composer"][width="390"]');
+  const composerLabel = labelOf('composer', 'long');
+  const field = composer.locator(`[data-case="${composerLabel}"] .composer__field`);
+  const input = composer.locator(`[data-case="${composerLabel}"] textarea`);
+  await expect(field).toHaveClass(/scroll-fade/);
+  await expect(field).toHaveAttribute('data-fade', 'top');
+  await input.evaluate((element) => {
+    element.scrollTop = 0;
+  });
+  await expect(field).toHaveAttribute('data-fade', 'bottom');
+  await input.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(field).toHaveAttribute('data-fade', 'top');
+
+  await galleryReady(page, 'bottom-sheet', 2);
+  const sheet = await frameOf(
+    page,
+    `iframe[data-frame-case="${labelOf('bottom-sheet', 'long')}"][width="390"]`,
+  );
+  const sheetFade = sheet.locator('.sheet-popup__scroll-frame');
+  const sheetScroll = sheet.locator('.sheet-popup__scroll');
+  await expect(sheetFade).toHaveClass(/scroll-fade/);
+  await expect(sheetFade).toHaveAttribute('data-fade', 'bottom');
+  await sheetScroll.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(sheetFade).toHaveAttribute('data-fade', 'top');
+
+  await galleryReady(page, 'dialog', 2);
+  const dialog = await frameOf(
+    page,
+    `iframe[data-frame-case="${labelOf('dialog', 'long')}"][width="390"]`,
+  );
+  const dialogFade = dialog.locator('.dialog__scroll-frame');
+  const dialogScroll = dialog.locator('.dialog__scroll');
+  await expect(dialogFade).toHaveClass(/scroll-fade/);
+  await expect(dialogFade).toHaveAttribute('data-fade', 'bottom');
+  await dialogScroll.evaluate((element) => {
+    element.scrollTop = element.scrollHeight;
+  });
+  await expect(dialogFade).toHaveAttribute('data-fade', 'top');
 });
 
 test('test_10a_keyboard_focus_draws_the_token_ring', async ({ page }) => {

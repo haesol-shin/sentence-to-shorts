@@ -15,12 +15,24 @@ describe('Button', () => {
     expect(ref.current?.type).toBe('button');
   });
 
-  test('test_10a_button_loading_keeps_its_label_and_reports_busy', () => {
-    render(<Button loading>저장</Button>);
+  test('test_10a_button_running_becomes_the_stop_control', () => {
+    const onStop = vi.fn();
+    const onClick = vi.fn();
+    render(
+      <Button running stopLabel="멈추기" onStop={onStop} onClick={onClick}>
+        AI로 다시 쓰기
+      </Button>,
+    );
 
-    const button = screen.getByRole('button', { name: '저장' });
-    expect(button.getAttribute('aria-busy')).toBe('true');
-    expect(button.querySelector('.spinner')).not.toBeNull();
+    const button = screen.getByRole('button', { name: '멈추기' });
+    expect(button.textContent).toContain('■');
+    expect(button.querySelector('.spinner')).toBeNull();
+    expect(button.hasAttribute('data-running')).toBe(true);
+
+    fireEvent.click(button);
+
+    expect(onStop).toHaveBeenCalledTimes(1);
+    expect(onClick).not.toHaveBeenCalled();
   });
 
   test('test_10a_button_forced_disabled_does_not_run_its_action', () => {

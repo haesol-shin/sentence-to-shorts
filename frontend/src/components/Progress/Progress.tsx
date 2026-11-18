@@ -12,6 +12,8 @@ export type ProgressProps = {
   label?: string;
   /** Overrides the accessible name when the visible label is not enough. */
   labelText?: string;
+  /** Replaces the percentage, for example "3 / 5". The bar still follows value and max. */
+  valueText?: string;
   className?: string;
 };
 
@@ -19,10 +21,11 @@ export type ProgressProps = {
 
 /**
  * A 6px progress track. The track is the muted surface and the fill is the
- * foreground, both from the state table. The value is announced to screen
- * readers; the text keeps the numbers in one width.
+ * foreground, both from the state table. The text and its count use the
+ * progress token. The value is announced to screen readers; the text keeps
+ * the numbers in one width.
  */
-export function Progress({ value, max = 100, label, labelText, className }: ProgressProps) {
+export function Progress({ value, max = 100, label, labelText, valueText, className }: ProgressProps) {
   return (
     <ProgressPrimitive.Root
       value={value}
@@ -34,7 +37,9 @@ export function Progress({ value, max = 100, label, labelText, className }: Prog
         <div className="progress__meta">
           <ProgressPrimitive.Label className="progress__label">{label}</ProgressPrimitive.Label>
           <ProgressPrimitive.Value className="progress__value">
-            {() => (value === null ? '진행 중' : `${Math.round((value / max) * 100)}%`)}
+            {() =>
+              valueText ?? (value === null ? '진행 중' : `${Math.round((value / max) * 100)}%`)
+            }
           </ProgressPrimitive.Value>
         </div>
       )}
