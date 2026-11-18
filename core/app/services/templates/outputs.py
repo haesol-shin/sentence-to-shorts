@@ -11,12 +11,11 @@ from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.caption_layout import inside, intersects, safe_area
 from app.schemas.common import Box, CaptionMode
 from app.schemas.template_manifest import CharacterAnchors, Regions
 
 FRAME = (1080, 1920)
-SAFE_CAPTION_TOP = 1030
-SAFE_CAPTION_BOTTOM = 1230
 MAX_LOOP_MS = 16000
 MIN_LOOP_MS = 500
 BEATS_PER_BAR = 4
@@ -44,15 +43,6 @@ def _inside_frame(box: Box) -> bool:
     return box.x + box.w <= FRAME[0] and box.y + box.h <= FRAME[1]
 
 
-def _overlap(first: Box, second: Box) -> bool:
-    return (
-        first.x < second.x + second.w
-        and second.x < first.x + first.w
-        and first.y < second.y + second.h
-        and second.y < first.y + first.h
-    )
-
-
 class TemplateCodeAnswer(Answer):
     label: ShortLabel
     code: Code
@@ -73,10 +63,10 @@ class TemplateCodeAnswer(Answer):
             if not _inside_frame(box):
                 raise ValueError(f"region {name} leaves the 1080x1920 frame")
         caption = regions.caption
-        if caption.y < SAFE_CAPTION_TOP or caption.y + caption.h > SAFE_CAPTION_BOTTOM:
-            raise ValueError("caption must stay inside y 1030 to 1230")
+        if not inside(caption, safe_area()):
+            raise ValueError("caption must stay inside the safe band")
         for name, box in named.items():
-            if name != "caption" and _overlap(box, caption):
+            if name != "caption" and intersects(box, caption):
                 raise ValueError(f"region {name} overlaps the caption")
         visual = regions.visual
         for side in ("left", "center", "right"):

@@ -1016,7 +1016,7 @@ export interface components {
          * CaptionPosition
          * @enum {string}
          */
-        CaptionPosition: "top" | "middle" | "bottom";
+        CaptionPosition: "top" | "upper" | "middle" | "lower" | "bottom";
         /** CardFills */
         CardFills: {
             character_role: components["schemas"]["CharacterRole"];

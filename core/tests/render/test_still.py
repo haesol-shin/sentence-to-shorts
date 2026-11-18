@@ -10,19 +10,21 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
+from app.caption_layout import inside, safe_area
 from app.ports import AppError
 from app.schemas.artifact import Timing
+from app.schemas.common import Box
 from app.schemas.video import Video
 from tests.render.conftest import Studio, load
 
-SAFE_TOP = 1030
-SAFE_BOTTOM = 1230
 FIXTURE_SCENES = [
     ("scene_fixed_stage.json", "fixed_stage", "sentence", "presenter"),
     ("scene_full_stage.json", "full_stage", "phrase", "subject"),
     ("scene_dialog_stage_typewriter.json", "dialog_stage", "typewriter", "presenter"),
     ("scene_text_edge.json", "fixed_stage", "sentence", "presenter"),
 ]
+POSITION_LAYOUTS = ["fixed_stage", "full_stage"]
+POSITIONS = ["top", "upper", "middle", "lower", "bottom"]
 THEME_BACKGROUNDS = {"day": "bg_village", "moonlight": "bg_city_night", "arcade": "bg_castle"}
 
 
@@ -36,20 +38,18 @@ def _fixture_still(studio: Studio, name: str, layout: str, mode: str, role: str)
     return studio.still(video, scene["id"])
 
 
-def _caption_box(video: Video, studio: Studio) -> tuple[int, int, int, int]:
-    layout = video.settings.format.layout
-    region = studio.registry.get("template", layout.id, layout.revision).regions.caption
-    return region.x, region.y, region.w, region.h
+def _box(values: list[int]) -> Box:
+    x, y, w, h = values
+    return Box(x=x, y=y, w=w, h=h)
 
 
-def _assert_safe(record: dict, caption: tuple[int, int, int, int]) -> None:
-    x, y, w, h = caption
-    lines = record["caption"]["lines"]
-    assert 1 <= len(lines) <= 2
-    for line in lines:
-        bx, by, bw, bh = line["box"]
-        assert SAFE_TOP <= by and by + bh <= SAFE_BOTTOM
-        assert x <= bx and bx + bw <= x + w and y <= by and by + bh <= y + h
+def _assert_safe(record: dict) -> None:
+    caption = record["caption"]
+    plate = _box(caption["plate"])
+    assert 1 <= len(caption["lines"]) <= 2
+    assert inside(plate, safe_area())
+    for line in caption["lines"]:
+        assert inside(_box(line["box"]), plate)
 
 
 @pytest.mark.parametrize(("name", "layout", "mode", "role"), FIXTURE_SCENES)
@@ -86,15 +86,19 @@ def test_29_same_input_gives_same_png_digest(studio: Studio) -> None:
 
 def test_6_theme_change_changes_background_box_and_palette(studio: Studio) -> None:
     frames = {}
+    plates = {}
     for theme, background in THEME_BACKGROUNDS.items():
         scene = load("scene_fixed_stage.json")
         scene["visual"]["background_id"] = background
         video = studio.video(scene, theme=theme)
-        frames[theme] = Image.open(studio.still(video, scene["id"], name=theme)).convert("RGB")
+        path = studio.still(video, scene["id"], name=theme)
+        frames[theme] = Image.open(path).convert("RGB")
+        plates[theme] = _record(path)["caption"]["plate"]
     # preview pixels: half of the 1080x1920 layout coordinates
+    x, y, w, _ = plates["day"]
     areas = {
         "background": (60, 140, 480, 480),  # inside the fixed stage visual region
-        "box_edge": (45, 520, 495, 524),  # top border of the caption box skin
+        "plate": (x // 2 + 10, y // 2, (x + w) // 2 - 10, y // 2 + 2),  # top pad
         "palette": (0, 640, 540, 960),  # plain theme background below the caption
     }
     themes = list(frames)
@@ -111,7 +115,39 @@ def test_29_caption_lines_stay_in_safe_area_and_line_limit(studio: Studio) -> No
         scene = load(name)
         video = studio.video(scene, layout=layout, mode=mode, role=role)
         record = _record(studio.still(video, scene["id"], name=name))
-        _assert_safe(record, _caption_box(video, studio))
+        _assert_safe(record)
+
+
+def test_29_plate_follows_the_text_through_each_position(studio: Studio) -> None:
+    for layout in POSITION_LAYOUTS:
+        plate_rows = []
+        for position in POSITIONS:
+            scene = load("scene_fixed_stage.json")
+            video = studio.video(scene, layout=layout, position=position)
+            path = studio.still(video, scene["id"], name=f"{layout}_{position}")
+            record = _record(path)
+            _assert_safe(record)
+            plate_rows.append(record["caption"]["plate"][1])
+        assert plate_rows == sorted(plate_rows)
+        assert plate_rows[0] < plate_rows[-1]
+
+
+def test_29_dialog_bubble_stays_while_the_text_moves(studio: Studio) -> None:
+    frames, records = {}, {}
+    for position in ("top", "bottom"):
+        scene = load("scene_dialog_stage_typewriter.json")
+        video = studio.video(scene, layout="dialog_stage", mode="typewriter", position=position)
+        path = studio.still(video, scene["id"], name=position)
+        frames[position] = Image.open(path).convert("RGB")
+        records[position] = _record(path)
+    bubble = (61, 521, 479, 530)  # preview rows of the speech bubble's top border
+    assert frames["top"].crop(bubble).tobytes() == frames["bottom"].crop(bubble).tobytes()
+    assert records["top"]["caption"]["plate"] == records["bottom"]["caption"]["plate"]
+    top_line = records["top"]["caption"]["lines"][0]["box"]
+    bottom_line = records["bottom"]["caption"]["lines"][0]["box"]
+    assert top_line[1] < bottom_line[1]
+    for record in records.values():
+        _assert_safe(record)
 
 
 def test_29_long_identifier_wraps_by_glyph_width(studio: Studio) -> None:
@@ -124,7 +160,7 @@ def test_29_long_identifier_wraps_by_glyph_width(studio: Studio) -> None:
     lines = [line["text"] for line in record["caption"]["lines"]]
     assert "".join(lines) == text
     assert len(lines) == 2
-    _assert_safe(record, _caption_box(video, studio))
+    _assert_safe(record)
 
 
 def test_29_caption_that_cannot_fit_fails_instead_of_clipping(studio: Studio) -> None:

@@ -32,7 +32,8 @@ from app.schemas.voice_manifest import VoiceManifest
 if TYPE_CHECKING:
     from app.services.pipeline.types import Services
 
-API_VERSION = 1
+API_VERSION = 2
+"""Builtin layers stopped drawing the caption box at version 2, so layer_png is redrawn."""
 TIMING_API_VERSION = 2
 """Typewriter lines carry display spans from version 2, so old timing_json is not reused."""
 

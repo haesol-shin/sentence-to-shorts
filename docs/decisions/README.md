@@ -20,3 +20,4 @@
 | [0018](0018-store-prompts-as-files.md) | prompt를 코드 밖 파일로 분리한다 | Proposed |
 | [0023](0023-build-components-on-shadcn-base-ui.md) | shadcn/ui on Base UI로 화면 부품을 만든다 | Accepted |
 | [0024](0024-scope-data-by-owner-in-server-and-personal-modes.md) | 서버 모드와 개인 모드에서 자료를 소유자별로 나눈다(저장 모델은 [0007](0007-persist-storage-and-job-state.md)) | Accepted |
+| [0025](0025-own-caption-geometry-in-one-module.md) | 자막 기하와 다섯 위치를 한 모듈이 소유한다 | Accepted |

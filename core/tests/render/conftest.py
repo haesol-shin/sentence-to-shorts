@@ -54,6 +54,7 @@ class Studio:
         mode: str = "sentence",
         theme: str = "day",
         role: str = "presenter",
+        position: str = "bottom",
         base: str = "video_ko_just_three.json",
     ) -> Video:
         raw = load(base)
@@ -62,6 +63,7 @@ class Studio:
         settings["format"]["layout"] = self.registry.pin("template", layout).model_dump()
         settings["format"]["character_role"] = role
         settings["caption"]["mode"] = mode
+        settings["caption"]["position"] = position
         if scene is not None:
             raw["scenes"] = {scene["id"]: scene}
             raw["scene_order"] = [scene["id"]]

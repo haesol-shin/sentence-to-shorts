@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import hashlib
+import json
 import unicodedata
 from collections.abc import Iterable
 from pathlib import Path
@@ -130,6 +131,20 @@ def test_29_clip_frames_come_from_the_still_drawing(studio: Studio) -> None:
     parts, layer = studio.inputs(built, scene["id"])
     still, _ = studio.service.compose(built, scene["id"], parts, layer)
     assert sink.distinct == {hashlib.sha256(still.convert("RGB").tobytes()).hexdigest()}
+
+
+def test_29_preview_and_clip_share_the_caption_plate(studio: Studio) -> None:
+    scene = load("scene_fixed_stage.json")
+    for position in ("top", "upper", "middle", "lower", "bottom"):
+        sink = FrameSink()
+        _clip(studio, sink, scene, timing_for(scene), position=position)
+        built = studio.video(scene, position=position)
+        parts, layer = studio.inputs(built, scene["id"])
+        still, composed = studio.service.compose(built, scene["id"], parts, layer)
+        path = studio.still(built, scene["id"], name=position)
+        preview = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
+        assert preview["caption"]["plate"] == composed["caption"]["plate"]
+        assert sink.distinct == {hashlib.sha256(still.convert("RGB").tobytes()).hexdigest()}
 
 
 def test_29_fade_scene_starts_black_and_ends_drawn(studio: Studio) -> None:
