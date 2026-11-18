@@ -123,8 +123,6 @@ class BuiltinLayerDrawer:
                     boxes[name] = _place(layer, skin, region)
         if module == "dialog_stage":
             boxes["caption"] = _place(layer, skin, _outset(regions.caption, DIALOG_OUTSET))
-        else:
-            boxes["caption"] = _place(layer, skin, regions.caption)
         return encode_png(layer), {"module": module, "boxes": boxes}
 
 

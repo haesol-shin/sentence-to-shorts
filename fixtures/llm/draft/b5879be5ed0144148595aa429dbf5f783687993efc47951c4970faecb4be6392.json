@@ -24,7 +24,9 @@
         "CaptionPosition": {
           "enum": [
             "top",
+            "upper",
             "middle",
+            "lower",
             "bottom"
           ],
           "title": "CaptionPosition",

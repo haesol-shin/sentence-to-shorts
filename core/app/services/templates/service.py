@@ -18,6 +18,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
+from app.caption_layout import safe_area
 from app.ports import (
     AppError,
     AppSettings,
@@ -541,6 +542,7 @@ class TemplatesService:
                 "character_anchors": current.character_anchors.model_dump(mode="json"),
                 "caption_modes": [mode.value for mode in current.caption_modes],
                 "dialog_box": current.dialog_box,
+                "safe_area": safe_area().model_dump(mode="json"),
             },
             "test_scene": scene.model_dump(mode="json"),
         }

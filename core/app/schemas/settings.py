@@ -50,7 +50,9 @@ class CharacterMotion(StrEnum):
 
 class CaptionPosition(StrEnum):
     top = "top"
+    upper = "upper"
     middle = "middle"
+    lower = "lower"
     bottom = "bottom"
 
 

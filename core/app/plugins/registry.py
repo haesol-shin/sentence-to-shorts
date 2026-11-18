@@ -19,6 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from app.caption_layout import inside, safe_area
 from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
 from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry
@@ -30,8 +31,6 @@ from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
 from app.schemas.voice_manifest import VoiceManifest
 
-SAFE_CAPTION_TOP = 1030
-SAFE_CAPTION_BOTTOM = 1230
 INDEX_VERSION = 1
 ARCHIVE_DIR = "c"
 INDEX_RELATIVE = ("catalog", "index.json")
@@ -235,8 +234,7 @@ def validate_package(
             raise RegistryError("digest_mismatch", expected_id, package_dir / relative)
 
     if isinstance(manifest, TemplateManifest):
-        caption = manifest.regions.caption
-        if caption.y < SAFE_CAPTION_TOP or caption.y + caption.h > SAFE_CAPTION_BOTTOM:
+        if not inside(manifest.regions.caption, safe_area()):
             raise RegistryError(
                 "unsafe_caption_box", expected_id, package_dir / "manifest.json"
             )

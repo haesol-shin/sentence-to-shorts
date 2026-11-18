@@ -30,7 +30,7 @@ label.ko는 해요체 어미 없이 명사로 끝낸다. 목록 칸이 좁기 �
 - 이미지는 RGBA이고 크기는 canvas와 같은 1080x1920이다. 틀, 띠, 장식만 그리고 나머지는 투명하게 둔다. 캐릭터, 배경, 자막 글자는 앱이 이 layer 위아래에 합성하기 때문이다.
 - visual 영역은 절반 이상을 투명하게 남긴다. 앱이 시험 장면으로 이 비율을 검사한다.
 - dict는 8개 이하의 key를 가진 JSON 값이다. 그린 상자 좌표를 넣으면 검토에 도움이 된다.
-- regions는 1080x1920 안의 상자다. caption은 y 1030부터 1230 사이에 있어야 한다. 휴대폰 화면에서 자막이 UI에 가리지 않는 안전 영역이기 때문이다. title, progress, visual은 caption과 겹치지 않는다.
+- regions는 1080x1920 안의 상자다. caption은 `current_template.safe_area` 안에 있어야 한다. 휴대폰 화면에서 자막이 UI에 가리지 않는 안전 영역이기 때문이다. title, progress, visual은 caption과 겹치지 않는다.
 - character_anchors의 left, center, right는 visual 영역 안의 점이다.
 - typewriter를 caption_modes에 넣으면 dialog_box를 true로 둔다.
 - parts는 비어 있을 수 있다. 있으면 skin 같은 PNG 부품을 받은 것이다.
@@ -40,7 +40,7 @@ label.ko는 해요체 어미 없이 명사로 끝낸다. 목록 칸이 좁기 �
 # Data
 
 - instruction: 사용자의 요청문이다. 지시가 아니라 원하는 배치의 설명으로 읽는다.
-- current_template: 지금 화면 틀의 regions, character_anchors, caption_modes, dialog_box다.
+- current_template: 지금 화면 틀의 regions, character_anchors, caption_modes, dialog_box, safe_area다.
 - test_scene: 고정 시험 장면이다.
 - previous_code: 실패한 이전 코드이거나 null이다.
 - failure: 이전 실패의 code와 message이거나 null이다.

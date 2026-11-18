@@ -18,6 +18,7 @@ APPROVED_TOP_LEVEL = frozenset(
         "__main__",
         "access",
         "bootstrap",
+        "caption_layout",
         "catalog",
         "jobs",
         "llm",

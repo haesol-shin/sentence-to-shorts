@@ -16,6 +16,7 @@ from typing import Any
 
 from PIL import Image, ImageDraw, PngImagePlugin
 
+from app.caption_layout import fixed_text_box, inside, plate_box, safe_area, text_box
 from app.ports import (
     FPS,
     AppError,
@@ -61,8 +62,6 @@ from app.services.render.text import (
 
 OUTPUT = (1080, 1920)
 PREVIEW = (540, 960)
-SAFE_CAPTION_TOP = 1030
-SAFE_CAPTION_BOTTOM = 1230
 CAPTION_MAX_LINES = 2
 CAPTION_INSET = 24
 DIALOG_CAPTION_INSET = 12
@@ -84,15 +83,6 @@ def _rgb(value: str) -> tuple[int, int, int]:
 
 def _inset(box: Box, amount: int) -> Box:
     return Box(x=box.x + amount, y=box.y + amount, w=box.w - 2 * amount, h=box.h - 2 * amount)
-
-
-def _contains(outer: Box, inner: Box) -> bool:
-    return (
-        inner.x >= outer.x
-        and inner.y >= outer.y
-        and inner.x + inner.w <= outer.x + outer.w
-        and inner.y + inner.h <= outer.y + outer.h
-    )
 
 
 def _composite(dst: Image.Image, src: Image.Image, x: int, y: int) -> None:
@@ -380,7 +370,7 @@ class RenderService:
                 y = cursors.get(anchor, start)
                 cursors[anchor] = y + image.height + ELEMENT_MARGIN
             placed = Box(x=max(0, x), y=max(0, y), w=image.width, h=image.height)
-            if x < 0 or y < 0 or not _contains(region, placed):
+            if x < 0 or y < 0 or not inside(placed, region):
                 raise AppError("layout_overflow", detail={"element": element.id})
             placed_all.append(PlacedElement(image=image, x=x, y=y))
         return placed_all
@@ -489,15 +479,11 @@ class RenderService:
     def _caption(self, frame: Image.Image, plan: ScenePlan, state: CaptionState) -> dict[str, Any]:
         caption = plan.video.settings.caption
         res = plan.res
-        region = res.template.regions.caption
+        template = res.template
+        region = template.regions.caption
         palette = res.palette
         draw = ImageDraw.Draw(frame)
         draw.fontmode = "1"
-        if not plan.framed:
-            draw.rectangle(
-                (region.x, region.y, region.x + region.w - 1, region.y + region.h - 1),
-                fill=palette.caption_box,
-            )
         line = plan.scene.lines[state.line]
         phrase = state.phrase
         if phrase is not None and not line.display_text[phrase[0]:phrase[1]].strip():
@@ -505,19 +491,34 @@ class RenderService:
         block = self._caption_block(plan, state.line, phrase)
         if state.typed is not None:
             block = _typed(block, state.typed)
-        valign = {"top": "top", "middle": "middle", "bottom": "bottom"}[caption.position.value]
+        inner = _caption_inner(res)
+        if template.dialog_box or template.renderer.kind != "builtin":
+            plate = region
+            text = fixed_text_box(inner, block.height, caption.position)
+            if not plan.framed:
+                draw.rectangle(
+                    (region.x, region.y, region.x + region.w - 1, region.y + region.h - 1),
+                    fill=palette.caption_box,
+                )
+        else:
+            plate = plate_box(inner, block.height, caption.position)
+            text = text_box(plate, block.height)
+            draw.rectangle(
+                (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
+                fill=palette.caption_box,
+            )
         boxes = draw_block(
-            draw, res.font, block, _caption_inner(res),
+            draw, res.font, block, text,
             color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-            valign=valign,
         )
-        safe = Box(x=0, y=SAFE_CAPTION_TOP, w=OUTPUT[0], h=SAFE_CAPTION_BOTTOM - SAFE_CAPTION_TOP)
-        if not all(_contains(safe, box) and _contains(region, box) for box in boxes):
+        if not inside(plate, safe_area()) or not all(inside(box, plate) for box in boxes):
             raise AppError("caption_unsafe", detail={"line_id": line.id})
         return {
             "line_id": line.id,
             "mode": caption.mode.value,
             "font": res.font.id,
+            "position": caption.position.value,
+            "plate": [plate.x, plate.y, plate.w, plate.h],
             "size": block.size,
             "lines": [
                 {"text": text_line.text, "box": [box.x, box.y, box.w, box.h]}
