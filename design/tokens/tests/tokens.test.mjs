@@ -1,10 +1,12 @@
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
 import {
   OUTPUTS,
+  SHELL_PATH,
+  TOKEN_DIR,
   allRows,
   contrastProblems,
   contrastReport,
@@ -15,6 +17,7 @@ import {
   pairRatio,
   renderAll,
   renderStates,
+  shellCss,
   resolveCombos,
   resolveStates,
   textVerdict,
@@ -43,6 +46,7 @@ const DECIDED = {
     '#34383C',
     '#A9CBFA',
     '#3182F6',
+    '#1B64DA',
     '#B45309',
     '#DC2626',
   ],
@@ -74,6 +78,7 @@ const DECIDED = {
     'primary-foreground',
     'primary-hover',
     'primary-pressed',
+    'progress',
     'ring',
     'secondary',
     'secondary-foreground',
@@ -182,13 +187,42 @@ describe('design tokens', () => {
     for (const [path, content] of renderAll(tokens)) {
       expect(readFileSync(path, 'utf8'), path).toBe(content);
     }
-    const properties = (path) =>
-      readFileSync(path, 'utf8')
-        .split('\n')
-        .filter((line) => line.startsWith('  --') && line.endsWith(';'));
-    expect(properties(OUTPUTS.local)).toEqual(properties(OUTPUTS.css));
-    expect(readFileSync(OUTPUTS.local, 'utf8')).toContain('../../../design/tokens/fonts/');
-    expect(readFileSync(OUTPUTS.css, 'utf8')).toContain('url("./fonts/');
+    const css = readFileSync(OUTPUTS.css, 'utf8');
+    // Parts and app screens load this one stylesheet.
+    expect(OUTPUTS.css.endsWith(join('frontend', 'src', 'shared', 'ui', 'tokens.css'))).toBe(true);
+    expect(css).toContain('url("../../../../design/tokens/fonts/');
+    expect(css).toContain(shellCss().trim());
+    // A second token stylesheet would be a second source.
+    expect(existsSync(join(TOKEN_DIR, 'tokens.css'))).toBe(false);
+    expect(existsSync(join(TOKEN_DIR, '..', '..', 'frontend', 'src', 'components', 'tokens.local.css'))).toBe(
+      false,
+    );
+    const parts = readFileSync(join(TOKEN_DIR, '..', '..', 'frontend', 'src', 'components', 'base.css'), 'utf8');
+    expect(parts.split('\n')[0]).toBe("@import '../shared/ui/tokens.css';");
+  });
+
+  test('test_2_shell_names_point_at_roles', () => {
+    // The shell keeps its own names but not its own colour values: every shell colour
+    // name is a role or palette reference, and the measurements stay in one file.
+    const shell = shellCss();
+    const declarations = [...shell.matchAll(/^  (--[a-z0-9-]+): (.+);$/gm)].map((match) => [
+      match[1],
+      match[2],
+    ]);
+    expect(declarations.length).toBeGreaterThan(0);
+    const values = new Map(declarations);
+    for (const name of ['--surface', '--line', '--text', '--text-muted', '--text-disabled']) {
+      expect(values.get(name), name).toMatch(/^var\(--[a-z0-9-]+\)$/);
+    }
+    for (const [name, value] of declarations) {
+      if (!name.startsWith('--gray-')) continue;
+      expect(value, name).toMatch(/^var\(--palette-[a-z0-9-]+\)$/);
+    }
+    expect(values.get('--layout-sidebar-w')).toBe('72px');
+    expect(values.get('--touch-target')).toBe('48px');
+    expect(values.get('--motion-short')).toBe('var(--motion-panel-duration)');
+    expect(shell).not.toMatch(/#[0-9A-Fa-f]{3,8}/);
+    expect(existsSync(SHELL_PATH)).toBe(true);
   });
 
   test('test_3_small_text_meets_4_5', () => {
@@ -383,7 +417,6 @@ describe('design tokens', () => {
     // colour. The rest of frontend/src (app/, features/, shared/) still uses the shell
     // styles until the screen migration moves it onto these parts, so it joins then.
     const root = fileURLToPath(new URL('../../../frontend/src/', import.meta.url));
-    const tokenFile = join(root, 'components', 'tokens.local.css');
     const files = [];
     const walk = (dir) => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -403,7 +436,6 @@ describe('design tokens', () => {
     }
     for (const path of files) {
       const text = readFileSync(path, 'utf8');
-      if (path === tokenFile) continue;
       expect(text, `${relative(root, path)} names a palette token`).not.toContain('--palette-');
       expect(directColorLiteral(text), `${relative(root, path)} writes a colour`).toBe(false);
     }

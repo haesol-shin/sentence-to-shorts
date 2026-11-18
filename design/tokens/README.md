@@ -1,18 +1,19 @@
 # 디자인 token
 
-D3 전까지 이 폴더가 token의 작업 자리다. `tokens.json`이 값의 유일한 원본이고 나머지는 여기서 만든다. 부품과 화면은 역할 token만 읽는다.
+`tokens.json`이 디자인 값의 유일한 원본이고 나머지는 여기서 만든다. 부품과 앱 화면은 `frontend/src/shared/ui/tokens.css` 한 파일을 읽고 그 안의 역할 token만 쓴다.
 
 ## 파일
 
 | 파일 | 역할 |
 | --- | --- |
 | `tokens.json` | 값의 유일한 원본. 색 두 층, 글자, 간격, 크기, 반경, 그림자, 겹침 순서, 포커스, 아이콘, 움직임, 대비 예외, 상태 행렬과 상태 색표, 글꼴 기록 |
-| `build.mjs` | 원본에서 아래 세 파일과 `frontend/src/components/tokens.local.css`를 만든다 |
-| `tokens.css` | 만든 CSS 변수 초안. `tokens.local.css`와 같은 값이다 |
+| `build.mjs` | 원본에서 `frontend/src/shared/ui/tokens.css`와 아래 두 표를 만든다 |
+| `shell.css` | 손으로 지키는 shell 이름과 배치 값. 생성기가 만든 CSS 안에 그대로 넣는다 |
+| `frontend/src/shared/ui/tokens.css` | 만든 CSS 변수. 부품과 앱 화면이 함께 읽는다. 직접 고치지 않는다 |
 | `contrast.md` | 만든 대비 표. 글자와 바탕의 모든 조합, 그림 위의 면, 포커스 표시와 아이콘, 금지 목록 |
 | `states.md` | 만든 상태 행렬, 상태 색표, 조합 색표 |
 | `fonts/` | Pretendard 정적 파일 400과 700, SIL OFL 1.1 원문 |
-| `tests/` | 수락 시험 |
+| `tests/` | 수락 시험. 만든 파일, 대비, 상태표, 글꼴 해시, shell 별칭을 확인한다 |
 
 ## 명령
 
@@ -24,7 +25,9 @@ node design/tokens/build.mjs --check
 cd frontend && npx vitest run --root ../design/tokens --environment node
 ```
 
-값을 고칠 때는 `tokens.json`만 고치고 `build.mjs`를 실행한다. 만든 파일은 직접 고치지 않는다. `--check`는 만든 파일이 원본과 같은지만 본다.
+`check_fast.py`는 이 시험을 돌리지 않는다. PR CI의 visual job이 같은 명령과 `--check`를 돌린다.
+
+디자인 값은 `tokens.json`만, shell 이름과 배치 값은 `shell.css`만 고치고 `build.mjs`를 실행한다. 만든 파일은 직접 고치지 않는다. `--check`는 만든 파일이 두 원본과 같은지만 본다.
 
 ## 색 두 층
 
@@ -37,7 +40,8 @@ shadcn/ui 이름에 없는 역할은 아래와 같다. 값은 모두 결정표�
 - `--state-hover-white`, `--state-selected`, `--state-pressed-white`: 흰 바탕 부품의 올림·선택·눌림 면이다. 올림과 선택은 같은 색을 쓰지 않는다.
 - `--state-hover-gray`, `--state-pressed-gray`: 회색 바탕 부품(보조 단추 등)의 올림·눌림 면이다.
 - `--sub`: 보조 글자 #646B76. 회색 면 `--muted`에서 4.88로 4.5를 넘고, 값 칸의 자리표시 글자에 쓴다.
-- `--emphasis`: 강조 단어와 안 본 변경 표시에 쓰는 파랑이다. `--ring`과 같은 값을 쓰지만 포커스 선과 쓰임이 달라 이름을 나눈다.
+- `--emphasis`: 강조 단어와 안 본 변경 표시, 진행 표시의 spinner와 아이콘에 쓰는 파랑이다. `--ring`과 같은 값을 쓰지만 포커스 선과 쓰임이 달라 이름을 나눈다.
+- `--progress`: 진행 글자와 그 안의 숫자에 쓰는 파랑 #1B64DA다. 흰 면 5.41, 회색 면 4.62로 4.5를 넘고 진한 면에는 쓰지 않는다. spinner와 아이콘은 `--emphasis`를 쓴다.
 - `--disabled-foreground`: 쓸 수 없는 글자 색이다.
 - `--overlay-*` 다섯 가지: 그림 위에 놓는 반투명 면이다. `--overlay-dialog-scrim`은 확인 창 뒤의 진한 회색 24% 막이고 나머지 네 가지는 흰 막과 그림 위 표시다.
 
@@ -51,23 +55,27 @@ shadcn/ui 이름에 없는 역할은 아래와 같다. 값은 모두 결정표�
 
 - 뜻 색(`--muted-foreground`, `--destructive`, `--warning`, `--emphasis`)을 작은 글자로 쓰려면 흰 면(`--card`, `--popover`)이어야 한다. 회색 면에서 실제로 미달인 색은 `--muted-foreground`와 `--destructive`가 4.38, `--emphasis`가 3.37이다. `--warning`은 회색 면에서 4.55로 통과한다. `--sub`는 회색 면에서 4.88로 통과해 값 칸의 자리표시 글자에 쓴다.
 - 회색 면과 강조 면 위의 글자는 `--foreground`를 쓴다. 이 조합은 11을 넘는다.
-- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 뜻 색은 제목 글자가 아니라 아이콘에만 쓴다. 회색 바탕의 뜻 색 글자는 `--warning`만 4.55로 통과하고 나머지는 4.5에 못 미친다.
-- 작은 파랑 글자는 흰 면에서 3.71이고 이 조합만 감수한다. 진한 파랑 변형은 만들지 않는다.
+- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 그 바탕의 뜻 색 글자는 `--warning`만 4.55로 통과하므로 나머지 뜻 색은 아이콘에 쓰거나 흰 면으로 옮긴다.
+- 강조 단어의 작은 파랑 글자(`--emphasis`)는 흰 면에서 3.71이고 이 조합만 감수한다. 진행 글자는 `--progress`를 써서 흰 면 5.41로 4.5를 넘긴다.
 - 쓸 수 없는 글자는 WCAG 예외로 두고 `contrast.md`에 따로 적는다.
 
 ## 상태
 
 `states.md`의 상태 행렬이 부품마다 받는 상태, 함께 켜지는 조합, 우선순위를 정한다. 상태 색표는 상태마다, 조합 색표는 함께 켜지는 상태마다 바탕, 글자, 아이콘, 테두리를 역할 token으로 적는다. 조합에서 같은 칸을 두 상태가 다투면 우선순위가 높은 상태가 이긴다. 표에 없는 조합은 쓰지 않는다.
 
+## shell 이름
+
+`shell.css`는 앱 shell이 아직 읽는 이름(`--surface`, `--text`, `--line`, `--radius-card`, `--layout-*`)을 역할 token에 잇는다. 색 값을 다시 적지 않고 `var(--card)`처럼 역할만 가리키므로 화면 색의 원본은 `tokens.json` 하나다. 배치 값(`--layout-*`, `--touch-target`)은 이 앱의 측정값이라 여기에 손으로 둔다. 화면 작업이 화면을 역할 이름으로 옮기면 그때 별칭을 지운다.
+
 ## 직접 색 금지
 
-부품과 화면은 `--palette-*` 이름이나 hex, rgb, hsl 같은 색 값을 직접 쓰지 않고 역할 token만 쓴다. 시험이 `frontend/src`의 `.ts`, `.tsx`, `.css`에서 팔레트 이름과 색 값을 찾는다. 값의 원본인 `tokens.css` 두 파일(`design/tokens/tokens.css`, `frontend/src/shared/ui/tokens.css`)은 검사에서 뺀다. 이 규칙을 ESLint나 stylelint로 옮기려면 `frontend/eslint.config.js`를 고쳐야 하고, 그전까지는 시험이 같은 자리를 맡는다.
+부품과 화면은 `--palette-*` 이름이나 hex, rgb, hsl 같은 색 값을 직접 쓰지 않고 역할 token만 쓴다. 시험이 `frontend/src/components/`와 `frontend/src/gallery/`의 `.ts`, `.tsx`, `.css`에서 팔레트 이름과 색 값을 찾는다. 값의 원본인 `frontend/src/shared/ui/tokens.css`는 그 두 폴더 밖이라 검사 대상이 아니다. 이 규칙을 ESLint나 stylelint로 옮기려면 `frontend/eslint.config.js`를 고쳐야 하고, 그전까지는 시험이 같은 자리를 맡는다.
 
 ## 글자
 
 Pretendard 정적 파일 두 개(400, 700)를 동봉하고 외부 CDN을 쓰지 않는다. 굵기는 둘뿐이다. 먼저 Pretendard를 쓰고 없으면 system-ui, 그다음 일반 산세리프를 쓴다. 크기와 줄 높이는 큰 문장 34/46, 제목 22/30, 본문 17/26, 보조 15/22이고 그림 위 장면 번호 13, 그림 위 길이 표시 12는 크기만 둔다. `tokens.json`의 `fonts`가 파일 경로와 SHA-256과 라이선스를 기록하고 시험이 파일 해시를 견준다.
 
-`@font-face`의 파일 경로는 CSS 파일 위치를 기준으로 만든다. 그래서 `tokens.css`는 `./fonts/`, `frontend/src/components/tokens.local.css`는 `../../../design/tokens/fonts/`를 가리킨다. 두 파일의 변수 값은 같다. `tokens.local.css`를 옮기면 다시 만든다.
+`@font-face`의 파일 경로는 CSS 파일 위치를 기준으로 만든다. 만든 파일은 `frontend/src/shared/ui/tokens.css` 하나이고 `../../../../design/tokens/fonts/`를 가리킨다. 글꼴을 옮기면 다시 만든다.
 
 ## 반경
 

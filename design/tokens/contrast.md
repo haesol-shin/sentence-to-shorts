@@ -173,6 +173,21 @@
 | `--emphasis` | `--state-pressed-white` | 2.73 | 금지 |
 | `--emphasis` | `--state-hover-gray` | 2.73 | 금지 |
 | `--emphasis` | `--state-pressed-gray` | 2.33 | 금지 |
+| `--progress` | `--background` | 4.62 | 통과 |
+| `--progress` | `--card` | 5.41 | 통과 |
+| `--progress` | `--popover` | 5.41 | 통과 |
+| `--progress` | `--primary` | 2.81 | 금지 |
+| `--progress` | `--primary-hover` | 2.18 | 금지 |
+| `--progress` | `--primary-pressed` | 1.96 | 금지 |
+| `--progress` | `--secondary` | 4.91 | 통과 |
+| `--progress` | `--muted` | 4.91 | 통과 |
+| `--progress` | `--accent` | 4.40 | 금지 |
+| `--progress` | `--accent-pressed` | 3.97 | 금지 |
+| `--progress` | `--state-hover-white` | 4.91 | 통과 |
+| `--progress` | `--state-selected` | 4.40 | 금지 |
+| `--progress` | `--state-pressed-white` | 3.97 | 금지 |
+| `--progress` | `--state-hover-gray` | 3.97 | 금지 |
+| `--progress` | `--state-pressed-gray` | 3.39 | 금지 |
 | `--disabled-foreground` | `--background` | 2.25 | WCAG 예외 |
 | `--disabled-foreground` | `--card` | 2.64 | WCAG 예외 |
 | `--disabled-foreground` | `--popover` | 2.64 | WCAG 예외 |
@@ -276,7 +291,7 @@
 
 여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.
 
-회색 바탕의 뜻 색 글자는 `--warning`만 4.55로 통과하고 `--muted-foreground`와 `--destructive`는 4.38, `--emphasis`는 3.37로 못 미친다. 그래서 꼬리표와 안내 문장은 뜻 색을 아이콘에만 쓴다.
+회색 바탕의 뜻 색 글자는 `--warning`만 4.55로 통과하고 `--muted-foreground`와 `--destructive`는 4.38, `--emphasis`는 3.37로 못 미친다. 그래서 회색 바탕의 뜻 색은 아이콘에 쓰고, 뜻 색 글자는 흰 면에서 쓴다.
 
 - `--foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
 - `--card-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
@@ -289,3 +304,4 @@
 - `--destructive`: `--background` (4.12), `--primary` (3.15), `--primary-hover` (2.45), `--primary-pressed` (2.20), `--secondary` (4.38), `--muted` (4.38), `--accent` (3.93), `--accent-pressed` (3.54), `--state-hover-white` (4.38), `--state-selected` (3.93), `--state-pressed-white` (3.54), `--state-hover-gray` (3.54), `--state-pressed-gray` (3.02)
 - `--warning`: `--background` (4.29), `--primary` (3.03), `--primary-hover` (2.35), `--primary-pressed` (2.11), `--accent` (4.08), `--accent-pressed` (3.69), `--state-selected` (4.08), `--state-pressed-white` (3.69), `--state-hover-gray` (3.69), `--state-pressed-gray` (3.14)
 - `--emphasis`: `--background` (3.17), `--primary` (4.10), `--primary-hover` (3.18), `--primary-pressed` (2.86), `--secondary` (3.37), `--muted` (3.37), `--accent` (3.02), `--accent-pressed` (2.73), `--state-hover-white` (3.37), `--state-selected` (3.02), `--state-pressed-white` (2.73), `--state-hover-gray` (2.73), `--state-pressed-gray` (2.33)
+- `--progress`: `--primary` (2.81), `--primary-hover` (2.18), `--primary-pressed` (1.96), `--accent` (4.40), `--accent-pressed` (3.97), `--state-selected` (4.40), `--state-pressed-white` (3.97), `--state-hover-gray` (3.97), `--state-pressed-gray` (3.39)

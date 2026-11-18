@@ -21,3 +21,11 @@ python scripts/check_fast.py
 - 대화 내용과 반복 작업 이력, 작업 ID, 리뷰 기록을 코드 주석과 커밋과 PR 글에 옮기지 않는다.
 - Markdown 문장에 em-dash를 넣지 않는다. 생성한 문장을 붙일 때 특히 확인한다.
 - 격리 실행의 데이터와 cache는 `.local/` 아래에 둔다. 임시 파일은 끝나기 전에 지운다.
+
+## 디자인
+
+시각 규칙과 token의 원본은 [DESIGN.md](DESIGN.md)다.
+
+- 화면과 부품은 `frontend/src/components/`의 승인된 부품과 `frontend/src/shared/ui/tokens.css`의 역할 token만 쓴다. token에 없는 값을 직접 쓰지 않는다.
+- 새 부품이나 바뀐 모양은 갤러리 시각 검토를 거치는 디자인 작업으로 만든다. 그 작업이 갤러리와 `frontend/tests/visual`의 baseline을 같은 PR에서 갱신한다.
+- `frontend/src/shared/ui/tokens.css`는 `design/tokens/tokens.json`과 `design/tokens/shell.css`에서 만든 파일이다. 직접 고치지 않는다.
