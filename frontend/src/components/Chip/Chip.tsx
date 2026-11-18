@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { AlertCircle } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 
@@ -25,7 +26,11 @@ export type ChipProps = {
 
 
 
-/** A file or value chip. The surface is not a button, so it never nests one. */
+/**
+ * A file or value chip. The surface is not a button, so it never nests one. A failed chip
+ * gets a red border and a red name, and a red alert mark takes the kind mark's place so the
+ * chip keeps its width.
+ */
 export function Chip({ children, state = 'default', lead, remove, forceState, className }: ChipProps) {
   const forced = statesOf(forceState);
   const hasRemove = remove !== undefined;
@@ -41,7 +46,7 @@ export function Chip({ children, state = 'default', lead, remove, forceState, cl
         state === 'loading' ? <span className="chip__spinner spinner" aria-hidden="true" /> : null
       ) : (
         <span className="chip__lead" aria-hidden="true">
-          {state === 'loading' ? <span className="spinner" /> : lead}
+          {state === 'loading' ? <span className="spinner" /> : state === 'error' ? <AlertCircle /> : lead}
         </span>
       )}
       <span className="chip__label">

@@ -5,6 +5,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--space-8);
   height: var(--size-control);
   min-width: var(--size-control);
   padding-inline: var(--space-16);
@@ -38,17 +39,27 @@
 .switch-option[data-checked],
 .switch-option[data-force-state~='selected'] {
   background: var(--state-selected);
-  border-color: var(--foreground);
+  border-color: var(--state-selected);
   font-weight: var(--font-weight-bold);
+}
+
+.switch-option__check {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+  flex: none;
+  stroke-width: var(--icon-stroke);
+  visibility: hidden;
+}
+
+.switch-option[data-checked] .switch-option__check,
+.switch-option[data-force-state~='selected'] .switch-option__check {
+  visibility: visible;
 }
 
 .switch-option:disabled,
 .switch-option[data-disabled],
 .switch-option[data-force-state~='disabled'] {
   color: var(--disabled-foreground);
-  background: var(--muted);
-  border-color: var(--border);
-  font-weight: var(--font-weight-regular);
   cursor: not-allowed;
 }
 

@@ -11,11 +11,10 @@
 
 .stage-indicator__step {
   box-sizing: border-box;
+  position: relative;
   display: inline-flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
   min-width: var(--size-control);
   height: var(--size-control);
   padding-inline: var(--space-12);
@@ -66,6 +65,11 @@
 }
 
 .stage-indicator__dot {
+  /* Out of the flow so the label sits in the middle of the pill. */
+  position: absolute;
+  bottom: calc(3px - var(--part-hairline));
+  left: 50%;
+  transform: translateX(-50%);
   width: var(--part-step-dot);
   height: var(--part-step-dot);
   border-radius: var(--radius-pill);

@@ -18,6 +18,7 @@
   --part-move: 36px;
   --part-play: 40px;
   --part-step-dot: 5px;
+  --part-new-dot: 6px;
   --part-track: 6px;
   --part-tooltip: 32px;
   --part-preview-width: calc(var(--space-48) * 6.5);
@@ -98,6 +99,8 @@
   height: calc(var(--part-menu-row) / 2);
   opacity: 0;
   pointer-events: none;
+  /* Rows are positioned (.hit-area), so without a stack order they paint over ::before. */
+  z-index: 1;
 }
 
 .scroll-fade::before {

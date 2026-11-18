@@ -21,7 +21,7 @@ test.beforeEach(({}, testInfo) => {
 async function galleryReady(page: Page, batch: number): Promise<void> {
   // Tall enough that a cropped popup near a frame edge keeps its margin.
   await page.setViewportSize({ width: 2400, height: 1600 });
-  await page.goto(`${GALLERY}?batch=${batch}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  await page.goto(`${GALLERY}?batch=${batch}&view=all`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await page.waitForFunction(
     (count) => document.querySelectorAll('[data-part]').length === count,
     galleryParts.filter((part) => part.batch === batch).length,

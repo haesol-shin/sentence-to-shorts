@@ -8,7 +8,6 @@ import {
   Info,
   Library,
   Settings,
-  Sparkles,
 } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
@@ -166,7 +165,7 @@ const TAG_COPY: Record<string, { variant: TagVariant; label: string }> = {
 };
 
 function tagIcon(variant: TagVariant): ReactNode {
-  if (variant === 'new') return <Sparkles aria-hidden="true" />;
+  if (variant === 'new') return undefined;
   if (variant === 'warning') return <AlertTriangle aria-hidden="true" />;
   if (variant === 'error') return <AlertCircle aria-hidden="true" />;
   return <Info aria-hidden="true" />;

@@ -1,9 +1,12 @@
 import { Radio as RadioPrimitive } from '@base-ui/react/radio';
 import { RadioGroup as RadioGroupPrimitive } from '@base-ui/react/radio-group';
+import { Check } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 
 import './RadioGroup.css';
+
+import { LabelBox } from '../LabelBox';
 
 import { statesOf, type ForceState } from '../force-state';
 
@@ -56,10 +59,10 @@ export function RadioGroup({
           className="radio-option hit-area focus-ring"
           data-force-state={index === 0 ? forcedAttr : undefined}
         >
-          <span className="radio-option__mark" aria-hidden="true">
-            <span className="radio-option__dot" />
+          <span className="radio-option__label">
+            <LabelBox>{option.label}</LabelBox>
           </span>
-          <span className="radio-option__label">{option.label}</span>
+          <Check className="radio-option__check" aria-hidden="true" />
         </RadioPrimitive.Root>
       ))}
     </RadioGroupPrimitive>

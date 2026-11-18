@@ -67,11 +67,18 @@
   border: 0;
   border-radius: var(--radius-media);
   appearance: none;
+  /* The played part ends in a half circle, the same end as the progress bar. */
   background:
+    radial-gradient(
+        circle calc(var(--part-track) / 2) at calc(var(--player-progress) - var(--part-track) / 2) 50%,
+        var(--foreground) 98%,
+        transparent 100%
+      )
+      center / 100% var(--part-track) no-repeat,
     linear-gradient(
         to right,
-        var(--foreground) 0 var(--player-progress),
-        var(--muted) var(--player-progress) 100%
+        var(--foreground) 0 calc(var(--player-progress) - var(--part-track) / 2),
+        var(--muted) calc(var(--player-progress) - var(--part-track) / 2) 100%
       )
       center / 100% var(--part-track) no-repeat;
   cursor: pointer;

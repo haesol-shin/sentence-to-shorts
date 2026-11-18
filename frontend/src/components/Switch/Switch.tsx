@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Check } from 'lucide-react';
 import { Switch as SwitchPrimitive } from '@base-ui/react/switch';
 
 import { cn } from '@/shared/lib/utils';
@@ -23,7 +24,7 @@ export type SwitchProps = {
 
 
 
-/** An on/off pill. The selected look is a grey fill with bold text from the state table. */
+/** An on/off pill. The selected look is a grey fill, bold text and a check, the same as the radio group. */
 export function Switch({
   children,
   label,
@@ -48,6 +49,7 @@ export function Switch({
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
     >
       <LabelBox>{children}</LabelBox>
+      <Check className="switch-option__check" aria-hidden="true" />
     </SwitchPrimitive.Root>
   );
 }
