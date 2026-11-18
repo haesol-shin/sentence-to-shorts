@@ -1,0 +1,56 @@
+/*
+ * Shell measurements and the names the app screens read today.
+ *
+ * `design/tokens/build.mjs` copies this file into the generated
+ * `frontend/src/shared/ui/tokens.css`, so parts and screens load one stylesheet.
+ * The shell names are aliases of role tokens, not a second colour scale: a
+ * screen value changes only in `tokens.json`. The screens move onto the role
+ * names themselves when the screen work replaces their layout.
+ *
+ * The `--layout-*` values are measurements, not design decisions. They stay
+ * here because they describe this shell, not the colour and type scale.
+ */
+:root {
+  /* Shell greys, kept for the screens that still name a step directly. */
+  --gray-0: var(--palette-white);
+  --gray-50: var(--palette-gray-2);
+  --gray-100: var(--palette-gray-4);
+  --gray-200: var(--palette-gray-6);
+  --gray-300: var(--palette-gray-8);
+  --gray-500: var(--palette-gray-9);
+  --gray-700: var(--palette-gray-10);
+  --gray-900: var(--palette-gray-11);
+
+  /* Shell surface and text names. */
+  --surface: var(--card);
+  --surface-muted: var(--muted);
+  --surface-sunken: var(--accent);
+  --line: var(--accent);
+  --text-strong: var(--foreground);
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-disabled: var(--disabled-foreground);
+
+  /* Shell corner names. */
+  --radius-video: var(--radius-media);
+  --radius-panel: var(--radius-content);
+  --radius-input: var(--radius-surface);
+  --radius-card: var(--radius-column);
+  --radius-capsule: var(--radius-pill);
+
+  /* Shell sizes and motion. The shell controls are 48 today; the floor is 44. */
+  --touch-target: 48px;
+  --motion-short: var(--motion-panel-duration);
+
+  /* Shell layout. */
+  --layout-sidebar-w: 72px;
+  --layout-sidebar-w-sm: 56px;
+  --layout-topbar-h: 64px;
+  --layout-first-w: 576px;
+  --layout-scene-col-w: 152px;
+  --layout-scene-panel-max-w: 520px;
+  --layout-conversation-aspect: 380 / 796;
+  --layout-preview-aspect: 9 / 16;
+  --layout-mobile-preview-h: 40dvh;
+  --layout-thumb-h: 56px;
+}

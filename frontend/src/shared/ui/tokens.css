@@ -1,38 +1,198 @@
+/* Generated from tokens.json and shell.css by design/tokens/build.mjs. Do not edit by hand. */
+
+@font-face {
+  font-family: "Pretendard";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../../../design/tokens/fonts/Pretendard-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Pretendard";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../../../../design/tokens/fonts/Pretendard-Bold.woff2") format("woff2");
+}
+
+:root {
+  /* palette */
+  --palette-white: #FFFFFF;
+  --palette-gray-1: #F7F8F9;
+  --palette-gray-2: #F2F4F6;
+  --palette-gray-3: #ECEDEF;
+  --palette-gray-4: #E5E8EB;
+  --palette-gray-5: #DADDE1;
+  --palette-gray-6: #D5D8DC;
+  --palette-gray-7: #C9CDD2;
+  --palette-gray-8: #9AA0A8;
+  --palette-gray-9: #6B7280;
+  --palette-gray-sub: #646B76;
+  --palette-gray-10: #3A3F46;
+  --palette-gray-11: #22262B;
+  --palette-gray-12: #34383C;
+  --palette-blue-light: #A9CBFA;
+  --palette-blue: #3182F6;
+  --palette-blue-deep: #1B64DA;
+  --palette-orange: #B45309;
+  --palette-red: #DC2626;
+  /* roles */
+  --background: var(--palette-gray-3);
+  --foreground: var(--palette-gray-11);
+  --card: var(--palette-white);
+  --card-foreground: var(--palette-gray-11);
+  --popover: var(--palette-white);
+  --popover-foreground: var(--palette-gray-11);
+  --primary: var(--palette-gray-11);
+  --primary-foreground: var(--palette-white);
+  --primary-hover: var(--palette-gray-12);
+  --primary-pressed: var(--palette-gray-10);
+  --secondary: var(--palette-gray-2);
+  --secondary-foreground: var(--palette-gray-11);
+  --muted: var(--palette-gray-2);
+  --muted-foreground: var(--palette-gray-9);
+  --sub: var(--palette-gray-sub);
+  --accent: var(--palette-gray-4);
+  --accent-foreground: var(--palette-gray-11);
+  --accent-pressed: var(--palette-gray-5);
+  --state-hover-white: var(--palette-gray-2);
+  --state-selected: var(--palette-gray-4);
+  --state-pressed-white: var(--palette-gray-5);
+  --state-hover-gray: var(--palette-gray-5);
+  --state-pressed-gray: var(--palette-gray-7);
+  --destructive: var(--palette-red);
+  --warning: var(--palette-orange);
+  --emphasis: var(--palette-blue);
+  --progress: var(--palette-blue-deep);
+  --disabled-foreground: var(--palette-gray-8);
+  --border: var(--palette-gray-6);
+  --input: var(--palette-gray-6);
+  --ring: var(--palette-blue);
+  /* surfaces over pictures */
+  --overlay-caption: rgba(255, 255, 255, 0.88);
+  --overlay-scene-number: rgba(255, 255, 255, 0.92);
+  --overlay-length: rgba(0, 0, 0, 0.55);
+  --overlay-scrim: rgba(255, 255, 255, 0.55);
+  --overlay-dialog-scrim: rgba(34, 38, 43, 0.24);
+  /* typography */
+  --font-family-sans: "Pretendard", system-ui, sans-serif;
+  --font-size-display: 34px;
+  --font-size-title: 22px;
+  --font-size-body: 17px;
+  --font-size-small: 15px;
+  --font-size-scene-number: 13px;
+  --font-size-length: 12px;
+  --line-height-display: 46px;
+  --line-height-title: 30px;
+  --line-height-body: 26px;
+  --line-height-small: 22px;
+  --font-weight-regular: 400;
+  --font-weight-bold: 700;
+  /* space */
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-36: 36px;
+  --space-48: 48px;
+  /* size */
+  --size-control: 44px;
+  --size-dialog: 480px;
+  /* radius */
+  --radius-column: 36px;
+  --radius-composer: 28px;
+  --radius-surface: 24px;
+  --radius-toast: 22px;
+  --radius-row: 18px;
+  --radius-content: 16px;
+  --radius-media: 12px;
+  --radius-inset: 8px;
+  --radius-pill: 999px;
+  --radius-none: 0px;
+  /* shadow */
+  --shadow-none: none;
+  --shadow-float: 0 12px 32px rgba(0, 0, 0, 0.16);
+  --shadow-slide: -12px 0 32px rgba(0, 0, 0, 0.1);
+  /* layer */
+  --z-tooltip: 20;
+  --z-picker: 30;
+  --z-menu: 40;
+  --z-panel: 45;
+  --z-card-over-panel: 50;
+  --z-toast: 60;
+  --z-description: 70;
+  --z-dialog: 90;
+  --z-file-drop: 95;
+  /* focus */
+  --focus-width: 2px;
+  --focus-offset: 2px;
+  --focus-offset-inset: -2px;
+  --focus-offset-card: 6px;
+  /* icon */
+  --icon-close: 14px;
+  --icon-inline: 16px;
+  --icon-default: 20px;
+  --icon-title: 22px;
+  --icon-placeholder: 32px;
+  --icon-stroke: 2px;
+  /* motion */
+  --motion-ease: ease;
+  --motion-state-duration: 120ms;
+  --motion-panel-duration: 200ms;
+  --motion-screen-duration: 0ms;
+  --motion-preview-duration: 240ms;
+}
+
+/* ---- shell ---- */
+
 /*
- * Neutral shell tokens. The design track owns the full token set; this file
- * keeps the greys, the video corner radius and the shell measurements in one
- * place so a skin or layout change touches a single file. The shell draws no
- * colour and no font of its own until the design track lands.
+ * Shell measurements and the names the app screens read today.
+ *
+ * `design/tokens/build.mjs` copies this file into the generated
+ * `frontend/src/shared/ui/tokens.css`, so parts and screens load one stylesheet.
+ * The shell names are aliases of role tokens, not a second colour scale: a
+ * screen value changes only in `tokens.json`. The screens move onto the role
+ * names themselves when the screen work replaces their layout.
+ *
+ * The `--layout-*` values are measurements, not design decisions. They stay
+ * here because they describe this shell, not the colour and type scale.
  */
 :root {
-  --gray-0: #ffffff;
-  --gray-50: #f2f4f6;
-  --gray-100: #e5e8eb;
-  --gray-200: #d1d6db;
-  --gray-300: #b0b8c1;
-  --gray-500: #6b7684;
-  --gray-700: #333d4b;
-  --gray-900: #191f28;
+  /* Shell greys, kept for the screens that still name a step directly. */
+  --gray-0: var(--palette-white);
+  --gray-50: var(--palette-gray-2);
+  --gray-100: var(--palette-gray-4);
+  --gray-200: var(--palette-gray-6);
+  --gray-300: var(--palette-gray-8);
+  --gray-500: var(--palette-gray-9);
+  --gray-700: var(--palette-gray-10);
+  --gray-900: var(--palette-gray-11);
 
-  --surface: var(--gray-0);
-  --surface-muted: var(--gray-50);
-  --surface-sunken: var(--gray-100);
-  --line: var(--gray-100);
-  --text-strong: var(--gray-900);
-  --text: var(--gray-700);
-  --text-muted: var(--gray-500);
-  --text-disabled: var(--gray-300);
+  /* Shell surface and text names. */
+  --surface: var(--card);
+  --surface-muted: var(--muted);
+  --surface-sunken: var(--accent);
+  --line: var(--accent);
+  --text-strong: var(--foreground);
+  --text: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-disabled: var(--disabled-foreground);
 
-  /* Video corner radius: rounded while editing, square when played or exported. */
-  --radius-video: 12px;
-  --radius-panel: 16px;
-  --radius-input: 24px;
-  --radius-card: 36px;
-  --radius-capsule: 999px;
+  /* Shell corner names. */
+  --radius-video: var(--radius-media);
+  --radius-panel: var(--radius-content);
+  --radius-input: var(--radius-surface);
+  --radius-card: var(--radius-column);
+  --radius-capsule: var(--radius-pill);
 
+  /* Shell sizes and motion. The shell controls are 48 today; the floor is 44. */
   --touch-target: 48px;
-  --motion-short: 200ms;
+  --motion-short: var(--motion-panel-duration);
 
+  /* Shell layout. */
   --layout-sidebar-w: 72px;
   --layout-sidebar-w-sm: 56px;
   --layout-topbar-h: 64px;
@@ -45,8 +205,13 @@
   --layout-thumb-h: 56px;
 }
 
+/* Dark mode is not decided. Override the same role names under a .dark selector when it is. */
+
 @media (prefers-reduced-motion: reduce) {
   :root {
-    --motion-short: 0ms;
+    --motion-state-duration: 0ms;
+    --motion-panel-duration: 0ms;
+    --motion-screen-duration: 0ms;
+    --motion-preview-duration: 0ms;
   }
 }

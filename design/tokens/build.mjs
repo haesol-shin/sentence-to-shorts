@@ -1,7 +1,9 @@
-// Generate the token stylesheets and the two reference tables from tokens.json.
+// Generate the token stylesheet and the two reference tables from tokens.json.
 //
-// tokens.json is the only source. Run `node design/tokens/build.mjs` after editing it;
-// `--check` compares the outputs with what the source would generate.
+// tokens.json is the only source of the design values; shell.css holds this
+// app's measurements and the names the screens still read. Run
+// `node design/tokens/build.mjs` after editing either; `--check` compares the
+// outputs with what the sources would generate.
 
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -11,10 +13,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 export const TOKEN_DIR = dirname(fileURLToPath(import.meta.url));
 export const TOKENS_PATH = join(TOKEN_DIR, 'tokens.json');
 export const FONT_DIR = join(TOKEN_DIR, 'fonts');
+export const SHELL_PATH = join(TOKEN_DIR, 'shell.css');
 
 export const OUTPUTS = {
-  css: join(TOKEN_DIR, 'tokens.css'),
-  local: join(TOKEN_DIR, '..', '..', 'frontend', 'src', 'components', 'tokens.local.css'),
+  css: join(TOKEN_DIR, '..', '..', 'frontend', 'src', 'shared', 'ui', 'tokens.css'),
   contrast: join(TOKEN_DIR, 'contrast.md'),
   states: join(TOKEN_DIR, 'states.md'),
 };
@@ -195,9 +197,14 @@ function rule(name, value) {
   return `  --${name}: ${value};`;
 }
 
+/** The hand-kept shell block, copied into the generated stylesheet. */
+export function shellCss() {
+  return readFileSync(SHELL_PATH, 'utf8');
+}
+
 export function renderCss(tokens, output) {
   const lines = [];
-  lines.push('/* Generated from tokens.json by design/tokens/build.mjs. Do not edit by hand. */');
+  lines.push('/* Generated from tokens.json and shell.css by design/tokens/build.mjs. Do not edit by hand. */');
   lines.push('');
   for (const file of tokens.fonts.files) {
     lines.push('@font-face {');
@@ -267,6 +274,10 @@ export function renderCss(tokens, output) {
     lines.push(rule(`motion-${name}-duration`, value));
   }
   lines.push('}');
+  lines.push('');
+  lines.push('/* ---- shell ---- */');
+  lines.push('');
+  lines.push(shellCss().trim());
   lines.push('');
   lines.push('/* Dark mode is not decided. Override the same role names under a .dark selector when it is. */');
   lines.push('');
@@ -464,7 +475,7 @@ export function renderContrast(tokens) {
   lines.push('여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.');
   lines.push('');
   lines.push(
-    `회색 바탕의 뜻 색 글자는 \`--warning\`만 ${pair(pairRatio(tokens, '--warning', '--muted'))}로 통과하고 \`--muted-foreground\`와 \`--destructive\`는 ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 꼬리표와 안내 문장은 뜻 색을 아이콘에만 쓴다.`,
+    `회색 바탕의 뜻 색 글자는 \`--warning\`만 ${pair(pairRatio(tokens, '--warning', '--muted'))}로 통과하고 \`--muted-foreground\`와 \`--destructive\`는 ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 회색 바탕의 뜻 색은 아이콘에 쓰고, 뜻 색 글자는 흰 면에서 쓴다.`,
   );
   lines.push('');
   const byText = new Map();
@@ -569,7 +580,6 @@ export function fontHashes(tokens) {
 export function renderAll(tokens) {
   return new Map([
     [OUTPUTS.css, renderCss(tokens, OUTPUTS.css)],
-    [OUTPUTS.local, renderCss(tokens, OUTPUTS.local)],
     [OUTPUTS.contrast, renderContrast(tokens)],
     [OUTPUTS.states, renderStates(tokens)],
   ]);

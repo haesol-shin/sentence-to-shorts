@@ -1,4 +1,4 @@
-@import './tokens.local.css';
+@import '../shared/ui/tokens.css';
 
 /*
  * One place for the owner-decided sizes and the transparent hit area.
