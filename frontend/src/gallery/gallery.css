@@ -137,10 +137,115 @@ body {
   line-height: var(--line-height-small);
 }
 
+.frame__box {
+  overflow: hidden;
+}
+
+.frame__box--line {
+  outline: var(--part-hairline) solid var(--border);
+}
+
 .frame iframe {
   display: block;
+  transform-origin: 0 0;
   border: 0;
   background: var(--background);
+}
+
+/* ---- one part at a time, picked in the left list ---- */
+
+.gallery-shell {
+  display: flex;
+  align-items: flex-start;
+  min-height: 100dvh;
+}
+
+.gallery-shell .gallery {
+  flex: 1;
+  min-width: 0;
+  width: auto;
+}
+
+.gallery__nav {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  gap: var(--space-12);
+  width: 240px;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: var(--space-16) var(--space-12);
+  border-right: var(--part-hairline) solid var(--border);
+  background: var(--card);
+}
+
+.gallery__batches {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.gallery__nav a {
+  color: var(--foreground);
+  text-decoration: none;
+}
+
+.gallery__batches a {
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-inset);
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
+}
+
+.gallery__nav ol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gallery__nav ol a {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border-radius: var(--radius-inset);
+}
+
+.gallery__nav a:hover {
+  background: var(--muted);
+}
+
+.gallery__nav a[aria-current='page'] {
+  background: var(--muted);
+  font-weight: var(--font-weight-bold);
+}
+
+.gallery__nav-number {
+  width: 2ch;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.gallery__nav-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.gallery__nav-count {
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
+}
+
+.gallery__all {
+  margin-top: auto;
+  padding: var(--space-8);
+  font-size: var(--font-size-length);
+  line-height: var(--line-height-small);
 }
 
 /* ---- one case inside its own viewport ---- */
@@ -170,14 +275,15 @@ body {
   padding-bottom: calc(var(--space-48) * 2.5);
 }
 
+/* States go top to bottom from the left edge, in the fixed state order, so a state keeps its
+   place in every part. The two widths line up row by row through a shared min-height. */
 .case-group {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--space-24);
-  min-height: 100dvh;
-  padding: var(--space-24);
+  align-items: flex-start;
+  gap: var(--space-12);
+  padding: var(--space-12);
   background: var(--background);
 }
 

@@ -94,7 +94,7 @@
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  scroll-padding-block: var(--space-8);
+  scroll-padding-block: calc(var(--part-menu-row) / 2);
   scroll-snap-type: y proximity;
   scrollbar-width: none;
 }

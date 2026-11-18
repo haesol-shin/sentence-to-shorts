@@ -35,6 +35,15 @@
   color: var(--emphasis);
 }
 
+/* The new mark is a dot, like an unread mark; the tone stays on the mark only. */
+.tag__dot {
+  display: block;
+  width: var(--part-new-dot);
+  height: var(--part-new-dot);
+  border-radius: var(--radius-pill);
+  background: currentColor;
+}
+
 .tag--warning .tag__icon {
   color: var(--warning);
 }

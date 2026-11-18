@@ -22,8 +22,8 @@ test.beforeEach(({}, testInfo) => {
 async function galleryReady(page: Page, partId?: string, batch = 1): Promise<void> {
   const query =
     partId === undefined
-      ? `?batch=${batch}`
-      : `?batch=${batch}&part=${encodeURIComponent(partId)}`;
+      ? `?batch=${batch}&view=all`
+      : `?batch=${batch}&view=all&part=${encodeURIComponent(partId)}`;
   const expected = galleryParts.filter((part) => part.batch === batch).length;
   await page.goto(`${GALLERY}${query}`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
   await page.waitForFunction(
@@ -824,4 +824,62 @@ test('test_10a_gallery_has_no_ref_warnings', async ({ page }) => {
   expect(messages.filter((message) => message.includes('Function components cannot be given refs'))).toEqual(
     [],
   );
+});
+
+test('test_10a_one_part_view_keeps_opened_surfaces_inside_the_shown_box', async ({ page }) => {
+  // The default view shows one part and cuts each frame to the area its cases use.
+  await page.setViewportSize({ width: 1680, height: 940 });
+  await page.goto(`${GALLERY}?batch=1&part=value-field`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+  await expect(page.locator('iframe')).not.toHaveCount(0);
+  const ids = await page
+    .locator('[data-part]')
+    .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-part')));
+  expect(ids).toEqual(['value-field']);
+
+  const inside = async (selector: string, surface: string) => {
+    const frameBox = await page.locator(selector).evaluate((element) => {
+      const box = element.parentElement?.getBoundingClientRect();
+      return box === undefined ? null : { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    });
+    if (frameBox === null) throw new Error(`missing box: ${selector}`);
+    const frame = await frameOf(page, selector);
+    const tip = await frame.locator(surface).first().boundingBox();
+    if (tip === null) throw new Error(`missing surface: ${surface}`);
+    expect(tip.x).toBeGreaterThanOrEqual(frameBox.left - 0.5);
+    expect(tip.x + tip.width).toBeLessThanOrEqual(frameBox.right + 0.5);
+    expect(tip.y).toBeGreaterThanOrEqual(frameBox.top - 0.5);
+    expect(tip.y + tip.height).toBeLessThanOrEqual(frameBox.bottom + 0.5);
+  };
+
+  // A menu opened by hand inside the 1920 state list, then the reason tooltip of its row.
+  const list = 'iframe[data-frame-group="value-field"][width="1920"]';
+  const listFrame = await frameOf(page, list);
+  await listFrame.locator(`[data-case="${labelOf('value-field', 'default')}"] [role=combobox]`).click();
+  const row = listFrame.locator('[aria-label="로봇 목소리 곧 지원"]');
+  await row.hover();
+  await expect(listFrame.getByRole('tooltip')).toBeVisible();
+  await expect.poll(async () => {
+    try {
+      await inside(list, '[role=tooltip]');
+      return true;
+    } catch {
+      return false;
+    }
+  }).toBe(true);
+  await inside(list, '[role=listbox]');
+
+  // The same tooltip inside a popup case frame.
+  const popup = `iframe[data-frame-case="${labelOf('value-field', 'open')}"][width="1920"]`;
+  await page.locator(popup).scrollIntoViewIfNeeded();
+  const popupFrame = await frameOf(page, popup);
+  await popupFrame.locator('[aria-label="로봇 목소리 곧 지원"]').hover();
+  await expect(popupFrame.getByRole('tooltip')).toBeVisible();
+  await expect.poll(async () => {
+    try {
+      await inside(popup, '[role=tooltip]');
+      return true;
+    } catch {
+      return false;
+    }
+  }).toBe(true);
 });

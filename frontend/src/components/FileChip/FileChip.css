@@ -82,6 +82,7 @@
   display: block;
   width: var(--file-progress, 0%);
   height: 100%;
+  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
   background: var(--foreground);
   transition: width var(--motion-state-duration) var(--motion-ease);
 }
@@ -91,8 +92,24 @@
 }
 
 .file-chip[data-state='error'] .file-chip__detail {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
   color: var(--destructive);
   font-weight: var(--font-weight-bold);
+}
+
+.file-chip__alert {
+  width: var(--icon-close);
+  height: var(--icon-close);
+  flex: none;
+  stroke-width: var(--icon-stroke);
+}
+
+.file-chip__detail-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .file-chip[data-force-state~='focus-visible'] {

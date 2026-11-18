@@ -14,13 +14,17 @@ export type TagProps = {
   className?: string;
 };
 
-/** A pill label. The tone lives on the icon so the text keeps its contrast on grey. */
+/**
+ * A pill label. The tone lives on the icon so the text keeps its contrast on grey. The new
+ * variant draws its own dot, so every caller gets the same mark.
+ */
 export function Tag({ variant = 'neutral', icon, children, className }: TagProps) {
+  const mark = variant === 'new' ? <span className="tag__dot" /> : icon;
   return (
     <span className={cn('tag', `tag--${variant}`, className)} data-variant={variant}>
-      {icon === undefined ? null : (
+      {mark === undefined ? null : (
         <span className="tag__icon" aria-hidden="true">
-          {icon}
+          {mark}
         </span>
       )}
       <span className="tag__label">{children}</span>

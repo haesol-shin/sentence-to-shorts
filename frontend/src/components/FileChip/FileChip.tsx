@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
-import { FileText } from 'lucide-react';
+import { AlertCircle, FileText } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 
@@ -30,8 +30,9 @@ export type FileChipProps = {
 
 
 /**
- * A file attachment row. The kind mark stays neutral on failure so the one red
- * sentence is the detail line. The row is 320 wide and 56 high at full size.
+ * A file attachment row. A failed row gets a red border and a red alert mark before
+ * the detail line, as Carbon's invalid file does; the kind mark stays neutral.
+ * The row is 320 wide and 56 high at full size.
  */
 export function FileChip({
   name,
@@ -59,7 +60,12 @@ export function FileChip({
       </span>
       <span className="file-chip__text">
         <span className="file-chip__name">{name}</span>
-        {detail === undefined ? null : <span className="file-chip__detail">{detail}</span>}
+        {detail === undefined ? null : (
+          <span className="file-chip__detail">
+            {state === 'error' ? <AlertCircle className="file-chip__alert" aria-hidden="true" /> : null}
+            <span className="file-chip__detail-text">{detail}</span>
+          </span>
+        )}
       </span>
       {state === 'loading' ? (
         <span className="file-chip__bar" aria-hidden="true">

@@ -17,7 +17,7 @@
 
 .composer:focus-within,
 .composer[data-force-state~='focus-visible'] {
-  border-color: var(--ring);
+  border-color: var(--sub);
 }
 
 .composer[data-drop] {
