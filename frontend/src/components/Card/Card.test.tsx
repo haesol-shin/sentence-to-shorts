@@ -34,4 +34,19 @@ describe('Card', () => {
     expect((card as HTMLButtonElement).disabled).toBe(true);
     expect(onClick).not.toHaveBeenCalled();
   });
+
+  test('test_10a_card_busy_shows_the_work_status_and_stays_pressable', () => {
+    const onClick = vi.fn();
+    render(<Card variant="scene" label="편의점 앞" busy onClick={onClick} />);
+
+    const card = screen.getByRole('button', { name: '편의점 앞' });
+    expect(card.hasAttribute('data-busy')).toBe(true);
+    expect(screen.getByRole('status').textContent).toContain('고치는 중');
+    expect(card.querySelector('.spinner')).not.toBeNull();
+    expect(card.querySelector('.card__band')).not.toBeNull();
+
+    fireEvent.click(card);
+
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
 });

@@ -43,9 +43,9 @@
   cursor: not-allowed;
 }
 
-.send-button > .spinner {
-  width: var(--icon-inline);
-  height: var(--icon-inline);
+.send-button__stop {
+  font-size: var(--font-size-small);
+  line-height: 1;
 }
 
 @media (prefers-reduced-motion: reduce) {

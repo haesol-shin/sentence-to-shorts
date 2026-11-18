@@ -24,6 +24,10 @@ export type CardProps = {
   duration?: string;
   selected?: boolean;
   disabled?: boolean;
+  /** The work on this card is running. A blue spinner and the status text show it. */
+  busy?: boolean;
+  /** The status text while busy. The header keeps its line so the card size holds. */
+  busyLabel?: string;
   onClick?: () => void;
   /** Forces a state for the gallery. */
   forceState?: ForceState;
@@ -45,6 +49,8 @@ export function Card({
   duration,
   selected = false,
   disabled = false,
+  busy = false,
+  busyLabel = '고치는 중',
   onClick,
   forceState,
   className,
@@ -60,6 +66,7 @@ export function Card({
       aria-label={label}
       aria-pressed={isSelected}
       data-selected={isSelected ? '' : undefined}
+      data-busy={busy ? '' : undefined}
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
       disabled={isDisabled}
       onClick={onClick}
@@ -71,9 +78,17 @@ export function Card({
         {duration === undefined ? null : <span className="card__duration">{duration}</span>}
       </span>
       <span className="card__label">
-        <LabelBox>{label}</LabelBox>
+        {busy ? (
+          <span className="card__status" role="status">
+            <span className="spinner" aria-hidden="true" />
+            <span className="card__status-text">{busyLabel}</span>
+          </span>
+        ) : (
+          <LabelBox>{label}</LabelBox>
+        )}
       </span>
       {description === undefined ? null : <span className="card__description">{description}</span>}
+      {busy ? <span className="card__band" aria-hidden="true" /> : null}
     </button>
   );
 }

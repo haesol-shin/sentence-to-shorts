@@ -32,6 +32,7 @@ const STATE_ORDER = [
   'loading',
   'error',
   'focus-visible',
+  'busy',
 ] as const;
 
 function stateRank(state: string): number {
@@ -445,7 +446,7 @@ function PartSection({ part, scaled }: { part: GalleryPart; scaled: boolean }) {
           <>
             <p className="frames__label">
               상태 {inlineCases(part).length}개 · 위에서 아래로 기본, hover, 누름, 선택, 열림, 꺼짐, 곧 지원,
-              불러옴, 오류, 포커스 순 · 같은 상태는 두 폭에서 같은 높이
+              불러옴, 오류, 포커스, 실행 중 순 · 같은 상태는 두 폭에서 같은 높이
             </p>
             <StateFrames part={part} cropped={scaled} />
           </>

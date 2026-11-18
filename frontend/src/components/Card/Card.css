@@ -2,6 +2,7 @@
 
 .card {
   box-sizing: border-box;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -108,6 +109,65 @@
   font-weight: var(--font-weight-regular);
 }
 
+.card[data-busy] {
+  border-color: var(--emphasis);
+}
+
+/* The header keeps the label's line: the status replaces the label while the work runs. */
+.card__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 100%;
+  color: var(--progress);
+}
+
+.card__status .spinner {
+  color: var(--emphasis);
+}
+
+.card__status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * The band runs along the card border. It is a clipped layer so the travelling
+ * segment never shows outside the rounded edge, and the layer takes no press.
+ * The layer reaches over the border and the segment is the deeper progress blue
+ * so it reads against the lighter blue border.
+ */
+.card__band {
+  position: absolute;
+  inset: calc(var(--part-hairline) * -1);
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.card__band::before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 25%;
+  height: var(--part-hairline);
+  background: var(--progress);
+  animation: card-band calc(var(--motion-panel-duration) * 8) linear infinite;
+}
+
+@keyframes card-band {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(400%);
+  }
+}
+
 .card[data-selected] .card__label {
   font-weight: var(--font-weight-bold);
 }
@@ -151,5 +211,9 @@
 @media (prefers-reduced-motion: reduce) {
   .card {
     transition: none;
+  }
+
+  .card__band {
+    display: none;
   }
 }
