@@ -42,8 +42,8 @@ function stateRank(state: string): number {
 /**
  * The display position of each inline case. A part whose variants each carry several states
  * (the card) gets one block per variant. Otherwise the first case of each state follows the
- * state order, and the other cases (extra content, long text) follow in label order. Only the
- * CSS `order` changes; the DOM keeps label order.
+ * state order, and the other cases (extra content, long text) follow in label order. The DOM
+ * follows the same order, so keyboard and screen reader order match what is shown.
  */
 function displayOrder(part: GalleryPart): Map<string, number> {
   const cases = inlineCases(part);
@@ -121,9 +121,12 @@ function GroupFrame({ part }: { part: GalleryPart }) {
   const order = displayOrder(part);
   return (
     <div className="case-group" data-group={part.id}>
-      {inlineCases(part).map((entry) => (
-        <CaseBody key={entry.label} part={part} entry={entry} order={order.get(entry.label)} />
-      ))}
+      {inlineCases(part)
+        .map((entry, index) => ({ entry, rank: order.get(entry.label) ?? index }))
+        .sort((a, b) => a.rank - b.rank)
+        .map(({ entry, rank }) => (
+          <CaseBody key={entry.label} part={part} entry={entry} order={rank} />
+        ))}
     </div>
   );
 }

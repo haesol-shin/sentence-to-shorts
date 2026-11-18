@@ -60,10 +60,10 @@ export function FileChip({
       </span>
       <span className="file-chip__text">
         <span className="file-chip__name">{name}</span>
-        {detail === undefined ? null : (
+        {detail === undefined && state !== 'error' ? null : (
           <span className="file-chip__detail">
             {state === 'error' ? <AlertCircle className="file-chip__alert" aria-hidden="true" /> : null}
-            <span className="file-chip__detail-text">{detail}</span>
+            {detail === undefined ? null : <span className="file-chip__detail-text">{detail}</span>}
           </span>
         )}
       </span>

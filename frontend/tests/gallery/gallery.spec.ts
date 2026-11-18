@@ -70,10 +70,22 @@ test('test_10a_gallery_lists_every_part_and_numbered_case_in_order', async ({ pa
     for (const part of batchParts) {
       if (inlineCases(part).length > 0) {
         const frame = await frameOf(page, `iframe[data-frame-group="${part.id}"][width="390"]`);
-        const labels = await frame
+        const shown = await frame
           .locator('[data-case]')
-          .evaluateAll((elements) => elements.map((element) => element.getAttribute('data-case')));
-        expect(labels).toEqual(inlineCases(part).map((entry) => entry.label));
+          .evaluateAll((elements) =>
+            elements.map((element) => ({
+              label: element.getAttribute('data-case') ?? '',
+              order: Number(getComputedStyle(element).order),
+            })),
+          );
+        expect(shown.map((entry) => entry.label).sort()).toEqual(
+          inlineCases(part)
+            .map((entry) => entry.label)
+            .sort(),
+        );
+        // The DOM order is the shown order, so keyboard order follows what is on screen.
+        const orders = shown.map((entry) => entry.order);
+        expect(orders).toEqual([...orders].sort((x, y) => x - y));
       }
       for (const entry of portalCases(part)) {
         const frame = await frameOf(page, `iframe[data-frame-case="${entry.label}"][width="390"]`);
