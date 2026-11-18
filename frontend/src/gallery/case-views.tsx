@@ -205,6 +205,39 @@ const SHEET_LONG_VOICES = [
   ...SHEET_VOICES,
   { value: 'clear', label: '또렷한 목소리' },
   { value: 'soft', label: '부드러운 목소리' },
+  { value: 'strong', label: '힘 있는 목소리' },
+  { value: 'whisper', label: '속삭이는 목소리' },
+  { value: 'fast', label: '빠른 목소리' },
+  { value: 'slow', label: '느린 목소리' },
+  { value: 'mid', label: '중간 목소리' },
+  { value: 'deep', label: '아주 낮은 목소리' },
+  { value: 'high', label: '아주 높은 목소리' },
+  { value: 'bright-narration', label: '밝은 내레이션' },
+  { value: 'calm-narration', label: '차분한 내레이션' },
+  { value: 'deep-narration', label: '낮은 내레이션' },
+];
+
+const DIALOG_LONG_LINES = [
+  '장면 1의 대사를 새로 씀',
+  '장면 1의 목소리를 다시 만듦',
+  '장면 1의 그림을 다시 그림',
+  '장면 2의 대사를 새로 씀',
+  '장면 2의 목소리를 다시 만듦',
+  '장면 2의 그림을 다시 그림',
+  '장면 3의 대사를 새로 씀',
+  '장면 3의 목소리를 다시 만듦',
+  '장면 3의 그림을 다시 그림',
+  '장면 4의 대사를 새로 씀',
+  '장면 4의 목소리를 다시 만듦',
+  '장면 4의 그림을 다시 그림',
+  '장면 5의 대사를 새로 씀',
+  '장면 5의 목소리를 다시 만듦',
+  '장면 5의 그림을 다시 그림',
+  '장면 6의 대사를 새로 씀',
+  '장면 6의 목소리를 다시 만듦',
+  '장면 6의 그림을 다시 그림',
+  '전체 자막을 다시 맞춤',
+  '완성 영상을 다시 렌더함',
 ];
 
 const RANGE_CHANGES = [
@@ -266,7 +299,12 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
   switch (partId) {
     case 'button-primary':
       return (
-        <Button variant="primary" forceState={state}>
+        <Button
+          variant="primary"
+          forceState={state}
+          running={state === 'loading'}
+          stopLabel="만들기 멈추기"
+        >
           영상 만들기
         </Button>
       );
@@ -471,7 +509,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       );
     }
     case 'send-button':
-      return <SendButton label="보내기" forceState={state} />;
+      return <SendButton label="보내기" forceState={state} loading={state === 'loading'} />;
     case 'composer': {
       const long = entry.slug === 'long';
       return (
@@ -567,6 +605,11 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           <Notice tone="warning" title="바뀌지 않은 장면은 그대로 둬요">
             장면 3과 4의 파일은 다시 만들지 않아요.
           </Notice>
+          <ul className="demo-dialog-lines">
+            {DIALOG_LONG_LINES.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
         </Dialog>
       ) : (
         <Dialog
@@ -646,6 +689,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         >
           <RadioGroup
             label="목소리"
+            className={entry.slug === 'long' ? 'demo-sheet-voices' : undefined}
             options={entry.slug === 'long' ? SHEET_LONG_VOICES : SHEET_VOICES}
             defaultValue="calm"
           />
@@ -655,6 +699,9 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       if (entry.slug === 'bar') return <Progress value={40} labelText="만드는 중" />;
       if (entry.slug === 'complete') return <Progress value={100} label="영상 만들기" />;
       if (entry.slug === 'indeterminate') return <Progress value={null} label="만드는 중" />;
+      if (entry.slug === 'count') {
+        return <Progress value={3} max={5} label="영상 만드는 중" valueText="3 / 5" />;
+      }
       return <Progress value={40} label="장면 3개 만드는 중" />;
     case 'skeleton':
       return <Skeleton shape={entry.slug === 'text' ? 'text' : (entry.slug as 'thumb' | 'script' | 'media')} />;
@@ -723,7 +770,19 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         );
       }
       return <TopBarItem label="영상 설정" forceState={state} />;
-    case 'top-bar-status':
+    case 'top-bar-status': {
+      if (entry.slug === 'working-open') {
+        return (
+          <TopBarStatus
+            label="영상 만드는 중 3 / 5"
+            tone="working"
+            title="영상 만드는 중"
+            description="장면을 만드는 동안에도 다른 값을 고칠 수 있어요. 끝나면 알려 드려요."
+            detail={<Progress value={3} max={5} label="장면" valueText="3 / 5" />}
+            defaultOpen
+          />
+        );
+      }
       return (
         <TopBarStatus
           label="저장 실패"
@@ -736,6 +795,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           forceState={entry.portal ? undefined : state}
         />
       );
+    }
     case 'stage-indicator':
       return (
         <StageIndicator
@@ -748,6 +808,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       );
     case 'card': {
       const format = entry.variant === 'format';
+      const busy = entry.slug === 'scene-busy';
       return (
         <Card
           variant={format ? 'format' : 'scene'}
@@ -757,6 +818,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           duration={format ? undefined : '약 3초'}
           selected={state === 'selected'}
           disabled={state === 'disabled'}
+          busy={busy}
           forceState={state}
         />
       );

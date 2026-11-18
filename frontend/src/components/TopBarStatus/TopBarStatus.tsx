@@ -9,7 +9,7 @@ import './TopBarStatus.css';
 import { statesOf, type ForceState } from '../force-state';
 import { LabelBox } from '../LabelBox';
 
-export type TopBarStatusTone = 'idle' | 'saving' | 'saved' | 'error';
+export type TopBarStatusTone = 'idle' | 'working' | 'saved' | 'error';
 
 export type TopBarStatusProps = {
   /** The trigger label, for example "저장 실패". */
@@ -34,7 +34,7 @@ export type TopBarStatusProps = {
 function toneIcon(tone: TopBarStatusTone): ReactNode {
   if (tone === 'error') return <AlertCircle aria-hidden="true" />;
   if (tone === 'saved') return <Check aria-hidden="true" />;
-  if (tone === 'saving') return <span className="spinner" aria-hidden="true" />;
+  if (tone === 'working') return <span className="spinner" aria-hidden="true" />;
   return <Info aria-hidden="true" />;
 }
 

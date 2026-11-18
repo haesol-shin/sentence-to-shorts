@@ -42,16 +42,6 @@
   justify-content: center;
 }
 
-.button > .spinner {
-  position: absolute;
-  inset: 0;
-  margin: auto;
-}
-
-.button[aria-busy='true'] > .button__label {
-  opacity: 0;
-}
-
 .button__icon svg,
 .button__label svg {
   width: var(--icon-default);

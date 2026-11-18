@@ -6,8 +6,11 @@ export type OverflowFade = 'none' | 'bottom' | 'both' | 'top';
  * The owner's overflowing-menu rule: keep half of the next row visible, fade the
  * hidden side by scroll position, and do not draw a scrollbar. The scroll element
  * is snapped to a half-row height only while it overflows.
+ *
+ * A window or a text field passes `null`: it fades the hidden side by scroll
+ * position but never snaps, because its content is not a list of rows.
  */
-export function useOverflowFade(element: HTMLElement | null, rowSelector: string): OverflowFade {
+export function useOverflowFade(element: HTMLElement | null, rowSelector: string | null): OverflowFade {
   const [fade, setFade] = useState<OverflowFade>('none');
 
   useEffect(() => {
@@ -34,7 +37,8 @@ export function useOverflowFade(element: HTMLElement | null, rowSelector: string
         updateFade();
         return;
       }
-      const rows = element.querySelectorAll<HTMLElement>(rowSelector);
+      const rows =
+        rowSelector === null ? [] : element.querySelectorAll<HTMLElement>(rowSelector);
       if (rows.length > 1) {
         const box = element.getBoundingClientRect();
         const first = rows[0].getBoundingClientRect();

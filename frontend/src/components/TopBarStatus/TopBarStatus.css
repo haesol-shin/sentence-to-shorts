@@ -52,8 +52,13 @@
   color: var(--muted-foreground);
 }
 
-.top-bar-status__trigger[data-tone='saving'] .top-bar-status__icon {
-  color: var(--sub);
+.top-bar-status__trigger[data-tone='working'] .top-bar-status__icon {
+  color: var(--emphasis);
+}
+
+/* Only the label turns blue; the chevron inherits the trigger's foreground. */
+.top-bar-status__trigger[data-tone='working'] .top-bar-status__label {
+  color: var(--progress);
 }
 
 .top-bar-status__chevron {

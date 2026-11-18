@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { cn } from '@/shared/lib/utils';
 
 import { PopupContainerContext } from '../PopupContainer';
+import { useOverflowFade } from '../use-overflow-fade';
 
 import './BottomSheet.css';
 
@@ -44,6 +45,8 @@ export function BottomSheet({
   className,
 }: BottomSheetProps) {
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
+  const [scroll, setScroll] = useState<HTMLDivElement | null>(null);
+  const fade = useOverflowFade(scroll, null);
 
   return (
     <DialogPrimitive.Root
@@ -68,15 +71,20 @@ export function BottomSheet({
                 </DialogPrimitive.Title>
                 <DialogPrimitive.Close render={<CloseButton label={closeLabel} />} />
               </div>
-              <div className="sheet-popup__scroll">
-                {description === undefined ? null : (
-                  <DialogPrimitive.Description className="sheet-popup__description">
-                    {description}
-                  </DialogPrimitive.Description>
-                )}
-                {children === undefined ? null : (
-                  <div className="sheet-popup__content">{children}</div>
-                )}
+              <div
+                className="sheet-popup__scroll-frame scroll-fade"
+                data-fade={fade === 'none' ? undefined : fade}
+              >
+                <div className="sheet-popup__scroll" ref={setScroll}>
+                  {description === undefined ? null : (
+                    <DialogPrimitive.Description className="sheet-popup__description">
+                      {description}
+                    </DialogPrimitive.Description>
+                  )}
+                  {children === undefined ? null : (
+                    <div className="sheet-popup__content">{children}</div>
+                  )}
+                </div>
               </div>
               {actions === undefined ? null : (
                 <div className="sheet-popup__actions">{actions}</div>
