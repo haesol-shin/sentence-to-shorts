@@ -165,7 +165,9 @@ jobs:
       - name: Install the isolated aligner environment
         shell: bash
         working-directory: core/align_runtime
-        run: python -m poetry install
+        run: |
+          python -m poetry install
+          python -m poetry run python install_whisperx.py
       # A pull request runs the tests that cover its changed paths; a main push
       # runs everything. The marker filter keeps out the sandbox job, model
       # downloads and real provider calls. `core/pyproject.toml` limits each test
