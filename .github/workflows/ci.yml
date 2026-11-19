@@ -215,6 +215,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium webkit
+      - name: Install ffmpeg for the fixture backend
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg
       - name: Playwright in mock mode
         run: npm run test:e2e
       - name: Playwright against the fixture backend
