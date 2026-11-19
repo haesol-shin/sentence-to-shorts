@@ -87,6 +87,7 @@ from app.tools.downloaders import adapter as downloader_adapter
 from app.tools.media import adapter as media_adapter
 from app.tools.sandbox import adapter as sandbox_adapter
 from app.tools.tts.fixed_wav.adapter import create as create_fixed_wav
+from app.tools.tts.qwen3_tts_0_6b.adapter import create as create_qwen3_tts
 
 AdapterFactory = Callable[[Settings], object]
 Built = TypeVar("Built")
@@ -98,8 +99,12 @@ ADAPTER_FACTORIES: dict[str, dict[str, AdapterFactory]] = {
         "openai_compat": create_openai_compat,
         "claude_cli": create_claude_cli,
     },
-    "tts": {"fixed_wav": create_fixed_wav},
-    "aligner": {"default": align_adapter.create, "skeleton": align_adapter.create_skeleton},
+    "tts": {"fixed_wav": create_fixed_wav, "qwen3-tts-0.6b": create_qwen3_tts},
+    "aligner": {
+        "default": align_adapter.create,
+        "skeleton": align_adapter.create_skeleton,
+        "whisperx": align_adapter.create,
+    },
     "transcriber": {"default": asr_adapter.create, "skeleton": asr_adapter.create_skeleton},
     "media": {"default": media_adapter.create, "skeleton": media_adapter.create_skeleton},
     "sandbox": {"default": sandbox_adapter.create, "skeleton": sandbox_adapter.create_skeleton},
@@ -184,6 +189,13 @@ def _render_ready(media: MediaPort) -> bool:
     """Use the same media readiness for capabilities and submission gates."""
     ffmpeg = getattr(media, "ffmpeg", None)
     return isinstance(ffmpeg, Path) and ffmpeg.is_file()
+
+
+def _close_aligner(aligner: AlignerPort) -> None:
+    """Stop the selected aligner's worker; the fixture and none aligners own none."""
+    close = getattr(aligner, "close", None)
+    if close is not None:
+        close()
 
 
 class LocalJobs:
@@ -495,7 +507,10 @@ class AppRuntime:
             try:
                 self.tts.close()
             finally:
-                self.state_db.close()
+                try:
+                    _close_aligner(self.aligner)
+                finally:
+                    self.state_db.close()
 
 
 def _selected(name: str, settings: Settings) -> str | None:
