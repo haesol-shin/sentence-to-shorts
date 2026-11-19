@@ -1,4 +1,4 @@
-"""The aligner app.yaml selects reports `align_unavailable` and never invents a time."""
+"""The aligner app.yaml selects reports the contract's failure and never invents a time."""
 
 from __future__ import annotations
 
@@ -12,8 +12,14 @@ from app.schemas.artifact import AlignFallback
 from app.schemas.common import CaptionMode
 from app.services.voice.service import VoiceService
 from app.settings import Settings
-from app.tools.align.adapter import UnavailableAligner, create
+from app.tools.align.adapter import (
+    WHISPERX,
+    UnavailableAligner,
+    WhisperXAligner,
+    create,
+)
 from app.tools.tts.fixed_wav.adapter import FixedWavTts
+from tests.align.support import prepare_model_files
 from tests.voice.test_service import (
     VOICE_PIN,
     FakeArtifactStore,
@@ -48,9 +54,17 @@ def test_15_unavailable_aligner_stops_on_cancel(none_settings: Settings, tmp_pat
         create(none_settings).align(tmp_path / "x.wav", "a", "a", "en", cancel=cancel)
 
 
-@pytest.mark.parametrize("selected", ["default", "whisperx"])
-def test_15_no_other_aligner_is_implemented(app_settings: Settings, selected: str) -> None:
-    app_settings.providers.adapters["aligner"] = selected
+def test_15_selected_whisperx_builds_the_adapter(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    app_settings.providers.adapters["aligner"] = WHISPERX
+    prepare_model_files(app_settings)
+    monkeypatch.delenv("APP_ALIGN_PYTHON", raising=False)
+    assert isinstance(create(app_settings), WhisperXAligner)
+
+
+def test_15_default_stays_unimplemented(app_settings: Settings) -> None:
+    app_settings.providers.adapters["aligner"] = "default"
     with pytest.raises(NotImplementedError):
         create(app_settings)
 
