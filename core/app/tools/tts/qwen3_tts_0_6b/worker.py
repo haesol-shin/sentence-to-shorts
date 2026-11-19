@@ -47,7 +47,7 @@ def _read_requests(requests: queue.Queue[dict[str, Any]]) -> None:
     os._exit(0)
 
 
-def _load(model_dir: str, threads: int) -> Any:
+def _load(model_dir: str, threads: int, device: str) -> Any:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
     import torch
@@ -61,7 +61,7 @@ def _load(model_dir: str, threads: int) -> Any:
 
     model = Qwen3TTSModel.from_pretrained(
         model_dir,
-        device_map="cpu",
+        device_map=device,
         dtype=torch.float32,
         trust_remote_code=False,
         local_files_only=True,
@@ -108,12 +108,12 @@ def _synthesize(model: Any, request: dict[str, Any]) -> dict[str, Any]:
     return {"type": "done", "sample_rate": int(sample_rate)}
 
 
-def serve(model_dir: str, threads: int, idle_s: float) -> int:
+def serve(model_dir: str, threads: int, idle_s: float, device: str) -> int:
     proto = _reply_stream()
     requests: queue.Queue[dict[str, Any]] = queue.Queue()
     threading.Thread(target=_read_requests, args=(requests,), daemon=True).start()
     try:
-        model = _load(model_dir, threads)
+        model = _load(model_dir, threads, device)
     except ImportError as error:
         _send(proto, {"type": "error", "code": "package_missing", "name": error.name})
         return 1
@@ -138,12 +138,13 @@ def serve(model_dir: str, threads: int, idle_s: float) -> int:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--model-dir", required=True)
+    parser.add_argument("--device", choices=("cpu", "cuda"), required=True)
     parser.add_argument("--threads", type=int, required=True)
     parser.add_argument("--idle-s", type=float, required=True)
     args = parser.parse_args(argv)
     if args.threads < 1 or not math.isfinite(args.idle_s) or args.idle_s <= 0:
         parser.error("--threads and --idle-s must be positive")
-    return serve(args.model_dir, args.threads, args.idle_s)
+    return serve(args.model_dir, args.threads, args.idle_s, args.device)
 
 
 if __name__ == "__main__":

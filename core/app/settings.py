@@ -20,6 +20,7 @@ CONFIG_DIR = CORE / "config"
 
 Profile = Literal["fixture", "dev", "release"]
 Deployment = Literal["local", "hosted"]
+Device = Literal["auto", "cpu", "cuda"]
 
 
 class _Model(BaseModel):
@@ -134,6 +135,7 @@ class Settings(BaseModel):
 
     profile: Profile
     deployment: Deployment
+    device: Device
     app_version: str
     port: Annotated[int, Field(ge=1, le=65535)]
     lan: bool
@@ -215,6 +217,13 @@ def _env_deployment() -> Deployment:
     raise RuntimeError("APP_DEPLOYMENT must be local or hosted")
 
 
+def _env_device() -> Device:
+    value = os.environ.get("APP_DEVICE", "auto")
+    if value in ("auto", "cpu", "cuda"):
+        return value  # type: ignore[return-value]
+    raise RuntimeError("APP_DEVICE must be auto, cpu or cuda")
+
+
 def _read_settings() -> dict[str, object]:
     brand = BrandConfig.model_validate(_load_yaml(CONFIG_DIR / "brand.yaml"))
     app_file = AppFile.model_validate(_load_yaml(CONFIG_DIR / "app.yaml"))
@@ -238,6 +247,7 @@ def _read_settings() -> dict[str, object]:
     return {
         "profile": profile,
         "deployment": deployment,
+        "device": _env_device(),
         "app_version": _read_app_version(),
         "port": port,
         "lan": lan,

@@ -59,6 +59,9 @@ def respond(args: argparse.Namespace, request: dict, served: int, send) -> bool:
     if args.mode == "synth_error":
         send({"type": "error", "id": request["id"], "code": "synth_failed", "name": "KeyError"})
         return True
+    if args.mode == "synth_error_on_cuda" and args.device == "cuda":
+        send({"type": "error", "id": request["id"], "code": "synth_failed", "name": "RuntimeError"})
+        return True
     rate = 22050 if args.mode == "wrong_rate" else 24000
     tone(request["out"], rate=rate, truncate=args.mode == "truncated")
     send({"type": "done", "id": request["id"], "sample_rate": rate})
@@ -71,6 +74,7 @@ def main() -> int:
     parser.add_argument("--log", default="")
     parser.add_argument("--pid-file", default="")
     parser.add_argument("--model-dir")
+    parser.add_argument("--device", default="cpu")
     parser.add_argument("--threads")
     parser.add_argument("--idle-s", type=float, default=120.0)
     args = parser.parse_args()
@@ -92,7 +96,9 @@ def main() -> int:
         requests.put(None)
 
     threading.Thread(target=read, daemon=True).start()
-    log("start", mode=args.mode, threads=args.threads)
+    log("start", mode=args.mode, threads=args.threads, device=args.device)
+    if args.mode == "crash_on_cuda" and args.device == "cuda":
+        os._exit(3)
     if args.mode == "no_package":
         send({"type": "error", "code": "package_missing"})
         return 1
@@ -100,6 +106,8 @@ def main() -> int:
         send({"type": "error", "code": "load_failed", "name": "OSError"})
         return 1
     if args.mode == "slow_load":
+        time.sleep(600)
+    if args.mode == "slow_load_on_cuda" and args.device == "cuda":
         time.sleep(600)
     send({"type": "ready"})
     served = 0

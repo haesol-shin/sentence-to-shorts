@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from importlib import metadata
 from pathlib import Path
 
@@ -140,3 +141,94 @@ def test_11_thread_and_worker_changes_invalidate_cached_audio(
     assert threaded != first
     worker.write_text("# updated implementation", encoding="utf-8")
     assert create(app_settings).info().runtime_digest not in (first, threaded)
+
+
+def test_device_auto_takes_cuda_when_torch_reports_one(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "cuda_available", lambda: True)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cuda", "detected")
+
+
+def test_device_auto_stays_on_the_cpu_without_one(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "cuda_available", lambda: False)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "unavailable")
+
+
+def test_device_cpu_does_not_ask_torch_for_a_cuda_device(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail() -> bool:
+        raise AssertionError("cpu must not ask torch")
+
+    monkeypatch.setattr(engine, "cuda_available", fail)
+    app_settings.device = "cpu"
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "configured")
+
+
+def test_device_explicit_cuda_stops_the_start_without_one(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "cuda_available", lambda: False)
+    app_settings.device = "cuda"
+    with pytest.raises(RuntimeError, match="APP_DEVICE=cuda"):
+        create(app_settings)
+
+
+def test_device_is_part_of_the_audio_cache_digest(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "cuda_available", lambda: True)
+    cuda = create(app_settings).info().runtime_digest
+    monkeypatch.setattr(engine, "cuda_available", lambda: False)
+    cpu = create(app_settings).info().runtime_digest
+    assert cuda != cpu
+
+
+def test_device_explicit_cuda_checks_torch_can_run_on_the_device(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "cuda_available", lambda: True)
+    monkeypatch.setattr(engine, "cuda_runs", lambda: False)
+    app_settings.device = "cuda"
+    with pytest.raises(RuntimeError, match="cannot run an operation"):
+        create(app_settings)
+
+
+def test_device_explicit_cuda_accepts_a_runnable_device(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine, "cuda_available", lambda: True)
+    monkeypatch.setattr(engine, "cuda_runs", lambda: True)
+    app_settings.device = "cuda"
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cuda", "configured")
+
+
+def test_device_cuda_runs_waits_for_the_operation_to_finish(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeCuda:
+        def __init__(self, failure: bool) -> None:
+            self.failure = failure
+
+        def synchronize(self) -> None:
+            if self.failure:
+                raise RuntimeError("deferred kernel error")
+
+    class FakeTorch:
+        def __init__(self, failure: bool) -> None:
+            self.cuda = FakeCuda(failure)
+
+        def zeros(self, *args: object, **kwargs: object) -> None:
+            return None
+
+    monkeypatch.setitem(sys.modules, "torch", FakeTorch(True))
+    assert engine.cuda_runs() is False
+    monkeypatch.setitem(sys.modules, "torch", FakeTorch(False))
+    assert engine.cuda_runs() is True

@@ -128,7 +128,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | GET `/health` | 없음 | 200 `{version, profile, deployment}` | 없음 | 아니오 |
 | POST `/session/pair` | `PairRequest` | 200 `PairResponse`와 세션 cookie | 401 `pair_invalid`, 429 `rate_limited` | 아니오 |
 | GET `/session/csrf` | 없음 | 200 `CsrfResponse` | 401 `unauthenticated`, 403 `forbidden_origin` | 아니오 |
-| GET `/runtime` | 없음 | 200 `RuntimeStatus`(`brand` 필드에 표시 이름 포함) | 없음 | 아니오 |
+| GET `/runtime` | 없음 | 200 `RuntimeStatus`(`brand` 필드에 표시 이름, `speech` 필드에 TTS·ASR device와 이유 포함) | 없음 | 아니오 |
 | POST `/runtime/prepare` | 없음 | 202 Job `runtime_prepare` | 409 `job_running` | 예 |
 | PUT `/credentials/llm` | `ApiKeyRequest` | 204 | 403 `loopback_only`, 400 `validation_failed` | 아니오 |
 | GET `/credentials/llm` | 없음 | 200 `{configured}` | 없음 | 아니오 |
@@ -427,6 +427,11 @@ class TtsPort(Protocol):
 
 - 구현은 `core/app/tools/tts/<engine_id>/`다. 모델은 자식 worker process에서 한 번 load하고 job 동안 유지한다. 기술 선택: worker는 120초 idle 뒤 종료한다. 이유: 모델 reload 비용과 노트북 메모리를 함께 줄인다.
 - 문장당 timeout은 30초와 예상 길이 10배 중 큰 값이다.
+- device는 adapter를 만들 때 `APP_DEVICE`로 한 번 정한다. `auto`는 `torch.cuda.is_available()`이 참이면 cuda를 고른다. `auto`에서 GPU load가 실패하거나 시간 초과하거나 worker가 준비 응답 전에 종료하면 CPU로 한 번만 다시 load하고 `GET /runtime`의 `speech.tts`에 그 device와 이유를 남긴다. `cuda`를 명시했는데 쓸 수 없거나 `torch`가 그 장치에서 연산을 실행해 완료하지 못하면 시작하지 않는다.
+- worker는 호스트의 `CUDA_VISIBLE_DEVICES`와 `CUDA_DEVICE_ORDER`를 그대로 받는다. 공용 환경 허용 목록은 바꾸지 않는다.
+- CPU로 내려갈 때 로그에는 예외 유형과 오류 코드, stage만 남긴다. 모델 경로와 raw stderr는 남기지 않는다.
+- `auto`는 첫 합성 실패에서도 CPU로 한 번 다시 시도한다. `cuda`는 첫 사용 실패를 그대로 돌려준다. cuDNN 같은 추가 CUDA library는 시작에서 검사하지 않는다.
+- `runtime_digest`에는 실제로 고른 device가 들어간다. `tts_wav` key는 실제로 합성한 device의 digest로 만들고, 합성 중 device가 바뀌면 게시 전에 key를 다시 계산한다. 폴백 뒤에는 이미 고른 줄도 새 device key로 다시 조회해 timing과 이후 key가 실제로 쓴 WAV만 참조하게 한다. CPU와 GPU 음성은 같은 cache 항목을 쓰지 않는다.
 - 실패 코드는 `tts_not_ready`, `tts_failed`, `tts_timeout`이다. 무음이나 다른 엔진으로 대체하지 않는다.
 - `fixed_wav` 엔진은 시험과 fixture profile 전용이다. 글자 수에 비례한 길이의 결정적 tone WAV를 만든다. 제품 catalog에는 노출하지 않는다.
 - 네 후보 비교는 제품 코드 밖 `probes/tts/<candidate>/`에서 후보별 환경으로 한다. 공통 출력은 후보별 WAV, `result.json`(revision, OS, CPU, RAM, thread, cold_start_ms, rtf, peak_rss_bytes, 실패)이다.
@@ -448,7 +453,11 @@ class TranscriberPort(Protocol):
     def transcribe(self, wav: Path, language: str | None, *, cancel: CancelToken) -> list[Segment]: ...
 ```
 
-- 정렬은 알려진 대본의 forced alignment다. 기준선은 WhisperX다. 전사는 참고 영상용이고 별도 adapter다.
+- 정렬은 알려진 대본의 forced alignment다. 기준선은 WhisperX다. 전사는 참고 영상용이고 별도 adapter다. 정렬기는 device를 고르지 않고 CPU로 고정한다.
+- 전사 device는 adapter를 만들 때 `APP_DEVICE`로 한 번 정한다. `auto`는 `ctranslate2.get_cuda_device_count() > 0`이면 cuda를 고른다. `auto`에서 GPU load가 실패하면 CPU로 한 번만 다시 load하고 `GET /runtime`의 `speech.asr`에 그 device와 이유를 남긴다. `cuda`를 명시했는데 장치가 없거나 `ctranslate2`가 설정된 `int8` 연산을 그 GPU에서 지원하지 않거나 cuBLAS를 load할 수 없으면 시작하지 않는다. `auto`에서 그 검증이 실패하면 cpu로 내려간다.
+- 감지용 `ctranslate2` import가 실패하면 cuda가 없는 것으로 보고 `auto`는 cpu로 시작한다. 그 package가 필요한 전사 호출은 그때 `model_missing`의 package 이유로 실패한다.
+- ASR은 시작에서 `int8` 지원과 cuBLAS load만 확인한다. cuDNN 같은 나머지 library는 첫 전사에서 실패할 수 있고, `auto`는 그때 CPU로 한 번 다시 전사하며 `cuda`는 실패를 그대로 돌려준다.
+- Windows에서 CUDA library를 `PATH`에만 둔 설치는 시작 검사가 거절할 수 있다. 검사는 `CUDA_PATH`와 표준 검색만 본다.
 - 정렬이 실패하면 그 줄은 문장형 자막이다. `Timing.caption.fallback_reason`에 이유를 남긴다. 글자 비율로 나눈 가짜 시간은 만들지 않는다.
 - typewriter 줄은 예외다. 표시 일정은 forced alignment 결과가 아니라 화면 표시 계획이므로, 화면 글의 grapheme cluster마다 구간 하나를 `TimingCaption.phrases`에 넣는다. 줄의 표시 길이를 D, cluster 수를 N이라 할 때 i번째 구간은 `[line.start_ms + floor(i*D/N), line.start_ms + floor((i+1)*D/N))`이다. `start_char`와 `end_char`는 `display_text`의 code point index다.
 - 렌더는 구간 시작에 글자를 누적 표시하고 줄 끝까지 유지한다. 소리 섞기도 같은 구간 시작을 쓴다.
@@ -516,7 +525,8 @@ class MediaPort(Protocol):
 | `core/config/runtime.lock.json` | OS·CPU별 runtime 항목: 이름, 버전, URL, full revision, 파일 목록, bytes, SHA-256, 라이선스 | 계약 |
 
 - `settings.py`가 위 파일과 환경변수를 읽어 typed `Settings`를 만든다. `bootstrap.py`만 이를 import한다.
-- 환경변수: `APP_PROFILE`(fixture, dev, release), `APP_DEPLOYMENT`(local, hosted), `APP_PORT`, `APP_LAN`(1이면 LAN 모드), `APP_DATA_DIR`, `APP_CACHE_DIR`, `APP_MODEL_DIR`, `APP_RUNTIME_DIR`, `APP_LOG_LEVEL`.
+- 환경변수: `APP_PROFILE`(fixture, dev, release), `APP_DEPLOYMENT`(local, hosted), `APP_DEVICE`(auto, cpu, cuda), `APP_PORT`, `APP_LAN`(1이면 LAN 모드), `APP_DATA_DIR`, `APP_CACHE_DIR`, `APP_MODEL_DIR`, `APP_RUNTIME_DIR`, `APP_LOG_LEVEL`.
+- `APP_DEVICE`의 기본값은 `auto`다. TTS와 ASR이 각자 감지하고 `GET /runtime`의 `speech`가 고른 device와 이유(`configured`, `detected`, `unavailable`, `load_failed`)를 보여 준다. `cuda`를 명시하고 쓸 수 없으면 시작에서 오류로 멈춘다.
 
 | profile | LLM | TTS | 용도 |
 |---|---|---|---|

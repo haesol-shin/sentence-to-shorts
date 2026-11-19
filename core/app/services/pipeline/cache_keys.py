@@ -333,6 +333,21 @@ class Graph:
 
     # ------------------------------------------------------------------- keys
 
+    def tts_digest(self) -> str:
+        """The engine digest the next TTS key would use, after a device step-down."""
+        self._tts_runtime = None
+        return self._tts_engine()
+
+    def tts_key(self, line: Any) -> str:
+        """The current TTS key, re-reading the engine digest.
+
+        A synthesis may step the engine down to another device, so the digest
+        captured when this graph was built can be stale by the time the WAV is
+        published. The lookup and the publish must name the device that ran.
+        """
+        self._tts_runtime = None
+        return self._tts_key(line)
+
     def _tts_key(self, line: Any) -> str:
         voice = self._voice()
         inputs = {

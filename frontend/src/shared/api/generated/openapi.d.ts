@@ -1989,6 +1989,7 @@ export interface components {
              * @enum {string}
              */
             profile: "fixture" | "dev" | "release";
+            speech: components["schemas"]["SpeechDevices"];
         };
         /** SandboxRenderer */
         SandboxRenderer: {
@@ -2169,6 +2170,27 @@ export interface components {
          * @enum {string}
          */
         Speaker: "narrator" | "character";
+        /**
+         * SpeechDevice
+         * @description The compute device a speech adapter settled on, and why.
+         */
+        SpeechDevice: {
+            /**
+             * Device
+             * @enum {string}
+             */
+            device: "cpu" | "cuda";
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "configured" | "detected" | "unavailable" | "load_failed";
+        };
+        /** SpeechDevices */
+        SpeechDevices: {
+            asr: components["schemas"]["SpeechDevice"];
+            tts: components["schemas"]["SpeechDevice"];
+        };
         /**
          * Stage
          * @enum {string}

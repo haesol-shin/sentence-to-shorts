@@ -14,7 +14,7 @@ from typing import Any
 from PIL import Image
 from pydantic import ValidationError
 
-from app.ports import AppError, JobContext
+from app.ports import AppError, Cancelled, JobContext
 from app.schemas.artifact import Artifact, ArtifactKind, Timing
 from app.schemas.change import ChangePlan, Op, SetOp, Target
 from app.schemas.common import ArtifactRef, Origin
@@ -232,8 +232,15 @@ def _generate(run: RunState) -> None:
     build.refresh()
     scene_ids = list(video.scene_order)
     with run.stage(Stage.tts) as log:
+        before = build.tts_digest()
         for scene_id in scene_ids:
             build.ensure_tts(scene_id, log)
+        if build.tts_digest() != before:
+            # The engine stepped down. Earlier lines may have reused GPU WAVs;
+            # select every line again so timing and later keys see only CPU WAVs.
+            build.reset_tts()
+            for scene_id in scene_ids:
+                build.ensure_tts(scene_id, log)
     build.refresh_if_dirty()
     with run.stage(Stage.align) as log:
         for scene_id in scene_ids:
@@ -287,6 +294,14 @@ class _Builder:
     def refresh(self) -> None:
         self.graph = Graph(self.video, self.services)
         self.dirty = False
+
+    def tts_digest(self) -> str:
+        return self.graph.tts_digest()
+
+    def reset_tts(self) -> None:
+        """Re-select every TTS line after the engine stepped down to another device."""
+        self.refresh()
+        self._tts.clear()
 
     def refresh_if_dirty(self) -> None:
         if self.dirty:
@@ -542,39 +557,50 @@ class _Builder:
 
     def ensure_tts(self, scene_id: str, log: StageLog) -> None:
         scene = self.video.scenes[scene_id]
-        keys = self.keys(scene_id).tts
         artifacts: dict[str, Artifact] = {}
         for line in scene.lines:
-            cache_key = keys.get(line.id)
-            if cache_key is None:
-                raise AppError(
-                    "invalid_combination", detail={"line_id": line.id, "reason": "tts_key"}
-                )
+            cache_key = self.graph.tts_key(line)
             artifact = self.run.find(
                 cache_key, stage=log, scene_id=scene_id, line_id=line.id
             )
             if artifact is not None:
                 artifacts[line.id] = artifact
                 continue
-            with self.run.building(
-                ArtifactKind.tts_wav, cache_key, scene_id, line.id
-            ):
-                check_context(self.video, self.run.ctx, self.services)
-                path = self.services.voice.synthesize(
-                    self.voice_manifest(),
-                    self.video.settings.language.value,
-                    line,
-                    ctx=self.run.ctx,
-                )
-                check_context(self.video, self.run.ctx, self.services)
-                artifact = self.run.publish(
-                    ArtifactKind.tts_wav,
-                    cache_key,
-                    path,
-                    stage=Stage.tts,
-                    scene_id=scene_id,
-                    line_id=line.id,
-                )
+            initial_key = cache_key
+            try:
+                with self.run.building(
+                    ArtifactKind.tts_wav, initial_key, scene_id, line.id
+                ):
+                    check_context(self.video, self.run.ctx, self.services)
+                    path = self.services.voice.synthesize(
+                        self.voice_manifest(),
+                        self.video.settings.language.value,
+                        line,
+                        ctx=self.run.ctx,
+                    )
+                    check_context(self.video, self.run.ctx, self.services)
+                    # The engine may have stepped down to another device while it
+                    # synthesized. Publish under the device that actually ran.
+                    cache_key = self.graph.tts_key(line)
+                    artifact = self.run.publish(
+                        ArtifactKind.tts_wav,
+                        cache_key,
+                        path,
+                        stage=Stage.tts,
+                        scene_id=scene_id,
+                        line_id=line.id,
+                    )
+            except Cancelled:
+                # A cancel clears the building state; it is not a line failure.
+                raise
+            except BaseException as error:
+                current = self.graph.tts_key(line)
+                if current != initial_key:
+                    code = error.code if isinstance(error, AppError) else "internal"
+                    self.run.failed_state(
+                        ArtifactKind.tts_wav, current, scene_id, line.id, code
+                    )
+                raise
             artifacts[line.id] = artifact
             log.rebuilt(scene_id)
             self.run.rebuilt(scene_id)

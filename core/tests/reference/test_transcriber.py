@@ -5,18 +5,22 @@ from __future__ import annotations
 import importlib.util
 import os
 import re
+import sys
+import types
 from pathlib import Path
 
 import pytest
 
 from app.ports import AppError, Cancelled
 from app.tools.asr.adapter import create, create_skeleton
+from app.tools.asr.faster_whisper import adapter as faster_whisper
 from app.tools.asr.faster_whisper.adapter import (
     MODEL_FILES,
     RUNTIME_ITEM,
     FasterWhisperTranscriber,
     find_model,
 )
+from app.tools.device import DeviceSelection
 from tests.reference.support import Cancel
 
 PROBE_AUDIO = Path(__file__).resolve().parents[3] / "probes" / "transcribe" / "audio"
@@ -125,3 +129,198 @@ def test_20_transcriber_reads_speech_in_korean_and_english(
     assert kept / len(expected) >= floor
     assert segments and all(0 <= item.start_ms < item.end_ms for item in segments)
     assert segments == sorted(segments, key=lambda item: item.start_ms)
+
+
+def test_device_auto_takes_cuda_when_ctranslate2_reports_one(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 1)
+    monkeypatch.setattr(faster_whisper, "cuda_problem", lambda: None)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cuda", "detected")
+
+
+def test_device_auto_stays_on_the_cpu_without_one(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 0)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "unavailable")
+
+
+def test_device_cpu_does_not_ask_ctranslate2_for_a_device(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    def fail() -> int:
+        raise AssertionError("cpu must not ask ctranslate2")
+
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", fail)
+    app_settings.device = "cpu"
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "configured")
+
+
+def test_device_explicit_cuda_stops_the_start_without_one(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 0)
+    app_settings.device = "cuda"
+    with pytest.raises(RuntimeError, match="APP_DEVICE=cuda"):
+        create(app_settings)
+
+
+def test_device_auto_steps_down_to_the_cpu_once_after_a_failed_cuda_load(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _prepare(tmp_path)
+    devices: list[str] = []
+
+    class WhisperModel:
+        def __init__(
+            self, path: str, *, device: str, compute_type: str, local_files_only: bool
+        ) -> None:
+            devices.append(device)
+            if device == "cuda":
+                raise RuntimeError("/secret/model/path is unavailable")
+
+        def transcribe(self, path: str, **options: object) -> tuple[list, dict]:
+            return [], {}
+
+    module = types.ModuleType("faster_whisper")
+    module.WhisperModel = WhisperModel  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "faster_whisper", module)
+    adapter = FasterWhisperTranscriber(
+        tmp_path,
+        selection=DeviceSelection(requested="auto", device="cuda", reason="detected"),
+    )
+    assert adapter.transcribe(tmp_path / "a.wav", None, cancel=Cancel()) == []
+    assert devices == ["cuda", "cpu"]
+    assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+    assert "RuntimeError" in caplog.text
+    assert "/secret/model/path" not in caplog.text
+    assert adapter.transcribe(tmp_path / "a.wav", None, cancel=Cancel()) == []
+    assert devices == ["cuda", "cpu"]
+
+
+def test_device_explicit_cuda_stops_the_start_when_int8_is_unsupported(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 1)
+    monkeypatch.setattr(faster_whisper, "cuda_compute_type_supported", lambda: False)
+    app_settings.device = "cuda"
+    with pytest.raises(RuntimeError, match="cannot run int8"):
+        create(app_settings)
+
+
+def test_device_explicit_cuda_accepts_a_supported_compute_type(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 1)
+    monkeypatch.setattr(faster_whisper, "cuda_problem", lambda: None)
+    app_settings.device = "cuda"
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cuda", "configured")
+
+
+def test_device_auto_starts_without_an_importable_transcriber_package(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setitem(sys.modules, "ctranslate2", None)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "unavailable")
+
+
+def test_device_explicit_cuda_still_stops_without_an_importable_package(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setitem(sys.modules, "ctranslate2", None)
+    app_settings.device = "cuda"
+    with pytest.raises(RuntimeError, match="APP_DEVICE=cuda"):
+        create(app_settings)
+
+
+def test_device_asr_auto_steps_down_when_the_cuda_runtime_is_missing(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 1)
+    monkeypatch.setattr(faster_whisper, "cuda_compute_type_supported", lambda: True)
+    monkeypatch.setattr(faster_whisper, "cuda_runtime_available", lambda: False)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+
+
+def test_device_asr_explicit_cuda_stops_when_the_cuda_runtime_is_missing(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    monkeypatch.setattr(faster_whisper, "cuda_device_count", lambda: 1)
+    monkeypatch.setattr(faster_whisper, "cuda_compute_type_supported", lambda: True)
+    monkeypatch.setattr(faster_whisper, "cuda_runtime_available", lambda: False)
+    app_settings.device = "cuda"
+    with pytest.raises(RuntimeError, match="CUDA runtime"):
+        create(app_settings)
+
+
+def test_device_asr_cuda_runtime_available_loads_libcublas(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ctypes
+
+    monkeypatch.setattr(ctypes, "CDLL", lambda name: object())
+    assert faster_whisper.cuda_runtime_available() is True
+
+    def missing(name: str) -> object:
+        raise OSError(name)
+
+    monkeypatch.setattr(ctypes, "CDLL", missing)
+    assert faster_whisper.cuda_runtime_available() is False
+
+
+def test_device_auto_starts_when_the_transcriber_native_import_fails(
+    app_settings, monkeypatch: pytest.MonkeyPatch
+) -> None:  # type: ignore[no-untyped-def]
+    import builtins
+
+    real_import = builtins.__import__
+
+    def fail(name: str, *args: object, **kwargs: object) -> object:
+        if name == "ctranslate2":
+            raise OSError("native library failed to load")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", fail)
+    adapter = create(app_settings)
+    assert (adapter.device, adapter.device_reason) == ("cpu", "unavailable")
+
+
+def test_device_auto_retries_the_first_cuda_inference_on_the_cpu(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    _prepare(tmp_path)
+    devices: list[str] = []
+
+    class WhisperModel:
+        def __init__(
+            self, path: str, *, device: str, compute_type: str, local_files_only: bool
+        ) -> None:
+            self.device = device
+            devices.append(device)
+
+        def transcribe(self, path: str, **options: object) -> tuple[list, dict]:
+            if self.device == "cuda":
+                raise RuntimeError("/secret/cudnn is missing")
+            return [], {}
+
+    module = types.ModuleType("faster_whisper")
+    module.WhisperModel = WhisperModel  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "faster_whisper", module)
+    adapter = FasterWhisperTranscriber(
+        tmp_path,
+        selection=DeviceSelection(requested="auto", device="cuda", reason="detected"),
+    )
+    assert adapter.transcribe(tmp_path / "a.wav", None, cancel=Cancel()) == []
+    assert devices == ["cuda", "cpu"]
+    assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+    assert "RuntimeError" in caplog.text
+    assert "/secret/cudnn" not in caplog.text
+    assert adapter.transcribe(tmp_path / "a.wav", None, cancel=Cancel()) == []
+    assert devices == ["cuda", "cpu"]
