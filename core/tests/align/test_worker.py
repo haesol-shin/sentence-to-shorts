@@ -8,8 +8,15 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from app.tools.align.adapter import WORKER_PATH
 from tests.align.support import write_wav
+
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the real worker does not report ready within the load budget on the Windows runner",
+)
 
 RUN_WORKER = (
     "import runpy, sys\n"

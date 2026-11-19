@@ -32,6 +32,10 @@ K4_SPEECH = "가격은 만 이천오백 원이고, 성공률은 구십칠 점 �
 E2_DISPLAY = "The price is $12.50."
 E2_SPEECH = "The price is twelve dollars and fifty cents."
 K5_DISPLAY = "CPU와 GPU의 차이를 알고 있나요? Python API로 WAV 파일을 저장해 보세요."
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="process liveness is probed with POSIX signal 0"
+)
+
 K5_SPEECH = (
     "씨 피 유와 지 피 유의 차이를 알고 있나요? "
     "파이썬 에이 피 아이로 더블유 에이 브이 파일을 저장해 보세요."
