@@ -189,20 +189,137 @@ test('test_10a_visible_box_stays_equal_across_states', async ({ page }) => {
     ),
   );
   equal(await sizesOf('tabs', ['10-7-latin-default', '10-8-latin-selected'], '[role=tab]'));
-  const switchOff = await sizesOf(
+  const switchBoxes = await sizesOf(
     'switch',
-    ['12-1-default', '12-2-hover', '12-3-pressed', '12-5-disabled', '12-6-focus-visible'],
+    [
+      '12-1-default',
+      '12-2-hover',
+      '12-3-pressed',
+      '12-5-disabled',
+      '12-6-focus-visible',
+      '12-4-selected',
+      '12-7-label-element',
+    ],
     '.switch-option',
   );
-  equal(switchOff);
-  expect(switchOff[0][1]).toBe(44);
-  const switchOn = await sizesOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option');
-  equal(switchOn);
-  expect(switchOn[0][0]).toBeGreaterThan(switchOff[0][0]);
-  expect(switchOn[0][1]).toBe(switchOff[0][1]);
+  equal(switchBoxes);
+  expect(switchBoxes[0][1]).toBe(44);
 });
 
-test('test_10a_radio_and_switch_take_the_check_space_only_when_selected', async ({ page }) => {
+test('test_10a_decided_part_sizes_and_hit_areas', async ({ page }) => {
+  await galleryReady(page, 'card', 3);
+  const cardFrame = await frameOf(page, 'iframe[data-frame-group="card"][width="390"]');
+  const format = labelOf('card', 'format-default');
+  const cardBox = await cardFrame.locator(`[data-case="${format}"] .card--format`).boundingBox();
+  const mediaBox = await cardFrame.locator(`[data-case="${format}"] .card__media`).boundingBox();
+  if (cardBox === null || mediaBox === null) throw new Error('missing format card');
+  expect([cardBox.width, mediaBox.width, mediaBox.height]).toEqual([216, 200, 150]);
+
+  await galleryReady(page, 'tag');
+  const tagFrame = await frameOf(page, 'iframe[data-frame-group="tag"][width="390"]');
+  const neutral = labelOf('tag', 'neutral');
+  const tag = tagFrame.locator(`[data-case="${neutral}"] .tag`).first();
+  const tagBox = await tag.boundingBox();
+  if (tagBox === null) throw new Error('missing tag');
+  expect(tagBox.height).toBe(26);
+  const tagLook = await tag.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const x = box.left + box.width / 2;
+    const above = document.elementFromPoint(x, box.top - 8);
+    const below = document.elementFromPoint(x, box.bottom + 8);
+    return {
+      radius: getComputedStyle(element).borderRadius,
+      above: above === element || element.contains(above),
+      below: below === element || element.contains(below),
+    };
+  });
+  expect(tagLook.radius).toBe('13px');
+  expect(tagLook.above).toBe(true);
+  expect(tagLook.below).toBe(true);
+
+  const tagColors = await tagFrame.evaluate((label) => {
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    probe.style.backgroundColor = 'var(--muted)';
+    const muted = getComputedStyle(probe).backgroundColor;
+    probe.style.cssText = '';
+    probe.style.color = 'var(--foreground)';
+    const foreground = getComputedStyle(probe).color;
+    probe.remove();
+    const element = document.querySelector(`[data-case="${label}"] .tag`);
+    const style = element === null ? null : getComputedStyle(element);
+    return {
+      muted,
+      foreground,
+      background: style?.backgroundColor ?? '',
+      color: style?.color ?? '',
+    };
+  }, neutral);
+  expect(tagColors.background).toBe(tagColors.muted);
+  expect(tagColors.color).toBe(tagColors.foreground);
+
+  await galleryReady(page, 'switch');
+  const switchFrame = await frameOf(page, 'iframe[data-frame-group="switch"][width="390"]');
+  const offLabel = labelOf('switch', 'default');
+  const onLabel = labelOf('switch', 'selected');
+  const off = switchFrame.locator(`[data-case="${offLabel}"]`);
+  const track = await off.locator('.switch-option__track').boundingBox();
+  const thumb = await off.locator('.switch-option__thumb').boundingBox();
+  const row = await off.locator('.switch-option').boundingBox();
+  if (track === null || thumb === null || row === null) throw new Error('missing switch');
+  expect([track.width, track.height]).toEqual([44, 26]);
+  expect([thumb.width, thumb.height]).toEqual([20, 20]);
+  expect(row.height).toBe(44);
+
+  const onThumb = await switchFrame
+    .locator(`[data-case="${onLabel}"] .switch-option__thumb`)
+    .evaluate((element) => getComputedStyle(element).transform);
+  expect(onThumb).not.toBe('none');
+
+  const switchColors = await switchFrame.evaluate(
+    ({ off: offCase, on: onCase }) => {
+      const probe = document.createElement('span');
+      document.body.append(probe);
+      const resolve = (property: 'color' | 'backgroundColor' | 'borderTopColor', name: string) => {
+        probe.style.cssText = '';
+        if (property === 'color') probe.style.color = `var(${name})`;
+        if (property === 'backgroundColor') probe.style.backgroundColor = `var(${name})`;
+        if (property === 'borderTopColor') probe.style.borderColor = `var(${name})`;
+        return getComputedStyle(probe)[property];
+      };
+      const tokens = {
+        card: resolve('backgroundColor', '--card'),
+        border: resolve('borderTopColor', '--border'),
+        foreground: resolve('backgroundColor', '--foreground'),
+        selected: resolve('backgroundColor', '--state-selected'),
+      };
+      probe.remove();
+      const read = (label: string, part: string) => {
+        const element = document.querySelector(`[data-case="${label}"] ${part}`);
+        return element === null ? null : getComputedStyle(element);
+      };
+      const offTrack = read(offCase, '.switch-option__track');
+      const offThumb = read(offCase, '.switch-option__thumb');
+      const onTrack = read(onCase, '.switch-option__track');
+      return {
+        tokens,
+        offBackground: offTrack?.backgroundColor ?? '',
+        offBorder: offTrack?.borderTopColor ?? '',
+        offThumb: offThumb?.backgroundColor ?? '',
+        onBackground: onTrack?.backgroundColor ?? '',
+        onBorder: onTrack?.borderTopColor ?? '',
+      };
+    },
+    { off: offLabel, on: onLabel },
+  );
+  expect(switchColors.offBackground).toBe(switchColors.tokens.card);
+  expect(switchColors.offBorder).toBe(switchColors.tokens.border);
+  expect(switchColors.offThumb).toBe(switchColors.tokens.foreground);
+  expect(switchColors.onBackground).toBe(switchColors.tokens.selected);
+  expect(switchColors.onBorder).toBe(switchColors.tokens.selected);
+});
+
+test('test_10a_radio_takes_the_check_space_only_when_selected', async ({ page }) => {
   type OptionSize = { width: number; height: number; checkVisible: boolean };
   const sizesOf = async (
     partId: string,
@@ -237,16 +354,16 @@ test('test_10a_radio_and_switch_take_the_check_space_only_when_selected', async 
   const switchOff = await sizesOf('switch', ['12-1-default'], '.switch-option');
   const switchOn = await sizesOf('switch', ['12-4-selected'], '.switch-option');
   expect(switchOff[0].checkVisible).toBe(false);
-  expect(switchOn[0].checkVisible).toBe(true);
-  expect(switchOn[0].width).toBeGreaterThan(switchOff[0].width);
+  expect(switchOn[0].checkVisible).toBe(false);
+  expect(switchOn[0].width).toBe(switchOff[0].width);
   expect(switchOn[0].height).toBe(44);
   expect(switchOff[0].height).toBe(44);
 
   const rowOff = await sizesOf('settings-row', ['16-1-default'], '.switch-option');
   const rowOn = await sizesOf('settings-row', ['16-2-on'], '.switch-option');
   expect(rowOff[0].checkVisible).toBe(false);
-  expect(rowOn[0].checkVisible).toBe(true);
-  expect(rowOn[0].width).toBeGreaterThan(rowOff[0].width);
+  expect(rowOn[0].checkVisible).toBe(false);
+  expect(rowOn[0].width).toBe(rowOff[0].width);
   expect(rowOn[0].height).toBe(44);
   expect(rowOff[0].height).toBe(44);
 });
@@ -1370,7 +1487,7 @@ test('test_10a_batch_three_parts_keep_their_boxes_across_states', async ({ page 
 
   const format = await sizesOf('card', ['format-default', 'format-pressed', 'format-selected', 'format-disabled', 'format-focus-visible'], '.card--format');
   equal(format);
-  expect(format[0][0]).toBe(264);
+  expect(format[0][0]).toBe(216);
   const scene = await sizesOf('card', ['scene-default', 'scene-pressed', 'scene-selected', 'scene-disabled', 'scene-focus-visible'], '.card--scene');
   equal(scene);
   expect(scene[0][0]).toBe(120);

@@ -21,7 +21,7 @@ export type TagProps = {
 export function Tag({ variant = 'neutral', icon, children, className }: TagProps) {
   const mark = variant === 'new' ? <span className="tag__dot" /> : icon;
   return (
-    <span className={cn('tag', `tag--${variant}`, className)} data-variant={variant}>
+    <span className={cn('tag', 'hit-area', `tag--${variant}`, className)} data-variant={variant}>
       {mark === undefined ? null : (
         <span className="tag__icon" aria-hidden="true">
           {mark}

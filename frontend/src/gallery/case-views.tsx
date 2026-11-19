@@ -534,11 +534,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           <SettingsRow
             label="배경 음악"
             description="장면마다 다른 음악을 붙여요."
-            control={
-              <Switch label="배경 음악" disabled>
-                꺼짐
-              </Switch>
-            }
+            control={<Switch label="배경 음악" disabled />}
             note={
               <>
                 {SOON_TAG}
@@ -552,11 +548,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         <SettingsRow
           label="자동 저장"
           description="편집하는 동안 바뀐 값을 저장해요."
-          control={
-            <Switch label="자동 저장" defaultChecked={entry.slug === 'on'}>
-              {entry.slug === 'on' ? '켜짐' : '꺼짐'}
-            </Switch>
-          }
+          control={<Switch label="자동 저장" defaultChecked={entry.slug === 'on'} />}
         />
       );
     }

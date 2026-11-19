@@ -4,68 +4,91 @@
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   gap: var(--space-8);
-  height: var(--size-control);
-  min-width: var(--size-control);
-  padding-inline: var(--space-16);
-  border: var(--part-hairline) solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--card);
+  min-height: var(--size-control);
+  padding: 0;
+  border: 0;
+  background: none;
   color: var(--foreground);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    background-color var(--motion-state-duration) var(--motion-ease),
-    border-color var(--motion-state-duration) var(--motion-ease),
-    color var(--motion-state-duration) var(--motion-ease);
 }
 
-.switch-option:hover:not(:disabled),
-.switch-option[data-force-state~='hover']:not(:disabled) {
+/* The decided shape: a 44x26 track with a 20 knob, and the 44 row is the hit area. */
+.switch-option__track {
+  box-sizing: border-box;
+  position: relative;
+  display: block;
+  flex: none;
+  width: var(--part-switch-width);
+  height: var(--part-switch-height);
+  border: var(--part-hairline) solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  transition:
+    background-color var(--motion-state-duration) var(--motion-ease),
+    border-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.switch-option__thumb {
+  position: absolute;
+  top: var(--part-switch-inset);
+  left: var(--part-switch-inset);
+  width: var(--part-switch-thumb);
+  height: var(--part-switch-thumb);
+  border-radius: var(--radius-pill);
+  background: var(--foreground);
+  transition: transform var(--motion-state-duration) var(--motion-ease);
+}
+
+.switch-option:hover:not(:disabled):not([data-checked]) .switch-option__track,
+.switch-option[data-force-state~='hover']:not([data-checked]) .switch-option__track {
   background: var(--state-hover-white);
   border-color: var(--state-hover-white);
 }
 
-.switch-option:active:not(:disabled),
-.switch-option[data-force-state~='pressed']:not(:disabled) {
+.switch-option:active:not(:disabled):not([data-checked]) .switch-option__track,
+.switch-option[data-force-state~='pressed']:not([data-checked]) .switch-option__track {
   background: var(--state-pressed-white);
   border-color: var(--state-pressed-white);
 }
 
-.switch-option[data-checked],
-.switch-option[data-force-state~='selected'] {
+/* On keeps the selected fill and moves the knob to the far end. */
+.switch-option[data-checked] .switch-option__track,
+.switch-option[data-force-state~='selected'] .switch-option__track {
   background: var(--state-selected);
   border-color: var(--state-selected);
-  font-weight: var(--font-weight-bold);
 }
 
-/* The check takes its width and the gap only while the switch is on. */
-.switch-option__check {
-  display: none;
-  width: var(--icon-inline);
-  height: var(--icon-inline);
-  flex: none;
-  stroke-width: var(--icon-stroke);
-}
-
-.switch-option[data-checked] .switch-option__check,
-.switch-option[data-force-state~='selected'] .switch-option__check {
-  display: block;
+.switch-option[data-checked] .switch-option__thumb,
+.switch-option[data-force-state~='selected'] .switch-option__thumb {
+  transform: translateX(var(--part-switch-travel));
 }
 
 .switch-option:disabled,
 .switch-option[data-disabled],
 .switch-option[data-force-state~='disabled'] {
-  color: var(--disabled-foreground);
   cursor: not-allowed;
 }
 
+.switch-option:disabled .switch-option__label,
+.switch-option[data-disabled] .switch-option__label,
+.switch-option[data-force-state~='disabled'] .switch-option__label {
+  color: var(--disabled-foreground);
+}
+
+.switch-option:disabled .switch-option__thumb,
+.switch-option[data-disabled] .switch-option__thumb,
+.switch-option[data-force-state~='disabled'] .switch-option__thumb {
+  background: var(--disabled-foreground);
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .switch-option {
+  .switch-option__track,
+  .switch-option__thumb {
     transition: none;
   }
 }
