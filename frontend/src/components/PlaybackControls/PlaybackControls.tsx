@@ -76,19 +76,23 @@ export function PlaybackControls({
           <Play aria-hidden="true" fill="currentColor" />
         )}
       </button>
-      <input
-        className="player__progress focus-ring focus-ring--inset"
-        type="range"
-        min={0}
-        max={100}
-        step={1}
-        value={Math.max(0, Math.min(100, position))}
-        aria-label="재생 위치"
-        data-force-state={progressForced.length > 0 ? progressForced.join(' ') : undefined}
-        disabled={isDisabled}
-        style={style}
-        onChange={(event) => onSeek?.(Number(event.target.value))}
-      />
+      <span className="player__seek" style={style} data-disabled={isDisabled ? '' : undefined}>
+        <span className="player__track" aria-hidden="true">
+          <span className="player__fill" />
+        </span>
+        <input
+          className="player__progress focus-ring focus-ring--inset"
+          type="range"
+          min={0}
+          max={100}
+          step={1}
+          value={Math.max(0, Math.min(100, position))}
+          aria-label="재생 위치"
+          data-force-state={progressForced.length > 0 ? progressForced.join(' ') : undefined}
+          disabled={isDisabled}
+          onChange={(event) => onSeek?.(Number(event.target.value))}
+        />
+      </span>
       <span className="player__time">
         {current} / {duration}
       </span>

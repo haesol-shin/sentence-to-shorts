@@ -20,10 +20,9 @@ export type ProgressProps = {
 
 
 /**
- * A 6px progress track. The track is the muted surface and the fill is the
- * foreground, both from the state table. The text and its count use the
- * progress token. The value is announced to screen readers; the text keeps
- * the numbers in one width.
+ * A 6px progress track. The track is the muted surface, and the fill, the name
+ * and the count are the foreground. The top bar keeps the working text and its
+ * spinner in the progress token on its own.
  */
 export function Progress({ value, max = 100, label, labelText, valueText, className }: ProgressProps) {
   return (

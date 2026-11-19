@@ -29,12 +29,13 @@
     color var(--motion-state-duration) var(--motion-ease);
 }
 
+/* The check takes its width and the gap only while the choice is selected. */
 .radio-option__check {
+  display: none;
   width: var(--icon-inline);
   height: var(--icon-inline);
   flex: none;
   stroke-width: var(--icon-stroke);
-  visibility: hidden;
 }
 
 .radio-option:hover:not(:disabled),
@@ -58,7 +59,7 @@
 
 .radio-option[data-checked] .radio-option__check,
 .radio-option[data-force-state~='selected'] .radio-option__check {
-  visibility: visible;
+  display: block;
 }
 
 .radio-option:disabled,

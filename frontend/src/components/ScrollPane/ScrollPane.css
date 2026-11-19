@@ -1,0 +1,57 @@
+@import '../base.css';
+
+.scroll-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scroll-pane__viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+}
+
+.scroll-pane__viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.scroll-pane__content {
+  display: flex;
+  flex-direction: column;
+}
+
+/* The grey fill keeps the floating round control visible over the content. */
+.scroll-pane__jump {
+  position: absolute;
+  bottom: var(--space-12);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.scroll-pane__jump .icon-button {
+  background: var(--secondary);
+  border-color: var(--secondary);
+  color: var(--sub);
+}
+
+.scroll-pane__jump .icon-button:hover:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+  color: var(--foreground);
+}
+
+.scroll-pane__jump .icon-button:active:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+  color: var(--foreground);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-pane__viewport {
+    scroll-behavior: auto;
+  }
+}

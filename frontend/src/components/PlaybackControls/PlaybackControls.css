@@ -57,30 +57,49 @@
   cursor: not-allowed;
 }
 
-.player__progress {
-  box-sizing: border-box;
+.player__seek {
+  position: relative;
+  display: flex;
   flex: 1 1 auto;
+  align-items: center;
   min-width: 0;
   height: var(--size-control);
+}
+
+.player__track {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: var(--part-track);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+}
+
+.player__fill {
+  display: block;
+  width: var(--player-progress, 0%);
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--foreground);
+  transition: width var(--motion-state-duration) var(--motion-ease);
+}
+
+.player__seek[data-disabled] .player__fill {
+  background: var(--muted);
+}
+
+.player__progress {
+  box-sizing: border-box;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   margin: 0;
   padding: 0;
   border: 0;
-  border-radius: var(--radius-media);
   appearance: none;
-  /* The played part ends in a half circle, the same end as the progress bar. */
-  background:
-    radial-gradient(
-        circle calc(var(--part-track) / 2) at calc(var(--player-progress) - var(--part-track) / 2) 50%,
-        var(--foreground) 98%,
-        transparent 100%
-      )
-      center / 100% var(--part-track) no-repeat,
-    linear-gradient(
-        to right,
-        var(--foreground) 0 calc(var(--player-progress) - var(--part-track) / 2),
-        var(--muted) calc(var(--player-progress) - var(--part-track) / 2) 100%
-      )
-      center / 100% var(--part-track) no-repeat;
+  background: transparent;
   cursor: pointer;
 }
 
@@ -125,8 +144,6 @@
 .player__progress:disabled {
   cursor: not-allowed;
   opacity: 1;
-  background:
-    linear-gradient(to right, var(--muted) 0 100%) center / 100% var(--part-track) no-repeat;
 }
 
 .player__time {
@@ -137,7 +154,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .player__control {
+  .player__control,
+  .player__fill {
     transition: none;
   }
 }

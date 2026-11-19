@@ -1,4 +1,4 @@
-import type { ReactElement, ReactNode } from 'react';
+import { useEffect, useRef, type ReactElement, type ReactNode } from 'react';
 import {
   AlertCircle,
   AlertTriangle,
@@ -29,6 +29,7 @@ import { Progress } from '@/components/Progress/Progress';
 import { RadioGroup } from '@/components/RadioGroup/RadioGroup';
 import { RangeDialog } from '@/components/RangeDialog/RangeDialog';
 import { ReorderList } from '@/components/ReorderList/ReorderList';
+import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { SendButton } from '@/components/SendButton/SendButton';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
 import { SidebarItem } from '@/components/SidebarItem/SidebarItem';
@@ -290,6 +291,57 @@ const DIALOG_ACTIONS = (
     <DialogClose render={<Button>확인</Button>} />
   </>
 );
+
+const SCROLL_PARAGRAPHS = [
+  '장면 1. 편의점 앞에서 주인공이 재고 목록을 접어 든다. 오늘의 목표를 차분하게 말한다.',
+  '장면 2. 진열대를 한 칸씩 살피며 남은 수량을 센다. 계산대 너머로 손님이 지나간다.',
+  '장면 3. 점수판에 오늘의 기록을 적는다. 숫자가 하나씩 올라가고 표정이 조금 밝아진다.',
+  '장면 4. 냉장고 문을 닫고 다음 할 일을 정한다. 목소리가 조금 빨라진다.',
+  '장면 5. 창밖으로 해가 진다. 가게 안 조명이 하나씩 켜진다.',
+  '장면 6. 마지막 손님에게 인사를 건넨다. 문이 닫히고 안내 음악이 작게 흐른다.',
+  '장면 7. 오늘 남은 일을 메모에 적는다. 내일 확인할 항목 세 가지를 표시한다.',
+  '장면 8. 불을 끄고 가게를 나선다. 화면이 천천히 멀어진다.',
+  '장면 9. 다음 날 아침, 같은 자리에서 문을 연다. 간판이 잠깐 깜빡인다.',
+  '장면 10. 새 재고 상자를 풀어 놓는다. 목록과 실제 수량을 하나씩 맞춘다.',
+  '장면 11. 손님이 오래 머문 자리를 정리한다. 바닥의 표시를 다시 붙인다.',
+  '장면 12. 계산대 옆에 안내 문구를 세운다. 글자가 잘 보이는지 확인한다.',
+  '장면 13. 점심때 손님이 몰린다. 줄이 길어지지 않게 동선을 바꾼다.',
+  '장면 14. 잠깐 쉬며 오늘의 매출을 확인한다. 숫자를 메모에 옮긴다.',
+  '장면 15. 오후에는 새 진열을 시험한다. 손님 반응을 보고 자리를 고친다.',
+  '장면 16. 문을 닫기 전에 내일 쓸 물건을 챙긴다. 목록의 마지막 칸을 지운다.',
+];
+
+/** One home for the result card title: the visible heading also names the window. */
+const RESULT_TITLE = '영상';
+const RESULT_TITLE_ID = 'gallery-result-card-title';
+
+function ScrollPaneCase({ atEnd, short }: { atEnd: boolean; short: boolean }) {
+  const viewport = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!atEnd) return undefined;
+    const element = viewport.current;
+    if (element === null) return undefined;
+    let stopped = false;
+    const toEnd = () => {
+      if (!stopped) element.scrollTop = element.scrollHeight;
+    };
+    toEnd();
+    void element.ownerDocument.fonts.ready.then(toEnd);
+    return () => {
+      stopped = true;
+    };
+  }, [atEnd]);
+  const paragraphs = short ? SCROLL_PARAGRAPHS.slice(0, 1) : SCROLL_PARAGRAPHS;
+  return (
+    <ScrollPane ref={viewport} label="대본" className="demo-scroll-pane">
+      {paragraphs.map((paragraph) => (
+        <p className="demo-scroll-pane__line" key={paragraph}>
+          {paragraph}
+        </p>
+      ))}
+    </ScrollPane>
+  );
+}
 
 
 /** One case of a part. The label is drawn here so every screenshot carries it. */
@@ -855,38 +907,63 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           duration={entry.slug === 'ready' ? '0:07' : undefined}
         />
       );
+    case 'scroll-pane':
+      return <ScrollPaneCase atEnd={entry.slug === 'end'} short={entry.slug === 'short'} />;
     case 'result-card':
       return (
         <Dialog
           defaultOpen
           className="demo-result-dialog"
-          title={
-            <span className="demo-result__title-row">
-              <span>완성된 영상</span>
-              <DialogClose render={<CloseButton label="결과 카드 닫기" />} />
-            </span>
-          }
-          actions={
-            <>
-              <Button variant="secondary" size="sm">
-                SRT 저장
-              </Button>
-              <Button variant="secondary" size="sm">
-                크게 보기
-              </Button>
-              <DialogClose render={<Button>편집으로</Button>} />
-            </>
-          }
+          labelledBy={RESULT_TITLE_ID}
         >
-          <div className="demo-result__media">
-            <VideoPreview label="완성된 영상 미리보기" state="ready" duration="0:07" />
+          <div className="demo-result">
+            <div className="demo-result__player">
+              <VideoPreview label="영상 미리보기" state="ready" duration="0:23" />
+              <PlaybackControls
+                label="영상 재생 조절"
+                position={0}
+                current="0:00"
+                duration="0:23"
+              />
+            </div>
+            <div className="demo-result__side">
+              <div className="demo-result__head">
+                <h2 id={RESULT_TITLE_ID} className="demo-result__title">
+                  {RESULT_TITLE}
+                </h2>
+                <DialogClose
+                  render={<CloseButton label="결과 카드 닫기" className="focus-ring--inset" />}
+                />
+              </div>
+              <p className="demo-result__description">
+                처음부터 끝까지 이어서 보고, 괜찮으면 저장해요.
+              </p>
+              <dl className="demo-result__facts">
+                <dt>길이</dt>
+                <dd>23초</dd>
+                <dt>형식</dt>
+                <dd>mp4, 1080×1920, 30fps</dd>
+                <dt>자막</dt>
+                <dd>
+                  한 문장씩{' '}
+                  <Button variant="ghost" size="sm" className="demo-result__inline">
+                    자막 저장
+                  </Button>
+                </dd>
+                <dt>사용량</dt>
+                <dd>
+                  입력 1,240, 출력 680 토큰{' '}
+                  <Button variant="ghost" size="sm" className="demo-result__inline">
+                    사용량 보기
+                  </Button>
+                </dd>
+              </dl>
+              <div className="demo-result__actions">
+                <DialogClose render={<Button variant="secondary">편집으로</Button>} />
+                <Button>mp4 저장</Button>
+              </div>
+            </div>
           </div>
-          <PlaybackControls
-            label="완성된 영상 재생 조절"
-            position={100}
-            current="0:07"
-            duration="0:07"
-          />
         </Dialog>
       );
     default:

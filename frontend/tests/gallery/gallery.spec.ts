@@ -1,9 +1,23 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { expect, test, type Frame, type Page } from '@playwright/test';
+import { expect, test, type Frame, type Locator, type Page } from '@playwright/test';
 
 import { galleryParts, inlineCases, portalCases } from '../../src/gallery/items';
+
+type GalleryWheelEvent = {
+  ctrl: boolean;
+  shift: boolean;
+  deltaX: number;
+  deltaY: number;
+  prevented: boolean;
+};
+
+declare global {
+  interface Window {
+    __galleryWheelLog?: GalleryWheelEvent[];
+  }
+}
 
 const GALLERY = '/src/gallery/index.html';
 const PROBE = `${GALLERY}?probe=1`;
@@ -55,6 +69,32 @@ function labelOf(partId: string, slug: string): string {
   const entry = part?.cases.find((candidate) => candidate.slug === slug);
   if (entry === undefined) throw new Error(`missing case: ${partId} ${slug}`);
   return entry.label;
+}
+
+type ScrollPaneCases = {
+  viewport: Locator;
+  jump: Locator;
+  body: Locator;
+};
+
+async function openScrollPane(page: Page): Promise<ScrollPaneCases> {
+  await page.goto(`${GALLERY}?group=scroll-pane`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 120_000,
+  });
+  await page.waitForFunction(() => document.querySelectorAll('[data-case]').length === 3, undefined, {
+    timeout: 120_000,
+  });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    window.scrollTo(0, 0);
+  });
+  const longCase = page.locator(`[data-case="${labelOf('scroll-pane', 'long')}"]`);
+  return {
+    viewport: longCase.locator('.scroll-pane__viewport'),
+    jump: longCase.getByRole('button', { name: '아래로 넘기기' }),
+    body: longCase.locator('.demo-scroll-pane__line').first(),
+  };
 }
 
 test('test_10a_gallery_lists_every_part_and_numbered_case_in_order', async ({ page }) => {
@@ -149,14 +189,66 @@ test('test_10a_visible_box_stays_equal_across_states', async ({ page }) => {
     ),
   );
   equal(await sizesOf('tabs', ['10-7-latin-default', '10-8-latin-selected'], '[role=tab]'));
-  equal(
-    await sizesOf(
-      'switch',
-      ['12-1-default', '12-2-hover', '12-3-pressed', '12-4-selected', '12-5-disabled', '12-6-focus-visible'],
-      '.switch-option',
-    ),
+  const switchOff = await sizesOf(
+    'switch',
+    ['12-1-default', '12-2-hover', '12-3-pressed', '12-5-disabled', '12-6-focus-visible'],
+    '.switch-option',
   );
-  equal(await sizesOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option'));
+  equal(switchOff);
+  expect(switchOff[0][1]).toBe(44);
+  const switchOn = await sizesOf('switch', ['12-4-selected', '12-7-label-element'], '.switch-option');
+  equal(switchOn);
+  expect(switchOn[0][0]).toBeGreaterThan(switchOff[0][0]);
+  expect(switchOn[0][1]).toBe(switchOff[0][1]);
+});
+
+test('test_10a_radio_and_switch_take_the_check_space_only_when_selected', async ({ page }) => {
+  type OptionSize = { width: number; height: number; checkVisible: boolean };
+  const sizesOf = async (
+    partId: string,
+    labels: readonly string[],
+    selector: string,
+  ): Promise<OptionSize[]> => {
+    await galleryReady(page, partId);
+    const frame = await frameOf(page, `iframe[data-frame-group="${partId}"][width="390"]`);
+    const sizes: OptionSize[] = [];
+    for (const label of labels) {
+      const option = frame.locator(`[data-case="${label}"] ${selector}`).first();
+      const box = await option.boundingBox();
+      if (box === null) throw new Error(`missing option: ${label}`);
+      const checkVisible = await option.locator('svg').first().isVisible();
+      sizes.push({
+        width: Math.round(box.width * 10) / 10,
+        height: Math.round(box.height * 10) / 10,
+        checkVisible,
+      });
+    }
+    return sizes;
+  };
+
+  const radioOff = await sizesOf('radio', ['11-1-default'], '.radio-option');
+  const radioOn = await sizesOf('radio', ['11-4-selected'], '.radio-option');
+  expect(radioOff[0].checkVisible).toBe(false);
+  expect(radioOn[0].checkVisible).toBe(true);
+  expect(radioOn[0].width).toBeGreaterThan(radioOff[0].width);
+  expect(radioOn[0].height).toBe(44);
+  expect(radioOff[0].height).toBe(44);
+
+  const switchOff = await sizesOf('switch', ['12-1-default'], '.switch-option');
+  const switchOn = await sizesOf('switch', ['12-4-selected'], '.switch-option');
+  expect(switchOff[0].checkVisible).toBe(false);
+  expect(switchOn[0].checkVisible).toBe(true);
+  expect(switchOn[0].width).toBeGreaterThan(switchOff[0].width);
+  expect(switchOn[0].height).toBe(44);
+  expect(switchOff[0].height).toBe(44);
+
+  const rowOff = await sizesOf('settings-row', ['16-1-default'], '.switch-option');
+  const rowOn = await sizesOf('settings-row', ['16-2-on'], '.switch-option');
+  expect(rowOff[0].checkVisible).toBe(false);
+  expect(rowOn[0].checkVisible).toBe(true);
+  expect(rowOn[0].width).toBeGreaterThan(rowOff[0].width);
+  expect(rowOn[0].height).toBe(44);
+  expect(rowOff[0].height).toBe(44);
 });
 
 test('test_10a_batch_two_boxes_stay_equal_across_states', async ({ page }) => {
@@ -504,7 +596,7 @@ test('test_10a_running_buttons_become_their_stop_controls', async ({ page }) => 
   await expect(send.locator('.spinner')).toHaveCount(0);
 });
 
-test('test_10a_batch_four_progress_text_uses_the_progress_token', async ({ page }) => {
+test('test_10a_batch_four_progress_text_and_bar_use_the_foreground_token', async ({ page }) => {
   await galleryReady(page, 'progress', 2);
   const frame = await frameOf(page, 'iframe[data-frame-group="progress"][width="390"]');
   const label = labelOf('progress', 'count');
@@ -517,23 +609,31 @@ test('test_10a_batch_four_progress_text_uses_the_progress_token', async ({ page 
       probe.style.color = `var(${name})`;
       return getComputedStyle(probe).color;
     };
-    const progress = resolve('--progress');
+    const foreground = resolve('--foreground');
+    const muted = resolve('--muted');
     probe.remove();
     const box = document.querySelector(`[data-case="${caseLabel}"]`);
     const labelElement = box?.querySelector('.progress__label') ?? null;
     const valueElement = box?.querySelector('.progress__value') ?? null;
+    const indicator = box?.querySelector('.progress__indicator') ?? null;
+    const track = box?.querySelector('.progress__track') ?? null;
     return {
-      progress,
+      foreground,
+      muted,
       label: labelElement === null ? '' : getComputedStyle(labelElement).color,
       value: valueElement === null ? '' : getComputedStyle(valueElement).color,
+      indicator: indicator === null ? '' : getComputedStyle(indicator).backgroundColor,
+      track: track === null ? '' : getComputedStyle(track).backgroundColor,
     };
   }, label);
 
-  expect(colors.label).toBe(colors.progress);
-  expect(colors.value).toBe(colors.progress);
+  expect(colors.label).toBe(colors.foreground);
+  expect(colors.value).toBe(colors.foreground);
+  expect(colors.indicator).toBe(colors.foreground);
+  expect(colors.track).toBe(colors.muted);
 });
 
-test('test_10a_batch_four_top_bar_working_tone_is_blue_with_a_gray_chevron', async ({ page }) => {
+test('test_10a_batch_four_top_bar_working_tone_keeps_only_its_text_and_spinner_blue', async ({ page }) => {
   await galleryReady(page, 'top-bar-status', 3);
   const label = labelOf('top-bar-status', 'working-open');
   const frame = await frameOf(page, `iframe[data-frame-case="${label}"][width="390"]`);
@@ -549,30 +649,60 @@ test('test_10a_batch_four_top_bar_working_tone_is_blue_with_a_gray_chevron', asy
       return getComputedStyle(probe).color;
     };
     const progress = resolve('--progress');
-    const emphasis = resolve('--emphasis');
     const foreground = resolve('--foreground');
+    const sub = resolve('--sub');
     probe.remove();
     const box = document.querySelector(`[data-case="${caseLabel}"]`);
     const labelElement = box?.querySelector('.top-bar-status__label') ?? null;
     const iconElement = box?.querySelector('.top-bar-status__icon') ?? null;
     const chevronElement = box?.querySelector('.top-bar-status__chevron') ?? null;
+    const panelLabel = document.querySelector('.status-panel .progress__label') ?? null;
+    const panelValue = document.querySelector('.status-panel .progress__value') ?? null;
     return {
       progress,
-      emphasis,
       foreground,
+      sub,
       label: labelElement === null ? '' : getComputedStyle(labelElement).color,
       icon: iconElement === null ? '' : getComputedStyle(iconElement).color,
       chevron: chevronElement === null ? '' : getComputedStyle(chevronElement).color,
+      panelLabel: panelLabel === null ? '' : getComputedStyle(panelLabel).color,
+      panelValue: panelValue === null ? '' : getComputedStyle(panelValue).color,
     };
   }, label);
 
   expect(colors.label).toBe(colors.progress);
-  expect(colors.icon).toBe(colors.emphasis);
-  expect(colors.chevron).toBe(colors.foreground);
+  expect(colors.icon).toBe(colors.progress);
+  expect(colors.chevron).toBe(colors.sub);
+  expect(colors.panelLabel).toBe(colors.foreground);
+  expect(colors.panelValue).toBe(colors.foreground);
 
   const panel = frame.getByRole('dialog', { name: '영상 만드는 중' });
   await expect(panel).toBeVisible();
   await expect(panel.getByRole('button')).toHaveCount(0);
+});
+
+test('test_10a_top_bar_status_disabled_chevron_uses_the_disabled_color', async ({ page }) => {
+  await galleryReady(page, 'top-bar-status', 3);
+  const label = labelOf('top-bar-status', 'disabled');
+  const frame = await frameOf(page, 'iframe[data-frame-group="top-bar-status"][width="390"]');
+  const colors = await frame.evaluate((caseLabel) => {
+    const probe = document.createElement('span');
+    document.body.append(probe);
+    probe.style.color = 'var(--disabled-foreground)';
+    const disabled = getComputedStyle(probe).color;
+    probe.remove();
+    const box = document.querySelector(`[data-case="${caseLabel}"]`);
+    const trigger = box?.querySelector('.top-bar-status__trigger') ?? null;
+    const chevron = box?.querySelector('.top-bar-status__chevron') ?? null;
+    return {
+      disabled,
+      trigger: trigger === null ? '' : getComputedStyle(trigger).color,
+      chevron: chevron === null ? '' : getComputedStyle(chevron).color,
+    };
+  }, label);
+
+  expect(colors.trigger).toBe(colors.disabled);
+  expect(colors.chevron).toBe(colors.disabled);
 });
 
 test('test_10a_batch_four_scene_card_shows_the_work_state', async ({ page }) => {
@@ -598,16 +728,19 @@ test('test_10a_batch_four_scene_card_shows_the_work_state', async ({ page }) => 
     const box = document.querySelector(`[data-case="${caseLabel}"]`);
     const cardElement = box?.querySelector('.card') ?? null;
     const statusElement = box?.querySelector('.card__status') ?? null;
+    const spinnerElement = box?.querySelector('.card__status .spinner') ?? null;
     return {
       emphasis,
       progress,
       border: cardElement === null ? '' : getComputedStyle(cardElement).borderTopColor,
       status: statusElement === null ? '' : getComputedStyle(statusElement).color,
+      spinner: spinnerElement === null ? '' : getComputedStyle(spinnerElement).color,
     };
   }, label);
 
   expect(colors.border).toBe(colors.emphasis);
   expect(colors.status).toBe(colors.progress);
+  expect(colors.spinner).toBe(colors.emphasis);
 
   const defaultBox = await frame
     .locator(`[data-case="${labelOf('card', 'scene-default')}"] .card`)
@@ -832,22 +965,363 @@ test('test_10a_batch_three_panel_ends_motion_immediately_when_reduced', async ({
   await expect(panel).toHaveCount(0);
 });
 
-test('test_10a_result_card_uses_the_shared_dialog', async ({ page }) => {
+test('test_10a_result_card_follows_the_decided_layout', async ({ page }) => {
   const label = labelOf('result-card', 'default');
-  const selector = `iframe[data-frame-case="${label}"][width="390"]`;
+  const selector = `iframe[data-frame-case="${label}"][width="1920"]`;
 
   await galleryReady(page, 'result-card', 3);
   const frame = await frameOf(page, selector);
-  const dialog = frame.locator('[role=dialog]');
+  const dialog = frame.getByRole('dialog');
   await expect(dialog).toBeVisible();
-  await expect(frame.locator('.dialog__actions button')).toHaveCount(3);
-  await frame.getByRole('button', { name: '결과 카드 닫기' }).click();
+  const heading = frame.getByRole('heading', { level: 2 });
+  const title = (await heading.textContent())?.trim() ?? '';
+  expect(title).toBeTruthy();
+  await expect(heading).toBeVisible();
+  await expect(dialog).toHaveAccessibleName(title);
+
+  await expect(frame.getByRole('button', { name: '자막 저장' })).toBeVisible();
+  await expect(frame.getByRole('button', { name: '사용량 보기' })).toBeVisible();
+  await expect(frame.getByRole('button', { name: '크게 보기' })).toHaveCount(0);
+  await expect(frame.getByRole('button', { name: 'SRT 저장' })).toHaveCount(0);
+  await expect(frame.getByRole('button', { name: '닫기', exact: true })).toHaveCount(0);
+  await expect(frame.locator('.demo-result__facts dt')).toHaveCount(4);
+
+  const actions = frame.locator('.demo-result__actions button');
+  await expect(actions).toHaveCount(2);
+  await expect(actions.nth(0)).toHaveText('편집으로');
+  await expect(actions.nth(1)).toHaveText('mp4 저장');
+
+  const layout = await frame.evaluate(() => {
+    const dialog = document.querySelector('[role=dialog]') as HTMLElement;
+    const player = document.querySelector('.demo-result__player') as HTMLElement;
+    const side = document.querySelector('.demo-result__side') as HTMLElement;
+    const video = document.querySelector('.video-preview') as HTMLElement;
+    const playback = document.querySelector('.player') as HTMLElement;
+    const c = dialog.getBoundingClientRect();
+    const p = player.getBoundingClientRect();
+    const s = side.getBoundingClientRect();
+    const v = video.getBoundingClientRect();
+    const play = playback.getBoundingClientRect();
+    return {
+      playerRight: p.right,
+      sideLeft: s.left,
+      videoTop: v.top,
+      playerTop: p.top,
+      playerBottom: p.bottom,
+      playbackBottom: play.bottom,
+      cardTop: c.top,
+      cardBottom: c.bottom,
+    };
+  });
+
+  expect(layout.playerRight).toBeLessThanOrEqual(layout.sideLeft);
+  expect(layout.videoTop).toBe(layout.playerTop);
+  expect(layout.playbackBottom).toBe(layout.playerBottom);
+  expect(
+    Math.abs(layout.playerTop - layout.cardTop - (layout.cardBottom - layout.playerBottom)),
+  ).toBeLessThan(1.5);
+
+  const close = frame.getByRole('button', { name: '결과 카드 닫기' });
+  await close.focus();
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Shift+Tab');
+  const ring = await close.evaluate((element) => {
+    const style = getComputedStyle(element);
+    const button = element.getBoundingClientRect();
+    const card = (element.closest('[role=dialog]') as HTMLElement).getBoundingClientRect();
+    const offset = Number.parseFloat(style.outlineOffset);
+    const width = Number.parseFloat(style.outlineWidth);
+    const grow = width + offset;
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineOffset: style.outlineOffset,
+      outlineWidth: style.outlineWidth,
+      left: button.left - grow,
+      top: button.top - grow,
+      right: button.right + grow,
+      bottom: button.bottom + grow,
+      cardLeft: card.left,
+      cardTop: card.top,
+      cardRight: card.right,
+      cardBottom: card.bottom,
+    };
+  });
+  expect(ring.outlineStyle).toBe('solid');
+  expect(ring.outlineOffset).toBe('-2px');
+  expect(ring.left).toBeGreaterThanOrEqual(ring.cardLeft);
+  expect(ring.top).toBeGreaterThanOrEqual(ring.cardTop);
+  expect(ring.right).toBeLessThanOrEqual(ring.cardRight);
+  expect(ring.bottom).toBeLessThanOrEqual(ring.cardBottom);
+
+  await close.click();
   await expect(dialog).toHaveCount(0);
 
   await galleryReady(page, 'result-card', 3);
   const reopened = await frameOf(page, selector);
   await reopened.getByRole('button', { name: '결과 카드 닫기' }).press('Escape');
   await expect(reopened.locator('[role=dialog]')).toHaveCount(0);
+});
+
+test('test_10a_playback_bar_rounds_both_ends', async ({ page }) => {
+  await galleryReady(page, 'playback-controls', 3);
+  const frame = await frameOf(page, 'iframe[data-frame-group="playback-controls"][width="390"]');
+  const label = labelOf('playback-controls', 'progress');
+  const bar = await frame.evaluate((caseLabel) => {
+    const box = document.querySelector(`[data-case="${caseLabel}"]`);
+    const track = box?.querySelector('.player__track') ?? null;
+    const fill = box?.querySelector('.player__fill') ?? null;
+    if (track === null || fill === null) return null;
+    const trackStyle = getComputedStyle(track);
+    const fillStyle = getComputedStyle(fill);
+    return {
+      trackRadius: Number.parseFloat(trackStyle.borderRadius),
+      trackHeight: Number.parseFloat(trackStyle.height),
+      fillRadius: Number.parseFloat(fillStyle.borderRadius),
+      fillHeight: Number.parseFloat(fillStyle.height),
+      fillWidth: Number.parseFloat(fillStyle.width),
+    };
+  }, label);
+
+  expect(bar).not.toBeNull();
+  expect(bar?.trackHeight).toBe(6);
+  expect(bar?.fillHeight).toBe(6);
+  expect(bar?.trackRadius).toBeGreaterThanOrEqual((bar?.trackHeight ?? 0) / 2);
+  expect(bar?.fillRadius).toBeGreaterThanOrEqual((bar?.fillHeight ?? 0) / 2);
+  expect(bar?.fillWidth).toBeGreaterThan(0);
+});
+
+test('test_10a_scroll_pane_hides_its_scrollbar_and_moves_one_screen', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await galleryReady(page, 'scroll-pane', 3);
+  const frame = await frameOf(page, 'iframe[data-frame-group="scroll-pane"][width="390"]');
+  const longCase = frame.locator(`[data-case="${labelOf('scroll-pane', 'long')}"]`);
+  const viewport = longCase.locator('.scroll-pane__viewport');
+
+  const before = await viewport.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      scrollbarWidth: style.scrollbarWidth,
+      overflowY: style.overflowY,
+      scrollHeight: element.scrollHeight,
+      clientHeight: element.clientHeight,
+      scrollTop: element.scrollTop,
+    };
+  });
+  expect(before.scrollbarWidth).toBe('none');
+  expect(before.overflowY).toBe('auto');
+  expect(before.scrollHeight).toBeGreaterThan(before.clientHeight);
+
+  const jump = longCase.getByRole('button', { name: '아래로 넘기기' });
+  await expect(jump).toBeVisible();
+  const jumpBox = await jump.boundingBox();
+  expect(jumpBox?.width).toBe(44);
+  expect(jumpBox?.height).toBe(44);
+  expect(
+    await jump.evaluate((element) => Number.parseFloat(getComputedStyle(element).borderRadius)),
+  ).toBeGreaterThanOrEqual(22);
+  await jump.click();
+  await page.waitForTimeout(100);
+  const moved = await viewport.evaluate((element) => element.scrollTop);
+  expect(Math.abs(moved - before.scrollTop - before.clientHeight * 0.8)).toBeLessThan(2);
+
+  await viewport.focus();
+  const keyboardStart = await viewport.evaluate((element) => element.scrollTop);
+  await viewport.press('ArrowDown');
+  await page.waitForTimeout(100);
+  expect(await viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(keyboardStart);
+
+  // Put the end one jump away, then reach it with Enter. The focused control
+  // disappears, so the column itself must take focus for the next key.
+  await viewport.evaluate((element) => {
+    element.scrollTop = element.scrollHeight - element.clientHeight * 1.6;
+  });
+  await expect(jump).toBeVisible();
+  await jump.focus();
+  await jump.press('Enter');
+  await expect(jump).toHaveCount(0);
+  await expect
+    .poll(async () => viewport.evaluate((element) => element === document.activeElement))
+    .toBe(true);
+  const endPosition = await viewport.evaluate((element) => element.scrollTop);
+  await viewport.press('ArrowUp');
+  await page.waitForTimeout(100);
+  expect(await viewport.evaluate((element) => element.scrollTop)).toBeLessThan(endPosition);
+
+  const endCase = frame.locator(`[data-case="${labelOf('scroll-pane', 'end')}"]`);
+  await expect(endCase.getByRole('button', { name: '아래로 넘기기' })).toHaveCount(0);
+  const shortCase = frame.locator(`[data-case="${labelOf('scroll-pane', 'short')}"]`);
+  await expect(shortCase.getByRole('button', { name: '아래로 넘기기' })).toHaveCount(0);
+});
+
+test('test_10a_scroll_pane_keyboard_scrolls_while_the_jump_is_focused', async ({ page }) => {
+  const opened = await openScrollPane(page);
+  await opened.viewport.evaluate((element) => {
+    const content = element.firstElementChild;
+    if (content === null) throw new Error('missing scroll content');
+    const spacer = document.createElement('div');
+    spacer.style.height = '1200px';
+    content.append(spacer);
+    element.scrollTop = 0;
+  });
+  const pageStart = await page.evaluate(() => window.scrollY);
+  await opened.jump.focus();
+
+  // Held arrows must accumulate; a fresh smooth scroll on every key loses most steps.
+  for (let index = 0; index < 25; index += 1) await opened.jump.press('ArrowDown');
+  await expect
+    .poll(async () => opened.viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(900);
+  expect(await page.evaluate(() => window.scrollY)).toBe(pageStart);
+
+  const beforeEnter = await opened.viewport.evaluate((element) => element.scrollTop);
+  await opened.jump.press('Enter');
+  await expect
+    .poll(async () => opened.viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(beforeEnter);
+  let previous = -1;
+  await expect
+    .poll(
+      async () => {
+        const top = await opened.viewport.evaluate((element) => element.scrollTop);
+        const settled = top === previous;
+        previous = top;
+        return settled;
+      },
+      { timeout: 3_000 },
+    )
+    .toBe(true);
+
+  await expect(opened.jump).toBeVisible();
+  expect(await opened.jump.evaluate((element) => element === document.activeElement)).toBe(true);
+  const afterJump = await opened.viewport.evaluate((element) => element.scrollTop);
+  await opened.jump.press('ArrowDown');
+  await expect
+    .poll(async () => opened.viewport.evaluate((element) => element.scrollTop))
+    .toBeGreaterThan(afterJump + 20);
+  expect(await page.evaluate(() => window.scrollY)).toBe(pageStart);
+});
+
+test('test_10a_scroll_pane_keeps_trackpad_and_horizontal_wheel_to_the_browser', async ({ page }) => {
+  const open = async (): Promise<ScrollPaneCases> => {
+    const opened = await openScrollPane(page);
+    await page.evaluate(() => {
+      const log: GalleryWheelEvent[] = [];
+      window.__galleryWheelLog = log;
+      window.addEventListener('wheel', (event) => {
+        log.push({
+          ctrl: event.ctrlKey,
+          shift: event.shiftKey,
+          deltaX: event.deltaX,
+          deltaY: event.deltaY,
+          prevented: event.defaultPrevented,
+        });
+      });
+    });
+    return opened;
+  };
+  const wheel = async (
+    opened: ScrollPaneCases,
+    target: Locator,
+    deltaX: number,
+    deltaY: number,
+    key?: 'Control' | 'Shift',
+  ) => {
+    const box = await target.boundingBox();
+    if (box === null) throw new Error('missing wheel target');
+    const before = await opened.viewport.evaluate((element) => element.scrollTop);
+    const scaleBefore = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    if (key !== undefined) await page.keyboard.down(key);
+    await page.mouse.wheel(deltaX, deltaY);
+    if (key !== undefined) await page.keyboard.up(key);
+    await page.waitForTimeout(150);
+    const after = await opened.viewport.evaluate((element) => element.scrollTop);
+    const scaleAfter = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+    const last = await page.evaluate(() => window.__galleryWheelLog?.at(-1) ?? null);
+    return { before, after, scaleBefore, scaleAfter, last };
+  };
+
+  // A control or shift wheel over the jump must reach the browser. The body
+  // baseline may zoom or scroll in the browser; the control must not decide,
+  // and the jump only checks that the column itself stays put.
+  const controlBody = await open();
+  const bodyResult = await wheel(controlBody, controlBody.body, 0, 120, 'Control');
+  expect(bodyResult.last?.ctrl).toBe(true);
+  expect(bodyResult.last?.prevented).toBe(false);
+  expect(
+    bodyResult.scaleAfter !== bodyResult.scaleBefore || bodyResult.after !== bodyResult.before,
+  ).toBe(true);
+  const bodyZoomed = bodyResult.scaleAfter !== bodyResult.scaleBefore;
+
+  const controlJump = await open();
+  const controlResult = await wheel(controlJump, controlJump.jump, 0, 120, 'Control');
+  expect(controlResult.last?.ctrl).toBe(true);
+  expect(controlResult.last?.prevented).toBe(false);
+  expect(controlResult.after).toBe(controlResult.before);
+  // When the browser zooms the body, the gesture over the jump must zoom too.
+  if (bodyZoomed) expect(controlResult.scaleAfter).not.toBe(controlResult.scaleBefore);
+
+  const shiftJump = await open();
+  const shiftResult = await wheel(shiftJump, shiftJump.jump, 0, 120, 'Shift');
+  expect(shiftResult.last?.shift).toBe(true);
+  expect(shiftResult.last?.prevented).toBe(false);
+  expect(shiftResult.after).toBe(shiftResult.before);
+
+  const horizontalJump = await open();
+  const horizontalResult = await wheel(horizontalJump, horizontalJump.jump, 120, 0);
+  expect(horizontalResult.last?.deltaX).toBeGreaterThan(0);
+  expect(horizontalResult.last?.prevented).toBe(false);
+  expect(horizontalResult.after).toBe(horizontalResult.before);
+});
+
+test('test_10a_scroll_pane_zoom_over_the_body_keeps_the_column', async ({ page }) => {
+  const opened = await openScrollPane(page);
+  const client = await page.context().newCDPSession(page);
+  await opened.viewport.evaluate((element) => {
+    element.style.scrollBehavior = 'auto';
+    element.scrollTop = 118;
+  });
+  const box = await opened.viewport.boundingBox();
+  if (box === null) throw new Error('missing body zoom target');
+  const before = await opened.viewport.evaluate((element) => element.scrollTop);
+  const scaleBefore = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+  await client.send('Input.synthesizePinchGesture', {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+    scaleFactor: 1.3,
+    relativeSpeed: 800,
+    gestureSourceType: 'mouse',
+  });
+  await page.waitForTimeout(600);
+  const scaleAfter = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+  const after = await opened.viewport.evaluate((element) => element.scrollTop);
+  expect(scaleAfter).toBeGreaterThan(scaleBefore);
+  expect(after).toBe(before);
+});
+
+test('test_10a_scroll_pane_zoom_over_the_jump_keeps_the_column', async ({ page }) => {
+  const opened = await openScrollPane(page);
+  const client = await page.context().newCDPSession(page);
+  await opened.viewport.evaluate((element) => {
+    element.style.scrollBehavior = 'auto';
+    element.scrollTop = 118;
+  });
+  const box = await opened.jump.boundingBox();
+  if (box === null) throw new Error('missing jump zoom target');
+  const before = await opened.viewport.evaluate((element) => element.scrollTop);
+  const scaleBefore = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+  await client.send('Input.synthesizePinchGesture', {
+    x: box.x + box.width / 2,
+    y: box.y + box.height / 2,
+    scaleFactor: 1.3,
+    relativeSpeed: 800,
+    gestureSourceType: 'mouse',
+  });
+  await page.waitForTimeout(600);
+  const scaleAfter = await page.evaluate(() => window.visualViewport?.scale ?? 1);
+  const after = await opened.viewport.evaluate((element) => element.scrollTop);
+  expect(scaleAfter).toBeGreaterThan(scaleBefore);
+  expect(after).toBe(before);
 });
 
 test('test_10a_batch_three_forced_open_shows_the_same_chevron_direction', async ({ page }) => {

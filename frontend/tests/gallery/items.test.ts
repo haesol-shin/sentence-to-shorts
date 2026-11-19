@@ -39,7 +39,7 @@ describe('gallery state list', () => {
     }
     expect(galleryParts.filter((part) => part.batch === 1)).toHaveLength(16);
     expect(galleryParts.filter((part) => part.batch === 2)).toHaveLength(14);
-    expect(galleryParts.filter((part) => part.batch === 3)).toHaveLength(9);
+    expect(galleryParts.filter((part) => part.batch === 3)).toHaveLength(10);
   });
 
   test('test_10a_gallery_numbers_are_generated_in_order_and_unique', () => {

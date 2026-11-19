@@ -40,6 +40,18 @@ describe('Dialog', () => {
     expect(screen.getByRole('alertdialog', { name: '저장하지 못했어요' })).toBeTruthy();
   });
 
+  test('test_10a_dialog_takes_its_name_from_a_visible_outside_title', async () => {
+    render(
+      <Dialog defaultOpen labelledBy="outside-dialog-title">
+        <h2 id="outside-dialog-title">바깥 제목</h2>
+      </Dialog>,
+    );
+
+    expect(await screen.findByRole('dialog', { name: '바깥 제목' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '바깥 제목' })).toBeTruthy();
+    expect(screen.queryByRole('heading', { level: 2, name: '' })).toBeNull();
+  });
+
   test('test_10a_dialog_close_control_returns_focus_to_the_trigger', async () => {
     render(
       <Dialog
