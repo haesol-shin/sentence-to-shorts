@@ -1,48 +1,68 @@
-import { defineConfig, devices, type Project } from '@playwright/test';
+import { defineConfig, type Project } from '@playwright/test';
+
+import {
+  AUTH_FILE,
+  BACKEND_URL,
+  FIXTURE_APP_URL,
+  FIXTURE_ROOT,
+  MOCK_APP_URL,
+  PAIRING_FILE,
+} from './tests/e2e/fixture-paths';
 
 const isCI = Boolean(process.env.CI);
 // The screenshot baselines compare pixels, so they run in one project on one
 // browser, and the other projects leave their tests alone.
 const isVisual = process.env.PLAYWRIGHT_VISUAL === '1';
-const baseURL = 'http://127.0.0.1:4173';
+// The fixture run pairs once against the backend and opens only the specs that
+// need a real server; the mock run keeps the rest.
+const isFixture = process.env.E2E_API === 'fixture';
+const baseURL = isFixture ? FIXTURE_APP_URL : MOCK_APP_URL;
+const backendPort = new URL(BACKEND_URL).port;
+const fixturePort = new URL(FIXTURE_APP_URL).port;
+
+const FIXTURE_MATCH = 'tests/e2e/**/*.spec.ts';
+const MOCK_MATCH = '**/*.spec.ts';
+// The mock specs encode the phone and 1920 layouts, so the 1280 project runs
+// the app smoke there; the fixture specs run at both widths in either mode.
+const NARROW_MOCK_MATCH = 'e2e/**/*.spec.ts';
+
+/** Desktop projects only: the MVP drops the 390px mobile projects. */
+function desktop(
+  name: string,
+  browserName: 'chromium' | 'webkit',
+  viewport: { width: number; height: number },
+  mockMatch: string,
+): Project {
+  return {
+    name,
+    testMatch: isFixture ? FIXTURE_MATCH : mockMatch,
+    testIgnore: isFixture ? ['tests/visual/**'] : ['tests/visual/**', 'tests/e2e/**'],
+    ...(isFixture ? { dependencies: ['fixture-setup'] } : {}),
+    use: {
+      browserName,
+      viewport,
+      ...(isFixture ? { storageState: AUTH_FILE } : {}),
+    },
+  };
+}
 
 const projects: Project[] = [
-  {
-    name: 'chromium-mobile',
-    testIgnore: ['tests/visual/**'],
-    use: {
-      browserName: 'chromium',
-      viewport: { width: 390, height: 844 },
-      isMobile: true,
-      hasTouch: true,
-    },
-  },
-  {
-    name: 'chromium-desktop',
-    testIgnore: ['tests/visual/**'],
-    use: {
-      browserName: 'chromium',
-      viewport: { width: 1920, height: 1080 },
-    },
-  },
+  desktop('chromium-desktop', 'chromium', { width: 1920, height: 1080 }, MOCK_MATCH),
+  desktop('chromium-desktop-1280', 'chromium', { width: 1280, height: 800 }, NARROW_MOCK_MATCH),
 ];
 
 if (isCI) {
-  projects.push(
-    {
-      name: 'webkit-mobile',
-      testIgnore: ['tests/visual/**'],
-      use: { ...devices['iPhone 13'], browserName: 'webkit' },
-    },
-    {
-      name: 'webkit-desktop',
-      testIgnore: ['tests/visual/**'],
-      use: {
-        browserName: 'webkit',
-        viewport: { width: 1920, height: 1080 },
-      },
-    },
-  );
+  projects.push(desktop('webkit-desktop', 'webkit', { width: 1920, height: 1080 }, MOCK_MATCH));
+}
+
+// The pairing code is one-time, so one setup project pairs and saves the
+// session cookie for every desktop project to reuse.
+if (isFixture) {
+  projects.push({
+    name: 'fixture-setup',
+    testMatch: 'tests/e2e/pair.setup.ts',
+    use: { browserName: 'chromium' },
+  });
 }
 
 // Only `PLAYWRIGHT_VISUAL=1 npx playwright test tests/visual` runs this project,
@@ -80,11 +100,38 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   projects,
-  webServer: {
-    command: 'npm run dev',
-    url: baseURL,
-    timeout: 300_000,
-    reuseExistingServer: !isCI,
-    env: { VITE_API_MODE: 'mock' },
-  },
+  webServer: isFixture
+    ? [
+        {
+          command: 'poetry run python -m tests.e2e_ui.fixture_server',
+          cwd: '../core',
+          url: `${BACKEND_URL}/api/v1/health`,
+          timeout: 180_000,
+          reuseExistingServer: false,
+          gracefulShutdown: { signal: 'SIGTERM', timeout: 5000 },
+          env: {
+            APP_PORT: backendPort,
+            E2E_UI_ROOT: FIXTURE_ROOT,
+            E2E_UI_PAIRING_FILE: PAIRING_FILE,
+            E2E_APP_URL: FIXTURE_APP_URL,
+          },
+        },
+        {
+          command: 'node tests/e2e/vite-fixture.mjs',
+          url: FIXTURE_APP_URL,
+          timeout: 300_000,
+          reuseExistingServer: false,
+          env: {
+            E2E_BACKEND_URL: BACKEND_URL,
+            E2E_APP_PORT: fixturePort,
+          },
+        },
+      ]
+    : {
+        command: 'npm run dev',
+        url: baseURL,
+        timeout: 300_000,
+        reuseExistingServer: !isCI,
+        env: { VITE_API_MODE: 'mock' },
+      },
 });
