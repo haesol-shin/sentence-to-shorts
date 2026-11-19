@@ -158,6 +158,14 @@ jobs:
         shell: bash
         working-directory: core
         run: python -m poetry install
+      - name: Check the isolated aligner lock
+        shell: bash
+        working-directory: core/align_runtime
+        run: python -m poetry check --lock
+      - name: Install the isolated aligner environment
+        shell: bash
+        working-directory: core/align_runtime
+        run: python -m poetry install
       # A pull request runs the tests that cover its changed paths; a main push
       # runs everything. The marker filter keeps out the sandbox job, model
       # downloads and real provider calls. `core/pyproject.toml` limits each test
@@ -326,6 +334,11 @@ jobs:
         with:
           fail-on-severity: high
           comment-summary-in-pr: never
+          # WhisperX 3.8.6 pins huggingface-hub<1.0 and torch~=2.8.0 while
+          # patched transformers needs hub>=1.5 and patched torch is 2.10.
+          # The aligner loads one fixed model, so only these five advisories
+          # are allowed, and only for that lock.
+          allow-ghsas: GHSA-29pf-2h5f-8g72,GHSA-fgcw-684q-jj6r,GHSA-xrqw-3rrv-vx5w,GHSA-x9r9-c232-4q39,GHSA-63cw-57p8-fm3p
 
   # The only check to make required. A job skipped by a condition reports
   # success, and a job that needs a failed job is skipped, so the gate reads

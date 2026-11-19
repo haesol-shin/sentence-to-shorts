@@ -38,6 +38,7 @@ def test_runtime_reports_brand_and_items(client: TestClient) -> None:
         "model-align-ko",
         "model-align-en",
         "model-asr-small",
+        "model-nltk-punkt-tab",
     }
 
 

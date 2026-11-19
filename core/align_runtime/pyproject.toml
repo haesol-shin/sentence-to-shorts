@@ -1,0 +1,36 @@
+[project]
+name = "align-runtime"
+version = "0.1.0"
+description = "Isolated WhisperX runtime for forced alignment"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "whisperx==3.8.6",
+    "torch==2.8.0+cpu",
+    "torchaudio==2.8.0+cpu; platform_machine == 'x86_64' or platform_machine == 'AMD64'",
+    "torchaudio>=2.8.0,<2.8.0.post0,!=2.8.0+cpu; platform_machine == 'aarch64'",
+    "torchvision==0.23.0+cpu; platform_machine == 'x86_64' or platform_machine == 'AMD64'",
+    "torchvision>=0.23.0,<0.23.0.post0,!=0.23.0+cpu; platform_machine == 'aarch64'",
+    "torchcodec==0.7.0",
+    "pyannote-audio==4.0.7",
+]
+
+[tool.poetry]
+package-mode = false
+
+[tool.poetry.dependencies]
+torch = { version = "2.8.0+cpu", source = "pytorch-cpu" }
+torchaudio = [
+    { version = "2.8.0+cpu", source = "pytorch-cpu", markers = "platform_machine == 'x86_64' or platform_machine == 'AMD64'" },
+    # Keep range form: Poetry collapses ==2.8.0,!=2.8.0+cpu to ==2.8.0.
+    # The post0 bound excludes later releases while retaining the CPU exclusion.
+    { version = ">=2.8.0,<2.8.0.post0,!=2.8.0+cpu", source = "pytorch-cpu", markers = "platform_machine == 'aarch64'" },
+]
+torchvision = [
+    { version = "0.23.0+cpu", source = "pytorch-cpu", markers = "platform_machine == 'x86_64' or platform_machine == 'AMD64'" },
+    { version = ">=0.23.0,<0.23.0.post0,!=0.23.0+cpu", source = "pytorch-cpu", markers = "platform_machine == 'aarch64'" },
+]
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"

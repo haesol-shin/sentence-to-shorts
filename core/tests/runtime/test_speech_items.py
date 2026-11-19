@@ -91,6 +91,7 @@ def test_speech_items_shipped_lock_entries_fit_every_host(host: tuple[str, str])
         "model-align-ko",
         "model-align-en",
         "model-asr-small",
+        "model-nltk-punkt-tab",
     }
     for item in items:
         assert select_file(item, host) is not None, item["id"]
