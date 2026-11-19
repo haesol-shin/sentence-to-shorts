@@ -27,6 +27,18 @@ class Anchor(StrEnum):
 
 
 class PlacementAnchor(StrEnum):
+    """Feet point of the character on a three by three grid over the visual area.
+
+    The unprefixed values are the bottom row that saved scenes use. The middle
+    and top prefixes lift the character above that row.
+    """
+
+    top_left = "top_left"
+    top_center = "top_center"
+    top_right = "top_right"
+    middle_left = "middle_left"
+    middle_center = "middle_center"
+    middle_right = "middle_right"
     left = "left"
     center = "center"
     right = "right"

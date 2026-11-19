@@ -13,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.caption_layout import inside, intersects, safe_area
 from app.schemas.common import Box, CaptionMode
+from app.schemas.scene import PlacementAnchor
 from app.schemas.template_manifest import CharacterAnchors, Regions
 
 FRAME = (1080, 1920)
@@ -69,13 +70,15 @@ class TemplateCodeAnswer(Answer):
             if name != "caption" and intersects(box, caption):
                 raise ValueError(f"region {name} overlaps the caption")
         visual = regions.visual
-        for side in ("left", "center", "right"):
-            point = getattr(self.character_anchors, side)
+        for anchor in PlacementAnchor:
+            point = getattr(self.character_anchors, anchor.value)
+            if point is None:
+                raise ValueError(f"anchor {anchor.value} is missing")
             if not (
                 visual.x <= point.x <= visual.x + visual.w
                 and visual.y <= point.y <= visual.y + visual.h
             ):
-                raise ValueError(f"anchor {side} is outside the visual region")
+                raise ValueError(f"anchor {anchor.value} is outside the visual region")
         if len(set(self.caption_modes)) != len(self.caption_modes):
             raise ValueError("caption_modes repeat")
         if CaptionMode.typewriter in self.caption_modes and not self.dialog_box:

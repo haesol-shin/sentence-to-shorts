@@ -22,7 +22,8 @@
 - 모든 객체는 정의하지 않은 필드를 거절한다. 말투 필드명은 `register`이며 `tone` 필드는 따로 만들지 않는다.
 - 앱이 발급하는 ID는 TypeID다. 기술 선택: `<prefix>_<26자 Crockford base32>` 형식이고 접미사 26자는 UUIDv7의 128비트를 소문자 Crockford base32로 적은 값이며 첫 글자는 `0`~`7`이다([TypeID 명세](https://github.com/jetify-com/typeid)). 접두사는 지금 값을 유지한다. 이유: [SPEC 1](SPEC.md#1-범위와-실행-형태)이 여럿 실행의 데이터 구조를 지금 정하고, 여러 기기와 실행 형태의 데이터 저장소에서 만든 ID를 나중에 합칠 수 있기 때문이다.
 - 확장 가능한 항목(그림체, 카드, 목소리, BGM, 글꼴, template, 배경, 부위, 자막 언어)은 `CatalogId` 문자열이다. 값 검사는 registry 조회로 하고 TypeID 규칙을 쓰지 않는다. 코드 enum에 새 항목을 추가하지 않는다.
-- 닫힌 값(말투, 유머, 캐릭터 역할, 자막 표시 모드, 자막 위치, job 상태)만 enum이다.
+- 닫힌 값(말투, 유머, 캐릭터 역할, 캐릭터 위치, 자막 표시 모드, 자막 위치, job 상태)만 enum이다.
+- 캐릭터 위치는 3×3 아홉 자리다. `Placement.anchor`는 `top_left`·`top_center`·`top_right`, `middle_left`·`middle_center`·`middle_right`, 아래 줄인 `left`·`center`·`right` 중 하나다. 아래 줄의 세 값은 이전 저장 문서의 값이며 그대로 열린다. template의 `character_anchors`가 자리마다 좌표를 갖고 렌더는 그 점을 읽는다. 새 줄 좌표가 없는 예전 template은 그 열의 아래 줄 점에 그린다.
 - video revision은 immutable이다. 변경은 새 revision을 쓴다. 과거 revision 파일은 다시 쓰지 않는다.
 - 생성 결과는 video 문서에 넣지 않는다. 기술 선택: artifact는 cache key로 index에서 찾고 `VideoBuild`로 보여 준다. 이유: undo가 같은 원본으로 돌아가면 같은 key로 이전 결과를 바로 찾는다.
 - 장면의 대사는 `Scene.lines`가 소유한다. `Script`는 원문과 출처만 갖는다.

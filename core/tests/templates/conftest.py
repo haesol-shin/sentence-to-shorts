@@ -58,6 +58,12 @@ REGIONS = {
     "caption": {"x": 90, "y": 1040, "w": 900, "h": 160},
 }
 ANCHORS = {
+    "top_left": {"x": 270, "y": 704},
+    "top_center": {"x": 540, "y": 704},
+    "top_right": {"x": 810, "y": 704},
+    "middle_left": {"x": 270, "y": 832},
+    "middle_center": {"x": 540, "y": 832},
+    "middle_right": {"x": 810, "y": 832},
     "left": {"x": 270, "y": 960},
     "center": {"x": 540, "y": 960},
     "right": {"x": 810, "y": 960},

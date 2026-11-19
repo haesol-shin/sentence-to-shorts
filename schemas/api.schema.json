@@ -2064,7 +2064,14 @@
       "type": "object"
     },
     "PlacementAnchor": {
+      "description": "Feet point of the character on a three by three grid over the visual area.\n\nThe unprefixed values are the bottom row that saved scenes use. The middle\nand top prefixes lift the character above that row.",
       "enum": [
+        "top_left",
+        "top_center",
+        "top_right",
+        "middle_left",
+        "middle_center",
+        "middle_right",
         "left",
         "center",
         "right"

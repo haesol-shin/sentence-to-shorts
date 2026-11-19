@@ -1137,11 +1137,24 @@ export interface components {
          * @enum {string}
          */
         ChangeStatus: "proposed" | "applied" | "rejected" | "stale";
-        /** CharacterAnchors */
+        /**
+         * CharacterAnchors
+         * @description Feet points of a three by three grid over the visual area.
+         *
+         *     The unprefixed points are the bottom row that saved scenes use. A template
+         *     written before the upper rows existed leaves those points empty, and an
+         *     empty point is drawn at the same column of the bottom row.
+         */
         CharacterAnchors: {
             center: components["schemas"]["Point"];
             left: components["schemas"]["Point"];
+            middle_center?: components["schemas"]["Point"] | null;
+            middle_left?: components["schemas"]["Point"] | null;
+            middle_right?: components["schemas"]["Point"] | null;
             right: components["schemas"]["Point"];
+            top_center?: components["schemas"]["Point"] | null;
+            top_left?: components["schemas"]["Point"] | null;
+            top_right?: components["schemas"]["Point"] | null;
         };
         /**
          * CharacterMotion
@@ -1646,9 +1659,13 @@ export interface components {
         };
         /**
          * PlacementAnchor
+         * @description Feet point of the character on a three by three grid over the visual area.
+         *
+         *     The unprefixed values are the bottom row that saved scenes use. The middle
+         *     and top prefixes lift the character above that row.
          * @enum {string}
          */
-        PlacementAnchor: "left" | "center" | "right";
+        PlacementAnchor: "top_left" | "top_center" | "top_right" | "middle_left" | "middle_center" | "middle_right" | "left" | "center" | "right";
         /** PlanWarning */
         PlanWarning: {
             code: components["schemas"]["WarningCode"];

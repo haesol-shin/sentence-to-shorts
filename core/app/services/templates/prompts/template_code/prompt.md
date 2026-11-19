@@ -31,7 +31,7 @@ label.ko는 해요체 어미 없이 명사로 끝낸다. 목록 칸이 좁기 �
 - visual 영역은 절반 이상을 투명하게 남긴다. 앱이 시험 장면으로 이 비율을 검사한다.
 - dict는 8개 이하의 key를 가진 JSON 값이다. 그린 상자 좌표를 넣으면 검토에 도움이 된다.
 - regions는 1080x1920 안의 상자다. caption은 `current_template.safe_area` 안에 있어야 한다. 휴대폰 화면에서 자막이 UI에 가리지 않는 안전 영역이기 때문이다. title, progress, visual은 caption과 겹치지 않는다.
-- character_anchors의 left, center, right는 visual 영역 안의 점이다.
+- character_anchors의 아홉 점은 visual 영역 안의 점이다. left, center, right는 아래 줄이고, middle_left·middle_center·middle_right와 top_left·top_center·top_right가 가운데 줄과 위 줄이다. 아홉 점을 모두 정한다.
 - typewriter를 caption_modes에 넣으면 dialog_box를 true로 둔다.
 - parts는 비어 있을 수 있다. 있으면 skin 같은 PNG 부품을 받은 것이다.
 - import는 math, random, struct, array, io, wave, colorsys, PIL만 쓴다. 파일, 네트워크, 환경변수는 쓰지 않는다.
