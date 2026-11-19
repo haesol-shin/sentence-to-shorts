@@ -503,6 +503,100 @@ def test_13_initial_preset_creates_revision_one(service: ProjectService) -> None
     assert updated.video_ids == [source.id, created.id]
 
 
+def _full_video(service: ProjectService, project: Project) -> Video:
+    """A project video with the valid Korean script and scenes attached."""
+    video = add_video(service, project)
+    full = Video.model_validate(load_json("contracts/valid/video_ko_just_three.json"))
+    return service.projects.append_revision(
+        video.model_copy(
+            update={
+                "revision": 2,
+                "parent_revision": 1,
+                "created_at": datetime.now(UTC),
+                "created_by": CreatedBy.system,
+                "script": full.script,
+                "scene_order": full.scene_order,
+                "scenes": full.scenes,
+            }
+        )
+    )
+
+
+def _add_extra_layer(
+    service: ProjectService, video: Video, *, texts: bool = True
+) -> Video:
+    ops = [
+        set_op(
+            "/settings/caption/extra",
+            [
+                {
+                    "language": "en",
+                    "mode": "sentence",
+                    "font_id": service.catalog.pin("font", "galmuri11").model_dump(),
+                    "position": "top",
+                }
+            ],
+        )
+    ]
+    if texts:
+        for scene_id in video.scene_order:
+            for index, _ in enumerate(video.scenes[scene_id].lines):
+                ops.append(
+                    set_op(
+                        f"/scenes/{scene_id}/lines/{index}/extra_texts",
+                        [{"language": "en", "text": "A short translation."}],
+                    )
+                )
+    return commit_ops(service, video, ops)
+
+
+def test_29_extra_layer_without_translations_can_be_committed(
+    service: ProjectService,
+) -> None:
+    project, _ = make_project_video(service)
+    video = _full_video(service, project)
+
+    saved = _add_extra_layer(service, video, texts=False)
+
+    assert saved.settings.caption.extra
+    caption_codes = {
+        issue.code for issue in service.validate(saved) if issue.code.startswith("caption")
+    }
+    assert caption_codes == {"caption_text_missing"}
+
+
+def test_13_preset_does_not_store_the_extra_caption_layer(service: ProjectService) -> None:
+    project, video = make_project_video(service)
+    video = _add_extra_layer(service, video)
+
+    preset = save(service, project, video)
+
+    assert "extra" not in preset.model_dump(mode="json")["settings"]["caption"]
+    assert preset.settings.caption.mode is CaptionMode.sentence
+
+
+def test_13_applying_a_preset_keeps_the_extra_layer_and_texts(
+    service: ProjectService,
+) -> None:
+    project, source = make_project_video(service)
+    preset = save(service, project, source)
+    target = _add_extra_layer(service, _full_video(service, project))
+    before = target.model_dump(mode="json")
+
+    applied = presets.apply_preset(service, target.id, preset.id, target.revision)
+
+    assert applied.settings.caption.extra == target.settings.caption.extra
+    for scene_id in applied.scene_order:
+        assert [line.extra_texts for line in applied.scenes[scene_id].lines] == [
+            line.extra_texts for line in target.scenes[scene_id].lines
+        ]
+    caption_codes = {
+        issue.code for issue in service.validate(applied) if issue.code.startswith("caption")
+    }
+    assert caption_codes == set()
+    assert applied.model_dump(mode="json")["scenes"] == before["scenes"]
+
+
 def test_13_derived_preset_keeps_source_user_values_and_locks(service: ProjectService) -> None:
     project, source = make_project_video(service)
     source = commit_ops(service, source, [

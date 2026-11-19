@@ -21,11 +21,12 @@
 
 - 모든 객체는 정의하지 않은 필드를 거절한다. 말투 필드명은 `register`이며 `tone` 필드는 따로 만들지 않는다.
 - 앱이 발급하는 ID는 TypeID다. 기술 선택: `<prefix>_<26자 Crockford base32>` 형식이고 접미사 26자는 UUIDv7의 128비트를 소문자 Crockford base32로 적은 값이며 첫 글자는 `0`~`7`이다([TypeID 명세](https://github.com/jetify-com/typeid)). 접두사는 지금 값을 유지한다. 이유: [SPEC 1](SPEC.md#1-범위와-실행-형태)이 여럿 실행의 데이터 구조를 지금 정하고, 여러 기기와 실행 형태의 데이터 저장소에서 만든 ID를 나중에 합칠 수 있기 때문이다.
-- 확장 가능한 항목(그림체, 카드, 목소리, BGM, 글꼴, template, 배경, 부위)은 `CatalogId` 문자열이다. 값 검사는 registry 조회로 하고 TypeID 규칙을 쓰지 않는다. 코드 enum에 새 항목을 추가하지 않는다.
+- 확장 가능한 항목(그림체, 카드, 목소리, BGM, 글꼴, template, 배경, 부위, 자막 언어)은 `CatalogId` 문자열이다. 값 검사는 registry 조회로 하고 TypeID 규칙을 쓰지 않는다. 코드 enum에 새 항목을 추가하지 않는다.
 - 닫힌 값(말투, 유머, 캐릭터 역할, 자막 표시 모드, 자막 위치, job 상태)만 enum이다.
 - video revision은 immutable이다. 변경은 새 revision을 쓴다. 과거 revision 파일은 다시 쓰지 않는다.
 - 생성 결과는 video 문서에 넣지 않는다. 기술 선택: artifact는 cache key로 index에서 찾고 `VideoBuild`로 보여 준다. 이유: undo가 같은 원본으로 돌아가면 같은 key로 이전 결과를 바로 찾는다.
 - 장면의 대사는 `Scene.lines`가 소유한다. `Script`는 원문과 출처만 갖는다.
+- 두 번째 자막 언어의 줄 글은 그 줄의 `Line.extra_texts`가 소유한다. 언어 하나에 글 하나다.
 - `scene_order`의 집합은 `scenes`의 key 집합과 같아야 한다.
 - 장면 순서는 `scene_order`만 바꾼다. scene ID는 바꾸지 않는다.
 - 다음 영상은 settings를 복사하고 topic, material, reference, script, scenes를 비운다. `derived_from`에 출처를 남긴다. 과거 snapshot은 다음 영상 수정으로 바뀌지 않는다.
@@ -63,6 +64,10 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | `typing_sound_mode` | caption mode가 typewriter가 아닌데 `caption.typing_sound`가 있음 |
 | `typing_sound_kind` | `caption.typing_sound`가 `TypingSoundEntry`를 가리키지 않음 |
 | `typing_cue` | `SfxCue.sfx_id`가 타자음 항목을 가리킴 |
+| `caption_text_missing` | `Caption.extra`의 언어에 해당하는 `Line.extra_texts` 글이 없음 |
+| `caption_mode_language` | `Caption.extra[].mode`가 문장형 base가 아님 |
+| `caption_layer_unsupported` | dialog 상자나 sandbox template에 자막 layer 두 개를 둠 |
+| `caption_overlap` | 두 layer의 가장 작은 두 줄 상자가 안전 영역에 함께 들어가지 않거나 고른 위치에서 겹침. 실제 글 상자가 겹치면 renderer도 같은 code로 거절한다 |
 | `revision_conflict` | 요청의 base_revision이 head가 아님 (HTTP 409 problem으로 응답하고 `current_revision` 확장 멤버를 함께 돌려준다) |
 
 ## 2. 버전과 migration
@@ -72,6 +77,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - manifest는 추가로 `api_version`을 갖는다. 렌더러 계약 버전이다.
 - 기존 문서를 무효로 만들거나 뜻을 바꾸는 변경은 `schema_version`을 올린다.
 - 기본값이 있는 선택 필드 추가는 버전을 올리지 않는다. `Caption.typing_sound`가 그렇다.
+- `Caption.extra`와 `Line.extra_texts`도 기본값이 있는 빈 목록이라 video와 change schema version을 올리지 않는다. `PresetSettings.caption`은 `extra`가 없는 `PresetCaption`이다.
+- caption mode는 MVP에서 닫힌 enum 셋이다. mode catalog 행은 후속 작업이다.
 - caption mode를 typewriter에서 다른 mode로 바꾸는 변경은 같은 변경에 `typing_sound: null`을 넣는다. 남기면 `typing_sound_mode`로 거절한다.
 - migration은 `core/app/storage/migrations/v<N>_to_v<N+1>.py`의 순수 함수 `migrate(doc: dict) -> dict`다.
 - `v1_to_v2`는 내장 타자음 id(`typing_keys`, `typing_fast`)를 가리키는 `SfxCue`만 지운다. registry를 읽지 않으므로 그 밖의 타자음 cue는 남기고, 그 문서를 쓰는 작업에서 `typing_cue`로 거절한다. 과거 pin은 자동으로 다시 고정하지 않는다.
@@ -225,17 +232,19 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 | `timing_json` | 줄별 tts digest, speech_text, display_text, language, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
 | `part_png` | style PinnedRef, CharacterSpec, expression, pose, canvas, seed, sandbox runtime digest | 장면 글 |
 | `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, canvas, 입력 part digest, seed | BGM, 순서 |
-| `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정(`typing_sound` 제외), layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
+| `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정(`typing_sound` 제외), 두 번째 layer의 언어·mode·위치·font digest와 줄별 번역문, layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
 | `clip_mp4` | still 입력 전체, timing digest, motion, fps, renderer revision | BGM, 순서, 다른 장면 |
 | `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, `gain_db_x10`, `ducking_db_x10`, `audio.sfx_enabled`, SFX digest와 시점, `caption.typing_sound` PinnedRef, 소리를 내는 typewriter 구간 목록(line id와 `start_char`), 음량 목표 `loudness_lufs_x10` | 영상 화면 |
 | `final_mp4` | 순서 있는 clip digest, mix digest, encoder 설정 | UI 상태 |
-| `srt` | 순서 있는 timing digest, display_text | BGM |
+| `srt` | 순서 있는 timing digest, 주 언어 `display_text` | BGM, 두 번째 layer 글 |
 
 - artifact 조회는 `(owner_id, cache_key)`로 한다. cache key 계산식은 바꾸지 않는다. 소유자가 다르면 같은 key라도 따로 만들고 따로 보관한다.
 - 소유자 사이에 공유하는 것은 앱에 동봉한 catalog package뿐이다.
 - 앱이 LLM 응답을 재사용하는 cache를 두면 그 key에 `owner_id`와 `credential_id`를 넣는다. provider의 prompt cache는 소유 경계로 보지 않는다.
 - typewriter 표시 일정이 바뀌어도 `timing_json`을 재사용하지 않도록 그 key의 `api_version`은 2다.
 - renderer가 만드는 `layer_png` 내용이 바뀌면 그 key의 `api_version`을 올린다. builtin layer가 자막 상자를 그리지 않게 바뀐 판이 2다.
+- 두 번째 자막 layer가 있는 still은 그 layer의 언어·위치·font digest와 줄별 번역문을 key에 넣는다. layer가 없는 영상은 그 입력을 넣지 않아 기존 still key를 그대로 쓴다.
+- 두 번째 layer의 번역문을 바꾸면 still과 clip만 다시 만들고 TTS, timing, mix, SRT는 그대로 쓴다.
 - 무음 글자만 바뀌어도 `mix_wav` key가 갈리도록 소리를 내는 구간 목록을 넣는다. 무음 판정은 11.2절과 같다.
 - 진행 표시 문구는 장면 안의 beat 기준이다. 순서만 바뀌면 clip key는 그대로다.
 - 결과: 화면 글만 바꾸면 TTS는 재사용한다. 순서만 바꾸면 final만 다시 만든다. BGM만 바꾸면 mix와 final만 다시 만든다. 말할 글 변경은 그 줄의 TTS만 무효화한다.
@@ -446,6 +455,8 @@ class TranscriberPort(Protocol):
 - 무음 cluster는 `cluster.isspace()`이거나 `unicodedata.category(cluster[0])`이 `P`로 시작하는 경우다. 소리 배치(`is_silent`)와 cache 대상 목록(`voiced_clusters`)만 무음 cluster를 건너뛰고, 렌더는 모든 cluster를 그 구간 시작에 표시한다.
 - `VoiceService.timing`은 video language를 필수 인자로 받는다. keyword 기본값과 language 생략 시 축소 동작은 없다.
 - `Caption.typing_sound`는 지정 revision의 `TypingSoundEntry`만 가리킨다. 생략과 null은 타자음 없음이고, `audio.sfx_enabled`가 false이면 내지 않는다. `TypingSoundEntry`는 1개에서 64개까지의 `KeySound`를 가지며 각 key는 20ms에서 1000ms다.
+- 두 번째 자막 layer는 정렬에 참여하지 않는다. 그 layer는 줄의 `start_ms`와 `end_ms` 전체를 쓰고 `Line.extra_texts`의 번역문을 그대로 그린다. timing schema는 바뀌지 않는다.
+- SRT는 주 언어의 `display_text`만 쓴다. 두 번째 layer의 번역문은 SRT에 넣지 않는다.
 - registry는 `keys`가 있는 sfx manifest를 `TypingSoundEntry`로 읽고 모든 key WAV와 license 파일의 경로, 존재, checksum을 검사한다. catalog 미디어 route의 샘플은 첫 key WAV다.
 
 ## 12. Media (ffmpeg)
@@ -806,6 +817,8 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 - 기술 설계: 정지 미리보기는 대본 확인 뒤 구도 검수용이다. TTS 전 길이는 예상값이다. 확정 음성 뒤 preview와 mp4는 같은 timing artifact를 읽는다. 글·font·style·revision 변경 뒤 오래된 preview를 완료로 표시하지 않는다.
 - 한영 font 파일·digest·원본 라이선스를 동봉한다. 실제 glyph와 픽셀 폭으로 줄바꿈하며 OS 기본 font로 조용히 대체하지 않는다. 긴 한글·영문 식별자·숫자·괄호·혼합문자·누락 glyph·자모 분리·타자 효과 fixture를 시험한다.
+- 두 자막 layer는 같은 안전 영역에서 크기를 함께 고른다. 각 layer의 크기 후보에서 합, 큰 쪽, 주 layer 순서로 조합을 올리며 두 상자가 간격 8px로 들어가는 첫 조합을 쓴다. 조합이 없으면 `caption_overlap`이다. dialog 상자와 sandbox template는 상자를 고정하므로 layer 두 개를 받지 않는다. layout record는 주 layer 상자를 `caption`에, 두 번째 layer 상자를 `caption_extra`에 남긴다.
+- project 의미 검사는 글 크기를 재지 않고 각 layer의 가장 작은 두 줄 상자로 위치 조합이 가능한지만 본다. 그래서 한 줄 자막도 middle 조합은 `caption_overlap`이 될 수 있고, renderer는 실제 글에서 들어가는 조합을 더 그릴 수 있다. 화면은 저장 전 판정을 따른다. 실제 글에서도 겹치면 renderer가 `caption_overlap`으로 거절한다.
 - 코드 BGM은 9절 sandbox와 별도 WAV 검증기를 쓴다. host sound 서비스가 반복과 영상 길이를 처리한다. code/runtime digest·seed·설정으로 WAV를 재사용한다. 고정 WAV·잘못된 header·초과 길이·stdout flood·무한 계산·cache hit를 시험한다. BGM 교체 때 renderer 호출은 0이다.
 - 업로드 BGM은 job 전용 ID로 저장하고 고정 decoder로 제한한 내부 오디오로 변환한다. 손상·초과 bytes·길이는 거절한다. 보존 기간은 아래 저장 제안을 따른다.
 

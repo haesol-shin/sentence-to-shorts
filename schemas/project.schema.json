@@ -66,6 +66,14 @@
     "Caption": {
       "additionalProperties": false,
       "properties": {
+        "extra": {
+          "items": {
+            "$ref": "#/$defs/CaptionLayer"
+          },
+          "maxItems": 1,
+          "title": "Extra",
+          "type": "array"
+        },
         "font_id": {
           "$ref": "#/$defs/PinnedRef"
         },
@@ -98,6 +106,32 @@
         "highlight"
       ],
       "title": "Caption",
+      "type": "object"
+    },
+    "CaptionLayer": {
+      "additionalProperties": false,
+      "description": "A second caption language drawn in the same safe band as the primary.",
+      "properties": {
+        "font_id": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "language": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "position": {
+          "$ref": "#/$defs/CaptionPosition"
+        }
+      },
+      "required": [
+        "language",
+        "mode",
+        "font_id",
+        "position"
+      ],
+      "title": "CaptionLayer",
       "type": "object"
     },
     "CaptionMode": {

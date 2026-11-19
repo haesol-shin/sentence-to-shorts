@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "id": "ko",
+  "label": {
+    "ko": "한국어",
+    "en": "Korean"
+  },
+  "script": "hangul"
+}

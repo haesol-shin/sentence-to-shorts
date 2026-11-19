@@ -375,6 +375,14 @@
           "title": "Display Text",
           "type": "string"
         },
+        "extra_texts": {
+          "items": {
+            "$ref": "#/$defs/LineText"
+          },
+          "maxItems": 1,
+          "title": "Extra Texts",
+          "type": "array"
+        },
         "highlight": {
           "items": {
             "$ref": "#/$defs/Span"
@@ -404,6 +412,27 @@
         "highlight"
       ],
       "title": "Line",
+      "type": "object"
+    },
+    "LineText": {
+      "additionalProperties": false,
+      "description": "One line's text in a second caption language.",
+      "properties": {
+        "language": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "text"
+      ],
+      "title": "LineText",
       "type": "object"
     },
     "LockKey": {

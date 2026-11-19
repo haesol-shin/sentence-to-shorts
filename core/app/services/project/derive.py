@@ -100,6 +100,7 @@ class _Picker:
         self.probe = _snapshot(project, base, project.id)
         self.keys = [key for key in _KEYS if base.locks.get(key) is LockState.varied]
         self.budget = _SEARCH_BUDGET
+        self.script = state.language_script(catalog, base.language)
 
     def rank(self, key: str, value: Any) -> bytes:
         return hashlib.sha256(_json([self.seed, key, value]).encode()).digest()
@@ -203,7 +204,7 @@ class _Picker:
              or (mode is CaptionMode.typewriter and not template.dialog_box),
              (LockKey.art_style, LockKey.layout, LockKey.caption_mode)),
             (s.caption.font_id.id not in style.fonts
-             or state.FONT_SCRIPT[s.language] not in [script.value for script in font.scripts],
+             or self.script not in font.scripts,
              (LockKey.art_style, LockKey.caption_font)),
             (s.language not in voice.languages, (LockKey.voice,)),
         )

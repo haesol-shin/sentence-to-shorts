@@ -649,6 +649,14 @@
       "Caption": {
         "additionalProperties": false,
         "properties": {
+          "extra": {
+            "items": {
+              "$ref": "#/components/schemas/CaptionLayer"
+            },
+            "maxItems": 1,
+            "title": "Extra",
+            "type": "array"
+          },
           "font_id": {
             "$ref": "#/components/schemas/PinnedRef"
           },
@@ -680,6 +688,60 @@
           "highlight"
         ],
         "title": "Caption",
+        "type": "object"
+      },
+      "CaptionLanguageManifest": {
+        "additionalProperties": false,
+        "description": "Data file core/app/catalog/caption_languages/<id>.json.",
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/CatalogId"
+          },
+          "label": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "script": {
+            "$ref": "#/components/schemas/FontScript"
+          }
+        },
+        "required": [
+          "schema_version",
+          "id",
+          "label",
+          "script"
+        ],
+        "title": "CaptionLanguageManifest",
+        "type": "object"
+      },
+      "CaptionLayer": {
+        "additionalProperties": false,
+        "description": "A second caption language drawn in the same safe band as the primary.",
+        "properties": {
+          "font_id": {
+            "$ref": "#/components/schemas/PinnedRef"
+          },
+          "language": {
+            "$ref": "#/components/schemas/CatalogId"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/CaptionMode"
+          },
+          "position": {
+            "$ref": "#/components/schemas/CaptionPosition"
+          }
+        },
+        "required": [
+          "language",
+          "mode",
+          "font_id",
+          "position"
+        ],
+        "title": "CaptionLayer",
         "type": "object"
       },
       "CaptionMode": {
@@ -823,7 +885,8 @@
           "voice",
           "bgm",
           "sfx",
-          "font"
+          "font",
+          "caption_language"
         ],
         "title": "CatalogKind",
         "type": "string"
@@ -2272,6 +2335,14 @@
             "title": "Display Text",
             "type": "string"
           },
+          "extra_texts": {
+            "items": {
+              "$ref": "#/components/schemas/LineText"
+            },
+            "maxItems": 1,
+            "title": "Extra Texts",
+            "type": "array"
+          },
           "highlight": {
             "items": {
               "$ref": "#/components/schemas/Span"
@@ -2301,6 +2372,27 @@
           "highlight"
         ],
         "title": "Line",
+        "type": "object"
+      },
+      "LineText": {
+        "additionalProperties": false,
+        "description": "One line's text in a second caption language.",
+        "properties": {
+          "language": {
+            "$ref": "#/components/schemas/CatalogId"
+          },
+          "text": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "language",
+          "text"
+        ],
+        "title": "LineText",
         "type": "object"
       },
       "LinkRequest": {
@@ -2872,6 +2964,43 @@
         "title": "Preset",
         "type": "object"
       },
+      "PresetCaption": {
+        "additionalProperties": false,
+        "description": "Primary caption a preset stores. The extra language layer is not saved.",
+        "properties": {
+          "font_id": {
+            "$ref": "#/components/schemas/PinnedRef"
+          },
+          "highlight": {
+            "title": "Highlight",
+            "type": "boolean"
+          },
+          "mode": {
+            "$ref": "#/components/schemas/CaptionMode"
+          },
+          "position": {
+            "$ref": "#/components/schemas/CaptionPosition"
+          },
+          "typing_sound": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PinnedRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "mode",
+          "font_id",
+          "position",
+          "highlight"
+        ],
+        "title": "PresetCaption",
+        "type": "object"
+      },
       "PresetList": {
         "additionalProperties": false,
         "properties": {
@@ -2929,7 +3058,7 @@
             "$ref": "#/components/schemas/Audio"
           },
           "caption": {
-            "$ref": "#/components/schemas/Caption"
+            "$ref": "#/components/schemas/PresetCaption"
           },
           "extra_instructions": {
             "items": {
@@ -4066,6 +4195,10 @@
           "typing_sound_mode",
           "typing_sound_kind",
           "typing_cue",
+          "caption_text_missing",
+          "caption_mode_language",
+          "caption_layer_unsupported",
+          "caption_overlap",
           "revision_conflict"
         ],
         "title": "SemanticCode",
@@ -6185,6 +6318,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/StoryStructure"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CaptionLanguageManifest"
                     }
                   ],
                   "title": "Response Getcatalogitem"

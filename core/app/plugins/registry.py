@@ -23,8 +23,9 @@ from app.caption_layout import inside, safe_area
 from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
 from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry
-from app.schemas.common import LocalizedText, PackageOrigin, PinnedRef
-from app.schemas.font_manifest import FontManifest
+from app.schemas.caption_language_manifest import CaptionLanguageManifest
+from app.schemas.common import Language, LocalizedText, PackageOrigin, PinnedRef
+from app.schemas.font_manifest import FontManifest, FontScript
 from app.schemas.format_card import FormatCard, StoryStructure
 from app.schemas.style_manifest import StyleManifest
 from app.schemas.template_manifest import TemplateManifest
@@ -46,6 +47,7 @@ PACKAGE_DIRS = {
 FILE_DIRS = {
     "format_card": "format_cards",
     "story_structure": "story_structures",
+    "caption_language": "caption_languages",
 }
 MODELS: dict[str, type[BaseModel]] = {
     "art_style": StyleManifest,
@@ -56,6 +58,7 @@ MODELS: dict[str, type[BaseModel]] = {
     "font": FontManifest,
     "format_card": FormatCard,
     "story_structure": StoryStructure,
+    "caption_language": CaptionLanguageManifest,
 }
 
 
@@ -241,7 +244,9 @@ def validate_package(
     return manifest
 
 
-def _compatibility(entry: Entry, video: Video) -> Compatibility | None:
+def _compatibility(
+    entry: Entry, video: Video, language_script: FontScript | None
+) -> Compatibility | None:
     manifest = entry.manifest
     settings = video.settings
     if isinstance(manifest, TemplateManifest):
@@ -261,8 +266,9 @@ def _compatibility(entry: Entry, video: Video) -> Compatibility | None:
             return Compatibility(ok=False, reason="error.catalog.character_role")
         return Compatibility(ok=True, reason=None)
     if isinstance(manifest, FontManifest):
-        needed = "hangul" if settings.language == "ko" else "latin"
-        if needed not in [script.value for script in manifest.scripts]:
+        if language_script is None:
+            return None
+        if language_script not in manifest.scripts:
             return Compatibility(ok=False, reason="error.catalog.font_scripts")
         return Compatibility(ok=True, reason=None)
     return None
@@ -467,6 +473,13 @@ class Registry:
             raise UnknownCatalogId(f"{kind}:{item_id}")
         return entry
 
+    def _language_script(self, language: Language) -> FontScript | None:
+        """The font script a language catalog row needs, when that row exists."""
+        entry = self._entries.get(("caption_language", language.value))
+        if entry is None or not isinstance(entry.manifest, CaptionLanguageManifest):
+            return None
+        return entry.manifest.script
+
     def list(self, kind: str, *, video: Video | None = None) -> list[CatalogItem]:
         if kind not in MODELS:
             raise UnknownCatalogId(kind)
@@ -475,6 +488,9 @@ class Registry:
             **{key: value for key, value in self._entries.items() if key[0] == kind},
             **{key: value for key, value in self._generated.items() if key[0] == kind},
         }
+        script = (
+            self._language_script(video.settings.language) if video is not None else None
+        )
         items = []
         for _, entry in sorted(entries.items()):
             items.append(
@@ -485,7 +501,11 @@ class Registry:
                     label=entry.label,
                     origin=entry.origin,
                     thumbnail=None,
-                    compatible=_compatibility(entry, video) if video is not None else None,
+                    compatible=(
+                        _compatibility(entry, video, script)
+                        if video is not None
+                        else None
+                    ),
                 )
             )
         return items

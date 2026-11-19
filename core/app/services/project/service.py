@@ -122,7 +122,15 @@ class ProjectService:
         )
         if applied.concept_changes:
             raise AppError("concept_locked")
-        if state.new_issues(head, applied.video, self.catalog):
+        # A generated script or scene starts without translations. Keep the
+        # layer and let the user fill them; validate() still reports the gap and
+        # rendering rejects the line until it has its text.
+        if state.new_issues(
+            head,
+            applied.video,
+            self.catalog,
+            ignore=("caption_text_missing",),
+        ):
             raise AppError("invalid_combination")
         video = self._append(applied.video, head, CreatedBy.change, plan.id)
         return self._mark_applied(plan, video.revision)

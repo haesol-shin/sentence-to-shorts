@@ -75,6 +75,7 @@ def current_bgm(video: Video, catalog: Registry) -> Video:
 def test_4_defaults_make_a_valid_video_without_format_cards(tmp_path: Path) -> None:
     catalog_root = tmp_path / "catalog"
     shutil.copytree(CATALOG_ROOT / "story_structures", catalog_root / "story_structures")
+    shutil.copytree(CATALOG_ROOT / "caption_languages", catalog_root / "caption_languages")
     without_cards = Registry(catalog_root=catalog_root)
     assert without_cards.list("format_card") == []
 
@@ -356,6 +357,135 @@ def test_4_unknown_asset_element_is_rejected(catalog: Registry) -> None:
         (f"/scenes/{scene_id}/visual/elements/0/value", "unknown_catalog_id")
     ]
 
+
+
+TWO_LINE_KO = (
+    "커피를 고르는 기준은 세 가지뿐이다. "
+    "좋은 원두와 물의 온도, 그리고 비율이 만든다."
+)
+TWO_LINE_EN = (
+    "The only criteria for choosing coffee are freshness, roast date, and grind size."
+)
+SHORT_EN = "A short translation."
+
+
+def extra_layer(
+    catalog: Registry,
+    *,
+    font: str = "galmuri11",
+    position: str = "top",
+    mode: str = "sentence",
+    language: str = "en",
+) -> dict[str, Any]:
+    return {
+        "language": language,
+        "mode": mode,
+        "font_id": catalog.pin("font", font).model_dump(),
+        "position": position,
+    }
+
+
+def with_extra(
+    video: Video,
+    catalog: Registry,
+    *,
+    layout: str = "fixed_stage",
+    font: str = "galmuri11",
+    position: str = "top",
+    primary_position: str = "bottom",
+    mode: str = "sentence",
+    texts: bool = True,
+    display: str | None = None,
+    translated: str = SHORT_EN,
+) -> Video:
+    """The fixture video with one extra caption layer, optionally translated."""
+    doc = video.model_dump(mode="json")
+    doc["settings"]["format"]["layout"] = catalog.pin("template", layout).model_dump()
+    doc["settings"]["caption"]["font_id"] = catalog.pin("font", font).model_dump()
+    doc["settings"]["caption"]["position"] = primary_position
+    doc["settings"]["caption"]["extra"] = [
+        extra_layer(catalog, font=font, position=position, mode=mode)
+    ]
+    for scene in doc["scenes"].values():
+        for line in scene["lines"]:
+            if display is not None:
+                line["display_text"] = display
+                line["speech_text"] = display
+            line["extra_texts"] = (
+                [{"language": "en", "text": translated}] if texts else []
+            )
+    return Video.model_validate(doc)
+
+
+def test_29_two_layers_with_translations_have_no_issue(catalog: Registry) -> None:
+    video = with_extra(current_bgm(fixture_video(), catalog), catalog)
+    assert state.validate(video, catalog) == []
+
+
+def test_29_missing_translation_is_reported_per_line(catalog: Registry) -> None:
+    video = with_extra(current_bgm(fixture_video(), catalog), catalog, texts=False)
+    issues = state.validate(video, catalog)
+    assert {issue.code for issue in issues} == {"caption_text_missing"}
+    assert len(issues) == sum(len(scene.lines) for scene in video.scenes.values())
+    assert issues[0].pointer.endswith("/extra_texts")
+
+
+def test_29_extra_layer_mode_must_be_sentence(catalog: Registry) -> None:
+    video = with_extra(
+        current_bgm(fixture_video(), catalog), catalog, mode="phrase"
+    )
+    assert [(issue.pointer, issue.code) for issue in state.validate(video, catalog)] == [
+        ("/settings/caption/extra/0/mode", "caption_mode_language")
+    ]
+
+
+def test_29_extra_layer_needs_a_moving_plate_template(catalog: Registry) -> None:
+    video = with_extra(
+        current_bgm(fixture_video(), catalog), catalog, layout="dialog_stage"
+    )
+    assert [(issue.pointer, issue.code) for issue in state.validate(video, catalog)] == [
+        ("/settings/caption/extra/0", "caption_layer_unsupported")
+    ]
+
+
+def test_29_two_line_layers_that_collide_are_reported(catalog: Registry) -> None:
+    video = with_extra(
+        current_bgm(fixture_video(), catalog),
+        catalog,
+        font="galmuri14",
+        position="lower",
+        primary_position="upper",
+        display=TWO_LINE_KO,
+        translated=TWO_LINE_EN,
+    )
+    issues = state.validate(video, catalog)
+    assert {issue.code for issue in issues} == {"caption_overlap"}
+    assert len(issues) == sum(len(scene.lines) for scene in video.scenes.values())
+
+
+def test_29_middle_position_collides_at_the_smallest_sizes(catalog: Registry) -> None:
+    video = with_extra(
+        current_bgm(fixture_video(), catalog),
+        catalog,
+        position="bottom",
+        primary_position="middle",
+        display=TWO_LINE_KO,
+        translated=TWO_LINE_EN,
+    )
+    issues = state.validate(video, catalog)
+    assert {issue.code for issue in issues} == {"caption_overlap"}
+    assert len(issues) == sum(len(scene.lines) for scene in video.scenes.values())
+
+
+def test_29_layer_and_texts_are_added_as_one_change(catalog: Registry) -> None:
+    before = current_bgm(fixture_video(), catalog)
+    after = with_extra(before, catalog)
+    assert state.new_issues(before, after, catalog) == []
+
+    layer_only = with_extra(before, catalog, texts=False)
+    assert {issue.code for issue in state.new_issues(before, layer_only, catalog)} == {
+        "caption_text_missing"
+    }
 
 
 def _embed(name: str, data: dict[str, Any]) -> Video:
