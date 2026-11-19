@@ -1161,6 +1161,7 @@
       },
       "CharacterAnchors": {
         "additionalProperties": false,
+        "description": "Feet points of a three by three grid over the visual area.\n\nThe unprefixed points are the bottom row that saved scenes use. A template\nwritten before the upper rows existed leaves those points empty, and an\nempty point is drawn at the same column of the bottom row.",
         "properties": {
           "center": {
             "$ref": "#/components/schemas/Point"
@@ -1168,8 +1169,68 @@
           "left": {
             "$ref": "#/components/schemas/Point"
           },
+          "middle_center": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "middle_left": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "middle_right": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "right": {
             "$ref": "#/components/schemas/Point"
+          },
+          "top_center": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "top_left": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "top_right": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Point"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -2856,7 +2917,14 @@
         "type": "object"
       },
       "PlacementAnchor": {
+        "description": "Feet point of the character on a three by three grid over the visual area.\n\nThe unprefixed values are the bottom row that saved scenes use. The middle\nand top prefixes lift the character above that row.",
         "enum": [
+          "top_left",
+          "top_center",
+          "top_right",
+          "middle_left",
+          "middle_center",
+          "middle_right",
           "left",
           "center",
           "right"

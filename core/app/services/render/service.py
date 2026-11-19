@@ -42,7 +42,7 @@ from app.ports import (
 from app.schemas.artifact import Timing
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
 from app.schemas.common import Box, CaptionMode, CharacterRole
-from app.schemas.scene import Anchor, Element, ElementKind, PlacementAnchor, Scene
+from app.schemas.scene import Anchor, Element, ElementKind, Scene
 from app.schemas.script import Line, Span
 from app.schemas.settings import CaptionLayer, CaptionPosition, ProgressMode
 from app.schemas.style_manifest import AssetKind, Palette, Theme
@@ -379,7 +379,7 @@ class RenderService:
         figure = figure.resize(
             (figure.width * factor, figure.height * factor), Image.Resampling.NEAREST
         )
-        anchor = getattr(res.template.character_anchors, scene.visual.characters[0].anchor)
+        anchor = res.template.character_anchors.point(scene.visual.characters[0].anchor)
         rest = (anchor.x - figure.width // 2 - region.x, anchor.y - figure.height - region.y)
         return figure, rest
 
@@ -956,7 +956,7 @@ class RenderService:
         region = plan.res.template.regions.visual
         assert scene.visual is not None
         anchor = scene.visual.characters[0].anchor if scene.visual.characters else None
-        travel = region.w if anchor == PlacementAnchor.right else -region.w
+        travel = region.w if anchor is not None and anchor.value.endswith("right") else -region.w
 
         def frames() -> Iterator[bytes]:
             previous: Pose | None = None

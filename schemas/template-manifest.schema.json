@@ -54,6 +54,7 @@
     },
     "CharacterAnchors": {
       "additionalProperties": false,
+      "description": "Feet points of a three by three grid over the visual area.\n\nThe unprefixed points are the bottom row that saved scenes use. A template\nwritten before the upper rows existed leaves those points empty, and an\nempty point is drawn at the same column of the bottom row.",
       "properties": {
         "center": {
           "$ref": "#/$defs/Point"
@@ -61,8 +62,74 @@
         "left": {
           "$ref": "#/$defs/Point"
         },
+        "middle_center": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "middle_left": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "middle_right": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "right": {
           "$ref": "#/$defs/Point"
+        },
+        "top_center": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "top_left": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "top_right": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Point"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [

@@ -20,6 +20,12 @@
     "caption": {"x": 140, "y": 1060, "w": 800, "h": 140}
   },
   "character_anchors": {
+    "top_left": {"x": 270, "y": 606},
+    "top_center": {"x": 540, "y": 606},
+    "top_right": {"x": 810, "y": 606},
+    "middle_left": {"x": 270, "y": 783},
+    "middle_center": {"x": 540, "y": 783},
+    "middle_right": {"x": 810, "y": 783},
     "left": {"x": 270, "y": 960},
     "center": {"x": 540, "y": 960},
     "right": {"x": 810, "y": 960}

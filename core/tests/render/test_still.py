@@ -6,16 +6,30 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
-from PIL import Image
+from PIL import Image, ImageChops
 
 from app.caption_layout import inside, safe_area
 from app.ports import AppError
 from app.schemas.artifact import Timing
 from app.schemas.common import Box
+from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
 from tests.render.conftest import Studio, load
+
+GRID = [
+    "top_left",
+    "top_center",
+    "top_right",
+    "middle_left",
+    "middle_center",
+    "middle_right",
+    "left",
+    "center",
+    "right",
+]
 
 FIXTURE_SCENES = [
     ("scene_fixed_stage.json", "fixed_stage", "sentence", "presenter"),
@@ -144,6 +158,62 @@ def test_29_same_input_gives_same_png_digest(studio: Studio) -> None:
     second = studio.still(video, scene["id"], name="second")
     digest = [hashlib.sha256(path.read_bytes()).hexdigest() for path in (first, second)]
     assert digest[0] == digest[1]
+
+
+def _figure_box(
+    studio: Studio, scene: dict[str, Any], anchor: str
+) -> tuple[tuple[int, int, int, int], TemplateManifest]:
+    """Pixels the character adds over the same frame without a character."""
+    scene = copy.deepcopy(scene)
+    scene["visual"]["characters"][0]["anchor"] = anchor
+    video = studio.video(scene)
+    parts, layer = studio.inputs(video, scene["id"])
+    frame, _ = studio.service.compose(video, scene["id"], parts, layer)
+    bare = copy.deepcopy(scene)
+    bare["visual"]["characters"] = []
+    empty = studio.video(bare)
+    base, _ = studio.service.compose(empty, scene["id"], parts, layer)
+    box = ImageChops.difference(frame.convert("RGB"), base.convert("RGB")).getbbox()
+    assert box is not None
+    layout = video.settings.format.layout
+    manifest = studio.registry.get("template", layout.id, layout.revision)
+    assert isinstance(manifest, TemplateManifest)
+    return box, manifest
+
+
+@pytest.mark.parametrize("anchor", GRID)
+def test_29_character_grid_places_the_figure_at_each_point(
+    studio: Studio, anchor: str
+) -> None:
+    scene = load("scene_fixed_stage.json")
+    (left, top, right, bottom), manifest = _figure_box(studio, scene, anchor)
+    region = manifest.regions.visual
+    point = getattr(manifest.character_anchors, anchor)
+    assert point is not None
+    assert (left + right) // 2 == pytest.approx(point.x, abs=2)
+    assert bottom == pytest.approx(point.y, abs=2)
+    assert region.x <= left and right <= region.x + region.w
+    assert region.y < top and bottom <= region.y + region.h
+
+
+@pytest.mark.parametrize("layout", ["fixed_stage", "dialog_stage", "full_stage"])
+def test_29_builtin_templates_define_nine_distinct_grid_points(
+    studio: Studio, layout: str
+) -> None:
+    manifest = studio.registry.get("template", layout)
+    assert isinstance(manifest, TemplateManifest)
+    anchors = manifest.character_anchors
+    points = [(getattr(anchors, name).x, getattr(anchors, name).y) for name in GRID]
+    assert len(set(points)) == len(GRID)
+    rows = [
+        {getattr(anchors, f"{row}_{column}").y for column in ("left", "center", "right")}
+        for row in ("top", "middle")
+    ]
+    bottom_row = {anchors.left.y, anchors.center.y, anchors.right.y}
+    assert all(len(row) == 1 for row in rows)
+    assert rows[0].pop() < rows[1].pop() < bottom_row.pop()
+    columns = {anchors.left.x, anchors.center.x, anchors.right.x}
+    assert len(columns) == 3
 
 
 def test_6_theme_change_changes_background_box_and_palette(studio: Studio) -> None:

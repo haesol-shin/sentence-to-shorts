@@ -19,6 +19,7 @@ from app.schemas.common import (
     Provenance,
     RelPath,
 )
+from app.schemas.scene import PlacementAnchor
 
 
 class TemplateBuiltinRenderer(ContractModel):
@@ -50,9 +51,28 @@ class Regions(ContractModel):
 
 
 class CharacterAnchors(ContractModel):
+    """Feet points of a three by three grid over the visual area.
+
+    The unprefixed points are the bottom row that saved scenes use. A template
+    written before the upper rows existed leaves those points empty, and an
+    empty point is drawn at the same column of the bottom row.
+    """
+
     left: Point
     center: Point
     right: Point
+    middle_left: Point | None = None
+    middle_center: Point | None = None
+    middle_right: Point | None = None
+    top_left: Point | None = None
+    top_center: Point | None = None
+    top_right: Point | None = None
+
+    def point(self, anchor: PlacementAnchor) -> Point:
+        point = getattr(self, anchor.value)
+        if point is not None:
+            return point
+        return getattr(self, anchor.value.rsplit("_", 1)[-1])
 
 
 class TemplateTest(ContractModel):
