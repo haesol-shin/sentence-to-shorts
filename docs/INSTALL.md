@@ -47,9 +47,24 @@ Windows는 시작 메뉴의 앱 이름을 누릅니다. Linux는 푼 폴더에�
 
 이미 실행 중이면 새로 띄우지 않고 실행 중인 앱을 브라우저로 엽니다. 탭을 닫았어도 같은 브라우저에 유효한 세션 cookie가 남아 있으면 같은 주소로 다시 접속할 수 있으며, 앱을 재시작할 필요가 없습니다.
 
-Deno, Pyodide, ffmpeg는 설치 파일에 들어 있어서 첫 실행에 내려받지 않습니다. 앱은 PATH의 Python이나 ffmpeg를 쓰지 않고 설치 폴더의 파일만 씁니다. ffmpeg는 GPL-3.0-or-later 빌드이고 라이선스 문구는 설치 폴더의 `licenses`와 `THIRD_PARTY_NOTICES.md`에 있습니다. 같은 릴리스에 `ffmpeg-corresponding-source-<플랫폼>.tar` 자산이 함께 올라가며, 그 안에 FFmpeg 판, 켜 둔 외부 라이브러리의 원본, 빌드 스크립트와 패치, 다시 빌드하는 방법이 들어 있습니다. 모델처럼 설치 파일에 없는 항목은 첫 실행에 runtime manifest의 SHA-256으로 확인하며 받고, 중간에 끊겨도 이어 받습니다. 두 번째 실행부터는 내려받지 않습니다.
+Deno, Pyodide, ffmpeg는 설치 파일에 들어 있어서 첫 실행에 내려받지 않습니다. 앱은 PATH의 Python이나 ffmpeg를 쓰지 않고 설치 폴더의 파일만 씁니다. ffmpeg는 GPL-3.0-or-later 빌드이고 라이선스 문구는 설치 폴더의 `licenses`와 `THIRD_PARTY_NOTICES.md`에 있습니다. 같은 릴리스에 `ffmpeg-corresponding-source-<플랫폼>.tar` 자산이 함께 올라가며, 그 안에 FFmpeg 판, 켜 둔 외부 라이브러리의 원본, 빌드 스크립트와 패치, 다시 빌드하는 방법이 들어 있습니다. 설치 파일에 없는 runtime 항목은 첫 실행에 runtime manifest의 SHA-256으로 확인하며 받고, 중간에 끊겨도 이어 받습니다. 두 번째 실행부터는 내려받지 않습니다.
 
 휴대폰으로 같은 와이파이에서 접속하려면 `APP_LAN=1`로 시작합니다. 평문 LAN은 합성 자료 시험에만 쓰세요. 접속 코드는 컴퓨터 화면에 보입니다.
+
+## 설치 파일 밖에서 받는 것
+
+설치 파일에는 앱과 동봉한 runtime만 들어갑니다. 아래 정렬기 환경과 model 준비는 소스 체크아웃에서 `python scripts/dev_setup.py --models`로 하는 개발 절차입니다. 설치 파일만 받은 배포물에는 이 스크립트가 없어 정렬기를 아직 준비할 수 없습니다. 정렬기 환경이 이미 있으면 그 환경의 package만 정리하고, 없으면 `core/align_runtime/.venv`를 만듭니다. 앱은 `APP_ALIGN_PYTHON`에 실제 정렬기 인터프리터 경로(새로 만들면 `.venv/bin/python`, Windows는 `.venv\Scripts\python.exe`, 기존 환경이면 그 환경의 python)를 줘야 정렬기를 씁니다. 준비 명령과 앱 실행에 같은 `APP_MODEL_DIR`을 줘야 합니다. 기본값은 준비 명령이 저장소의 `.local/models`, 앱이 사용자 데이터 폴더의 `models`라서 서로 다릅니다. 앱의 runtime 준비기는 `model-` 항목을 받지 않습니다.
+
+| 항목 | 내려받기 | 설치 후 | 표시 |
+| --- | --- | --- | --- |
+| 정렬기 환경, Linux x86_64 | 254.6MiB | 894.0MiB | 계산 |
+| model 네 개 소계 | 4,629,029,343 bytes (4.311GiB) | 같음 | 잠금 파일 |
+| NLTK punkt_tab | 4,319,076 bytes | ZIP 보존 + 압축 해제, 미측정 | 잠금 파일 |
+| model 준비 합계 | 4,633,348,419 bytes (4.315GiB) | 압축 해제분 포함, 미측정 | 계산 |
+
+정렬기 환경은 WhisperX의 정렬 경로가 import하는 package만 넣습니다. WhisperX가 선언하는 전사, 화자 분리, 영상 처리 package는 넣지 않습니다. 크기는 wheel 파일을 풀었을 때의 합으로 계산했고 실제 설치본에서 잰 값이 아닙니다. Windows 정렬기 환경 크기는 아직 재지 않았습니다.
+
+model 준비의 내려받기는 TTS 2,498,383,610 bytes, 한국어 정렬 1,266,768,888 bytes, 영어 정렬 377,664,473 bytes, ASR 486,212,372 bytes, NLTK punkt_tab 4,319,076 bytes를 합한 값입니다. punkt_tab은 ZIP을 보존하면서 풀어 두므로 설치 후 크기는 내려받기보다 크고 아직 재지 않았습니다.
 
 ## 종료
 

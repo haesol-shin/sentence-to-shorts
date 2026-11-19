@@ -15,10 +15,13 @@ only place that installs them. core/config/runtime.lock.json is the only source
 of versions and hashes.
 
 ``--models`` also installs both Poetry environments (``core`` and
-``core/align_runtime``) and checks every direct dependency against its
-``poetry.lock``. Each project keeps its own environment: the Poetry
-subprocesses ignore the venv that the caller has activated. The second run
-installs nothing and downloads no model file.
+``core/align_runtime``), the pinned WhisperX wheel into the aligner
+environment, and checks every direct dependency against its ``poetry.lock``.
+An aligner environment built by an older lock is trimmed in place, whether it
+lives in the project or in Poetry's cache. A project without one gets a
+``.venv``. Each project keeps its own environment: the Poetry subprocesses
+ignore the venv or Conda environment that the caller has activated. The second
+run installs nothing and downloads no model file.
 Run --models or --tts-package with the application's Python environment: the
 verified Qwen wheel is installed there with pip --no-deps, without its demo UI.
 Its manifest revision is the SHA-1 of the wheel, not an upstream Git revision.
@@ -47,6 +50,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / "core" / "config" / "runtime.lock.json"
 PROJECTS = (("core", ROOT / "core"), ("align", ROOT / "core" / "align_runtime"))
+INSTALLED_PACKAGES = """
+import importlib.metadata
+import json
+
+print(json.dumps(sorted({
+    distribution.metadata["Name"]
+    for distribution in importlib.metadata.distributions()
+    if distribution.metadata["Name"]
+})))
+"""
 CHECK_ENVIRONMENT = """
 import importlib.metadata
 import json
@@ -294,13 +307,16 @@ def poetry_command() -> list[str]:
 
 
 def poetry_environment() -> dict[str, str]:
-    """Poetry's environment without the caller's active venv.
+    """Poetry's environment without the caller's active venv or Conda env.
 
     ``poetry run`` sets VIRTUAL_ENV. If Poetry inherits it, it installs every
-    project into that one venv, so the aligner would replace the Qwen packages.
+    project into that one venv. Poetry also falls back to CONDA_PREFIX when the
+    project has no registered environment, so a named Conda env would become the
+    install target.
     """
     env = os.environ.copy()
     env.pop("VIRTUAL_ENV", None)
+    env.pop("CONDA_PREFIX", None)
     return env
 
 
@@ -323,21 +339,87 @@ def direct_requirements(project: Path) -> list[str]:
     return sorted(name for name in names if name)
 
 
-def environment_python(project: Path) -> Path:
-    """The interpreter of the Poetry environment of the project."""
+def distribution_name(name: str) -> str:
+    """A distribution name normalized the way pip compares names."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def locked_packages(project: Path, group: str) -> set[str]:
+    """Distribution names the lock selects for one dependency group."""
+    lock = tomllib.loads((project / "poetry.lock").read_text(encoding="utf-8"))
+    return {
+        distribution_name(package["name"])
+        for package in lock.get("package", [])
+        if group in package.get("groups", [])
+    }
+
+
+def in_project_python(project: Path) -> Path:
+    """The interpreter path of the project's in-project environment."""
+    binary = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+    return project / ".venv" / binary
+
+
+def existing_environment_python(project: Path) -> Path | None:
+    """The interpreter of one existing Poetry environment of the project."""
+    in_project = in_project_python(project)
+    if in_project.is_file():
+        return in_project
     completed = subprocess.run(
-        [*poetry_command(), "env", "info", "-p"],
+        [*poetry_command(), "env", "list", "--full-path"],
         cwd=project,
         env=poetry_environment(),
         capture_output=True,
         text=True,
+        check=False,
+    )
+    if completed.returncode:
+        return None
+    paths = set()
+    for line in completed.stdout.splitlines():
+        line = re.sub(r"\s+\(Activated\)$", "", line.strip())
+        if not line:
+            continue
+        python = Path(line) / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+        if python.is_file():
+            paths.add(python)
+    return paths.pop() if len(paths) == 1 else None
+
+
+def environment_python(project: Path) -> Path:
+    """The interpreter of the Poetry environment of the project."""
+    python = existing_environment_python(project)
+    if python is None:
+        raise SystemExit(f"poetry created no environment for {project.name}")
+    return python
+
+
+def installed_packages(python: Path) -> set[str]:
+    """Distribution names installed in the environment."""
+    completed = subprocess.run(
+        [str(python), "-c", INSTALLED_PACKAGES],
+        capture_output=True,
+        text=True,
         check=True,
     )
-    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
-    if not lines:
-        raise SystemExit(f"poetry printed no environment path for {project.name}")
-    binary = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
-    return Path(lines[-1]) / binary
+    return {name.lower() for name in json.loads(completed.stdout)}
+
+
+def packages_to_remove(installed: set[str], project: Path) -> list[str]:
+    """Installed packages the aligner's main group does not select."""
+    keep = locked_packages(project, "main") | {
+        distribution_name(name) for name in ("pip", "setuptools", "wheel", "whisperx")
+    }
+    return sorted(name for name in installed if distribution_name(name) not in keep)
+
+
+def remove_unused_packages(project: Path, python: Path) -> None:
+    """Remove installed packages the aligner's main group does not select."""
+    extras = packages_to_remove(installed_packages(python), project)
+    if not extras:
+        return
+    print(f"removing {len(extras)} packages the alignment path does not use")
+    subprocess.run([str(python), "-m", "pip", "uninstall", "-y", *extras], check=True)
 
 
 def verify_environment(python: Path, project: Path) -> None:
@@ -360,22 +442,41 @@ def verify_environment(python: Path, project: Path) -> None:
     print(f"verified {project.name} environment at {python}")
 
 
-def install_environment(project: Path) -> None:
+def install_environment(project: Path, *, in_project: bool | None = None) -> None:
     """Install the project into its own Poetry environment."""
+    env = poetry_environment()
+    if in_project is not None:
+        env["POETRY_VIRTUALENVS_IN_PROJECT"] = "true" if in_project else "false"
     subprocess.run(
         [*poetry_command(), "install", "--no-root"],
         cwd=project,
-        env=poetry_environment(),
+        env=env,
         check=True,
     )
+
+
+def install_pinned_wheel(project: Path, python: Path) -> None:
+    """Install the wheel the project pins outside its lock into its environment."""
+    subprocess.run([str(python), str(project / "install_whisperx.py")], check=True)
 
 
 def install_environments() -> list[str]:
     """Install both Poetry projects and verify their direct dependency versions."""
     prepared = []
     for name, project in PROJECTS:
-        install_environment(project)
-        verify_environment(environment_python(project), project)
+        if name == "align":
+            existing = existing_environment_python(project)
+            in_project = existing is None or existing == in_project_python(project)
+            install_environment(project, in_project=in_project)
+            python = existing_environment_python(project)
+            if python is None:
+                raise SystemExit(f"poetry created no environment for {project.name}")
+            remove_unused_packages(project, python)
+            install_pinned_wheel(project, python)
+        else:
+            install_environment(project)
+            python = environment_python(project)
+        verify_environment(python, project)
         prepared.append(f"env-{name}")
     return prepared
 

@@ -137,15 +137,17 @@ def test_model_prepare_extracts_a_zip_and_repairs_a_missing_member(tmp_path, cap
 def test_environment_specs_read_the_align_runtime_lock() -> None:
     align = ROOT / "core" / "align_runtime"
     assert setup.direct_requirements(align) == [
-        "pyannote-audio",
+        "huggingface-hub",
+        "nltk",
+        "numpy",
+        "pandas",
         "torch",
         "torchaudio",
-        "torchcodec",
-        "torchvision",
-        "whisperx",
+        "transformers",
     ]
-    assert setup.locked_versions(align)["whisperx"] == {"3.8.6"}
-    assert setup.locked_versions(align)["torch"] == {"2.8.0+cpu"}
+    locked = setup.locked_versions(align)
+    assert "whisperx" in locked
+    assert locked["torch"] == {"2.8.0+cpu"}
 
 
 def test_environment_verify_rejects_a_version_outside_the_lock(tmp_path) -> None:
@@ -161,6 +163,46 @@ def test_environment_verify_rejects_a_version_outside_the_lock(tmp_path) -> None
     )
     with pytest.raises(SystemExit, match="does not match its poetry.lock"):
         setup.verify_environment(Path(sys.executable), project)
+
+
+def test_distribution_name_normalizes_separators() -> None:
+    assert setup.distribution_name("huggingface_hub") == "huggingface-hub"
+    assert setup.distribution_name("Typing.Extensions") == "typing-extensions"
+
+
+def test_packages_to_remove_keeps_the_main_group_and_wheel() -> None:
+    align = ROOT / "core" / "align_runtime"
+    installed = {
+        "torch",
+        "torchaudio",
+        "huggingface_hub",
+        "transformers",
+        "whisperx",
+        "pip",
+        "pyannote-audio",
+        "torchvision",
+        "triton",
+    }
+    removed = setup.packages_to_remove(installed, align)
+    assert "pyannote-audio" in removed
+    assert "torchvision" in removed
+    assert "triton" in removed
+    for kept in ("torch", "torchaudio", "huggingface_hub", "transformers", "whisperx", "pip"):
+        assert kept not in removed
+
+
+def test_poetry_environment_ignores_active_venv_and_conda(monkeypatch) -> None:
+    monkeypatch.setenv("VIRTUAL_ENV", "/synthetic/venv")
+    monkeypatch.setenv("CONDA_PREFIX", "/synthetic/conda")
+    env = setup.poetry_environment()
+    assert "VIRTUAL_ENV" not in env
+    assert "CONDA_PREFIX" not in env
+
+
+def test_in_project_python_uses_dot_venv(tmp_path) -> None:
+    python = setup.in_project_python(tmp_path)
+    assert python.parent.parent == tmp_path / ".venv"
+    assert python.name in ("python", "python.exe")
 
 
 def test_environment_install_keeps_each_project_in_its_own_env(tmp_path, monkeypatch) -> None:
