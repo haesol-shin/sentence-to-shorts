@@ -197,6 +197,18 @@ class LlmAuth(ContractModel):
     state: LlmAuthState
 
 
+class SpeechDevice(ContractModel):
+    """The compute device a speech adapter settled on, and why."""
+
+    device: Literal["cpu", "cuda"]
+    reason: Literal["configured", "detected", "unavailable", "load_failed"]
+
+
+class SpeechDevices(ContractModel):
+    tts: SpeechDevice
+    asr: SpeechDevice
+
+
 class Capabilities(ContractModel):
     """Offline scope. open/edit/play work offline; generation needs the listed items."""
 
@@ -215,6 +227,7 @@ class RuntimeStatus(ContractModel):
     items: list[RuntimeItem]
     llm_auth: LlmAuth
     capabilities: Capabilities
+    speech: SpeechDevices
 
 
 class CatalogKind(StrEnum):

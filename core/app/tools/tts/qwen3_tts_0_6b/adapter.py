@@ -1,4 +1,10 @@
-"""``TtsPort`` over the Qwen3-TTS 0.6B CustomVoice preset speakers, run on the CPU.
+"""``TtsPort`` over the Qwen3-TTS 0.6B CustomVoice preset speakers.
+
+The device is picked once when the adapter is built. `auto` takes CUDA when torch
+reports one, and a failed CUDA load steps down to the CPU once; an explicit `cuda`
+that cannot load stays an error. The chosen device and the reason go to the
+runtime status, and the device is part of the engine digest so CPU and GPU audio
+never share a cache entry.
 
 The model lives in a child worker process (``worker.py``) that loads it from the
 prepared local folder once and keeps it for the job. The worker leaves after
@@ -17,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import math
 import os
 import queue
@@ -41,6 +48,7 @@ from app.ports import (
     canonical_digest,
 )
 from app.schemas.voice_manifest import VoiceManifest
+from app.tools.device import DeviceSelection
 
 # Tree kill and the Windows Job Object are the one implementation of the other
 # adapters; they take a process this adapter starts for itself.
@@ -70,8 +78,11 @@ which this layer cannot import; a test keeps both in step."""
 THREADS_ENV = "APP_TTS_THREADS"
 MAX_DEFAULT_THREADS = 4
 POLL_S = 0.05
-STDERR_TAIL_BYTES = 1024
 WORKER_PATH = Path(__file__).with_name("worker.py")
+CUDA_ENV = ("CUDA_VISIBLE_DEVICES", "CUDA_DEVICE_ORDER")
+"""Host GPU assignment of this process. The worker must see the same devices."""
+
+logger = logging.getLogger(__name__)
 
 
 def expected_ms(text: str, language: str) -> int:
@@ -88,6 +99,36 @@ def default_threads() -> int:
     if not raw.isascii() or not raw.isdecimal() or int(raw) < 1:
         raise RuntimeError(f"{THREADS_ENV} must be a positive integer")
     return int(raw)
+
+
+def cuda_available() -> bool:
+    """True when torch sees a CUDA device; the CPU wheel always says False."""
+    import torch
+
+    return bool(torch.cuda.is_available())
+
+
+def cuda_runs() -> bool:
+    """True when torch can execute an operation on the CUDA device it reports.
+
+    `is_available` only detects a device. A driver or architecture mismatch fails
+    on the first real kernel, so an explicit `cuda` checks here before startup ends.
+    """
+    import torch
+
+    try:
+        torch.zeros(1, device="cuda")
+        torch.cuda.synchronize()
+    except (AssertionError, RuntimeError):
+        return False
+    return True
+
+
+def cuda_problem() -> str | None:
+    """None when one CUDA operation completes, else the reason startup must stop."""
+    if cuda_runs():
+        return None
+    return "torch cannot run an operation on a CUDA device"
 
 
 def _failed(reason: str, **detail: Any) -> AppError:
@@ -124,7 +165,6 @@ class _Worker:
                 self.stop()
                 raise
         self.messages: queue.Queue[dict[str, Any] | None] = queue.Queue()
-        self._stderr = bytearray()
         self._threads = [
             threading.Thread(target=self._read_messages, daemon=True),
             threading.Thread(target=self._read_stderr, daemon=True),
@@ -145,14 +185,11 @@ class _Worker:
         self.messages.put(None)
 
     def _read_stderr(self) -> None:
+        # Drain the pipe so a chatty child never blocks, but keep no text: the
+        # adapter logs only exception types and error codes, never raw stderr.
         assert self.process.stderr is not None
-        while chunk := self.process.stderr.read(4096):
-            self._stderr += chunk
-            del self._stderr[:-STDERR_TAIL_BYTES]
-
-    @property
-    def stderr_tail(self) -> str:
-        return bytes(self._stderr).decode("utf-8", "replace").strip()
+        while self.process.stderr.read(4096):
+            pass
 
     def alive(self) -> bool:
         return self.process.poll() is None
@@ -221,6 +258,8 @@ class Qwen3TtsAdapter:
         runtime_digest: str,
         threads: int,
         package_ready: Callable[[], bool],
+        selection: DeviceSelection | None = None,
+        runtime_digest_for: Callable[[str], str] | None = None,
         worker_command: Sequence[str] | None = None,
         idle_s: float = IDLE_S,
         load_timeout_s: float = LOAD_TIMEOUT_S,
@@ -229,10 +268,12 @@ class Qwen3TtsAdapter:
     ) -> None:
         if threads < 1:
             raise ValueError("threads must be positive")
+        self._selection = selection or DeviceSelection("cpu", "cpu", "configured")
         self._model_dir = model_dir
         self._model_files = dict(model_files)
         self._model_revision = model_revision
         self._runtime_digest = runtime_digest
+        self._runtime_digest_for = runtime_digest_for
         self._threads = threads
         self._package_ready = package_ready
         self._command = list(worker_command or (sys.executable, str(WORKER_PATH)))
@@ -244,6 +285,21 @@ class Qwen3TtsAdapter:
         self._lock = threading.Lock()
         self._request_id = 0
         self._closed = False
+        self._synthesized = False
+
+    @property
+    def device(self) -> str:
+        """The device the worker loads on, after a possible CPU step-down."""
+        return self._selection.snapshot()[0]
+
+    @property
+    def device_reason(self) -> str:
+        """Why that device was chosen: configured, detected, unavailable, load_failed."""
+        return self._selection.snapshot()[1]
+
+    def device_status(self) -> tuple[str, str]:
+        """The device and reason from one state, for the runtime status."""
+        return self._selection.snapshot()
 
     def info(self) -> TtsEngineInfo:
         return TtsEngineInfo(
@@ -297,7 +353,19 @@ class Qwen3TtsAdapter:
                 if self._closed:
                     raise _failed("closed")
                 timeout_s = self.sentence_timeout_s(text, language)
-                duration_ms = self._exchange(request, timeout_s, cancel)
+                try:
+                    duration_ms = self._exchange(request, timeout_s, cancel)
+                except AppError as error:
+                    if not self._can_retry_synth(error):
+                        raise
+                    logger.warning(
+                        "tts cuda synth failed (%s); retrying on cpu",
+                        error.detail.get("reason") or error.code,
+                    )
+                    self._step_down()
+                    self._stop_worker()
+                    duration_ms = self._exchange(request, timeout_s, cancel)
+                self._synthesized = True
         except BaseException:
             out.unlink(missing_ok=True)
             Path(f"{out}.part").unlink(missing_ok=True)
@@ -347,7 +415,7 @@ class Qwen3TtsAdapter:
 
     def _finish(self, reply: dict[str, Any] | None, request: dict[str, Any]) -> int:
         if reply is None:
-            raise self._worker_gone()
+            raise self._worker_gone("synthesize")
         if reply.get("id") != self._request_id:
             self._stop_worker()
             raise _failed("protocol")
@@ -359,28 +427,85 @@ class Qwen3TtsAdapter:
             raise _failed("sample_rate", rate=reply.get("sample_rate"))
         return _wav_ms(Path(request["out"]))
 
-    def _worker_gone(self) -> AppError:
+    def _worker_gone(self, stage: str) -> AppError:
         worker = self._worker
-        tail, code = "", None
+        code = None
         if worker is not None:
             try:
                 # Output ends before the exit is reaped; the code is worth a short wait.
                 code = worker.process.wait(timeout=1.0)
             except subprocess.TimeoutExpired:
                 pass
-            tail = worker.stderr_tail[-300:]
         self._stop_worker()
-        return _failed("worker_exited", returncode=code, stderr=tail)
+        return _failed("worker_exited", stage=stage, returncode=code)
 
     def _started(self, cancel: CancelToken) -> _Worker:
         worker = self._worker
         if worker is not None and worker.alive():
             return worker
         self._stop_worker()
+        while True:
+            try:
+                reply = self._spawn(cancel)
+            except AppError as error:
+                if not self._can_retry_on_cpu(error):
+                    raise
+                logger.warning(
+                    "tts cuda load failed (%s at %s); retrying on cpu",
+                    error.detail.get("reason") or error.code,
+                    error.detail.get("stage"),
+                )
+                self._step_down()
+                continue
+            if reply.get("type") == "ready":
+                assert self._worker is not None
+                return self._worker
+            code = str(reply.get("code", "protocol"))
+            self._stop_worker()
+            if code == "load_failed" and self._selection.may_fall_back:
+                logger.warning(
+                    "tts cuda load failed (%s); retrying on cpu",
+                    reply.get("name", "unknown"),
+                )
+                self._step_down()
+                continue
+            if code == "package_missing":
+                raise AppError(
+                    "tts_not_ready", detail={"engine": ENGINE_ID, "missing": [PACKAGE_ITEM]}
+                )
+            raise _failed("model_load" if code == "load_failed" else code)
+
+    def _can_retry_synth(self, error: AppError) -> bool:
+        """The first inference on an auto GPU may retry once on the CPU."""
+        if self._synthesized or not self._selection.may_fall_back:
+            return False
+        if error.code == "tts_timeout":
+            return True
+        return error.code == "tts_failed" and error.detail.get("reason") in {
+            "synth_failed",
+            "worker_exited",
+        }
+
+    def _can_retry_on_cpu(self, error: AppError) -> bool:
+        """A load timeout or a worker that exits before ready may retry once on the CPU."""
+        if not self._selection.may_fall_back:
+            return False
+        if error.code == "tts_timeout":
+            return error.detail.get("stage") == "load"
+        return (
+            error.code == "tts_failed"
+            and error.detail.get("reason") == "worker_exited"
+            and error.detail.get("stage") == "load"
+        )
+
+    def _spawn(self, cancel: CancelToken) -> dict[str, Any]:
+        """Start a worker on the current device and return its first reply."""
         argv = [
             *self._command,
             "--model-dir",
             str(self._model_dir),
+            "--device",
+            self._selection.device,
             "--threads",
             str(self._threads),
             "--idle-s",
@@ -397,6 +522,9 @@ class Qwen3TtsAdapter:
             TRANSFORMERS_OFFLINE="1",
             PYTHONUTF8="1",
         )
+        for name in CUDA_ENV:
+            if name in os.environ:
+                env[name] = os.environ[name]
         try:
             worker = _Worker(argv, env)
         except OSError as error:
@@ -404,14 +532,14 @@ class Qwen3TtsAdapter:
         self._worker = worker
         reply = self._wait(worker, time.monotonic() + self._load_timeout_s, cancel, "load")
         if reply is None:
-            raise self._worker_gone()
-        if reply.get("type") == "ready":
-            return worker
-        code = str(reply.get("code", "protocol"))
-        self._stop_worker()
-        if code == "package_missing":
-            raise AppError("tts_not_ready", detail={"engine": ENGINE_ID, "missing": [PACKAGE_ITEM]})
-        raise _failed("model_load" if code == "load_failed" else code)
+            raise self._worker_gone("load")
+        return reply
+
+    def _step_down(self) -> None:
+        """Use the CPU after one failed CUDA load, and move the digest with it."""
+        self._selection.step_down()
+        if self._runtime_digest_for is not None:
+            self._runtime_digest = self._runtime_digest_for(self._selection.device)
 
     def _wait(
         self, worker: _Worker, deadline: float, cancel: CancelToken, stage: str
@@ -489,26 +617,41 @@ def create(settings: AppSettings) -> Qwen3TtsAdapter:
     model = _runtime_item(settings, MODEL_ITEM)
     package = _runtime_item(settings, PACKAGE_ITEM)
     threads = default_threads()
-    digest = canonical_digest(
-        {
-            "engine": ENGINE_ID,
-            "revision": ENGINE_REVISION,
-            "device": "cpu",
-            "dtype": "float32",
-            "model": _pinned(model),
-            "package": _pinned(package),
-            "runtime_wheels": _runtime_wheels(),
-            "threads": threads,
-            "implementation": hashlib.sha256(
-                Path(__file__).read_bytes() + WORKER_PATH.read_bytes()
-            ).hexdigest(),
-        }
+    requested = str(getattr(settings, "device", "auto"))
+    selection = DeviceSelection.resolve(
+        requested,
+        detect=cuda_available,
+        verify=cuda_problem,
+        verify_auto=False,
+        backend="torch",
     )
+    wheels = _runtime_wheels()
+    implementation = hashlib.sha256(
+        Path(__file__).read_bytes() + WORKER_PATH.read_bytes()
+    ).hexdigest()
+
+    def digest_for(device: str) -> str:
+        return canonical_digest(
+            {
+                "engine": ENGINE_ID,
+                "revision": ENGINE_REVISION,
+                "device": device,
+                "dtype": "float32",
+                "model": _pinned(model),
+                "package": _pinned(package),
+                "runtime_wheels": wheels,
+                "threads": threads,
+                "implementation": implementation,
+            }
+        )
+
     return Qwen3TtsAdapter(
         model_dir=settings.model_dir / model["install_path"],
         model_files={entry["file"]: entry["bytes"] for entry in model["files"]},
         model_revision=model["revision"],
-        runtime_digest=digest,
+        runtime_digest=digest_for(selection.device),
+        runtime_digest_for=digest_for,
         threads=threads,
+        selection=selection,
         package_ready=lambda: _package_matches(package["version"]),
     )

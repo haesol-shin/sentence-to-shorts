@@ -9,22 +9,26 @@ without starting ffmpeg, a TTS engine or an LLM.
 from __future__ import annotations
 
 import hashlib
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from app.ports import AppError, Cancelled, ReferenceOutcome, Usage
+from app.schemas.artifact import ArtifactKind
 from app.schemas.change import SetOp, SetScriptOp, Target
-from app.schemas.common import Origin
+from app.schemas.common import PERSONAL_OWNER_ID, Origin
 from app.schemas.job import Effort, JobKind, Stage, StageRecord
 from app.schemas.script import Script, ScriptSource
 from app.schemas.settings import LockKey, LockState
 from app.schemas.video import ArtifactState, VideoStage
 from app.services.pipeline.build import run_generate
+from app.services.pipeline.cache_keys import Graph
 from app.services.pipeline.dependencies import build_view, plan_change
 from app.services.pipeline.run import run
 from app.services.pipeline.run_state import check_context
-from tests.pipeline.support import Harness, build_harness
+from app.services.pipeline.types import KeyRuntime
+from tests.pipeline.support import FakeVoice, Harness, build_harness
 
 
 @pytest.fixture
@@ -877,3 +881,195 @@ def test_16_preview_after_generate_reads_the_measured_timing(harness: Harness) -
     assert measured["artifacts"]["still"][scene_id] != estimated["artifacts"]["still"][scene_id]
     view = build_view(harness.projects.get_video(confirmed.id), harness.services)
     assert view.scenes[scene_id].still.artifact.id == measured["artifacts"]["still"][scene_id]
+
+
+class _TtsProbe:
+    def __init__(self) -> None:
+        self.runtime_digest = "cuda-digest"
+
+    def info(self) -> "_TtsProbe":
+        return self
+
+
+class _FallbackVoice(FakeVoice):
+    """The engine reports CUDA before its first load and the CPU after the step-down."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.tts = _TtsProbe()
+
+    def synthesize(  # type: ignore[override]
+        self, voice, language, line, *, ctx
+    ):
+        path = super().synthesize(voice, language, line, ctx=ctx)
+        self.tts.runtime_digest = "cpu-digest"
+        return path
+
+
+def _runtime(tts_digest: str | None) -> KeyRuntime:
+    return KeyRuntime(
+        tts_digest=tts_digest,
+        sandbox_digest="sandbox-test",
+        aligner_digest="aligner-test",
+        renderer_revision="renderer-test",
+        encoder_digest="encoder-test",
+    )
+
+
+def test_tts_cpu_fallback_publishes_and_reuses_the_cpu_key(harness: Harness) -> None:
+    voice = _FallbackVoice()
+    services = replace(harness.services, voice=voice, key_runtime=_runtime(None))
+    job = harness.job(JobKind.generate)
+    result = run(job, harness.context(job), services)
+
+    scene_id = harness.video.scene_order[0]
+    line_id = harness.video.scenes[scene_id].lines[0].id
+    cuda = Graph(harness.video, replace(harness.services, key_runtime=_runtime("cuda-digest")))
+    cpu = Graph(harness.video, replace(harness.services, key_runtime=_runtime("cpu-digest")))
+    cuda_key = cuda.scenes[scene_id].tts[line_id]
+    cpu_key = cpu.scenes[scene_id].tts[line_id]
+    assert cuda_key != cpu_key
+    assert harness.artifacts.find(PERSONAL_OWNER_ID, cuda_key) is None
+    stored = harness.artifacts.find(PERSONAL_OWNER_ID, cpu_key)
+    assert stored is not None
+    assert result["artifacts"]["tts"][line_id] == stored.id
+
+    calls = list(voice.synthesize_calls)
+    second = harness.job(JobKind.generate)
+    run(second, harness.context(second), services)
+    assert voice.synthesize_calls == calls
+
+
+class _FailingVoice(FakeVoice):
+    """The engine steps down and then fails, so the failure gets a CPU key."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.tts = _TtsProbe()
+
+    def synthesize(  # type: ignore[override]
+        self, voice, language, line, *, ctx
+    ):
+        self.tts.runtime_digest = "cpu-digest"
+        raise AppError("tts_failed", detail={"reason": "model_load"})
+
+
+def _tts_keys(harness: Harness, digest: str) -> tuple[str, str]:
+    graph = Graph(harness.video, replace(harness.services, key_runtime=_runtime(digest)))
+    scene_id = harness.video.scene_order[0]
+    line_id = harness.video.scenes[scene_id].lines[0].id
+    return scene_id, graph.scenes[scene_id].tts[line_id]
+
+
+def test_tts_fallback_reselects_an_earlier_gpu_hit_on_the_cpu(
+    harness: Harness, tmp_path: Path
+) -> None:
+    scene_id, gpu_key = _tts_keys(harness, "cuda-digest")
+    _, cpu_key = _tts_keys(harness, "cpu-digest")
+    line_id = harness.video.scenes[scene_id].lines[0].id
+    staged = tmp_path / "gpu-hit.wav"
+    staged.write_bytes(b"gpu audio")
+    gpu_artifact = harness.artifacts.publish(
+        PERSONAL_OWNER_ID, ArtifactKind.tts_wav, gpu_key, staged, {}, None
+    )
+
+    voice = _FallbackVoice()
+    services = replace(harness.services, voice=voice, key_runtime=_runtime(None))
+    job = harness.job(JobKind.generate)
+    result = run(job, harness.context(job), services)
+
+    assert result["artifacts"]["tts"][line_id] != gpu_artifact.id
+    stored = harness.artifacts.find(PERSONAL_OWNER_ID, cpu_key)
+    assert stored is not None
+    assert result["artifacts"]["tts"][line_id] == stored.id
+    assert voice.synthesize_calls.count(line_id) == 1
+
+    calls = list(voice.synthesize_calls)
+    second = harness.job(JobKind.generate)
+    again = run(second, harness.context(second), services)
+    assert voice.synthesize_calls == calls
+    assert again["artifacts"] == result["artifacts"]
+
+
+def test_tts_failure_after_a_step_down_is_reported_under_the_cpu_key(
+    harness: Harness,
+) -> None:
+    voice = _FailingVoice()
+    services = replace(harness.services, voice=voice, key_runtime=_runtime(None))
+    job = harness.job(JobKind.generate)
+    with pytest.raises(AppError):
+        run(job, harness.context(job), services)
+
+    scene_id, cpu_key = _tts_keys(harness, "cpu-digest")
+    line_id = harness.video.scenes[scene_id].lines[0].id
+    state = harness.services.build_states[
+        (harness.video.id, harness.video.revision, ArtifactKind.tts_wav.value, scene_id, line_id)
+    ]
+    assert state == {
+        "state": "failed",
+        "cache_key": cpu_key,
+        "error_code": "tts_failed",
+    }
+
+
+class _CancelVoice(FakeVoice):
+    """The engine steps down and then the job is cancelled."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.tts = _TtsProbe()
+
+    def synthesize(  # type: ignore[override]
+        self, voice, language, line, *, ctx
+    ):
+        self.tts.runtime_digest = "cpu-digest"
+        raise Cancelled("cancelled")
+
+
+def test_tts_cancel_after_a_step_down_leaves_no_failed_line(harness: Harness) -> None:
+    voice = _CancelVoice()
+    services = replace(harness.services, voice=voice, key_runtime=_runtime(None))
+    job = harness.job(JobKind.generate)
+    with pytest.raises(Cancelled):
+        run(job, harness.context(job), services)
+
+    scene_id = harness.video.scene_order[0]
+    line_id = harness.video.scenes[scene_id].lines[0].id
+    key = (
+        harness.video.id,
+        harness.video.revision,
+        ArtifactKind.tts_wav.value,
+        scene_id,
+        line_id,
+    )
+    assert key not in harness.services.build_states
+
+
+def test_tts_publish_failure_after_a_step_down_is_reported_under_the_cpu_key(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, cpu_key = _tts_keys(harness, "cpu-digest")
+    voice = _FallbackVoice()
+    services = replace(harness.services, voice=voice, key_runtime=_runtime(None))
+    original = harness.artifacts.publish
+
+    def fail_publish(owner, kind, cache_key, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if kind is ArtifactKind.tts_wav and cache_key == cpu_key:
+            raise AppError("tts_failed", detail={"reason": "publish"})
+        return original(owner, kind, cache_key, *args, **kwargs)
+
+    monkeypatch.setattr(harness.artifacts, "publish", fail_publish)
+    job = harness.job(JobKind.generate)
+    with pytest.raises(AppError):
+        run(job, harness.context(job), services)
+
+    scene_id, _ = _tts_keys(harness, "cpu-digest")
+    line_id = harness.video.scenes[scene_id].lines[0].id
+    state = harness.services.build_states[
+        (harness.video.id, harness.video.revision, ArtifactKind.tts_wav.value, scene_id, line_id)
+    ]
+    assert state == {
+        "state": "failed",
+        "cache_key": cpu_key,
+        "error_code": "tts_failed",
+    }

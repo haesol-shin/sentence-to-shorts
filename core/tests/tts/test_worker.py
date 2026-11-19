@@ -15,8 +15,9 @@ from pathlib import Path
 import pytest
 
 from app.ports import AppError
+from app.tools.device import DeviceSelection
 from app.tools.tts.qwen3_tts_0_6b.adapter import WORKER_PATH
-from tests.tts.support import make_adapter, make_voice, synth
+from tests.tts.support import events, make_adapter, make_voice, synth
 
 pytestmark = pytest.mark.skipif(
     sys.platform == "win32",
@@ -47,6 +48,8 @@ class Qwen3TTSModel:
             call="load",
             path=path,
             offline=os.environ.get("HF_HUB_OFFLINE"),
+            cuda_visible=os.environ.get("CUDA_VISIBLE_DEVICES"),
+            cuda_order=os.environ.get("CUDA_DEVICE_ORDER"),
             options={{key: repr(value) for key, value in kwargs.items()}},
         )
         return cls()
@@ -150,3 +153,132 @@ def test_28_multichannel_output_is_not_flattened_into_mono(engine, tmp_path: Pat
         synth(adapter, tmp_path, "stereo")
     assert (raised.value.code, raised.value.detail["reason"]) == ("tts_failed", "invalid_waveform")
     assert not list((tmp_path / "out").glob("*"))
+
+
+QWEN_TTS_FAILS_ON_CUDA = '''
+import json
+import numpy
+
+
+def _log(**entry):
+    with open({log!r}, "a", encoding="ascii") as handle:
+        handle.write(json.dumps(entry) + "\\n")
+
+
+class Qwen3TTSModel:
+    @classmethod
+    def from_pretrained(cls, path, **kwargs):
+        _log(call="load", device=kwargs["device_map"])
+        if kwargs["device_map"] == "cuda":
+            import sys
+            print("/secret/model/path", file=sys.stderr)
+            raise RuntimeError("no cuda device")
+        return cls()
+
+    def get_supported_speakers(self):
+        return ["sohee"]
+
+    def generate_custom_voice(self, text, language, speaker, **kwargs):
+        t = numpy.arange(24000) / 24000
+        return [(0.3 * numpy.sin(2 * numpy.pi * 220 * t)).astype("float32")], 24000
+'''
+
+
+def test_device_auto_steps_down_to_the_cpu_once_after_a_failed_cuda_load(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    libs = tmp_path / "libs"
+    libs.mkdir()
+    log = tmp_path / "device_calls.jsonl"
+    (libs / "qwen_tts.py").write_text(
+        QWEN_TTS_FAILS_ON_CUDA.format(log=str(log)), encoding="utf-8"
+    )
+    command = [sys.executable, "-c", RUN_WORKER, str(libs), str(WORKER_PATH)]
+    adapter = make_adapter(
+        tmp_path,
+        command=command,
+        selection=DeviceSelection(requested="auto", device="cuda", reason="detected"),
+        runtime_digest_for=lambda device: f"{device}-digest",
+    )
+
+    def loads() -> list[str]:
+        return [json.loads(line)["device"] for line in log.read_text().splitlines()]
+
+    try:
+        assert synth(adapter, tmp_path).duration_ms == 1000
+        assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+        assert adapter.info().runtime_digest == "cpu-digest"
+        assert loads() == ["cuda", "cpu"]
+        assert "RuntimeError" in caplog.text
+        assert "/secret/model/path" not in caplog.text
+        # The CPU worker stays loaded for the next sentence.
+        assert synth(adapter, tmp_path).duration_ms == 1000
+        assert loads() == ["cuda", "cpu"]
+    finally:
+        adapter.close()
+
+
+def test_device_auto_steps_down_to_the_cpu_once_after_a_cuda_load_timeout(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    adapter = make_adapter(
+        tmp_path,
+        mode="slow_load_on_cuda",
+        selection=DeviceSelection(requested="auto", device="cuda", reason="detected"),
+        load_timeout_s=2.0,
+    )
+    try:
+        assert synth(adapter, tmp_path).duration_ms == 500
+        assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+        starts = [event for event in events(tmp_path) if event["event"] == "start"]
+        assert [event["device"] for event in starts] == ["cuda", "cpu"]
+        assert "tts_timeout at load" in caplog.text
+    finally:
+        adapter.close()
+
+
+def test_device_worker_keeps_the_host_cuda_device_assignment(
+    engine, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "1")
+    monkeypatch.setenv("CUDA_DEVICE_ORDER", "PCI_BUS_ID")
+    adapter, calls = engine
+    assert synth(adapter, tmp_path).duration_ms == 1000
+    load = next(call for call in calls() if call["call"] == "load")
+    assert (load["cuda_visible"], load["cuda_order"]) == ("1", "PCI_BUS_ID")
+
+
+def test_device_auto_steps_down_to_the_cpu_once_after_a_worker_exit_before_ready(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    adapter = make_adapter(
+        tmp_path,
+        mode="crash_on_cuda",
+        selection=DeviceSelection(requested="auto", device="cuda", reason="detected"),
+    )
+    try:
+        assert synth(adapter, tmp_path).duration_ms == 500
+        assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+        starts = [event for event in events(tmp_path) if event["event"] == "start"]
+        assert [event["device"] for event in starts] == ["cuda", "cpu"]
+        assert "worker_exited" in caplog.text
+    finally:
+        adapter.close()
+
+
+def test_device_auto_retries_the_first_cuda_synthesis_on_the_cpu(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    adapter = make_adapter(
+        tmp_path,
+        mode="synth_error_on_cuda",
+        selection=DeviceSelection(requested="auto", device="cuda", reason="detected"),
+    )
+    try:
+        assert synth(adapter, tmp_path).duration_ms == 500
+        assert (adapter.device, adapter.device_reason) == ("cpu", "load_failed")
+        starts = [event for event in events(tmp_path) if event["event"] == "start"]
+        assert [event["device"] for event in starts] == ["cuda", "cpu"]
+        assert "synth_failed" in caplog.text
+    finally:
+        adapter.close()

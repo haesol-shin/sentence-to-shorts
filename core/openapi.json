@@ -3979,6 +3979,9 @@
             ],
             "title": "Profile",
             "type": "string"
+          },
+          "speech": {
+            "$ref": "#/components/schemas/SpeechDevices"
           }
         },
         "required": [
@@ -3988,7 +3991,8 @@
           "brand",
           "items",
           "llm_auth",
-          "capabilities"
+          "capabilities",
+          "speech"
         ],
         "title": "RuntimeStatus",
         "type": "object"
@@ -4534,6 +4538,53 @@
         ],
         "title": "Speaker",
         "type": "string"
+      },
+      "SpeechDevice": {
+        "additionalProperties": false,
+        "description": "The compute device a speech adapter settled on, and why.",
+        "properties": {
+          "device": {
+            "enum": [
+              "cpu",
+              "cuda"
+            ],
+            "title": "Device",
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              "configured",
+              "detected",
+              "unavailable",
+              "load_failed"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "device",
+          "reason"
+        ],
+        "title": "SpeechDevice",
+        "type": "object"
+      },
+      "SpeechDevices": {
+        "additionalProperties": false,
+        "properties": {
+          "asr": {
+            "$ref": "#/components/schemas/SpeechDevice"
+          },
+          "tts": {
+            "$ref": "#/components/schemas/SpeechDevice"
+          }
+        },
+        "required": [
+          "tts",
+          "asr"
+        ],
+        "title": "SpeechDevices",
+        "type": "object"
       },
       "Stage": {
         "enum": [

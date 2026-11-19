@@ -38,6 +38,10 @@
         "tts": true,
         "llm": true,
         "link_download": false
+      },
+      "speech": {
+        "tts": { "device": "cpu", "reason": "configured" },
+        "asr": { "device": "cpu", "reason": "configured" }
       }
     }
   }

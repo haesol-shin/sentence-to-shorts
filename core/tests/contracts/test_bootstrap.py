@@ -10,6 +10,7 @@ import pytest
 from app.bootstrap import ADAPTER_FACTORIES, build_runtime
 from app.settings import Settings
 from app.tools.align.adapter import WhisperXAligner
+from app.tools.asr.faster_whisper.adapter import FasterWhisperTranscriber
 from tests.align.support import align, alive, events, gone, make_adapter
 
 
@@ -114,3 +115,17 @@ def test_close_stops_the_started_aligner_worker(
     finally:
         # The verdict above must not leave a worker behind when it fails.
         worker.close()
+
+
+def test_default_auto_dev_start_builds_the_transcriber(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _isolate_dev_startup(tmp_path, monkeypatch)
+    monkeypatch.delenv("APP_DEVICE", raising=False)
+
+    runtime = build_runtime()
+    try:
+        assert runtime.settings.device == "auto"
+        assert isinstance(runtime.transcriber, FasterWhisperTranscriber)
+    finally:
+        runtime.close()

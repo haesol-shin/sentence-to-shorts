@@ -92,3 +92,56 @@ def test_runtime_api_prepares_files_through_the_application_worker(
         assert wait_until(lambda: runtime.job_store.get(next_id).state in terminal)
         assert runtime.job_store.get(next_id).state is JobState.succeeded
     assert transport.count == 1
+
+
+class _Speech:
+    def __init__(self, device: str, reason: str) -> None:
+        self.device = device
+        self.device_reason = reason
+
+    def ready(self) -> list[str]:
+        return []
+
+    def device_status(self) -> tuple[str, str]:
+        return self.device, self.device_reason
+
+    def close(self) -> None:
+        pass
+
+
+def test_runtime_api_reports_the_device_each_speech_adapter_picked(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    monkeypatch.setattr(runtime, "tts", _Speech("cuda", "detected"))
+    monkeypatch.setattr(runtime, "transcriber", _Speech("cpu", "load_failed"))
+    body = client.get("/api/v1/runtime").json()
+    assert body["speech"] == {
+        "tts": {"device": "cuda", "reason": "detected"},
+        "asr": {"device": "cpu", "reason": "load_failed"},
+    }
+
+
+class _SteppingSpeech:
+    """A read that happens while the device steps down must not mix the two states."""
+
+    device = "cuda"
+    device_reason = "load_failed"
+
+    def ready(self) -> list[str]:
+        return []
+
+    def device_status(self) -> tuple[str, str]:
+        return "cpu", "load_failed"
+
+    def close(self) -> None:
+        pass
+
+
+def test_runtime_api_reads_the_speech_status_as_one_snapshot(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+    monkeypatch.setattr(runtime, "tts", _SteppingSpeech())
+    body = client.get("/api/v1/runtime").json()
+    assert body["speech"]["tts"] == {"device": "cpu", "reason": "load_failed"}

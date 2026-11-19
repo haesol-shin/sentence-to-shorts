@@ -11,6 +11,7 @@ from pathlib import Path
 
 from app.jobs import CancelFlag
 from app.schemas.voice_manifest import VoiceManifest
+from app.tools.device import DeviceSelection
 from app.tools.tts.qwen3_tts_0_6b.adapter import ENGINE_ID, MODEL_ITEM, Qwen3TtsAdapter
 from tests.conftest import load_json
 
@@ -38,6 +39,7 @@ def make_adapter(
     *,
     command: Sequence[str] | None = None,
     package: bool = True,
+    selection: DeviceSelection | None = None,
     **options: object,
 ) -> Qwen3TtsAdapter:
     """An adapter over `fake_worker.py`, or over `command` when a test brings its own."""
@@ -65,6 +67,8 @@ def make_adapter(
         "worker_command": command,
         "load_timeout_s": 20.0,
     }
+    if selection is not None:
+        settings["selection"] = selection
     settings.update(options)
     return Qwen3TtsAdapter(**settings)  # type: ignore[arg-type]
 

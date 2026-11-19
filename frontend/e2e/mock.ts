@@ -19,6 +19,10 @@ const runtime: RuntimeStatus = {
     llm: true,
     link_download: true,
   },
+  speech: {
+    tts: { device: 'cpu', reason: 'configured' },
+    asr: { device: 'cpu', reason: 'configured' },
+  },
 };
 
 export const test = base.extend({

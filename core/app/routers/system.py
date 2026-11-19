@@ -20,6 +20,8 @@ from app.schemas.api import (
     PairRequest,
     PairResponse,
     RuntimeStatus,
+    SpeechDevice,
+    SpeechDevices,
 )
 from app.schemas.common import PERSONAL_OWNER_ID
 
@@ -62,6 +64,22 @@ def get_runtime(request: Request) -> RuntimeStatus:
             llm=llm_state == "ok",
             link_download=False,
         ),
+        speech=SpeechDevices(
+            tts=_speech_device(app.tts),
+            asr=_speech_device(app.transcriber),
+        ),
+    )
+
+
+def _speech_device(adapter: object) -> SpeechDevice:
+    """An adapter that does not pick a device, such as the fixtures, runs on the CPU."""
+    status = getattr(adapter, "device_status", None)
+    if callable(status):
+        device, reason = status()
+        return SpeechDevice(device=device, reason=reason)
+    return SpeechDevice(
+        device=getattr(adapter, "device", "cpu"),
+        reason=getattr(adapter, "device_reason", "configured"),
     )
 
 

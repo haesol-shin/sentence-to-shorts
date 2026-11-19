@@ -270,6 +270,21 @@ class RunState:
             (self.video.id, kind.value, scene_id, line_id)
         ] = cache_key
 
+    def failed_state(
+        self,
+        kind: ArtifactKind,
+        cache_key: str,
+        scene_id: str | None,
+        line_id: str | None,
+        code: str,
+    ) -> None:
+        """Move a failed build observation to the key the next lookup will use."""
+        self.services.build_states[self._build_key(kind, scene_id, line_id)] = {
+            "state": "failed",
+            "cache_key": cache_key,
+            "error_code": code,
+        }
+
     @contextmanager
     def building(
         self,
