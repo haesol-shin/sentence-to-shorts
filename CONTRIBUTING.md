@@ -28,7 +28,7 @@
 - 현재 작업을 막는 계약 공백은 그 작업에서 고칩니다. PR이 `docs/CONTRACTS.md`와 영향받는 호출자와 fixture를 함께 고치고 What and Why에 그 사실을 씁니다.
 - 현재 작업을 막지 않는 계약 변경 요청은 `contract` 라벨을 붙인 이슈로 남깁니다. Limitations에는 `Contract request: #N`과 현재 영향을 쓰고, 요청이 없으면 `Contract request: none`이라고 씁니다. 계약 갱신 PR이 아닌 PR은 계약 이슈에 `Closes #N`을 쓰지 않습니다.
 - 구조 결정을 바꿀 때만 새 ADR 링크 한 줄을 본문에 덧붙입니다.
-- 화면 변경에는 390px과 1920px 스크린샷을 붙여 주세요.
+- 화면 변경에는 1280px과 1920px 스크린샷을 붙여 주세요. 모바일 폭 스크린샷은 MVP 이후 모바일 작업에서 붙입니다.
 - 공개 문구(PR, 커밋, 코드 주석, 문서)에는 로컬 경로, 개인 이름, 실제 사용자 자료를 넣지 않습니다. 증거는 합성 자료만 씁니다. `scripts/check_public_docs.py`가 모든 Markdown, `.github/` 아래 workflow YAML, `cubic.yaml`의 내부 경로와 개인 인용과 개인 도구 표기를 검사합니다. PR 본문 자체와 커밋 메시지와 코드 주석은 작성자와 리뷰어가 직접 확인합니다.
 
 ### 계약 변경 요청

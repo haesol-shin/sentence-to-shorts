@@ -829,8 +829,8 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 
 ### 16.5 기기 검증
 
-- 결정: Playwright의 iPhone·Pixel profile과 Chromium·WebKit으로 390px 네 단계 완주·화면 캡처를 구현 변경마다 시험한다. 각자 Chrome DevTools 기기 모드로 직접 조작하고 Android Studio의 Chrome으로 키보드와 아래 입력창을 확인한다.
-- 한계: 앞 두 경로는 실제 키보드·손가락 터치·iOS Safari를 재현하지 못한다. Playwright WebKit은 iOS Safari가 아니다. 마지막에 실기기로 한 번 시험한다. 같은 와이파이가 아니면 Tailscale이나 터널을 쓴다.
+- 결정: 화면 폭과 기기 범위는 [SPEC 10a.2](SPEC.md#10a2-기기와-배치)를 따른다. 모바일 390px 네 단계 완주·화면 캡처는 MVP 이후에 Playwright의 iPhone·Pixel profile과 Chromium·WebKit으로 구현 변경마다 시험한다. 그때 각자 Chrome DevTools 기기 모드로 직접 조작하고 Android Studio의 Chrome으로 키보드와 아래 입력창을 확인한다.
+- 한계: 모바일 단계에서 앞 두 경로는 실제 키보드·손가락 터치·iOS Safari를 재현하지 못한다. Playwright WebKit은 iOS Safari가 아니다. 그 단계 마지막에 실기기로 한 번 시험한다. 같은 와이파이가 아니면 Tailscale이나 터널을 쓴다.
 
 ## 열린 질문
 
