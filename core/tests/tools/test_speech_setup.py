@@ -41,6 +41,24 @@ def model_lock(source: Path) -> dict:
     }
 
 
+def archive_lock(source: Path) -> dict:
+    content = source.read_bytes()
+    return {
+        "items": [{
+            "id": "model-nltk-punkt-tab",
+            "version": "1",
+            "revision": "b" * 40,
+            "install_path": "nltk_data/tokenizers",
+            "files": [{
+                "file": "punkt_tab.zip",
+                "url": source.as_uri(),
+                "bytes": len(content),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }],
+        }],
+    }
+
+
 def test_model_prepare_reuses_verified_files_and_repairs_corruption(tmp_path, capsys) -> None:
     source = tmp_path / "source.bin"
     source.write_bytes(b"synthetic model")
@@ -91,6 +109,80 @@ def test_model_prepare_rejects_escaping_paths(tmp_path, location) -> None:
         setup.install_models(lock, tmp_path / "models", force=False)
     assert not (tmp_path / "escaped").exists()
     assert not (tmp_path / "escaped.bin").exists()
+
+
+def test_model_prepare_extracts_a_zip_and_repairs_a_missing_member(tmp_path, capsys) -> None:
+    source = tmp_path / "punkt_tab.zip"
+    with zipfile.ZipFile(source, "w") as bundle:
+        bundle.writestr("punkt_tab/english/collocations.tab", b"collocations")
+        bundle.writestr("punkt_tab/english/sent_starters.txt", b"starters")
+    lock = archive_lock(source)
+    root = tmp_path / "models"
+    setup.install_models(lock, root, force=False)
+    assert "model downloads: 1" in capsys.readouterr().out
+    english = root / "nltk_data" / "tokenizers" / "punkt_tab" / "english"
+    assert (english / "collocations.tab").read_bytes() == b"collocations"
+    if os.name != "nt":
+        assert (root / "nltk_data").stat().st_mode & 0o077 == 0
+    source.rename(tmp_path / "offline.zip")
+    setup.install_models(lock, root, force=False)
+    assert "model downloads: 0" in capsys.readouterr().out
+    (english / "collocations.tab").unlink()
+    setup.install_models(lock, root, force=False)
+    assert "model downloads: 0" in capsys.readouterr().out
+    assert (english / "collocations.tab").read_bytes() == b"collocations"
+    (tmp_path / "offline.zip").rename(source)
+
+
+def test_environment_specs_read_the_align_runtime_lock() -> None:
+    align = ROOT / "core" / "align_runtime"
+    assert setup.direct_requirements(align) == [
+        "pyannote-audio",
+        "torch",
+        "torchaudio",
+        "torchcodec",
+        "torchvision",
+        "whisperx",
+    ]
+    assert setup.locked_versions(align)["whisperx"] == {"3.8.6"}
+    assert setup.locked_versions(align)["torch"] == {"2.8.0+cpu"}
+
+
+def test_environment_verify_rejects_a_version_outside_the_lock(tmp_path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "pyproject.toml").write_text(
+        '[project]\nname = "synthetic"\nversion = "0.1.0"\n'
+        'requires-python = ">=3.11"\ndependencies = ["pytest"]\n',
+        encoding="utf-8",
+    )
+    (project / "poetry.lock").write_text(
+        '[[package]]\nname = "pytest"\nversion = "0.0.0"\n', encoding="utf-8"
+    )
+    with pytest.raises(SystemExit, match="does not match its poetry.lock"):
+        setup.verify_environment(Path(sys.executable), project)
+
+
+def test_environment_install_keeps_each_project_in_its_own_env(tmp_path, monkeypatch) -> None:
+    active = Path(sys.prefix)
+    monkeypatch.setenv("VIRTUAL_ENV", str(active))
+    monkeypatch.setenv("POETRY_VIRTUALENVS_IN_PROJECT", "true")
+    projects = []
+    for name in ("first", "second"):
+        project = tmp_path / name
+        project.mkdir()
+        (project / "pyproject.toml").write_text(
+            f'[project]\nname = "{name}"\nversion = "0.1.0"\n'
+            'requires-python = ">=3.11,<3.12"\ndependencies = []\n\n'
+            '[tool.poetry]\npackage-mode = false\n',
+            encoding="utf-8",
+        )
+        projects.append(project)
+        setup.install_environment(project)
+    paths = [setup.environment_python(project) for project in projects]
+    assert paths[0] != paths[1]
+    assert active not in paths[0].parents
+    assert active not in paths[1].parents
 
 
 def test_model_prepare_is_discoverable_by_the_existing_transcriber(tmp_path) -> None:

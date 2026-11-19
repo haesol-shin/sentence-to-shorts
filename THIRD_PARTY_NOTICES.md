@@ -16,6 +16,7 @@ These files are prepared from the runtime manifest and checked against its SHA-2
 | model-align-ko | 629c9a3501c10ba128bf3fa1eebb12af3be03f61 | Apache-2.0 | https://huggingface.co/kresnik/wav2vec2-large-xlsr-korean/tree/629c9a3501c10ba128bf3fa1eebb12af3be03f61 |
 | model-align-en | WAV2VEC2_ASR_BASE_960H | MIT | https://github.com/pytorch/audio/blob/95c61b4168fc5133be8dd8c1337d929d066ae6cf/LICENSE |
 | model-asr-small | 536b0662742c02347bc0e980a01041f333bce120 | MIT | https://huggingface.co/Systran/faster-whisper-small/tree/536b0662742c02347bc0e980a01041f333bce120 |
+| model-nltk-punkt-tab | 4f15a3d89eefe9748ec1c05be495d91289197155 | NOASSERTION | https://github.com/nltk/nltk_data/tree/4f15a3d89eefe9748ec1c05be495d91289197155/packages/tokenizers |
 | ffmpeg | 9.0.2 | GPL-3.0-or-later | https://github.com/FFmpeg/FFmpeg/tree/2a571b606854520cf89804d8030c8b328e621689 |
 
 ## FFmpeg corresponding source

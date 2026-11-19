@@ -12,7 +12,7 @@ providers:
   adapters:
     llm: openai_compat
     tts: qwen3-tts-0.6b
-    aligner: none
+    aligner: whisperx
     transcriber: default
     media: default
     sandbox: default

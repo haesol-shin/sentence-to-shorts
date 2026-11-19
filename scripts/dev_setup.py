@@ -7,11 +7,18 @@
 
 Runtime files go to APP_RUNTIME_DIR (default: <repo>/.local/rt); model files go
 to APP_MODEL_DIR (default: <repo>/.local/models). Model item IDs start with
-``model-`` and their files are installed verbatim, never extracted. Model and
-wheel entries do not depend on the host and carry arch ``wasm32``, the lock's
-marker for a file that fits every host. The application's runtime preparer skips
-``model-`` and ``package-`` items, so this script is the only place that installs them.
-core/config/runtime.lock.json is the only source of versions and hashes.
+``model-`` and their files are installed verbatim, never extracted, except a
+model file that is a ``.zip``: the archive stays in place and its members are
+also extracted beside it, so NLTK reads its data directory. The application's
+runtime preparer skips ``model-`` and ``package-`` items, so this script is the
+only place that installs them. core/config/runtime.lock.json is the only source
+of versions and hashes.
+
+``--models`` also installs both Poetry environments (``core`` and
+``core/align_runtime``) and checks every direct dependency against its
+``poetry.lock``. Each project keeps its own environment: the Poetry
+subprocesses ignore the venv that the caller has activated. The second run
+installs nothing and downloads no model file.
 Run --models or --tts-package with the application's Python environment: the
 verified Qwen wheel is installed there with pip --no-deps, without its demo UI.
 Its manifest revision is the SHA-1 of the wheel, not an upstream Git revision.
@@ -26,17 +33,37 @@ import hashlib
 import json
 import os
 import platform
+import re
 import shutil
 import subprocess
 import sys
 import tarfile
 import tempfile
+import tomllib
 import urllib.request
 import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCK = ROOT / "core" / "config" / "runtime.lock.json"
+PROJECTS = (("core", ROOT / "core"), ("align", ROOT / "core" / "align_runtime"))
+CHECK_ENVIRONMENT = """
+import importlib.metadata
+import json
+import sys
+
+expected = json.loads(sys.argv[1])
+bad = {}
+for name, versions in expected.items():
+    try:
+        actual = importlib.metadata.version(name)
+    except importlib.metadata.PackageNotFoundError:
+        actual = None
+    if actual not in versions:
+        bad[name] = actual
+print(json.dumps(bad, sort_keys=True))
+raise SystemExit(1 if bad else 0)
+"""
 
 
 def host_os() -> str:
@@ -97,6 +124,30 @@ def extract(archive: Path, target: Path) -> None:
             bundle.extractall(target)
     else:
         shutil.copy2(archive, target / archive.name)
+
+
+def private_data_tree(root: Path) -> None:
+    """Remove group and other write bits; NLTK refuses a data path they can write."""
+    for path in [root, *root.rglob("*")]:
+        path.chmod(0o700 if path.is_dir() else 0o644)
+
+
+def archive_ready(archive: Path, target: Path) -> bool:
+    """True when every member of the zip is already extracted at its recorded size."""
+    try:
+        with zipfile.ZipFile(archive) as bundle:
+            for info in bundle.infolist():
+                if info.is_dir():
+                    continue
+                parts = Path(info.filename).parts
+                if Path(info.filename).is_absolute() or ".." in parts:
+                    return False
+                member = target.joinpath(*parts)
+                if not member.is_file() or member.stat().st_size != info.file_size:
+                    return False
+    except (zipfile.BadZipFile, OSError):
+        return False
+    return True
 
 
 def extract_item(item: dict, entry: dict, archive: Path, root: Path) -> None:
@@ -236,6 +287,99 @@ def install_tts_package(lock: dict, root: Path, *, force: bool) -> list[str]:
     return [item["id"]]
 
 
+def poetry_command() -> list[str]:
+    """The Poetry command of this host: the executable or this interpreter's module."""
+    found = shutil.which("poetry")
+    return [found] if found else [sys.executable, "-m", "poetry"]
+
+
+def poetry_environment() -> dict[str, str]:
+    """Poetry's environment without the caller's active venv.
+
+    ``poetry run`` sets VIRTUAL_ENV. If Poetry inherits it, it installs every
+    project into that one venv, so the aligner would replace the Qwen packages.
+    """
+    env = os.environ.copy()
+    env.pop("VIRTUAL_ENV", None)
+    return env
+
+
+def locked_versions(project: Path) -> dict[str, set[str]]:
+    """Every version of every package in the project's poetry.lock."""
+    lock = tomllib.loads((project / "poetry.lock").read_text(encoding="utf-8"))
+    versions: dict[str, set[str]] = {}
+    for package in lock.get("package", []):
+        versions.setdefault(package["name"], set()).add(package["version"])
+    return versions
+
+
+def direct_requirements(project: Path) -> list[str]:
+    """Distribution names of the project's direct dependencies."""
+    data = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))
+    names = {
+        re.split(r"[<>=!~;\[ ]", requirement, maxsplit=1)[0].strip()
+        for requirement in data["project"].get("dependencies", [])
+    }
+    return sorted(name for name in names if name)
+
+
+def environment_python(project: Path) -> Path:
+    """The interpreter of the Poetry environment of the project."""
+    completed = subprocess.run(
+        [*poetry_command(), "env", "info", "-p"],
+        cwd=project,
+        env=poetry_environment(),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    lines = [line.strip() for line in completed.stdout.splitlines() if line.strip()]
+    if not lines:
+        raise SystemExit(f"poetry printed no environment path for {project.name}")
+    binary = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+    return Path(lines[-1]) / binary
+
+
+def verify_environment(python: Path, project: Path) -> None:
+    """Check every direct dependency at the version the project's lock names."""
+    locked = locked_versions(project)
+    expected = {}
+    for name in direct_requirements(project):
+        versions = locked.get(name)
+        if not versions:
+            raise SystemExit(f"{project.name} lock has no version for {name}")
+        expected[name] = sorted(versions)
+    completed = subprocess.run(
+        [str(python), "-c", CHECK_ENVIRONMENT, json.dumps(expected)],
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode:
+        detail = completed.stdout.strip() or completed.stderr.strip()
+        raise SystemExit(f"{project.name} environment does not match its poetry.lock: {detail}")
+    print(f"verified {project.name} environment at {python}")
+
+
+def install_environment(project: Path) -> None:
+    """Install the project into its own Poetry environment."""
+    subprocess.run(
+        [*poetry_command(), "install", "--no-root"],
+        cwd=project,
+        env=poetry_environment(),
+        check=True,
+    )
+
+
+def install_environments() -> list[str]:
+    """Install both Poetry projects and verify their direct dependency versions."""
+    prepared = []
+    for name, project in PROJECTS:
+        install_environment(project)
+        verify_environment(environment_python(project), project)
+        prepared.append(f"env-{name}")
+    return prepared
+
+
 def install_models(lock: dict, root: Path, *, force: bool) -> list[str]:
     root.mkdir(parents=True, exist_ok=True)
     journal_path = root / "installed.json"
@@ -248,7 +392,13 @@ def install_models(lock: dict, root: Path, *, force: bool) -> list[str]:
         installed = model_path(root, item["install_path"])
         for entry in item["files"]:
             destination = model_path(installed, entry["file"])
-            downloads += prepare_file(entry, destination, force=force)
+            changed = prepare_file(entry, destination, force=force)
+            downloads += changed
+            if entry["file"].endswith(".zip"):
+                if changed or not archive_ready(destination, installed):
+                    extract(destination, installed)
+                if installed.parent != root:
+                    private_data_tree(installed.parent)
         journal[item["id"]] = {
             "version": item["version"],
             "revision": item["revision"],
@@ -268,7 +418,11 @@ def install_models(lock: dict, root: Path, *, force: bool) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--runtime", action="store_true", help="download and verify runtime files")
-    parser.add_argument("--models", action="store_true", help="download and verify model files")
+    parser.add_argument(
+        "--models",
+        action="store_true",
+        help="install both Poetry environments and download and verify model files",
+    )
     parser.add_argument(
         "--tts-package", action="store_true", help="install the inference wheel only"
     )
@@ -283,6 +437,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.models or args.tts_package:
         prepared.extend(install_tts_package(lock, runtime_root(), force=args.force))
     if args.models:
+        prepared.extend(install_environments())
         prepared.extend(install_models(lock, model_root(), force=args.force))
     print("prepared: " + ", ".join(prepared))
     return 0
