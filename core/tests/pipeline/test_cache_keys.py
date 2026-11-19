@@ -387,3 +387,71 @@ def test_14_sfx_switch_moves_the_typing_mix_key(registry: Registry) -> None:
     before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
     after = Graph(changed, _services(registry, MemoryStore()), symbolic=True)
     assert before.mix != after.mix
+
+
+def _with_extra_layer(
+    video: Video,
+    registry: Registry,
+    *,
+    font: str = "galmuri11",
+    text: str = "A short translation.",
+) -> Video:
+    data = video.model_dump(mode="json")
+    font_ref = registry.pin("font", font).model_dump()
+    data["settings"]["caption"]["font_id"] = font_ref
+    data["settings"]["caption"]["extra"] = [
+        {
+            "language": "en",
+            "mode": "sentence",
+            "font_id": font_ref,
+            "position": "top",
+        }
+    ]
+    for scene in data["scenes"].values():
+        for line in scene["lines"]:
+            line["extra_texts"] = [{"language": "en", "text": text}]
+    return Video.model_validate(data)
+
+
+def test_29_extra_text_moves_the_still_but_not_speech_or_srt(
+    registry: Registry,
+) -> None:
+    video = _with_extra_layer(_load_video(), registry)
+    scene_id = video.scene_order[0]
+
+    def mutate(data):  # type: ignore[no-untyped-def]
+        data["scenes"][scene_id]["lines"][0]["extra_texts"][0]["text"] = "Another one."
+
+    changed = _changed(video, mutate)
+    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
+    after = Graph(changed, _services(registry, MemoryStore()), symbolic=True)
+
+    assert before.scenes[scene_id].still != after.scenes[scene_id].still
+    assert before.scenes[scene_id].clip != after.scenes[scene_id].clip
+    for candidate in video.scene_order:
+        assert before.scenes[candidate].tts == after.scenes[candidate].tts
+        assert before.scenes[candidate].timing == after.scenes[candidate].timing
+    assert before.srt == after.srt
+    assert before.mix == after.mix
+
+
+def test_29_extra_font_and_language_move_the_still(registry: Registry) -> None:
+    video = _with_extra_layer(_load_video(), registry, font="galmuri14")
+    scene_id = video.scene_order[0]
+    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
+
+    def change_font(data):  # type: ignore[no-untyped-def]
+        data["settings"]["caption"]["extra"][0]["font_id"] = registry.pin(
+            "font", "galmuri11"
+        ).model_dump()
+
+    def change_language(data):  # type: ignore[no-untyped-def]
+        data["settings"]["caption"]["extra"][0]["language"] = "ko"
+
+    for mutate in (change_font, change_language):
+        after = Graph(
+            _changed(video, mutate), _services(registry, MemoryStore()), symbolic=True
+        )
+        assert before.scenes[scene_id].still != after.scenes[scene_id].still
+        assert before.scenes[scene_id].timing == after.scenes[scene_id].timing
+        assert before.srt == after.srt

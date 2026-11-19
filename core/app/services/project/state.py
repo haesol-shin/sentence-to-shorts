@@ -20,8 +20,14 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from app.caption_layout import (
+    caption_inner,
+    place_pair,
+    smallest_caption_height,
+)
 from app.ports import AppError, CatalogPort, Issue, UnknownCatalogId
 from app.schemas.bgm_entry import SfxEntry, SfxKind, TypingSoundEntry
+from app.schemas.caption_language_manifest import CaptionLanguageManifest
 from app.schemas.change import (
     AddSceneOp,
     ChangePlan,
@@ -42,6 +48,7 @@ from app.schemas.common import (
     Origin,
     PinnedRef,
 )
+from app.schemas.font_manifest import FontManifest, FontScript
 from app.schemas.scene import ElementKind, Scene
 from app.schemas.settings import (
     ORIGIN_POINTER_PATTERN,
@@ -49,6 +56,7 @@ from app.schemas.settings import (
     Audio,
     BgmSettings,
     Caption,
+    CaptionLayer,
     CaptionPosition,
     CharacterMotion,
     CharacterSlots,
@@ -121,7 +129,24 @@ PREFERRED = {
 }
 """First choice of each default. Any registered item is used when it is missing."""
 
-FONT_SCRIPT = {Language.ko: "hangul", Language.en: "latin"}
+
+def language_script(catalog: CatalogPort, language: Language) -> FontScript:
+    """The font script the caption language catalog row for ``language`` needs."""
+    try:
+        entry = catalog.get("caption_language", language.value)
+    except UnknownCatalogId as error:
+        raise AppError(
+            "unknown_catalog_id",
+            detail={"kind": "caption_language", "id": language.value},
+        ) from error
+    if not isinstance(entry, CaptionLanguageManifest):
+        raise AppError(
+            "unknown_catalog_id",
+            detail={"kind": "caption_language", "id": language.value},
+        )
+    return entry.script
+
+
 _ORIGIN_KEY = re.compile(ORIGIN_POINTER_PATTERN)
 _MISSING = object()
 
@@ -149,7 +174,7 @@ def default_settings(language: Language, catalog: CatalogPort) -> Settings:
     """
     style_ref = catalog.pin("art_style", _choose(catalog, "art_style"))
     style: Any = catalog.get("art_style", style_ref.id, style_ref.revision)
-    script = FONT_SCRIPT[language]
+    script = language_script(catalog, language)
     font_id = next(
         (
             font
@@ -547,6 +572,17 @@ def apply(
 # Semantic checks (CONTRACTS 1.3)
 
 
+@dataclass(frozen=True)
+class _ExtraLayer:
+    """The second caption language with the catalog rows it resolved to."""
+
+    layer: CaptionLayer
+    language: CaptionLanguageManifest | None
+    template: Any
+    primary_font: FontManifest | None
+    extra_font: FontManifest | None
+
+
 class _Checker:
     def __init__(self, video: Video, catalog: CatalogPort) -> None:
         self.video = video
@@ -569,7 +605,7 @@ class _Checker:
             self.add(pointer, "unknown_catalog_id")
             return None
 
-    def settings(self) -> tuple[Any, Any]:
+    def settings(self) -> tuple[Any, Any, _ExtraLayer | None]:
         s = self.video.settings
         base = f"{SETTINGS}"
         self.lookup(f"{base}/format/card_id", "format_card", s.format.card_id)
@@ -578,7 +614,7 @@ class _Checker:
         style = self.lookup(f"{base}/visual/art_style", "art_style", s.visual.art_style)
         self.lookup(f"{base}/audio/voice", "voice", s.audio.voice)
         self.lookup(f"{base}/audio/bgm/entry", "bgm", s.audio.bgm.entry)
-        self.lookup(f"{base}/caption/font_id", "font", s.caption.font_id)
+        font = self.lookup(f"{base}/caption/font_id", "font", s.caption.font_id)
         typing = self.lookup(
             f"{base}/caption/typing_sound", "sfx", s.caption.typing_sound
         )
@@ -590,7 +626,70 @@ class _Checker:
         if template is not None and s.caption.mode is CaptionMode.typewriter:
             if not template.dialog_box:
                 self.add(f"{base}/caption/mode", "typewriter_layout")
-        return template, style
+        return template, style, self.caption_extra(template, style, font)
+
+    def caption_extra(
+        self, template: Any, style: Any, primary_font: Any
+    ) -> _ExtraLayer | None:
+        s = self.video.settings
+        if not s.caption.extra:
+            return None
+        layer = s.caption.extra[0]
+        pointer = f"{SETTINGS}/caption/extra/0"
+        language = self.lookup(f"{pointer}/language", "caption_language", layer.language)
+        if layer.mode is not CaptionMode.sentence:
+            self.add(f"{pointer}/mode", "caption_mode_language")
+        if template is not None and (
+            template.dialog_box or template.renderer.kind != "builtin"
+        ):
+            self.add(pointer, "caption_layer_unsupported")
+        if style is not None and layer.font_id.id not in style.fonts:
+            self.add(f"{pointer}/font_id", "unknown_catalog_id")
+        return _ExtraLayer(
+            layer=layer,
+            language=language,
+            template=template,
+            primary_font=primary_font,
+            extra_font=self.lookup(f"{pointer}/font_id", "font", layer.font_id),
+        )
+
+    def caption_line(self, pointer: str, line: Any, extra: _ExtraLayer) -> None:
+        """The line needs a translation, and the position pair needs room.
+
+        The renderer searches the actual text sizes. This check rejects only a
+        position pair that cannot hold even the smallest caption blocks both
+        layers may draw, so a later text edit owns any remaining collision.
+        """
+        translated = next(
+            (
+                item.text
+                for item in line.extra_texts
+                if item.language == extra.layer.language
+            ),
+            None,
+        )
+        if translated is None:
+            self.add(f"{pointer}/extra_texts", "caption_text_missing")
+            return
+        template = extra.template
+        if (
+            template is None
+            or template.dialog_box
+            or template.renderer.kind != "builtin"
+            or extra.primary_font is None
+            or extra.extra_font is None
+        ):
+            return
+        inner = caption_inner(template.regions.caption, dialog=False)
+        pair = place_pair(
+            inner,
+            [smallest_caption_height(extra.primary_font.pixel_size)],
+            self.video.settings.caption.position,
+            [smallest_caption_height(extra.extra_font.pixel_size)],
+            extra.layer.position,
+        )
+        if pair is None:
+            self.add(pointer, "caption_overlap")
 
     def character(self, style: Any) -> None:
         s = self.video.settings
@@ -625,7 +724,7 @@ class _Checker:
         if len(set(order)) != len(order) or set(order) != set(self.video.scenes):
             self.add("/scene_order", "duplicate_order")
 
-    def scenes(self, style: Any) -> None:
+    def scenes(self, style: Any, extra: _ExtraLayer | None) -> None:
         seen: set[str] = set()
         backgrounds: set[str] = set()
         if style is not None:
@@ -638,6 +737,8 @@ class _Checker:
                     self.add(f"{base}/lines/{index}/id", "duplicate_line_id")
                 seen.add(line.id)
                 self.highlight(f"{base}/lines/{index}/highlight", line.display_text, line)
+                if extra is not None:
+                    self.caption_line(f"{base}/lines/{index}", line, extra)
             if scene.visual is not None:
                 self.visual(base, scene, line_ids, style, backgrounds)
 
@@ -685,25 +786,36 @@ class _Checker:
 def validate(video: Video, catalog: CatalogPort) -> list[Issue]:
     """Semantic issues of a schema-valid video, in a stable order."""
     checker = _Checker(video, catalog)
-    _, style = checker.settings()
+    _, style, extra = checker.settings()
     checker.character(style)
     checker.order()
-    checker.scenes(style)
+    checker.scenes(style, extra)
     return checker.issues
 
 
-def new_issues(before: Video, after: Video, catalog: CatalogPort) -> list[Issue]:
+def new_issues(
+    before: Video,
+    after: Video,
+    catalog: CatalogPort,
+    *,
+    ignore: Iterable[str] = (),
+) -> list[Issue]:
     """Issues of ``after`` that ``before`` did not already have with the same value.
 
     An issue that existed before is tolerated only while the value at its
     pointer stays the same, so a new invalid value at an old issue's place is new.
+    ``ignore`` holds codes the caller accepts at this commit. A generated script
+    or scene cannot fill caption translations, so the caller keeps the layer and
+    lets the user add them; ``validate`` still reports the missing text.
     """
     old = _dump(before)
     new = _dump(after)
     known = set(validate(before, catalog))
+    ignored = set(ignore)
     return [
         issue
         for issue in validate(after, catalog)
+        if issue.code not in ignored
         if issue not in known or _get(old, issue.pointer) != _get(new, issue.pointer)
     ]
 
@@ -720,6 +832,7 @@ __all__ = [
     "confirmed_by",
     "default_settings",
     "effective_origin",
+    "language_script",
     "new_issues",
     "validate",
 ]

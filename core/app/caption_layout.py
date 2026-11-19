@@ -10,6 +10,9 @@ validator cannot drift apart.
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+
 from app.schemas.common import Box
 from app.schemas.settings import CaptionPosition
 
@@ -30,6 +33,15 @@ PLATE_PAD = 4
 PLATE_GAP = 8
 """Shortest empty band between two plates that share the safe band."""
 
+CAPTION_INSET = 24
+"""Space between the template caption region and the text it holds."""
+
+DIALOG_CAPTION_INSET = 12
+"""Tighter inset inside a dialog bubble or a template-drawn box."""
+
+CAPTION_MAX_LINES = 2
+"""Lines one caption layer may use inside its plate."""
+
 POSITIONS: tuple[CaptionPosition, ...] = (
     CaptionPosition.top,
     CaptionPosition.upper,
@@ -47,9 +59,30 @@ def safe_area() -> Box:
     return Box(x=0, y=SAFE_TOP, w=FRAME_WIDTH, h=SAFE_HEIGHT)
 
 
+def caption_inner(region: Box, *, dialog: bool) -> Box:
+    """The caption text area inside a template's caption region."""
+    inset = DIALOG_CAPTION_INSET if dialog else CAPTION_INSET
+    return Box(
+        x=region.x + inset,
+        y=region.y + inset,
+        w=region.w - 2 * inset,
+        h=region.h - 2 * inset,
+    )
+
+
 def plate_height(block_height: int) -> int:
     """Height of the plate around a text block."""
     return block_height + 2 * PLATE_PAD
+
+
+def line_height(size: int) -> int:
+    """Height of one caption text line at ``size`` pixels."""
+    return size * 5 // 4
+
+
+def smallest_caption_height(pixel_size: int | None) -> int:
+    """Height of the smallest caption block a layer may draw at its line limit."""
+    return line_height((pixel_size or 12) * 2) * CAPTION_MAX_LINES
 
 
 def _offset(free: int, position: CaptionPosition) -> int:
@@ -111,7 +144,81 @@ def intersects(first: Box, second: Box) -> bool:
     )
 
 
+def separated(first: Box, second: Box) -> bool:
+    """Whether two plates leave ``PLATE_GAP`` empty pixels between them."""
+    if intersects(first, second):
+        return False
+    horizontal = max(
+        second.x - (first.x + first.w), first.x - (second.x + second.w)
+    )
+    vertical = max(
+        second.y - (first.y + first.h), first.y - (second.y + second.h)
+    )
+    return max(horizontal, vertical) >= PLATE_GAP
+
+
+def rank_pairs(primary_count: int, extra_count: int) -> Iterator[tuple[int, int]]:
+    """Size ranks to try for two layers: total cost, then the larger, then primary.
+
+    Both layers start at their largest size. A pair that costs less in total is
+    tried first, so the primary stays as large as the extra layer allows.
+    """
+    for total in range(primary_count + extra_count - 1):
+        first = max(0, total - extra_count + 1)
+        last = min(primary_count - 1, total)
+        pairs = [(primary, total - primary) for primary in range(first, last + 1)]
+        yield from sorted(pairs, key=lambda pair: (max(pair), pair[0]))
+
+
+@dataclass(frozen=True)
+class CaptionPair:
+    """Plates of two caption layers that sit in the safe band without touching."""
+
+    primary: Box
+    extra: Box
+    primary_rank: int
+    extra_rank: int
+
+
+def place_pair(
+    inner: Box,
+    primary_heights: Sequence[int | None],
+    primary_position: CaptionPosition,
+    extra_heights: Sequence[int | None],
+    extra_position: CaptionPosition,
+) -> CaptionPair | None:
+    """First size pair that fits both plates, or ``None`` when no pair fits.
+
+    ``*_heights`` holds the block height at each size rank, or ``None`` when the
+    text does not fit at that size.
+    """
+    for primary_rank, extra_rank in rank_pairs(
+        len(primary_heights), len(extra_heights)
+    ):
+        primary_block = primary_heights[primary_rank]
+        extra_block = extra_heights[extra_rank]
+        if primary_block is None or extra_block is None:
+            continue
+        primary = plate_box(inner, primary_block, primary_position)
+        extra = plate_box(inner, extra_block, extra_position)
+        if not inside(primary, safe_area()) or not inside(extra, safe_area()):
+            continue
+        if not separated(primary, extra):
+            continue
+        return CaptionPair(
+            primary=primary,
+            extra=extra,
+            primary_rank=primary_rank,
+            extra_rank=extra_rank,
+        )
+    return None
+
+
 __all__ = [
+    "CAPTION_INSET",
+    "CAPTION_MAX_LINES",
+    "CaptionPair",
+    "DIALOG_CAPTION_INSET",
     "FRAME_WIDTH",
     "PLATE_GAP",
     "PLATE_PAD",
@@ -119,11 +226,17 @@ __all__ = [
     "SAFE_BOTTOM",
     "SAFE_HEIGHT",
     "SAFE_TOP",
+    "caption_inner",
     "fixed_text_box",
     "inside",
     "intersects",
+    "line_height",
+    "place_pair",
     "plate_box",
     "plate_height",
+    "rank_pairs",
     "safe_area",
+    "separated",
+    "smallest_caption_height",
     "text_box",
 ]

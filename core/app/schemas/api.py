@@ -8,6 +8,7 @@ from typing import Annotated, Any, Literal
 from pydantic import Field
 
 from app.schemas.bgm_entry import BuiltinBgm, SfxEntry, TypingSoundEntry
+from app.schemas.caption_language_manifest import CaptionLanguageManifest
 from app.schemas.change import Op, Target
 from app.schemas.common import (
     CatalogId,
@@ -84,6 +85,10 @@ class SemanticCode(StrEnum):
     typing_sound_mode = "typing_sound_mode"
     typing_sound_kind = "typing_sound_kind"
     typing_cue = "typing_cue"
+    caption_text_missing = "caption_text_missing"
+    caption_mode_language = "caption_mode_language"
+    caption_layer_unsupported = "caption_layer_unsupported"
+    caption_overlap = "caption_overlap"
     revision_conflict = "revision_conflict"
 
 
@@ -221,6 +226,7 @@ class CatalogKind(StrEnum):
     bgm = "bgm"
     sfx = "sfx"
     font = "font"
+    caption_language = "caption_language"
 
 
 class Compatibility(ContractModel):
@@ -389,4 +395,5 @@ CatalogManifest = (
     | FontManifest
     | FormatCard
     | StoryStructure
+    | CaptionLanguageManifest
 )

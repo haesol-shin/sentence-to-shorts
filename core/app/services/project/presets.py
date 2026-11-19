@@ -28,7 +28,7 @@ from app.schemas.change import (
 )
 from app.schemas.common import PERSONAL_OWNER_ID, Origin
 from app.schemas.preset import Preset
-from app.schemas.settings import PresetSettings, Settings
+from app.schemas.settings import Caption, PresetSettings, Settings
 from app.schemas.video import CreatedBy, DerivedFrom, Video, VideoStage
 from app.services.project import revision, state
 
@@ -37,6 +37,20 @@ if TYPE_CHECKING:
 
 _PRESET_FIELDS = tuple(PresetSettings.model_fields)
 """The only settings fields a preset may store. Origins and language are absent."""
+
+
+def _preset_dump(settings: Settings) -> dict[str, Any]:
+    """The preset fields of a settings snapshot, without the second caption layer.
+
+    The extra language layer and its line texts belong to one video. A preset
+    stores the primary caption only, so applying it cannot drop a translation.
+    """
+    data = settings.model_dump(
+        mode="json", by_alias=True, include=set(_PRESET_FIELDS)
+    )
+    data["caption"].pop("extra", None)
+    return data
+
 
 _MUTABLE_REGIONS = ("format", "visual", "audio", "caption", "motion")
 """Preset regions an existing video may adopt. Locks are not adopted silently."""
@@ -53,9 +67,7 @@ def save_preset(service: ProjectService, project_id: str, req: PresetRequest) ->
     video = service.projects.get_video(req.video_id)
     if video.project_id != project.id or video.owner_id != project.owner_id:
         raise AppError("not_found")
-    settings = PresetSettings.model_validate(
-        video.settings.model_dump(mode="json", by_alias=True, include=set(_PRESET_FIELDS))
-    )
+    settings = PresetSettings.model_validate(_preset_dump(video.settings))
     preset = Preset(
         schema_version=1,
         id=service.projects.new_id("ps"),
@@ -188,7 +200,7 @@ def settings_for(base: Settings, preset: Preset, *, preserve_existing: bool = Fa
         format=preset.settings.format.model_copy(deep=True),
         visual=preset.settings.visual.model_copy(deep=True),
         audio=preset.settings.audio.model_copy(deep=True),
-        caption=preset.settings.caption.model_copy(deep=True),
+        caption=Caption.model_validate(preset.settings.caption.model_dump()),
         motion=preset.settings.motion.model_copy(deep=True),
         locks=dict(preset.settings.locks),
         origins=origins,

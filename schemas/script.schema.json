@@ -1,5 +1,10 @@
 {
   "$defs": {
+    "CatalogId": {
+      "description": "Registry id of a catalog item. Validated by registry lookup.",
+      "pattern": "^[a-z0-9][a-z0-9_.-]{0,47}$",
+      "type": "string"
+    },
     "EntityId": {
       "description": "App-issued id. Prefix p project, v video, s scene, l line, e element, c change, j job, a artifact, u upload, ps preset, rf reference.",
       "pattern": "^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$",
@@ -13,6 +18,14 @@
           "minLength": 1,
           "title": "Display Text",
           "type": "string"
+        },
+        "extra_texts": {
+          "items": {
+            "$ref": "#/$defs/LineText"
+          },
+          "maxItems": 1,
+          "title": "Extra Texts",
+          "type": "array"
         },
         "highlight": {
           "items": {
@@ -43,6 +56,27 @@
         "highlight"
       ],
       "title": "Line",
+      "type": "object"
+    },
+    "LineText": {
+      "additionalProperties": false,
+      "description": "One line's text in a second caption language.",
+      "properties": {
+        "language": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "text"
+      ],
+      "title": "LineText",
       "type": "object"
     },
     "Script": {

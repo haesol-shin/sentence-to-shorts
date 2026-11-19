@@ -11,6 +11,8 @@ import pytest
 
 from app.plugins.registry import Registry, RegistryError, file_list_revision
 from app.schemas.bgm_entry import SfxEntry, TypingSoundEntry
+from app.schemas.caption_language_manifest import CaptionLanguageManifest
+from app.schemas.font_manifest import FontScript
 
 PLUGINS = Path(__file__).resolve().parents[2] / "app" / "plugins"
 
@@ -46,6 +48,19 @@ def test_builtin_catalog_loads() -> None:
         "full_stage",
         "dialog_stage",
     }
+
+
+def test_caption_language_catalog_loads_scripts() -> None:
+    registry = Registry()
+    registry.load()
+
+    assert {item.id for item in registry.list("caption_language")} == {"en", "ko"}
+    ko = registry.get("caption_language", "ko")
+    en = registry.get("caption_language", "en")
+    assert isinstance(ko, CaptionLanguageManifest)
+    assert isinstance(en, CaptionLanguageManifest)
+    assert (ko.script, en.script) == (FontScript.hangul, FontScript.latin)
+    assert registry.pin("caption_language", "ko").revision
 
 
 def test_unsupported_manifest_version_is_rejected(tmp_path: Path) -> None:

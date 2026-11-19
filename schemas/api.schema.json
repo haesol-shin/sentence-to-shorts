@@ -441,6 +441,14 @@
     "Caption": {
       "additionalProperties": false,
       "properties": {
+        "extra": {
+          "items": {
+            "$ref": "#/$defs/CaptionLayer"
+          },
+          "maxItems": 1,
+          "title": "Extra",
+          "type": "array"
+        },
         "font_id": {
           "$ref": "#/$defs/PinnedRef"
         },
@@ -473,6 +481,32 @@
         "highlight"
       ],
       "title": "Caption",
+      "type": "object"
+    },
+    "CaptionLayer": {
+      "additionalProperties": false,
+      "description": "A second caption language drawn in the same safe band as the primary.",
+      "properties": {
+        "font_id": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "language": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "position": {
+          "$ref": "#/$defs/CaptionPosition"
+        }
+      },
+      "required": [
+        "language",
+        "mode",
+        "font_id",
+        "position"
+      ],
+      "title": "CaptionLayer",
       "type": "object"
     },
     "CaptionMode": {
@@ -562,7 +596,8 @@
         "voice",
         "bgm",
         "sfx",
-        "font"
+        "font",
+        "caption_language"
       ],
       "title": "CatalogKind",
       "type": "string"
@@ -1555,6 +1590,14 @@
           "title": "Display Text",
           "type": "string"
         },
+        "extra_texts": {
+          "items": {
+            "$ref": "#/$defs/LineText"
+          },
+          "maxItems": 1,
+          "title": "Extra Texts",
+          "type": "array"
+        },
         "highlight": {
           "items": {
             "$ref": "#/$defs/Span"
@@ -1584,6 +1627,27 @@
         "highlight"
       ],
       "title": "Line",
+      "type": "object"
+    },
+    "LineText": {
+      "additionalProperties": false,
+      "description": "One line's text in a second caption language.",
+      "properties": {
+        "language": {
+          "$ref": "#/$defs/CatalogId"
+        },
+        "text": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "language",
+        "text"
+      ],
+      "title": "LineText",
       "type": "object"
     },
     "LinkRequest": {
@@ -2100,6 +2164,44 @@
       "title": "Preset",
       "type": "object"
     },
+    "PresetCaption": {
+      "additionalProperties": false,
+      "description": "Primary caption a preset stores. The extra language layer is not saved.",
+      "properties": {
+        "font_id": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "highlight": {
+          "title": "Highlight",
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "position": {
+          "$ref": "#/$defs/CaptionPosition"
+        },
+        "typing_sound": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode",
+        "font_id",
+        "position",
+        "highlight"
+      ],
+      "title": "PresetCaption",
+      "type": "object"
+    },
     "PresetList": {
       "additionalProperties": false,
       "properties": {
@@ -2157,7 +2259,7 @@
           "$ref": "#/$defs/Audio"
         },
         "caption": {
-          "$ref": "#/$defs/Caption"
+          "$ref": "#/$defs/PresetCaption"
         },
         "extra_instructions": {
           "items": {
@@ -2970,6 +3072,10 @@
         "typing_sound_mode",
         "typing_sound_kind",
         "typing_cue",
+        "caption_text_missing",
+        "caption_mode_language",
+        "caption_layer_unsupported",
+        "caption_overlap",
         "revision_conflict"
       ],
       "title": "SemanticCode",

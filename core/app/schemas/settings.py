@@ -105,12 +105,24 @@ class Audio(ContractModel):
     sfx_enabled: bool
 
 
+class CaptionLayer(ContractModel):
+    """A second caption language drawn in the same safe band as the primary."""
+
+    language: CatalogId
+    mode: CaptionMode
+    font_id: PinnedRef
+    position: CaptionPosition
+
+
 class Caption(ContractModel):
     mode: CaptionMode
     font_id: PinnedRef
     position: CaptionPosition
     highlight: bool
     typing_sound: PinnedRef | None = None
+    extra: Annotated[list[CaptionLayer], Field(max_length=1)] = Field(
+        default_factory=list
+    )
 
 
 class Motion(ContractModel):
@@ -194,13 +206,23 @@ class Settings(ContractModel):
     extra_instructions: ExtraInstructions
 
 
+class PresetCaption(ContractModel):
+    """Primary caption a preset stores. The extra language layer is not saved."""
+
+    mode: CaptionMode
+    font_id: PinnedRef
+    position: CaptionPosition
+    highlight: bool
+    typing_sound: PinnedRef | None = None
+
+
 class PresetSettings(ContractModel):
     """Settings saved in a preset. Language, length, topic, script and results are not saved."""
 
     format: Format
     visual: Visual
     audio: Audio
-    caption: Caption
+    caption: PresetCaption
     motion: Motion
     locks: LockMap
     extra_instructions: ExtraInstructions

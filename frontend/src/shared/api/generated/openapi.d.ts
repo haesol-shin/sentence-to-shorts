@@ -1000,12 +1000,38 @@ export interface components {
         };
         /** Caption */
         Caption: {
+            /** Extra */
+            extra?: components["schemas"]["CaptionLayer"][];
             font_id: components["schemas"]["PinnedRef"];
             /** Highlight */
             highlight: boolean;
             mode: components["schemas"]["CaptionMode"];
             position: components["schemas"]["CaptionPosition"];
             typing_sound?: components["schemas"]["PinnedRef"] | null;
+        };
+        /**
+         * CaptionLanguageManifest
+         * @description Data file core/app/catalog/caption_languages/<id>.json.
+         */
+        CaptionLanguageManifest: {
+            id: components["schemas"]["CatalogId"];
+            label: components["schemas"]["LocalizedText"];
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            script: components["schemas"]["FontScript"];
+        };
+        /**
+         * CaptionLayer
+         * @description A second caption language drawn in the same safe band as the primary.
+         */
+        CaptionLayer: {
+            font_id: components["schemas"]["PinnedRef"];
+            language: components["schemas"]["CatalogId"];
+            mode: components["schemas"]["CaptionMode"];
+            position: components["schemas"]["CaptionPosition"];
         };
         /**
          * CaptionMode
@@ -1049,7 +1075,7 @@ export interface components {
          * CatalogKind
          * @enum {string}
          */
-        CatalogKind: "format_card" | "story_structure" | "art_style" | "template" | "voice" | "bgm" | "sfx" | "font";
+        CatalogKind: "format_card" | "story_structure" | "art_style" | "template" | "voice" | "bgm" | "sfx" | "font" | "caption_language";
         /** CatalogList */
         CatalogList: {
             /** Items */
@@ -1445,12 +1471,23 @@ export interface components {
         Line: {
             /** Display Text */
             display_text: string;
+            /** Extra Texts */
+            extra_texts?: components["schemas"]["LineText"][];
             /** Highlight */
             highlight: components["schemas"]["Span"][];
             id: components["schemas"]["EntityId"];
             speaker: components["schemas"]["Speaker"];
             /** Speech Text */
             speech_text: string;
+        };
+        /**
+         * LineText
+         * @description One line's text in a second caption language.
+         */
+        LineText: {
+            language: components["schemas"]["CatalogId"];
+            /** Text */
+            text: string;
         };
         /** LinkRequest */
         LinkRequest: {
@@ -1640,6 +1677,18 @@ export interface components {
             schema_version: 1;
             settings: components["schemas"]["PresetSettings"];
         };
+        /**
+         * PresetCaption
+         * @description Primary caption a preset stores. The extra language layer is not saved.
+         */
+        PresetCaption: {
+            font_id: components["schemas"]["PinnedRef"];
+            /** Highlight */
+            highlight: boolean;
+            mode: components["schemas"]["CaptionMode"];
+            position: components["schemas"]["CaptionPosition"];
+            typing_sound?: components["schemas"]["PinnedRef"] | null;
+        };
         /** PresetList */
         PresetList: {
             /** Items */
@@ -1659,7 +1708,7 @@ export interface components {
          */
         PresetSettings: {
             audio: components["schemas"]["Audio"];
-            caption: components["schemas"]["Caption"];
+            caption: components["schemas"]["PresetCaption"];
             /** Extra Instructions */
             extra_instructions: string[];
             format: components["schemas"]["Format"];
@@ -2005,7 +2054,7 @@ export interface components {
          * @description Codes returned in the errors member of a problem body (CONTRACTS 1.3).
          * @enum {string}
          */
-        SemanticCode: "unknown_catalog_id" | "duplicate_order" | "duplicate_line_id" | "typewriter_layout" | "role_none_character" | "character_missing" | "incompatible_part" | "highlight_range" | "reveal_line_unknown" | "typing_sound_mode" | "typing_sound_kind" | "typing_cue" | "revision_conflict";
+        SemanticCode: "unknown_catalog_id" | "duplicate_order" | "duplicate_line_id" | "typewriter_layout" | "role_none_character" | "character_missing" | "incompatible_part" | "highlight_range" | "reveal_line_unknown" | "typing_sound_mode" | "typing_sound_kind" | "typing_cue" | "caption_text_missing" | "caption_mode_language" | "caption_layer_unsupported" | "caption_overlap" | "revision_conflict";
         /** SetOp */
         SetOp: {
             /**
@@ -2793,7 +2842,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleManifest"] | components["schemas"]["TemplateManifest"] | components["schemas"]["VoiceManifest"] | components["schemas"]["BuiltinBgm"] | components["schemas"]["SfxEntry"] | components["schemas"]["TypingSoundEntry"] | components["schemas"]["FontManifest"] | components["schemas"]["FormatCard"] | components["schemas"]["StoryStructure"];
+                    "application/json": components["schemas"]["StyleManifest"] | components["schemas"]["TemplateManifest"] | components["schemas"]["VoiceManifest"] | components["schemas"]["BuiltinBgm"] | components["schemas"]["SfxEntry"] | components["schemas"]["TypingSoundEntry"] | components["schemas"]["FontManifest"] | components["schemas"]["FormatCard"] | components["schemas"]["StoryStructure"] | components["schemas"]["CaptionLanguageManifest"];
                 };
             };
             /** @description The request body or parameters do not match the contract. */

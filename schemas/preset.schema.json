@@ -63,43 +63,6 @@
       "title": "BgmSettings",
       "type": "object"
     },
-    "Caption": {
-      "additionalProperties": false,
-      "properties": {
-        "font_id": {
-          "$ref": "#/$defs/PinnedRef"
-        },
-        "highlight": {
-          "title": "Highlight",
-          "type": "boolean"
-        },
-        "mode": {
-          "$ref": "#/$defs/CaptionMode"
-        },
-        "position": {
-          "$ref": "#/$defs/CaptionPosition"
-        },
-        "typing_sound": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/PinnedRef"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "required": [
-        "mode",
-        "font_id",
-        "position",
-        "highlight"
-      ],
-      "title": "Caption",
-      "type": "object"
-    },
     "CaptionMode": {
       "enum": [
         "sentence",
@@ -448,6 +411,44 @@
       "title": "Preset",
       "type": "object"
     },
+    "PresetCaption": {
+      "additionalProperties": false,
+      "description": "Primary caption a preset stores. The extra language layer is not saved.",
+      "properties": {
+        "font_id": {
+          "$ref": "#/$defs/PinnedRef"
+        },
+        "highlight": {
+          "title": "Highlight",
+          "type": "boolean"
+        },
+        "mode": {
+          "$ref": "#/$defs/CaptionMode"
+        },
+        "position": {
+          "$ref": "#/$defs/CaptionPosition"
+        },
+        "typing_sound": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "required": [
+        "mode",
+        "font_id",
+        "position",
+        "highlight"
+      ],
+      "title": "PresetCaption",
+      "type": "object"
+    },
     "PresetSettings": {
       "additionalProperties": false,
       "description": "Settings saved in a preset. Language, length, topic, script and results are not saved.",
@@ -456,7 +457,7 @@
           "$ref": "#/$defs/Audio"
         },
         "caption": {
-          "$ref": "#/$defs/Caption"
+          "$ref": "#/$defs/PresetCaption"
         },
         "extra_instructions": {
           "items": {

@@ -160,6 +160,7 @@ class Graph:
         self._theme: Theme | None = None
         self._template_manifest: TemplateManifest | None = None
         self._font_manifest: FontManifest | None = None
+        self._extra_font_manifest: FontManifest | None = None
         self._voice_manifest: VoiceManifest | None = None
         self._tts_runtime: str | None = None
         self._aligner_runtime: str | None = None
@@ -315,6 +316,14 @@ class Graph:
             )
         return self._font_manifest
 
+    def _extra_font(self) -> FontManifest:
+        extra = self.video.settings.caption.extra
+        if self._extra_font_manifest is None:
+            self._extra_font_manifest = self._manifest(
+                "font", extra[0].font_id, FontManifest
+            )
+        return self._extra_font_manifest
+
     def _voice(self) -> VoiceManifest:
         if self._voice_manifest is None:
             self._voice_manifest = self._manifest(
@@ -449,20 +458,28 @@ class Graph:
         template = self._template()
         font = self._font()
         caption = self.video.settings.caption
+        extra = caption.extra[0] if caption.extra else None
         caption_inputs = _model(caption)
         caption_inputs.pop("typing_sound", None)
+        if extra is None:
+            caption_inputs.pop("extra", None)
         highlight = bool(caption.highlight)
-        lines = [
-            {
+        lines = []
+        for line in scene.lines:
+            item: dict[str, Any] = {
                 "display_text": line.display_text,
                 "highlight": [_model(span) for span in line.highlight] if highlight else [],
             }
-            for line in scene.lines
-        ]
+            if extra is not None:
+                item["extra_texts"] = [
+                    {"language": text.language, "text": text.text}
+                    for text in line.extra_texts
+                ]
+            lines.append(item)
         title = None
         if template.regions.title is not None and self.video.script is not None:
             title = self.video.script.title
-        return {
+        inputs: dict[str, Any] = {
             "caption": caption_inputs,
             "font": {
                 "pixel_size": font.pixel_size,
@@ -487,6 +504,14 @@ class Graph:
             "title": title,
             "visual": _visual(scene),
         }
+        if extra is not None:
+            extra_font = self._extra_font()
+            inputs["extra_font"] = {
+                "pixel_size": extra_font.pixel_size,
+                "ref": _ref(extra.font_id),
+                "sha256": extra_font.sha256,
+            }
+        return inputs
 
     def _published_digest(self, key: str) -> str | None:
         """Digest of a verified artifact; ``None`` while it is not published."""

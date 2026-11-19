@@ -27,6 +27,68 @@ POSITION_LAYOUTS = ["fixed_stage", "full_stage"]
 POSITIONS = ["top", "upper", "middle", "lower", "bottom"]
 THEME_BACKGROUNDS = {"day": "bg_village", "moonlight": "bg_city_night", "arcade": "bg_castle"}
 
+TWO_LINE_KO_11 = (
+    "커피를 고르는 기준은 세 가지뿐이다. "
+    "좋은 원두와 물의 온도, 그리고 비율이 만든다. 정말로"
+)
+TWO_LINE_KO_14 = (
+    "커피를 고르는 기준은 세 가지뿐이다. "
+    "좋은 원두와 물의 온도, 그리고 비율이 만든다."
+)
+TWO_LINE_EN = (
+    "The only criteria for choosing coffee are freshness, roast date, and grind size."
+)
+TWO_LAYER_SIZES = [
+    ("galmuri11", TWO_LINE_KO_11, TWO_LINE_EN, "bottom", "top", (33, 33), (2, 2)),
+    ("galmuri11", TWO_LINE_KO_11, TWO_LINE_EN, "upper", "lower", (22, 22), (2, 2)),
+    ("galmuri11", "짧은 자막", "Short line", "bottom", "top", (66, 66), (1, 1)),
+    ("galmuri14", TWO_LINE_KO_14, TWO_LINE_EN, "bottom", "top", (42, 28), (2, 2)),
+    ("galmuri14", "짧은 자막", "Short line", "bottom", "top", (70, 70), (1, 1)),
+]
+
+
+def _extra(
+    studio: Studio,
+    font: str,
+    position: str,
+    *,
+    language: str = "en",
+    mode: str = "sentence",
+) -> dict:
+    return {
+        "language": language,
+        "mode": mode,
+        "font_id": studio.registry.pin("font", font).model_dump(),
+        "position": position,
+    }
+
+
+def _two_layer_scene(display_text: str, translated: str = TWO_LINE_EN) -> dict:
+    scene = copy.deepcopy(load("scene_fixed_stage.json"))
+    scene["lines"][0]["display_text"] = display_text
+    scene["lines"][0]["speech_text"] = display_text
+    scene["lines"][0]["extra_texts"] = [{"language": "en", "text": translated}]
+    return scene
+
+
+def _assert_layer_safe(caption: dict) -> None:
+    plate = _box(caption["plate"])
+    assert inside(plate, safe_area())
+    for line in caption["lines"]:
+        assert inside(_box(line["box"]), plate)
+
+
+def _assert_extra_safe(record: dict) -> None:
+    _assert_layer_safe(record["caption"])
+    _assert_layer_safe(record["caption_extra"])
+    gap = max(
+        record["caption"]["plate"][1]
+        - (record["caption_extra"]["plate"][1] + record["caption_extra"]["plate"][3]),
+        record["caption_extra"]["plate"][1]
+        - (record["caption"]["plate"][1] + record["caption"]["plate"][3]),
+    )
+    assert gap >= 8
+
 
 def _record(path: Path) -> dict:
     return json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
@@ -264,6 +326,109 @@ def test_29_code_element_draws_left_aligned_lines(studio: Studio) -> None:
         frame, _ = studio.service.compose(video, item["id"], *studio.inputs(video, item["id"]))
         frames.append(frame.crop((90, 260, 990, 600)).tobytes())
     assert frames[0] != frames[1]
+
+
+@pytest.mark.parametrize(
+    (
+        "font",
+        "display",
+        "translated",
+        "primary_position",
+        "extra_position",
+        "sizes",
+        "line_counts",
+    ),
+    TWO_LAYER_SIZES,
+)
+def test_29_two_layers_share_the_safe_band(
+    studio: Studio,
+    font: str,
+    display: str,
+    translated: str,
+    primary_position: str,
+    extra_position: str,
+    sizes: tuple[int, int],
+    line_counts: tuple[int, int],
+) -> None:
+    scene = _two_layer_scene(display, translated)
+    video = studio.video(
+        scene,
+        font=font,
+        position=primary_position,
+        extra=_extra(studio, font, extra_position),
+    )
+    record = _record(studio.still(video, scene["id"]))
+    caption = record["caption"]
+    extra = record["caption_extra"]
+    assert (caption["size"], extra["size"]) == sizes
+    assert (len(caption["lines"]), len(extra["lines"])) == line_counts
+    assert (extra["language"], extra["font"], extra["position"]) == (
+        "en",
+        font,
+        extra_position,
+    )
+    _assert_extra_safe(record)
+
+
+@pytest.mark.parametrize(
+    ("font", "display", "primary_position", "extra_position"),
+    [
+        ("galmuri14", TWO_LINE_KO_14, "upper", "lower"),
+        ("galmuri11", TWO_LINE_KO_11, "middle", "bottom"),
+        ("galmuri11", TWO_LINE_KO_11, "top", "middle"),
+    ],
+)
+def test_29_two_layer_positions_that_collide_fail(
+    studio: Studio,
+    font: str,
+    display: str,
+    primary_position: str,
+    extra_position: str,
+) -> None:
+    scene = _two_layer_scene(display)
+    video = studio.video(
+        scene,
+        font=font,
+        position=primary_position,
+        extra=_extra(studio, font, extra_position),
+    )
+    with pytest.raises(AppError) as error:
+        studio.still(video, scene["id"])
+    assert error.value.code == "caption_overlap"
+
+
+def test_29_two_layers_need_the_second_language_text(studio: Studio) -> None:
+    scene = _two_layer_scene(TWO_LINE_KO_11)
+    del scene["lines"][0]["extra_texts"]
+    video = studio.video(scene, extra=_extra(studio, "galmuri11", "top"))
+    with pytest.raises(AppError) as error:
+        studio.still(video, scene["id"])
+    assert error.value.code == "caption_text_missing"
+
+
+def test_29_two_layers_need_a_moving_plate_template(studio: Studio) -> None:
+    scene = load("scene_dialog_stage_typewriter.json")
+    scene["lines"][0]["extra_texts"] = [{"language": "en", "text": "Second."}]
+    video = studio.video(
+        scene,
+        layout="dialog_stage",
+        mode="typewriter",
+        extra=_extra(studio, "galmuri11", "top"),
+    )
+    with pytest.raises(AppError) as error:
+        studio.still(video, scene["id"])
+    assert error.value.code == "caption_layer_unsupported"
+
+
+def test_29_two_layers_need_a_sentence_second_layer(studio: Studio) -> None:
+    scene = _two_layer_scene(TWO_LINE_KO_11)
+    video = studio.video(
+        scene,
+        extra=_extra(studio, "galmuri11", "top", mode="phrase"),
+    )
+    with pytest.raises(AppError) as error:
+        studio.still(video, scene["id"])
+    assert error.value.code == "caption_mode_language"
 
 
 REFERENCES = Path(__file__).resolve().parent / "stills"
