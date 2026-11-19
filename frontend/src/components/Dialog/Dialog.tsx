@@ -11,8 +11,21 @@ export type DialogVariant = 'dialog' | 'alert';
 
 export type DialogTone = 'neutral' | 'warning' | 'danger';
 
-export type DialogProps = {
-  title: ReactNode;
+/** The window is named by its visible title, or by a visible heading through `labelledBy`. */
+type DialogName =
+  | {
+      /** The title shown at the top of the window. */
+      title: ReactNode;
+      /** The id of a visible heading that names the window. */
+      labelledBy?: string;
+    }
+  | {
+      title?: never;
+      /** The id of a visible heading that names the window. */
+      labelledBy: string;
+    };
+
+export type DialogProps = DialogName & {
   /** The leading sentence under the title. */
   description?: ReactNode;
   /** Extra window content, for example change rows or a notice. */
@@ -52,6 +65,7 @@ export function Dialog({
   defaultOpen,
   onOpenChange,
   label,
+  labelledBy,
   className,
 }: DialogProps) {
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
@@ -74,6 +88,7 @@ export function Dialog({
             data-tone={tone}
             role={variant === 'alert' ? 'alertdialog' : 'dialog'}
             aria-label={label}
+            {...(labelledBy === undefined ? {} : { 'aria-labelledby': labelledBy })}
           >
             <PopupContainerContext.Provider value={popup}>
               <div
@@ -81,14 +96,16 @@ export function Dialog({
                 data-fade={fade === 'none' ? undefined : fade}
               >
                 <div className="dialog__scroll" ref={setScroll}>
-                  <DialogPrimitive.Title className="dialog__title">
-                    {icon === undefined ? null : (
-                      <span className="dialog__icon" aria-hidden="true">
-                        {icon}
-                      </span>
-                    )}
-                    {title}
-                  </DialogPrimitive.Title>
+                  {title === undefined ? null : (
+                    <DialogPrimitive.Title className="dialog__title">
+                      {icon === undefined ? null : (
+                        <span className="dialog__icon" aria-hidden="true">
+                          {icon}
+                        </span>
+                      )}
+                      {title}
+                    </DialogPrimitive.Title>
+                  )}
                   {description === undefined ? null : (
                     <DialogPrimitive.Description className="dialog__description">
                       {description}

@@ -17,7 +17,7 @@
 
 .progress__label,
 .progress__value {
-  color: var(--progress);
+  color: var(--foreground);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
   font-variant-numeric: tabular-nums;

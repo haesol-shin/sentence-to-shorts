@@ -9,6 +9,20 @@ import { measureFrame, type MeasuredControl, type MeasuredOverlap } from './meas
 const GALLERY = '/src/gallery/index.html';
 const SHOTS = process.env.GALLERY_SHOTS_DIR ?? join(process.cwd(), 'test-results', 'gallery-shots');
 const GALLERY_SHEETS = join(SHOTS, 'gallery');
+const SURFACES =
+  '.menu-positioner, .field-positioner, .tooltip-positioner, .status-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop';
+/** The parts this desktop review round changed, captured at the two desktop widths. */
+const DESKTOP_PARTS = [
+  'radio',
+  'switch',
+  'settings-row',
+  'progress',
+  'top-bar-status',
+  'card',
+  'playback-controls',
+  'result-card',
+  'scroll-pane',
+];
 
 // eslint-disable-next-line no-empty-pattern
 test.beforeEach(({}, testInfo) => {
@@ -92,7 +106,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
           await iframe.scrollIntoViewIfNeeded();
           const frameBox = await iframe.boundingBox();
           if (frameBox === null) throw new Error(`missing frame box: ${selector}`);
-          const area = await frame.evaluate(() => {
+          const area = await frame.evaluate((surfaceSelector) => {
             const boxOf = (element: Element | null) => {
               if (element === null) return null;
               const box = element.getBoundingClientRect();
@@ -100,11 +114,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
             };
             const caseBox = boxOf(document.querySelector('[data-case]'));
             const labelBox = boxOf(document.querySelector('.case__label'));
-            const popups = [
-              ...document.querySelectorAll(
-                '.menu-positioner, .field-positioner, .tooltip-positioner, .status-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop',
-              ),
-            ]
+            const popups = [...document.querySelectorAll(surfaceSelector)]
               .map((element) => boxOf(element))
               .filter((box): box is { left: number; top: number; right: number; bottom: number } => box !== null);
             const boxes = [caseBox, labelBox, ...popups].filter(
@@ -117,7 +127,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
               right: Math.min(window.innerWidth, Math.max(...safe.map((box) => box.right)) + 24),
               bottom: Math.min(window.innerHeight, Math.max(...safe.map((box) => box.bottom)) + 24),
             };
-          });
+          }, SURFACES);
           await page.screenshot({
             path: join(SHOTS, `${entry.label}-${width}.png`),
             clip: {
@@ -162,11 +172,61 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
     }
   }
 
+  // The desktop review round also wants 1280 captures. The full gallery draws 390
+  // and 1920 frames, so these open the part or case directly at a 1280 viewport.
+  await page.setViewportSize({ width: 1280, height: 1080 });
+  for (const partId of DESKTOP_PARTS) {
+    const part = galleryParts.find((candidate) => candidate.id === partId);
+    if (part === undefined) continue;
+    if (inlineCases(part).length > 0) {
+      await page.goto(`${GALLERY}?group=${encodeURIComponent(part.id)}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 120_000,
+      });
+      await page.waitForFunction(
+        (count) => document.querySelectorAll('[data-case]').length === count,
+        inlineCases(part).length,
+        { timeout: 120_000 },
+      );
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      await page.waitForTimeout(150);
+      for (const entry of inlineCases(part)) {
+        await page
+          .locator(`[data-case="${entry.label}"]`)
+          .screenshot({ path: join(SHOTS, `${entry.label}-1280.png`) });
+      }
+    }
+    for (const entry of portalCases(part)) {
+      await page.goto(`${GALLERY}?case=${encodeURIComponent(entry.label)}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 120_000,
+      });
+      await page.waitForFunction(() => document.querySelectorAll('[data-case]').length === 1, undefined, {
+        timeout: 120_000,
+      });
+      const surface = page.locator(SURFACES).filter({ visible: true }).first();
+      await expect(surface).toBeVisible();
+      await page.addStyleTag({
+        content: '*:focus, *:focus-visible { outline: none !important; box-shadow: none !important; }',
+      });
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      await page.waitForTimeout(250);
+      await surface.screenshot({ path: join(SHOTS, `${entry.label}-1280.png`) });
+    }
+  }
+
   for (const batch of [1, 2, 3] as const) {
     for (const part of galleryParts.filter((candidate) => candidate.batch === batch)) {
       for (const entry of part.cases) {
         for (const width of [390, 1920] as const) {
           expect(existsSync(join(SHOTS, `${entry.label}-${width}.png`)), `${entry.label}-${width}`).toBe(true);
+        }
+        if (DESKTOP_PARTS.includes(part.id)) {
+          expect(existsSync(join(SHOTS, `${entry.label}-1280.png`)), `${entry.label}-1280`).toBe(true);
         }
       }
     }

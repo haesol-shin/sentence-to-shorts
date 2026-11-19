@@ -43,17 +43,18 @@
   font-weight: var(--font-weight-bold);
 }
 
+/* The check takes its width and the gap only while the switch is on. */
 .switch-option__check {
+  display: none;
   width: var(--icon-inline);
   height: var(--icon-inline);
   flex: none;
   stroke-width: var(--icon-stroke);
-  visibility: hidden;
 }
 
 .switch-option[data-checked] .switch-option__check,
 .switch-option[data-force-state~='selected'] .switch-option__check {
-  visibility: visible;
+  display: block;
 }
 
 .switch-option:disabled,
