@@ -1,0 +1,132 @@
+name: Visual baseline refresh
+
+# `test | frontend visual` calls this file through `workflow_call`, and a person
+# dispatches it to redraw baselines. One copy of the runner, Node version,
+# browser install and token check serves both, so a redrawn image meets the same
+# pixels as the compare. A dispatch redraws only the baselines whose compare
+# fails, uploads them with the run, and stops there: it never pushes to the
+# branch. A person downloads the artifact, commits its files and pushes. Only a
+# dispatch reaches the redraw and upload steps; a pull request only compares.
+#
+# GitHub lists a manual trigger only when this file is on the default branch, so
+# a dispatch starts after the merge. Choose the pull request branch in the Run
+# workflow form, and the run uses that branch's copy of this file.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  visual:
+    name: "${{ github.event_name == 'workflow_dispatch' && 'visual | refresh' || 'visual | compare' }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    # A CI comparison keeps its own group, so the workflow-level concurrency in
+    # ci.yml alone decides which comparison runs. A dispatch shares a group per
+    # branch, so a newer redraw replaces the older one.
+    concurrency:
+      group: visual-${{ github.event_name == 'workflow_dispatch' && github.ref || github.run_id }}
+      cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24.22.3"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install the locked dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install the visual browser
+        run: npx playwright install --with-deps chromium
+      - name: Generated token stylesheet matches its sources
+        run: |
+          node ../design/tokens/build.mjs --check
+          npx vitest run --root ../design/tokens --environment node
+      - name: Check for the screenshot baselines
+        id: baselines
+        if: github.event_name != 'workflow_dispatch'
+        run: |
+          if [ -d tests/visual/baselines ] && [ -n "$(ls -A tests/visual/baselines)" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Draw the missing baselines on this runner
+        if: github.event_name != 'workflow_dispatch' && steps.baselines.outputs.present == 'false'
+        env:
+          PLAYWRIGHT_VISUAL: "1"
+        run: npx playwright test tests/visual --update-snapshots
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name != 'workflow_dispatch' && steps.baselines.outputs.present == 'false'
+        with:
+          name: visual-baseline
+          path: frontend/tests/visual/baselines
+          if-no-files-found: error
+          retention-days: 30
+      - name: Fail until the baseline commit lands
+        if: github.event_name != 'workflow_dispatch' && steps.baselines.outputs.present == 'false'
+        run: |
+          echo "::error::The baselines were drawn on this runner. Download the visual-baseline artifact, commit it to this branch, and rerun."
+          exit 1
+      - name: Compare the gallery with the baselines
+        if: github.event_name != 'workflow_dispatch' && steps.baselines.outputs.present == 'true'
+        env:
+          PLAYWRIGHT_VISUAL: "1"
+        run: npx playwright test tests/visual
+      # A failed compare leaves the received image, the image it expected and
+      # the pixel diff in the test output folder, so the run shows what moved.
+      - name: Upload the failed comparison images
+        if: failure() && github.event_name != 'workflow_dispatch' && steps.baselines.outputs.present == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: visual-diff
+          path: frontend/test-results
+          if-no-files-found: error
+          retention-days: 30
+      - name: Redraw the baselines whose compare fails
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          PLAYWRIGHT_VISUAL: "1"
+        run: npx playwright test tests/visual --update-snapshots=changed
+      # The list and the raw git output stay outside the artifact folder, so the
+      # uploaded files are only the baselines a person can commit.
+      - name: Collect the redrawn baselines
+        id: collect
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/visual-refresh"
+          list="$RUNNER_TEMP/visual-refresh-changed.txt"
+          mkdir -p "$out"
+          if ! git -C .. diff --name-only -- frontend/tests/visual/baselines > "$RUNNER_TEMP/visual-refresh-diff.txt"; then
+            echo "::error::Cannot list the baselines the compare changed." >&2
+            exit 1
+          fi
+          if ! git -C .. ls-files --others --exclude-standard -- frontend/tests/visual/baselines > "$RUNNER_TEMP/visual-refresh-new.txt"; then
+            echo "::error::Cannot list the baselines the compare added." >&2
+            exit 1
+          fi
+          sort -u "$RUNNER_TEMP/visual-refresh-diff.txt" "$RUNNER_TEMP/visual-refresh-new.txt" > "$list"
+          count="$(wc -l < "$list" | tr -d ' ')"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          if [ "$count" -eq 0 ]; then
+            echo "Every baseline matches on this branch, so the artifact is empty." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          while IFS= read -r file; do
+            cp "../$file" "$out/"
+          done < "$list"
+          echo "Redrew $count baselines. Download the visual-refresh artifact and commit its files." >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: github.event_name == 'workflow_dispatch' && steps.collect.outputs.count != '0'
+        with:
+          name: visual-refresh
+          path: ${{ runner.temp }}/visual-refresh
+          if-no-files-found: error
+          retention-days: 30

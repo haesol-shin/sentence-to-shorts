@@ -211,61 +211,11 @@ jobs:
   # The gallery baselines are drawn on this runner, never on a developer host,
   # because a different OS renders the fonts differently. The first run on a
   # branch has no baselines yet: it writes them, uploads them, and fails so the
-  # branch cannot merge until the same commit adds them.
+  # branch cannot merge until the same commit adds them. The compare and the
+  # manual redraw call one workflow so a redrawn image meets the same pixels.
   test-frontend-visual:
     name: "test | frontend visual"
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    defaults:
-      run:
-        working-directory: frontend
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "24.22.3"
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install the locked dependencies
-        run: npm ci --no-audit --no-fund
-      - name: Install the visual browser
-        run: npx playwright install --with-deps chromium
-      - name: Generated token stylesheet matches its sources
-        run: |
-          node ../design/tokens/build.mjs --check
-          npx vitest run --root ../design/tokens --environment node
-      - name: Check for the screenshot baselines
-        id: baselines
-        run: |
-          if [ -d tests/visual/baselines ] && [ -n "$(ls -A tests/visual/baselines)" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Draw the missing baselines on this runner
-        if: steps.baselines.outputs.present == 'false'
-        env:
-          PLAYWRIGHT_VISUAL: "1"
-        run: npx playwright test tests/visual --update-snapshots
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: steps.baselines.outputs.present == 'false'
-        with:
-          name: visual-baseline
-          path: frontend/tests/visual/baselines
-          if-no-files-found: error
-          retention-days: 30
-      - name: Fail until the baseline commit lands
-        if: steps.baselines.outputs.present == 'false'
-        run: |
-          echo "::error::The baselines were drawn on this runner. Download the visual-baseline artifact, commit it to this branch, and rerun."
-          exit 1
-      - name: Compare the gallery with the baselines
-        if: steps.baselines.outputs.present == 'true'
-        env:
-          PLAYWRIGHT_VISUAL: "1"
-        run: npx playwright test tests/visual
+    uses: ./.github/workflows/visual-refresh.yml
 
   test-sandbox:
     name: "test | sandbox"
