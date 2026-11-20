@@ -96,6 +96,8 @@ interface ComposerBoxProps {
   /** Read once on mount; the box always owns its attachment list afterwards. */
   initialAttachments?: Attachment[];
   onAttachmentsChange?: (attachments: Attachment[]) => void;
+  onEditBgm?: (file: File, isAudio: boolean) => void;
+  editBgmBusy?: boolean;
   className?: string;
 }
 
@@ -237,6 +239,8 @@ function ComposerBox({
   deployment,
   initialAttachments,
   onAttachmentsChange,
+  onEditBgm,
+  editBgmBusy = false,
   className,
 }: ComposerBoxProps) {
   const { t } = useLocale();
@@ -325,7 +329,12 @@ function ComposerBox({
   ): Promise<void> => {
     setError(null);
     for (const file of files) {
-      const kind = attachmentKindOf(file) ?? fallbackKind;
+      const detected = attachmentKindOf(file);
+      if (onEditBgm !== undefined && (fallbackKind === 'bgm' || detected === 'bgm')) {
+        onEditBgm(file, detected === 'bgm');
+        continue;
+      }
+      const kind = detected ?? fallbackKind;
       if (kind === 'image') {
         setError(t('concept.composer.fileUnsupported', { name: file.name }));
         continue;
@@ -689,6 +698,7 @@ function ComposerBox({
               />
               <MenuItem
                 label={t('concept.composer.addBgm')}
+                disabled={editBgmBusy}
                 onSelect={() => openPicker(bgmInput.current)}
               />
               <MenuItem
@@ -811,7 +821,7 @@ function ComposerBox({
         data-kind="bgm"
         type="file"
         accept="audio/*"
-        multiple
+        multiple={onEditBgm === undefined}
         className="hidden"
         onChange={(event) => onFileInput('bgm', event)}
       />
@@ -899,6 +909,7 @@ function EditComposer({
     );
   }
   const number = edit.targetId === null ? 0 : sceneNumber(edit.video, edit.targetId);
+  const bgm = edit.bgmWork;
   return (
     <div className="flex w-full flex-col gap-2">
       {toneRequest === null ? null : (
@@ -911,6 +922,14 @@ function EditComposer({
         </div>
       )}
       {toneFailed ? <p role="alert">{t('edit.tone.failed')}</p> : null}
+      {bgm.error?.kind === 'upload' ? (
+        <p role="alert" data-slot="bgm-upload-error">{t(bgm.error.key)}</p>
+      ) : null}
+      {bgm.running === 'upload' ? (
+        <Button variant="ghost" disabled={bgm.stopping} onClick={bgm.stop}>
+          {t(bgm.stopping ? 'audio.bgm.stopping' : 'audio.bgm.stopUpload')}
+        </Button>
+      ) : null}
       <Composer
         {...rest}
         label={rest.label}
@@ -919,6 +938,8 @@ function EditComposer({
         cancelLabel={t('edit.composer.cancel')}
         onCancel={edit.chatBusy ? edit.cancelChat : undefined}
         cancelActive={edit.chatBusy}
+        onEditBgm={bgm.upload}
+        editBgmBusy={bgm.running !== null || bgm.waitingToApply}
         value={value}
         onChange={setValue}
         onSubmit={() => {

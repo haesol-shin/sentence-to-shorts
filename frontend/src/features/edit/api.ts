@@ -1,6 +1,7 @@
 import type { components } from '@/shared/api/generated/openapi';
 import { API_BASE, getCsrfToken, newIdempotencyKey, readVideo } from '@/shared/api/client';
 
+import { fixtureWavUrl } from './sound/fixture-wav';
 import {
   breaksFlow,
   insertScene,
@@ -19,10 +20,35 @@ export type ChangeTarget = ChangePlan['target'];
 export type CatalogItem = components['schemas']['CatalogItem'];
 export type Job = components['schemas']['Job'];
 export type JobState = components['schemas']['JobState'];
+export type Mood = components['schemas']['Mood'];
+export type CaptionMode = Video['settings']['caption']['mode'];
+type BgmManifest =
+  | components['schemas']['BuiltinBgm']
+  | components['schemas']['UploadBgm']
+  | components['schemas']['CodeBgm'];
+
+const uploadDateOptions: Intl.DateTimeFormatOptions = {
+  year: 'numeric', month: 'numeric', day: 'numeric',
+  hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+};
+const uploadDates = {
+  ko: new Intl.DateTimeFormat('ko-KR', uploadDateOptions),
+  en: new Intl.DateTimeFormat('en', uploadDateOptions),
+};
+
+/** One BGM the video can use. The catalog list has no mood, so the manifest adds it. */
+export interface BgmChoice {
+  id: string;
+  revision: string;
+  label: CatalogItem['label'];
+  mood: Mood;
+  source: BgmManifest['source'];
+}
 
 export interface StyleOptions {
   backgrounds: string[];
   expressions: string[];
+  fonts: readonly string[];
 }
 
 export interface EditApi {
@@ -40,6 +66,7 @@ export interface EditApi {
   previewScenes(videoId: string, baseRevision: number, sceneIds: string[]): Promise<Job>;
   confirmScenes(videoId: string, baseRevision: number): Promise<Video>;
   styleOptions(styleId: string, themeId: string): Promise<StyleOptions>;
+  templateCaptionModes(layoutId: string): Promise<readonly CaptionMode[]>;
   undo(videoId: string, baseRevision: number): Promise<Video>;
   sendMessage(videoId: string, body: {
     base_revision: number;
@@ -49,7 +76,12 @@ export interface EditApi {
   generate(videoId: string, baseRevision: number): Promise<Job>;
   cancelJob(jobId: string): Promise<Job>;
   readJob(jobId: string): Promise<Job>;
-  listCatalog(kind: 'sfx' | 'voice', videoId: string): Promise<CatalogItem[]>;
+  listCatalog(kind: 'sfx' | 'voice' | 'font', videoId: string): Promise<CatalogItem[]>;
+  listBgm(videoId: string): Promise<BgmChoice[]>;
+  /** A URL the browser can play for a preview, or null when there is none for this item. */
+  previewUrl(kind: 'voice' | 'bgm', id: string): Promise<string | null>;
+  uploadBgm(projectId: string, file: File, mood: Mood): Promise<Job>;
+  createBgmCode(projectId: string, mood: Mood, instruction: string | null): Promise<Job>;
 }
 
 export class EditApiError extends Error {
@@ -85,7 +117,8 @@ async function request<T>(
     if (token === null) {
       throw new EditApiError('unauthenticated', 401, 'the session token is missing');
     }
-    headers['Content-Type'] = 'application/json';
+    // A form body keeps the boundary the browser writes into its own content type.
+    if (!(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     headers['X-CSRF-Token'] = token;
     if (options.idempotency !== false) {
       headers['Idempotency-Key'] = newIdempotencyKey();
@@ -96,7 +129,8 @@ async function request<T>(
     response = await fetch(`${API_BASE}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body:
+        body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body),
       credentials: 'same-origin',
     });
   } catch (error) {
@@ -164,12 +198,24 @@ class HttpEditApi implements EditApi {
     const manifest = await request<{
       rig?: { expressions?: string[] };
       themes?: Array<{ id: string; backgrounds?: string[] }>;
+      fonts?: string[];
     }>('GET', `/catalog/art_style/${encodeURIComponent(styleId)}`);
     const theme = manifest.themes?.find((entry) => entry.id === themeId) ?? manifest.themes?.[0];
     return {
       backgrounds: theme?.backgrounds ?? [],
       expressions: manifest.rig?.expressions ?? [],
+      fonts: manifest.fonts ?? [],
     };
+  }
+
+  async templateCaptionModes(layoutId: string): Promise<readonly CaptionMode[]> {
+    const template = await request<components['schemas']['TemplateManifest']>(
+      'GET',
+      `/catalog/template/${encodeURIComponent(layoutId)}`,
+    );
+    return template.dialog_box
+      ? template.caption_modes
+      : template.caption_modes.filter((mode) => mode !== 'typewriter');
   }
 
   undo(videoId: string, baseRevision: number): Promise<Video> {
@@ -199,17 +245,100 @@ class HttpEditApi implements EditApi {
     return request<Job>('GET', `/jobs/${encodeURIComponent(jobId)}`);
   }
 
-  async listCatalog(kind: 'sfx' | 'voice', videoId: string): Promise<CatalogItem[]> {
-    const list = await request<{ items: CatalogItem[] }>(
-      'GET',
-      `/catalog/${kind}?video_id=${encodeURIComponent(videoId)}&limit=50`,
-    );
-    return list.items;
+  listCatalog(kind: 'sfx' | 'voice' | 'font', videoId: string): Promise<CatalogItem[]> {
+    return catalogItems(kind, videoId);
   }
+
+  async listBgm(videoId: string): Promise<BgmChoice[]> {
+    const choices: BgmChoice[] = [];
+    const uploadCounts = new Map<string, number>();
+    let cursor: string | null = null;
+    do {
+      const query = new URLSearchParams({ video_id: videoId, limit: '50' });
+      if (cursor !== null) query.set('cursor', cursor);
+      const page: components['schemas']['CatalogList'] = await request(
+        'GET', `/catalog/bgm?${query}`,
+      );
+      const manifests = await Promise.all(page.items.map((item) =>
+        request<BgmManifest>('GET', `/catalog/bgm/${encodeURIComponent(item.id)}`),
+      ));
+      for (const [index, manifest] of manifests.entries()) {
+        const item = page.items[index];
+        let label = item.label;
+        if (manifest.source === 'upload') {
+          const date = new Date(manifest.accepted_at);
+          const stamp = uploadDates.en.format(date);
+          const count = (uploadCounts.get(stamp) ?? 0) + 1;
+          uploadCounts.set(stamp, count);
+          const suffix = count === 1 ? '' : ` #${count}`;
+          label = {
+            ko: `${label.ko} · ${uploadDates.ko.format(date)}${suffix}`,
+            en: `${label.en} · ${stamp}${suffix}`,
+          };
+        }
+        choices.push({ id: item.id, revision: item.revision, label, mood: manifest.mood, source: manifest.source });
+      }
+      cursor = page.next_cursor;
+    } while (cursor !== null);
+    return choices;
+  }
+
+  async previewUrl(kind: 'voice' | 'bgm', id: string): Promise<string | null> {
+    const name = encodeURIComponent(id);
+    if (kind === 'voice') {
+      const manifest = await request<{ sample: { file: string } }>('GET', `/catalog/voice/${name}`);
+      const file = manifest.sample.file.split('/').at(-1) ?? manifest.sample.file;
+      return `${API_BASE}/catalog/voice/${name}/media/${encodeURIComponent(file)}`;
+    }
+    return `${API_BASE}/bgm/${name}/audio`;
+  }
+
+  uploadBgm(projectId: string, file: File, mood: Mood): Promise<Job> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('project_id', projectId);
+    form.append('mood', mood);
+    return request<Job>('POST', '/bgm/uploads', form);
+  }
+
+  createBgmCode(projectId: string, mood: Mood, instruction: string | null): Promise<Job> {
+    return request<Job>('POST', '/bgm/code', {
+      project_id: projectId,
+      mood,
+      instruction,
+      seed: null,
+    });
+  }
+}
+
+async function catalogItems(kind: string, videoId: string): Promise<CatalogItem[]> {
+  const list = await request<{ items: CatalogItem[] }>(
+    'GET',
+    `/catalog/${kind}?video_id=${encodeURIComponent(videoId)}&limit=50`,
+  );
+  return list.items;
 }
 
 const MOCK_TIME = '2026-11-20T00:00:00Z';
 const MOCK_DIGEST = '1'.repeat(64);
+/** The recorded video's own font and track pins, so the mock list shows them as chosen. */
+const MOCK_FONT_REVISION = 'd92c304c2bc07f41810bf938c71bd8a9cab36e27fcb980bbb98a6ffb27098c75';
+const MOCK_BGM_REVISION = '1b4543fa99e396518be2bd4a2ff5ce0442470f8b253e4fbc9393a383ec1b0dad';
+const MOCK_BGM: ReadonlyArray<readonly [string, Mood, string, string]> = [
+  ['builtin_loop', 'calm', '기본 잔잔한 루프', 'Default calm loop'],
+  ['calm_happy_lullaby', 'calm', '차분한 자장가', 'Calm lullaby'],
+  ['calm_snowfall', 'calm', '차분한 눈 내림', 'Calm snowfall'],
+  ['curious_stage_one', 'curious', '궁금증 스테이지', 'Curious stage'],
+  ['curious_stage_select', 'curious', '궁금증 선택 화면', 'Curious stage select'],
+  ['energetic_action_level_one', 'energetic', '활기 액션 1', 'Energetic action 1'],
+  ['energetic_action_level_two', 'energetic', '활기 액션 2', 'Energetic action 2'],
+  ['playful_bossa', 'playful', '발랄한 보사노바', 'Playful bossa'],
+  ['playful_jellyfish', 'playful', '발랄한 팝펑크', 'Playful pop punk'],
+  ['reflective_lofi_chill', 'reflective', '사색 로파이', 'Reflective lo-fi'],
+  ['reflective_tragic_ambient', 'reflective', '사색 앰비언스', 'Reflective ambience'],
+  ['tense_mysterious_ambience', 'tense', '긴장 신비 앰비언스', 'Tense mystery ambience'],
+  ['tense_vampire_piano', 'tense', '긴장 피아노', 'Tense piano'],
+];
 
 function missingArtifact(): ArtifactStatus {
   return { state: 'missing', cache_key: null, artifact: null, error_code: null };
@@ -298,11 +427,13 @@ function planFor(
   let lines = false;
   let structural = false;
   let reordered = false;
+  let audio = false;
   for (const op of ops) {
     if (op.op === 'set') {
-      const sceneId = op.path.split('/')[2];
+      const sceneId = op.path.startsWith('/scenes/') ? op.path.split('/')[2] : undefined;
       if (sceneId !== undefined) touched.add(sceneId);
       if (op.path.includes('/lines')) lines = true;
+      if (op.path.startsWith('/settings/audio/')) audio = true;
     } else if (op.op === 'add_scene') {
       structural = true;
       touched.add(op.scene.id);
@@ -334,8 +465,8 @@ function planFor(
       scene_ids_text: lines ? sceneIds : [],
       scene_ids_tts: lines ? sceneIds : [],
       scene_ids_render: sceneIds,
-      mix: false,
-      assemble: structural || reordered || sceneIds.length > 0,
+      mix: audio,
+      assemble: structural || reordered || audio || sceneIds.length > 0,
       locked_keys: [],
       overwrites_user_values: [],
     },
@@ -349,7 +480,11 @@ function planFor(
   } as ChangePlan;
 }
 
-function jobFor(kind: 'generate' | 'chat' | 'preview', video: Video, state: JobState): Job {
+function jobFor(
+  kind: 'generate' | 'chat' | 'preview' | 'bgm_upload' | 'bgm_code',
+  video: Video,
+  state: JobState,
+): Job {
   return {
     id: nextId('j'),
     kind,
@@ -406,6 +541,8 @@ class MockEditApi implements EditApi {
   private jobs = new Map<string, Job>();
   private polls = new Map<string, number>();
   private history = new Map<string, Video[]>();
+  private uploadedBgm: BgmChoice[] = [];
+  private bgmWork = new Map<string, BgmChoice>();
 
   private seed(videoId: string): VideoView {
     const existing = this.views.get(videoId);
@@ -618,6 +755,7 @@ class MockEditApi implements EditApi {
   async cancelJob(jobId: string): Promise<Job> {
     const job = this.jobs.get(jobId);
     if (job === undefined) throw new EditApiError('not_found', 404, 'job');
+    this.bgmWork.delete(jobId);
     const next = { ...job, state: 'cancelled' as const, ended_at: MOCK_TIME };
     this.jobs.set(jobId, next);
     return clone(next);
@@ -689,6 +827,19 @@ class MockEditApi implements EditApi {
       this.jobs.set(jobId, next);
       return clone(next);
     }
+    if (job.kind === 'bgm_upload' || job.kind === 'bgm_code') {
+      const next = clone(job);
+      const entry = this.bgmWork.get(jobId);
+      if (count >= 2 && entry !== undefined) {
+        next.state = 'succeeded';
+        next.ended_at = MOCK_TIME;
+        next.result = { bgm_id: entry.id, entry };
+        this.uploadedBgm.push(entry);
+        this.bgmWork.delete(jobId);
+      }
+      this.jobs.set(jobId, next);
+      return clone(next);
+    }
     return clone(job);
   }
 
@@ -715,11 +866,31 @@ class MockEditApi implements EditApi {
     return {
       backgrounds: ['bg_village', 'bg_stars', 'bg_park', 'bg_classroom'],
       expressions: ['expr_happy', 'expr_surprised'],
+      fonts: ['galmuri11', 'galmuri14'],
     };
   }
 
-  async listCatalog(kind: 'sfx' | 'voice', videoId: string): Promise<CatalogItem[]> {
+  async templateCaptionModes(layoutId: string): Promise<readonly CaptionMode[]> {
+    return layoutId === 'dialog_stage' ? ['sentence', 'phrase', 'typewriter'] : ['sentence', 'phrase'];
+  }
+
+  async listCatalog(kind: 'sfx' | 'voice' | 'font', videoId: string): Promise<CatalogItem[]> {
     void videoId;
+    const item = (
+      id: string,
+      ko: string,
+      en: string,
+      revision: string = MOCK_DIGEST,
+    ): CatalogItem =>
+      ({
+        kind,
+        id,
+        revision,
+        label: { ko, en },
+        origin: 'builtin' as const,
+        thumbnail: null,
+        compatible: null,
+      }) as CatalogItem;
     if (kind === 'sfx') {
       const names = [
         ['pop', '팝', 'Pop'],
@@ -735,19 +906,71 @@ class MockEditApi implements EditApi {
         ['chime', '차임', 'Chime'],
         ['swoosh', '휘익', 'Swoosh'],
       ] as const;
-      return names.map(([id, ko, en]) => ({
-        kind: 'sfx' as const,
-        id,
-        revision: MOCK_DIGEST,
-        label: { ko, en },
-        origin: 'builtin' as const,
-        thumbnail: null,
-        compatible: null,
-      })) as CatalogItem[];
+      return names.map(([id, ko, en]) => item(id, ko, en));
+    }
+    if (kind === 'font') {
+      return [
+        item('galmuri11', '갈무리 11', 'Galmuri 11', MOCK_FONT_REVISION),
+        item('galmuri14', '갈무리 14', 'Galmuri 14'),
+      ];
     }
     return [
-      { kind: 'voice', id: 'fixed_wav', revision: MOCK_DIGEST, label: { ko: '기본 목소리', en: 'Default voice' }, origin: 'builtin', thumbnail: null, compatible: null },
-    ] as CatalogItem[];
+      item('fixed_wav', '기본 목소리', 'Default voice'),
+      item('sohee_ko', '소희 (한국어)', 'Sohee (Korean)'),
+      item('ryan_en', '라이언 (영어)', 'Ryan (English)'),
+      ...[1, 2, 3, 4, 5].map((number) =>
+        item(`mock_voice_${number}`, `합성 목소리 ${number}`, `Synthetic voice ${number}`),
+      ),
+    ];
+  }
+
+  async listBgm(videoId: string): Promise<BgmChoice[]> {
+    void videoId;
+    const builtin = MOCK_BGM.map(
+      ([id, mood, ko, en]): BgmChoice => ({
+        id,
+        revision: id === 'builtin_loop' ? MOCK_BGM_REVISION : MOCK_DIGEST,
+        label: { ko, en },
+        mood,
+        source: 'builtin',
+      }),
+    );
+    return [...builtin, ...this.uploadedBgm.map((entry) => ({ ...entry }))];
+  }
+
+  async previewUrl(kind: 'voice' | 'bgm', id: string): Promise<string | null> {
+    return fixtureWavUrl(`${kind}:${id}`);
+  }
+
+  private startBgmWork(kind: 'bgm_upload' | 'bgm_code', projectId: string, mood: Mood): Job {
+    const own = [...this.views.values()].find((view) => view.video.project_id === projectId);
+    const video = (own?.video ?? { id: null, project_id: projectId, revision: null }) as Video;
+    const job = jobFor(kind, video, 'running');
+    job.video_id = null;
+    job.base_revision = null;
+    const number = this.uploadedBgm.length + this.bgmWork.size + 1;
+    this.bgmWork.set(job.id, {
+      id: kind === 'bgm_upload' ? `upload_${number}` : `code_${number}`,
+      revision: MOCK_DIGEST,
+      label:
+        kind === 'bgm_upload'
+          ? { ko: `올린 BGM ${number}`, en: `Uploaded BGM ${number}` }
+          : { ko: `만든 BGM ${number}`, en: `Generated BGM ${number}` },
+      mood,
+      source: kind === 'bgm_upload' ? 'upload' : 'code',
+    });
+    this.jobs.set(job.id, job);
+    return clone(job);
+  }
+
+  async uploadBgm(projectId: string, file: File, mood: Mood): Promise<Job> {
+    void file;
+    return this.startBgmWork('bgm_upload', projectId, mood);
+  }
+
+  async createBgmCode(projectId: string, mood: Mood, instruction: string | null): Promise<Job> {
+    void instruction;
+    return this.startBgmWork('bgm_code', projectId, mood);
   }
 }
 

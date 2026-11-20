@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import { catalogKeys, catalogNamespaces, LANGUAGES, translate } from '@/shared/lib/i18n/catalog';
 
-const NAMESPACES = ['concept', 'edit', 'errors', 'export', 'script', 'shell'];
+const NAMESPACES = ['audio', 'concept', 'edit', 'errors', 'export', 'script', 'shell'];
 
 test('test_16_both_languages_define_the_same_keys', () => {
   expect(catalogKeys('en')).toEqual(catalogKeys('ko'));

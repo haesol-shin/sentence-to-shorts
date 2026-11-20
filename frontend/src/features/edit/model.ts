@@ -1,4 +1,5 @@
 import type { components } from '@/shared/api/generated/openapi';
+import type { Translate } from '@/shared/lib/i18n/locale';
 
 export type Video = components['schemas']['Video'];
 export type VideoView = components['schemas']['VideoView'];
@@ -35,6 +36,27 @@ export const POSITION_CELLS: readonly PositionCell[] = [
   { row: 2, column: 1, anchor: 'center', labelKey: 'edit.position.bottomCenter' },
   { row: 2, column: 2, anchor: 'right', labelKey: 'edit.position.bottomRight' },
 ] as const;
+
+/** Keep option names identical in the scene form and change review. */
+export function sceneVisualLabel(
+  t: Translate,
+  field: 'background' | 'expression' | 'position' | 'sfx',
+  value: unknown,
+  catalog: readonly string[] = [],
+): string {
+  if (value == null || value === '') return t('edit.change.none');
+  const key = field === 'position'
+    ? POSITION_CELLS.find((cell) => cell.anchor === value)?.labelKey
+    : `edit.${field === 'sfx' ? 'sfx.name' : field}.${String(value)}`;
+  if (key !== undefined) {
+    const label = t(key);
+    if (label !== key) return label;
+  }
+  const index = typeof value === 'string' ? catalog.indexOf(value) : -1;
+  if (index >= 0) return t('edit.scene.unknownOption', { number: index + 1 });
+  if (typeof value !== 'string') return t('audio.review.unknown');
+  return t('edit.scene.unlistedOption', { id: value });
+}
 
 /** An old unprefixed anchor is the bottom row, so saved scenes keep their place. */
 export function cellForAnchor(anchor: PlacementAnchor): PositionCell {
