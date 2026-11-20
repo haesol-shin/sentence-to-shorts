@@ -26,17 +26,17 @@ DRAFT: dict[str, Any] = {
         "art_style": "pixel",
         "theme_id": "day",
     },
-    "evidence": {
-        "target_duration_s": "1분짜리",
-        "register": "반말로",
-        "bgm_mood": "차분하게",
-    },
+    "evidence": [
+        {"field": "target_duration_s", "quote": "1분짜리"},
+        {"field": "register", "quote": "반말로"},
+        {"field": "bgm_mood", "quote": "차분하게"},
+    ],
 }
 PLAIN_DRAFT: dict[str, Any] = {
     "card_id": "its_like",
     "topic": "캐시를 책상 서랍에 비유하기",
     "values": {"register": "neutral", "caption_position": "top"},
-    "evidence": {"caption_position": "위로"},
+    "evidence": [{"field": "caption_position", "quote": "위로"}],
 }
 
 ANALOGY_SCRIPT: dict[str, Any] = {
@@ -139,7 +139,7 @@ def test_criterion_1_one_message_fills_every_stage() -> None:
     ]
 
 
-def test_criterion_1_user_evidence_sets_the_user_origin() -> None:
+def test_criterion_1_evidence_list_sets_the_user_origin() -> None:
     video = make_video(script=_existing_script(), origins={})
     ops, _ = _draft(video, MESSAGE, None, DRAFT)
     origins = _origins(ops)

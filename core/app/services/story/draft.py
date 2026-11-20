@@ -40,15 +40,18 @@ DRAFT_MAX_TOKENS = 1200
 _SCENE_COUNT_FIELDS = {30: "short_30", 60: "minute_60", 120: "minutes_120"}
 
 
+class DraftEvidence(ContractModel):
+    field: str
+    quote: Annotated[str, Field(min_length=1, max_length=300)]
+
+
 class DraftOutput(ContractModel):
     """Model output of the draft route. Card picks and settings values only."""
 
     card_id: CatalogId | None = None
     topic: Annotated[str, Field(min_length=1, max_length=500)]
     values: SettingsValues = Field(default_factory=SettingsValues)
-    evidence: dict[str, Annotated[str, Field(min_length=1, max_length=300)]] = Field(
-        default_factory=dict
-    )
+    evidence: list[DraftEvidence] = Field(default_factory=list)
 
 
 def _card(catalog: CatalogPort, card_id: str) -> FormatCard:
@@ -233,7 +236,7 @@ def draft(
             out.values,
             catalog=catalog,
             origin=Origin.llm,
-            evidence=out.evidence,
+            evidence={item.field: item.quote for item in out.evidence},
             message=message,
         )
     )
