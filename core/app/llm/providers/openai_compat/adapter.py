@@ -20,6 +20,7 @@ from app.llm.common import (
     status_error,
     token_count,
 )
+from app.llm.schema_prompt import schema_instruction
 from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest
 
 MAX_RESPONSE_BYTES = 16 * 1024 * 1024
@@ -110,10 +111,13 @@ def _request_payload(req: LlmRequest, route: ResolvedRoute) -> dict[str, Any]:
             parts.append({"type": "text", "text": part.text})
         else:
             raise ProviderError("llm_invalid_output")
+    system = req.system
+    if req.output_schema is not None:
+        system += "\n\n" + schema_instruction(req.output_schema)
     payload = {
         "model": route.model, "reasoning_effort": route.effort,
         "max_tokens": req.max_output_tokens,
-        "messages": [{"role": "system", "content": req.system},
+        "messages": [{"role": "system", "content": system},
                      {"role": "user", "content": parts}],
     }
     if req.output_schema is not None:

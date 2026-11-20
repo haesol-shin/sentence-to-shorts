@@ -80,7 +80,8 @@ def test_10_2_alias_model_and_structured_output(
     assert sent["reasoning_effort"] == effort
     assert sent["max_tokens"] == 128
     assert sent["response_format"]["json_schema"]["schema"] == request_data.output_schema
-    assert sent["messages"][0] == {"role": "system", "content": request_data.system}
+    assert sent["messages"][0]["role"] == "system"
+    assert sent["messages"][0]["content"].startswith(request_data.system)
     assert sent["messages"][1]["content"][0]["text"] == request_data.parts[0].text
     assert "tools" not in sent
 
@@ -218,3 +219,21 @@ def test_new_key_clears_expired_state(settings, request_data, cancel):
     assert llm.auth_state(OWNER) == "unknown"
     llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert llm.auth_state(OWNER) == "ok"
+
+
+def test_10_1_schema_is_in_system_message_with_response_format(settings, request_data, cancel):
+    llm, transport = adapter(settings, [response()])
+    llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+    payload = json.loads(transport.calls[0][0].data)
+    system = payload["messages"][0]["content"]
+    schema = json.dumps(request_data.output_schema, ensure_ascii=False, separators=(",", ":"))
+    assert system.startswith(request_data.system)
+    assert schema in system
+    assert "code fence" in system
+    assert payload["response_format"]["json_schema"]["schema"] == request_data.output_schema
+
+
+def test_10_1_fenced_reply_is_accepted(settings, request_data, cancel):
+    llm, _ = adapter(settings, [response('```json\n{"answer":"합성"}\n```')])
+    result = llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+    assert result.parsed == {"answer": "합성"}

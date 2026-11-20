@@ -45,6 +45,7 @@ from app.llm.common import (
     token_count,
 )
 from app.llm.providers.claude_cli.process import CliProcessResult, run
+from app.llm.schema_prompt import schema_instruction
 from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest, LlmTask
 
 PROVIDER = "claude_cli"
@@ -405,10 +406,7 @@ def _stdin_payload(req: LlmRequest) -> bytes:
     content: list[dict[str, str]] = [{"type": "text", "text": req.system}]
     constraints = [f"Keep the response within {req.max_output_tokens} output tokens."]
     if req.output_schema is not None:
-        schema = json.dumps(req.output_schema, ensure_ascii=False, separators=(",", ":"))
-        constraints.append(
-            "Return one JSON object that validates against this schema:\n" + schema
-        )
+        constraints.append(schema_instruction(req.output_schema))
     content.append({"type": "text", "text": "\n".join(constraints)})
     for part in req.parts:
         if part.kind != "text":
