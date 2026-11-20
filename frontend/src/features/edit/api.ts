@@ -1,5 +1,5 @@
 import type { components } from '@/shared/api/generated/openapi';
-import { getCsrfToken, newIdempotencyKey, readVideo } from '@/shared/api/client';
+import { API_BASE, getCsrfToken, newIdempotencyKey, readVideo } from '@/shared/api/client';
 
 import {
   breaksFlow,
@@ -64,14 +64,10 @@ export class EditApiError extends Error {
   }
 }
 
-const API_BASE = '/api/v1';
+export { artifactUrl } from '@/shared/api/client';
 
 export const MOCK_STILL =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=';
-
-export function artifactUrl(artifactId: string): string {
-  return artifactId.startsWith('data:image/') ? artifactId : `${API_BASE}/artifacts/${encodeURIComponent(artifactId)}`;
-}
 
 interface RequestOptions {
   idempotency?: boolean;

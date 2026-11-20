@@ -37,6 +37,7 @@ async function startVideo(page: Page): Promise<void> {
     .getByRole('dialog', { name: '장면 확인' })
     .getByRole('button', { name: '영상 만들기' })
     .click();
+  await page.locator('[data-slot="export-start"]').click();
 }
 
 test('test_10a_the_edit_shell_shows_the_scenes_and_the_preview', async ({ page }) => {

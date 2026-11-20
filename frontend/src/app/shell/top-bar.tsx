@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 
 import { EditNextAction } from '@/features/edit/next-action';
 import { EditTopBarStatus } from '@/features/edit/top-bar-status';
+import { ExportNextAction } from '@/features/export/next-action';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/shared/ui/button';
@@ -17,9 +18,10 @@ import { VideoSettings } from './video-settings';
  * with the reason in a tooltip. The phone gets a shorter word so the seat, the
  * step menu and the screen stay inside 390px.
  */
-function NextAction({ stage }: { stage: Stage }) {
+function NextAction({ stage, videoId }: { stage: Stage; videoId: string | null }) {
   const { t } = useLocale();
   if (stage === 'edit') return <EditNextAction />;
+  if (stage === 'export') return <ExportNextAction videoId={videoId} />;
   const label = t(`shell.nextAction.${stage}`);
   return (
     <Tooltip label={t('shell.nextAction.reason')} side="top">
@@ -46,11 +48,13 @@ function NextAction({ stage }: { stage: Stage }) {
 export function TopBar({
   brand,
   view,
+  videoId = null,
   onStage,
   status,
 }: {
   brand: ReactNode;
   view: View;
+  videoId?: string | null;
   onStage: (stage: Stage) => void;
   status?: ReactNode;
 }) {
@@ -91,7 +95,7 @@ export function TopBar({
       ) : (
         <div className="flex min-w-0 flex-1 items-center">{status}</div>
       )}
-      {stage === null || stage === 'script' ? null : <NextAction stage={stage} />}
+      {stage === null || stage === 'script' ? null : <NextAction stage={stage} videoId={videoId} />}
     </header>
   );
 }

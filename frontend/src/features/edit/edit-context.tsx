@@ -9,6 +9,8 @@ import {
   type ReactNode,
 } from 'react';
 
+import { ApiProblemError, retryJob } from '@/shared/api/client';
+
 import type { CatalogItem, ChangePlan, EditApi, Job, StyleOptions } from './api';
 import { createEditApi, EditApiError, sceneFieldOps } from './api';
 import {
@@ -66,6 +68,9 @@ interface EditState {
   pendingSelect: string | null;
   reorder: ReorderReview | null;
   job: Job | null;
+  jobReadFailed: boolean;
+  confirmedForOutput: boolean;
+  finishedGeneration: string | null;
   chatJob: Job | null;
   messages: readonly ChatMessage[];
   sending: boolean;
@@ -89,6 +94,9 @@ const INITIAL: EditState = {
   pendingSelect: null,
   reorder: null,
   job: null,
+  jobReadFailed: false,
+  confirmedForOutput: false,
+  finishedGeneration: null,
   chatJob: null,
   messages: [],
   sending: false,
@@ -114,6 +122,9 @@ type EditAction =
   | { type: 'reorder-review'; review: ReorderReview | null }
   | { type: 'busy'; value: boolean }
   | { type: 'job'; job: Job | null }
+  | { type: 'job-read-failed' }
+  | { type: 'output-confirmed'; value: boolean }
+  | { type: 'generation-finished'; id: string }
   | { type: 'chat-job'; job: Job | null }
   | { type: 'message'; message: ChatMessage }
   | { type: 'sending'; value: boolean }
@@ -195,7 +206,20 @@ function reducer(state: EditState, action: EditAction): EditState {
     case 'busy':
       return { ...state, busy: action.value };
     case 'job':
-      return { ...state, job: action.job };
+      return {
+        ...state,
+        job: action.job,
+        jobReadFailed: false,
+        finishedGeneration: action.job?.id === state.job?.id && action.job?.attempt === state.job?.attempt
+          ? state.finishedGeneration
+          : null,
+      };
+    case 'job-read-failed':
+      return { ...state, jobReadFailed: true };
+    case 'output-confirmed':
+      return { ...state, confirmedForOutput: action.value };
+    case 'generation-finished':
+      return { ...state, finishedGeneration: action.id };
     case 'chat-job':
       return { ...state, chatJob: action.job };
     case 'message':
@@ -244,6 +268,10 @@ export interface EditValue {
   dismissError: () => void;
   chatBusy: boolean;
   job: Job | null;
+  readonly jobReadFailed: boolean;
+  readonly jobWaiting: boolean;
+  readonly confirmedForOutput: boolean;
+  readonly finishedGeneration: string | null;
   messages: readonly ChatMessage[];
   sending: boolean;
   sfx: readonly CatalogItem[];
@@ -270,7 +298,10 @@ export interface EditValue {
   rejectPending: () => void;
   startPreview: () => void;
   undo: () => void;
-  startVideo: () => void;
+  confirmForOutput: () => void;
+  acknowledgeOutput: () => void;
+  generateVideo: (revision: number) => Promise<boolean>;
+  retryGeneration: (job: Job) => Promise<boolean>;
   cancelStills: () => void;
   stopVideo: () => void;
   sendMessage: (text: string) => void;
@@ -422,6 +453,7 @@ export function EditProvider({
   const scenePreview = useRef<string | null>(null);
   const chatQueue = useRef<ChatRequest[]>([]);
   const revisionRef = useRef<number | null>(null);
+  const generationSubmitting = useRef(false);
 
   const load = useMemo(() => async (id: string): Promise<VideoView> => api.load(id), [api]);
 
@@ -498,15 +530,6 @@ export function EditProvider({
           storedScene: readStorage(storageKey(videoId)),
           pending: pending?.status === 'proposed' ? pending : null,
         });
-        const styleRef = view.video.settings.visual.art_style;
-        const styleId = typeof styleRef?.id === 'string' ? styleRef.id : '';
-        const themeId = typeof view.video.settings.visual.theme_id === 'string' ? view.video.settings.visual.theme_id : '';
-        const [sfx, voices, style] = await Promise.all([
-          api.listCatalog('sfx', videoId).catch(() => []),
-          api.listCatalog('voice', videoId).catch(() => []),
-          api.styleOptions(styleId, themeId).catch(() => null),
-        ]);
-        if (!cancelled && epoch === videoEpoch.current) dispatch({ type: 'catalog', sfx, voices, style });
         let resumed: Job | null = null;
         let resumeFailed = false;
         const ownPreview = readScenePreview(videoId);
@@ -530,6 +553,15 @@ export function EditProvider({
         if (cancelled || epoch !== videoEpoch.current) return;
         if (resumed !== null) dispatch({ type: 'job', job: resumed });
         else if (resumeFailed) dispatch({ type: 'action-error', error: 'edit.error.resume' });
+        const styleRef = view.video.settings.visual.art_style;
+        const styleId = typeof styleRef?.id === 'string' ? styleRef.id : '';
+        const themeId = typeof view.video.settings.visual.theme_id === 'string' ? view.video.settings.visual.theme_id : '';
+        const [sfx, voices, style] = await Promise.all([
+          api.listCatalog('sfx', videoId).catch(() => []),
+          api.listCatalog('voice', videoId).catch(() => []),
+          api.styleOptions(styleId, themeId).catch(() => null),
+        ]);
+        if (!cancelled && epoch === videoEpoch.current) dispatch({ type: 'catalog', sfx, voices, style });
       })
       .catch(() => {
         if (!cancelled && epoch === videoEpoch.current) dispatch({ type: 'load-failed' });
@@ -561,33 +593,30 @@ export function EditProvider({
     [api, rememberSelection, videoId],
   );
 
+  const watchedJobId = state.job !== null && jobInFlight(state.job) ? state.job.id : null;
   useEffect(() => {
-    if (state.job === null) return undefined;
-    const activeStates = new Set(['queued', 'running', 'cancelling']);
-    if (!activeStates.has(state.job.state)) return undefined;
-    const jobId = state.job.id;
+    if (watchedJobId === null) return undefined;
     const epoch = videoEpoch.current;
     const token = ++jobPoll.current;
-    let stopped = false;
+    let timer: number;
     const tick = async () => {
-      if (stopped || token !== jobPoll.current) return;
       try {
-        const job = await api.readJob(jobId);
-        if (stopped || token !== jobPoll.current || epoch !== videoEpoch.current) return;
+        const job = await api.readJob(watchedJobId);
+        if (token !== jobPoll.current || epoch !== videoEpoch.current) return;
         dispatch({ type: 'job', job });
+        if (!jobInFlight(job)) return;
       } catch {
-        if (stopped || token !== jobPoll.current) return;
-        dispatch({ type: 'action-error', error: 'edit.error.videoStart' });
-        dispatch({ type: 'job', job: null });
+        if (token !== jobPoll.current || epoch !== videoEpoch.current) return;
+        dispatch({ type: 'job-read-failed' });
       }
+      timer = window.setTimeout(() => void tick(), 250);
     };
-    const timer = window.setInterval(() => void tick(), 250);
+    timer = window.setTimeout(() => void tick(), 250);
     return () => {
-      stopped = true;
-      if (jobPoll.current === token) jobPoll.current += 1;
-      window.clearInterval(timer);
+      jobPoll.current += 1;
+      window.clearTimeout(timer);
     };
-  }, [api, state.job]);
+  }, [api, watchedJobId]);
 
   useEffect(() => {
     const job = state.job;
@@ -600,16 +629,14 @@ export function EditProvider({
           if (videoId === null) return;
           const loaded = await api.load(videoId);
           if (cancelled || epoch !== videoEpoch.current) return;
-          const confirmed = await api.confirmScenes(videoId, loaded.video.revision);
+          await api.confirmScenes(videoId, loaded.video.revision);
           if (cancelled || epoch !== videoEpoch.current) return;
           await refresh();
           if (cancelled || epoch !== videoEpoch.current) return;
-          const next = await api.generate(videoId, confirmed.revision);
-          if (!cancelled && epoch === videoEpoch.current) {
-            scenePreview.current = null;
-            writeScenePreview(videoId, null);
-            dispatch({ type: 'job', job: next });
-          }
+          scenePreview.current = null;
+          writeScenePreview(videoId, null);
+          dispatch({ type: 'job', job: null });
+          dispatch({ type: 'output-confirmed', value: true });
         } catch {
           if (cancelled || epoch !== videoEpoch.current) return;
           dispatch({ type: 'action-error', error: 'edit.error.videoStart' });
@@ -620,15 +647,25 @@ export function EditProvider({
         cancelled = true;
       };
     }
-    if (job.kind === 'generate' && job.state === 'succeeded') {
-      void refresh().catch(() => dispatch({ type: 'action-error', error: 'edit.error.videoStart' }));
-      return undefined;
-    }
-    if (job.state === 'failed') {
+    if (job.kind === 'generate') {
+      if (job.state === 'succeeded') {
+        let cancelled = false;
+        void refresh().then(() => {
+          if (!cancelled) dispatch({ type: 'generation-finished', id: job.id });
+        }).catch(() => {
+          if (!cancelled) {
+            dispatch({ type: 'job-read-failed' });
+            dispatch({ type: 'generation-finished', id: job.id });
+          }
+        });
+        return () => { cancelled = true; };
+      }
+      if (job.state === 'failed' || job.state === 'cancelled') {
+        dispatch({ type: 'generation-finished', id: job.id });
+      }
+    } else if (job.state === 'failed') {
       dispatch({ type: 'action-error', error: 'edit.error.videoStart' });
-      return undefined;
-    }
-    if (job.state === 'cancelled') {
+    } else if (job.state === 'cancelled') {
       dispatch({ type: 'job', job: null });
     }
     return undefined;
@@ -979,7 +1016,7 @@ export function EditProvider({
         });
     };
 
-    const startVideo = () => {
+    const confirmForOutput = () => {
       if (state.view === null || videoId === null) return;
       const stage = state.view.video.stage;
       const epoch = videoEpoch.current;
@@ -1001,21 +1038,43 @@ export function EditProvider({
         dispatch({ type: 'action-error', error: 'edit.error.notConfirmed' });
         return;
       }
-      void api
-        .generate(videoId, state.view.video.revision)
-        .then((job) => {
-          if (epoch === videoEpoch.current) dispatch({ type: 'job', job });
-        })
-        .catch(() => {
-          if (epoch === videoEpoch.current) dispatch({ type: 'action-error', error: 'edit.error.videoStart' });
-        });
+      dispatch({ type: 'output-confirmed', value: true });
     };
+
+    const submitGeneration = async (submit: () => Promise<Job>) => {
+      if (generationSubmitting.current || (state.job !== null && jobInFlight(state.job))) return false;
+      generationSubmitting.current = true;
+      const epoch = videoEpoch.current;
+      try {
+        const job = await submit();
+        if (epoch !== videoEpoch.current) return false;
+        dispatch({ type: 'job', job });
+        return true;
+      } catch (error) {
+        if (error instanceof ApiProblemError && error.code === 'job_not_retryable') throw error;
+        return false;
+      } finally {
+        generationSubmitting.current = false;
+      }
+    };
+
+    const generateVideo = (revision: number) =>
+      videoId !== null &&
+        state.view?.video.stage === 'scenes_confirmed' &&
+        state.view.video.revision === revision
+        ? submitGeneration(() => api.generate(videoId, revision))
+        : Promise.resolve(false);
+
+    const retryGeneration = (job: Job) =>
+      videoId !== null && job.video_id === videoId && job.kind === 'generate'
+        ? submitGeneration(() => retryJob(job.id))
+        : Promise.resolve(false);
 
     const cancelJob = () => {
       const job = state.job;
       if (job === null) return;
       const epoch = videoEpoch.current;
-      const token = ++jobPoll.current;
+      const token = jobPoll.current;
       void api
         .cancelJob(job.id)
         .then((next) => {
@@ -1089,6 +1148,12 @@ export function EditProvider({
       reorder: state.reorder,
       phase,
       job: state.job,
+      jobReadFailed: state.jobReadFailed,
+      jobWaiting: (state.job !== null && jobInFlight(state.job)) ||
+        (state.chatJob !== null && jobInFlight(state.chatJob)) ||
+        (state.preview.job !== null && jobInFlight(state.preview.job)),
+      confirmedForOutput: state.confirmedForOutput,
+      finishedGeneration: state.finishedGeneration,
       messages: state.messages,
       sending: state.sending,
       sfx: state.sfx,
@@ -1126,7 +1191,10 @@ export function EditProvider({
       rejectPending,
       startPreview,
       undo,
-      startVideo,
+      confirmForOutput,
+      acknowledgeOutput: () => dispatch({ type: 'output-confirmed', value: false }),
+      generateVideo,
+      retryGeneration,
       cancelStills: cancelJob,
       stopVideo: cancelJob,
       sendMessage,
@@ -1192,6 +1260,10 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   reorder: null,
   phase: 'idle',
   job: null,
+  jobReadFailed: false,
+  jobWaiting: false,
+  confirmedForOutput: false,
+  finishedGeneration: null,
   messages: [],
   sending: false,
   sfx: [],
@@ -1217,7 +1289,10 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   rejectPending: () => undefined,
   startPreview: () => undefined,
   undo: () => undefined,
-  startVideo: () => undefined,
+  confirmForOutput: () => undefined,
+  acknowledgeOutput: () => undefined,
+  generateVideo: async () => false,
+  retryGeneration: async () => false,
   cancelStills: () => undefined,
   stopVideo: () => undefined,
   sendMessage: () => undefined,
