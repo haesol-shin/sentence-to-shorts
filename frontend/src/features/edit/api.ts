@@ -1,6 +1,13 @@
 import type { components } from '@/shared/api/generated/openapi';
 import { API_BASE, getCsrfToken, newIdempotencyKey, readVideo } from '@/shared/api/client';
 
+import {
+  MOCK_CAPTION_LANGUAGES,
+  mockCaptionIssues,
+  mockCaptionLayout,
+  mockSingleLayer,
+} from '@/shared/api/mock/caption';
+
 import { fixtureWavUrl } from './sound/fixture-wav';
 import {
   breaksFlow,
@@ -22,6 +29,11 @@ export type Job = components['schemas']['Job'];
 export type JobState = components['schemas']['JobState'];
 export type Mood = components['schemas']['Mood'];
 export type CaptionMode = Video['settings']['caption']['mode'];
+export type CaptionLayer = components['schemas']['CaptionLayer'];
+export type CaptionLayout = components['schemas']['CaptionLayout'];
+export type CaptionPosition = components['schemas']['CaptionPosition'];
+export type ErrorItem = components['schemas']['ErrorItem'];
+export type PinnedRef = components['schemas']['PinnedRef'];
 type BgmManifest =
   | components['schemas']['BuiltinBgm']
   | components['schemas']['UploadBgm']
@@ -51,6 +63,13 @@ export interface StyleOptions {
   fonts: readonly string[];
 }
 
+/** Trial values for the caption layout query; the server uses them without saving. */
+export interface CaptionLayoutQuery {
+  font: PinnedRef | null;
+  extraLanguage: string | null;
+  extraFont: PinnedRef | null;
+}
+
 export interface EditApi {
   load(videoId: string): Promise<VideoView>;
   change(videoId: string, body: {
@@ -67,6 +86,9 @@ export interface EditApi {
   confirmScenes(videoId: string, baseRevision: number): Promise<Video>;
   styleOptions(styleId: string, themeId: string): Promise<StyleOptions>;
   templateCaptionModes(layoutId: string): Promise<readonly CaptionMode[]>;
+  /** Whether the template draws its own caption box, so it takes one caption layer. */
+  templateSingleLayer(layoutId: string): Promise<boolean>;
+  captionLayout(videoId: string, query: CaptionLayoutQuery): Promise<CaptionLayout>;
   undo(videoId: string, baseRevision: number): Promise<Video>;
   sendMessage(videoId: string, body: {
     base_revision: number;
@@ -76,7 +98,7 @@ export interface EditApi {
   generate(videoId: string, baseRevision: number): Promise<Job>;
   cancelJob(jobId: string): Promise<Job>;
   readJob(jobId: string): Promise<Job>;
-  listCatalog(kind: 'sfx' | 'voice' | 'font', videoId: string): Promise<CatalogItem[]>;
+  listCatalog(kind: 'sfx' | 'voice' | 'font' | 'caption_language', videoId: string): Promise<CatalogItem[]>;
   listBgm(videoId: string): Promise<BgmChoice[]>;
   /** A URL the browser can play for a preview, or null when there is none for this item. */
   previewUrl(kind: 'voice' | 'bgm', id: string): Promise<string | null>;
@@ -87,12 +109,15 @@ export interface EditApi {
 export class EditApiError extends Error {
   readonly code: string;
   readonly status: number;
+  /** The semantic check failures the server lists with the problem. */
+  readonly errors: readonly ErrorItem[];
 
-  constructor(code: string, status: number, message: string) {
+  constructor(code: string, status: number, message: string, errors: readonly ErrorItem[] = []) {
     super(message);
     this.name = 'EditApiError';
     this.code = code;
     this.status = status;
+    this.errors = errors;
   }
 }
 
@@ -145,8 +170,13 @@ async function request<T>(
     }
   })();
   if (response.status < 200 || response.status >= 300) {
-    const problem = payload as { code?: string; message_key?: string } | null;
-    throw new EditApiError(problem?.code ?? 'internal', response.status, problem?.message_key ?? '');
+    const problem = payload as { code?: string; message_key?: string; errors?: ErrorItem[] } | null;
+    throw new EditApiError(
+      problem?.code ?? 'internal',
+      response.status,
+      problem?.message_key ?? '',
+      Array.isArray(problem?.errors) ? problem.errors : [],
+    );
   }
   return payload as T;
 }
@@ -218,6 +248,23 @@ class HttpEditApi implements EditApi {
       : template.caption_modes.filter((mode) => mode !== 'typewriter');
   }
 
+  async templateSingleLayer(layoutId: string): Promise<boolean> {
+    const template = await request<components['schemas']['TemplateManifest']>(
+      'GET',
+      `/catalog/template/${encodeURIComponent(layoutId)}`,
+    );
+    return template.dialog_box || template.renderer.kind === 'sandbox';
+  }
+
+  captionLayout(videoId: string, query: CaptionLayoutQuery): Promise<CaptionLayout> {
+    const params = new URLSearchParams();
+    if (query.font !== null) params.set('font_id', JSON.stringify(query.font));
+    if (query.extraLanguage !== null) params.set('extra_language', query.extraLanguage);
+    if (query.extraFont !== null) params.set('extra_font_id', JSON.stringify(query.extraFont));
+    const suffix = params.size === 0 ? '' : `?${params}`;
+    return request<CaptionLayout>('GET', `/videos/${encodeURIComponent(videoId)}/caption-layout${suffix}`);
+  }
+
   undo(videoId: string, baseRevision: number): Promise<Video> {
     return request<Video>('POST', `/videos/${encodeURIComponent(videoId)}/undo`, {
       base_revision: baseRevision,
@@ -245,7 +292,7 @@ class HttpEditApi implements EditApi {
     return request<Job>('GET', `/jobs/${encodeURIComponent(jobId)}`);
   }
 
-  listCatalog(kind: 'sfx' | 'voice' | 'font', videoId: string): Promise<CatalogItem[]> {
+  listCatalog(kind: 'sfx' | 'voice' | 'font' | 'caption_language', videoId: string): Promise<CatalogItem[]> {
     return catalogItems(kind, videoId);
   }
 
@@ -415,6 +462,17 @@ function applyOps(video: Video, ops: ChangeOp[]): Video {
     }
   }
   return next;
+}
+
+/** Rejects a candidate video the way the server does: only caption issues the change adds count. */
+function rejectNewCaptionIssues(before: Video, after: Video): void {
+  const known = new Set(mockCaptionIssues(before).map((item) => `${item.code}@${item.pointer}`));
+  const added = mockCaptionIssues(after).filter(
+    (item) => item.code !== 'caption_text_missing' && !known.has(`${item.code}@${item.pointer}`),
+  );
+  if (added.length > 0) {
+    throw new EditApiError('invalid_combination', 422, 'error.invalid_combination', added);
+  }
 }
 
 function planFor(
@@ -661,6 +719,7 @@ class MockEditApi implements EditApi {
     if (plan.requires_confirmation) return clone(plan);
     const previous = clone(view.video);
     const next = applyOps(view.video, body.ops);
+    rejectNewCaptionIssues(previous, next);
     next.revision += 1;
     next.parent_revision = previous.revision;
     next.created_by = 'change';
@@ -680,6 +739,7 @@ class MockEditApi implements EditApi {
     if (baseRevision !== view.video.revision) throw new EditApiError('revision_conflict', 409, 'revision_conflict');
     const previous = clone(view.video);
     const next = applyOps(view.video, plan.ops);
+    rejectNewCaptionIssues(previous, next);
     next.revision += 1;
     next.parent_revision = previous.revision;
     next.created_by = 'change';
@@ -874,7 +934,15 @@ class MockEditApi implements EditApi {
     return layoutId === 'dialog_stage' ? ['sentence', 'phrase', 'typewriter'] : ['sentence', 'phrase'];
   }
 
-  async listCatalog(kind: 'sfx' | 'voice' | 'font', videoId: string): Promise<CatalogItem[]> {
+  async templateSingleLayer(layoutId: string): Promise<boolean> {
+    return mockSingleLayer(layoutId);
+  }
+
+  async captionLayout(videoId: string, query: CaptionLayoutQuery): Promise<CaptionLayout> {
+    return mockCaptionLayout(this.seed(videoId).video, query);
+  }
+
+  async listCatalog(kind: 'sfx' | 'voice' | 'font' | 'caption_language', videoId: string): Promise<CatalogItem[]> {
     void videoId;
     const item = (
       id: string,
@@ -907,6 +975,9 @@ class MockEditApi implements EditApi {
         ['swoosh', '휘익', 'Swoosh'],
       ] as const;
       return names.map(([id, ko, en]) => item(id, ko, en));
+    }
+    if (kind === 'caption_language') {
+      return MOCK_CAPTION_LANGUAGES.map(([id, ko, en]) => item(id, ko, en));
     }
     if (kind === 'font') {
       return [

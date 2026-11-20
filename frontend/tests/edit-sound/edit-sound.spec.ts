@@ -169,3 +169,36 @@ test('test_24_the_caption_tab_picks_a_mode_and_a_position_and_keeps_them_across_
   await expect(group.getByRole('radio', { name: '구절형' })).toHaveAttribute('aria-checked', 'true');
   await expect(page.getByRole('combobox', { name: '자막 위치' })).toContainText('위쪽');
 });
+
+test('test_29_the_caption_tab_with_a_second_layer_fits_at_1280_and_1920', async ({ page }) => {
+  await openEdit(page);
+  await openTab(page, '자막');
+  await page.getByRole('combobox', { name: '두 번째 언어' }).click();
+  await page.getByRole('option', { name: '영어' }).click();
+  const tab = page.locator('[data-slot="captions-tab"]');
+  await expect(tab.getByRole('textbox')).toHaveCount(5);
+  for (const size of WIDTHS) {
+    await page.setViewportSize(size);
+    await page.waitForTimeout(200);
+    const overflow = await tab.evaluate((node) => {
+      const viewport = node.closest('.scroll-pane__viewport');
+      return viewport === null ? -1 : viewport.scrollWidth - viewport.clientWidth;
+    });
+    expect(overflow).toBeLessThanOrEqual(0);
+    await expect(page.getByRole('combobox', { name: '자막 위치' })).toBeVisible();
+    await expect(page.getByRole('combobox', { name: '두 번째 위치' })).toBeVisible();
+  }
+  await page.getByRole('combobox', { name: '자막 위치' }).click();
+  await expect(page.getByRole('option')).toHaveCount(5);
+  await expect(page.locator('[role="option"][aria-disabled="true"]')).toHaveCount(3);
+});
+
+test('test_29_a_missing_translation_is_blocked_before_the_save_in_the_caption_tab', async ({ page }) => {
+  await openEdit(page);
+  await openTab(page, '자막');
+  await page.getByRole('combobox', { name: '두 번째 언어' }).click();
+  await page.getByRole('option', { name: '영어' }).click();
+  await page.getByRole('button', { name: '두 번째 자막 적용' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '번역문이 없는 줄이 있어요' })).toContainText('장면 1 줄 1');
+  await expect(page.getByRole('combobox', { name: '두 번째 언어' })).toContainText('영어');
+});
