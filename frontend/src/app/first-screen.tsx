@@ -6,7 +6,6 @@ import type { Attachment } from '@/features/concept/types';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { useLoad } from '@/shared/lib/use-load';
-import { Button } from '@/shared/ui/button';
 import { useDeployment, Composer } from './shell/composer';
 import type { CardPick } from './shell/shell-config';
 
@@ -93,13 +92,13 @@ export function FirstScreen({
               const topic = t(topicKey);
               const selected = card?.id === item.id;
               return (
-                <Button
+                <button
                   key={item.id}
-                  variant="ghost"
+                  type="button"
                   aria-pressed={selected}
                   onClick={() => onPickCard({ id: item.id, label: item.label[language] })}
                   className={cn(
-                    'h-auto flex-col items-start justify-start gap-1 rounded-[var(--radius-card)] bg-[var(--surface-muted)] p-5 text-left hover:bg-[var(--surface-sunken)]',
+                    'focus-ring flex min-h-[var(--size-control)] flex-col items-start justify-start gap-1 rounded-[var(--radius-card)] bg-[var(--surface-muted)] p-5 text-left transition-colors duration-[var(--motion-short)] hover:bg-[var(--surface-sunken)]',
                     selected && 'outline-2 outline-[var(--text-strong)]',
                   )}
                 >
@@ -111,7 +110,7 @@ export function FirstScreen({
                       {t('shell.first.cardExample', { topic })}
                     </span>
                   )}
-                </Button>
+                </button>
               );
             })}
           </div>

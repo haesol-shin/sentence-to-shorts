@@ -9,7 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { ArrowUp, FileText, Film, Link2, Music, Plus, Square, X } from 'lucide-react';
+import { FileText, Film, Info, Link2, Music, Plus } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
 import { chatProposal } from '@/features/concept/model';
@@ -41,10 +41,13 @@ import { applyTone, clearTarget as clearScriptTarget, dismissTone, useScript } f
 import { LANGUAGES } from '@/shared/lib/i18n/catalog';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { useLoad } from '@/shared/lib/use-load';
-import { Button } from '@/shared/ui/button';
-import { Chip } from '@/shared/ui/chip';
-import { IconButton } from '@/shared/ui/icon-button';
-import { Tooltip } from '@/shared/ui/tooltip';
+import { Button } from '@/components/Button/Button';
+import { Chip } from '@/components/Chip/Chip';
+import { CloseButton } from '@/components/CloseButton/CloseButton';
+import { IconButton } from '@/components/IconButton/IconButton';
+import { SendButton } from '@/components/SendButton/SendButton';
+import { Tag } from '@/components/Tag/Tag';
+import { Tooltip } from '@/components/Tooltip/Tooltip';
 import { cn } from '@/shared/lib/utils';
 
 import { useShellView } from './shell-view';
@@ -77,7 +80,6 @@ interface ComposerBoxProps {
   label: string;
   placeholder: string;
   sendLabel: string;
-  cancelLabel?: string;
   onCancel?: () => void;
   cancelActive?: boolean;
   value: string;
@@ -132,38 +134,40 @@ function AttachmentChip({
         ? t('concept.composer.linkFailed')
         : null;
 
+  const detail = [
+    t(KIND_LABEL_KEYS[attachment.kind]),
+    showsDuration
+      ? attachment.durationMs === undefined
+        ? t('concept.composer.durationUnknown')
+        : formatDurationMs(attachment.durationMs)
+      : null,
+    status,
+  ].filter((part) => part !== null);
+
   return (
-    <Chip
+    <span
       data-slot="composer-attachment"
       data-kind={attachment.kind}
       data-attachment-state={attachment.state}
-      className="max-w-full gap-1.5 py-0 pr-1 pl-2.5"
+      className="inline-flex max-w-full"
     >
-      <AttachmentIcon kind={attachment.kind} />
-      <span className="min-w-0 max-w-40 truncate">{attachment.name}</span>
-      <span className="shrink-0 text-[13px] text-[var(--text-muted)]">
-        {t(KIND_LABEL_KEYS[attachment.kind])}
-      </span>
-      {showsDuration ? (
-        <span className="shrink-0 text-[13px] text-[var(--text-muted)]">
-          {attachment.durationMs === undefined
-            ? t('concept.composer.durationUnknown')
-            : formatDurationMs(attachment.durationMs)}
-        </span>
-      ) : null}
-      {status === null ? null : (
-        <span className="shrink-0 text-[13px] text-[var(--text-muted)]">{status}</span>
-      )}
-      <button
-        type="button"
-        aria-label={t('concept.composer.attachmentRemove', { name: attachment.name })}
-        disabled={disabled}
-        onClick={onRemove}
-        className="inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+      <Chip
+        state={
+          attachment.state === 'receiving' ? 'loading' : attachment.state === 'failed' ? 'error' : 'default'
+        }
+        lead={<AttachmentIcon kind={attachment.kind} />}
+        remove={
+          <CloseButton
+            size="sm"
+            label={t('concept.composer.attachmentRemove', { name: attachment.name })}
+            disabled={disabled}
+            onClick={onRemove}
+          />
+        }
       >
-        <X aria-hidden size={14} />
-      </button>
-    </Chip>
+        {[attachment.name, ...detail].join(' · ')}
+      </Chip>
+    </span>
   );
 }
 
@@ -200,9 +204,9 @@ function MenuItem({
     >
       <span className="min-w-0 flex-1">{label}</span>
       {soon === undefined ? null : (
-        <Chip state="placeholder" className="h-6 px-2 text-[13px]">
+        <Tag variant="neutral" icon={<Info aria-hidden size={16} />}>
           {soon}
-        </Chip>
+        </Tag>
       )}
     </button>
   );
@@ -211,7 +215,7 @@ function MenuItem({
     return button;
   }
   return (
-    <Tooltip label={reason} side="top" className="w-full">
+    <Tooltip content={reason} side="top">
       {button}
     </Tooltip>
   );
@@ -221,7 +225,6 @@ function ComposerBox({
   label,
   placeholder,
   sendLabel,
-  cancelLabel,
   onCancel,
   cancelActive = false,
   value,
@@ -525,34 +528,38 @@ function ComposerBox({
       {card === null && targetChip === null && attachments.length === 0 ? null : (
         <div data-slot="composer-attachments" className="flex min-w-0 flex-col items-start gap-1">
           {targetChip === null ? null : (
-            <Chip data-slot="composer-target" data-kind="scene" className="h-9 max-w-full">
-              <span className="truncate">{targetChip.label}</span>
-              <button
-                type="button"
-                aria-label={targetChip.removeLabel}
-                disabled={submitting}
-                onClick={targetChip.onRemove}
-                className="-mr-1 inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+            <span data-slot="composer-target" data-kind="scene" className="inline-flex max-w-full">
+              <Chip
+                remove={
+                  <CloseButton
+                    size="sm"
+                    label={targetChip.removeLabel}
+                    disabled={submitting}
+                    onClick={targetChip.onRemove}
+                  />
+                }
               >
-                <X aria-hidden size={14} />
-              </button>
-            </Chip>
+                {targetChip.label}
+              </Chip>
+            </span>
           )}
           {card === null ? null : (
-            <Chip data-slot="composer-action" data-kind="card" className="max-w-full">
-              <span className="truncate">{t('shell.first.cardChip', { label: card.label })}</span>
-              {onClearCard === undefined ? null : (
-                <button
-                  type="button"
-                  aria-label={t('shell.first.cardChipRemove')}
-                  disabled={busy}
-                  onClick={onClearCard}
-                  className="-mr-1 inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
-                >
-                  <X aria-hidden size={14} />
-                </button>
-              )}
-            </Chip>
+            <span data-slot="composer-action" data-kind="card" className="inline-flex max-w-full">
+              <Chip
+                remove={
+                  onClearCard === undefined ? undefined : (
+                    <CloseButton
+                      size="sm"
+                      label={t('shell.first.cardChipRemove')}
+                      disabled={busy}
+                      onClick={onClearCard}
+                    />
+                  )
+                }
+              >
+                {t('shell.first.cardChip', { label: card.label })}
+              </Chip>
+            </span>
           )}
           {attachments.map((attachment) => (
             <AttachmentChip
@@ -667,8 +674,6 @@ function ComposerBox({
               setLinkOpen(false);
               setError(null);
             }}
-            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
-            className="p-0"
           >
             <Plus aria-hidden size={20} />
           </IconButton>
@@ -719,88 +724,70 @@ function ComposerBox({
         {options}
 
         {language === undefined ? null : onLanguageChange === undefined ? (
-          <Chip data-slot="composer-action" data-kind="language">
-            {languageName(language)}
-          </Chip>
+          <span data-slot="composer-action" data-kind="language" className="inline-flex min-w-0">
+            <Chip>{languageName(language)}</Chip>
+          </span>
         ) : (
-          <Chip data-slot="composer-action" data-kind="language" className="min-w-0 shrink px-0">
-          <select
-            aria-label={t('concept.composer.languageLabel')}
-            value={language}
-            disabled={busy}
-            onChange={(event) => onLanguageChange(event.target.value as Language)}
-            className="h-9 w-full min-w-0 max-w-32 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
-          >
-            {LANGUAGES.map((code) => (
-              <option key={code} value={code}>
-                {languageName(code)}
-              </option>
-            ))}
-          </select>
-          </Chip>
+          <span data-slot="composer-action" data-kind="language" className="inline-flex min-w-0 shrink">
+            <select
+              aria-label={t('concept.composer.languageLabel')}
+              value={language}
+              disabled={busy}
+              onChange={(event) => onLanguageChange(event.target.value as Language)}
+              className="h-9 w-full min-w-0 max-w-32 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+            >
+              {LANGUAGES.map((code) => (
+                <option key={code} value={code}>
+                  {languageName(code)}
+                </option>
+              ))}
+            </select>
+          </span>
         )}
 
         {duration === undefined ? null : onDurationChange === undefined ? (
-          <Chip data-slot="composer-action" data-kind="duration">
-            {durationName(duration)}
-          </Chip>
+          <span data-slot="composer-action" data-kind="duration" className="inline-flex min-w-0">
+            <Chip>{durationName(duration)}</Chip>
+          </span>
         ) : (
-          <Chip data-slot="composer-action" data-kind="duration" className="min-w-0 shrink px-0">
-          <select
-            aria-label={t('concept.composer.durationLabel')}
-            value={duration}
-            disabled={busy}
-            onChange={(event) => onDurationChange(Number(event.target.value))}
-            className="h-9 w-full min-w-0 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
-          >
-            {DURATION_VALUES.map((seconds) => (
-              <option key={seconds} value={seconds}>
-                {durationName(seconds)}
-              </option>
-            ))}
-          </select>
-          </Chip>
+          <span data-slot="composer-action" data-kind="duration" className="inline-flex min-w-0 shrink">
+            <select
+              aria-label={t('concept.composer.durationLabel')}
+              value={duration}
+              disabled={busy}
+              onChange={(event) => onDurationChange(Number(event.target.value))}
+              className="h-9 w-full min-w-0 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+            >
+              {DURATION_VALUES.map((seconds) => (
+                <option key={seconds} value={seconds}>
+                  {durationName(seconds)}
+                </option>
+              ))}
+            </select>
+          </span>
         )}
 
-        <div data-slot="composer-send" data-hit={TOUCH_TARGET} className="ml-auto shrink-0">
+        <div
+          data-slot="composer-send"
+          data-hit={TOUCH_TARGET}
+          className="ml-auto flex size-11 shrink-0 items-center justify-center"
+        >
           {onCancel !== undefined && (cancelActive || disabled) ? (
-            <IconButton
-              label={cancelLabel ?? sendLabel}
+            <SendButton
+              label={sendLabel}
+              loading
               onClick={onCancel}
-              style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
-              className="p-0 hover:bg-transparent"
-            >
-              <span
-                aria-hidden
-                data-slot="composer-send-visual"
-                data-size={SEND_VISUAL}
-                className="inline-flex size-8 items-center justify-center rounded-[var(--radius-capsule)] bg-[var(--text-strong)] text-[var(--surface)]"
-              >
-                <Square size={16} fill="currentColor" />
-              </span>
-            </IconButton>
+              data-slot="composer-send-visual"
+              data-size={SEND_VISUAL}
+            />
           ) : (
-            <IconButton
+            <SendButton
               label={sendLabel}
               disabled={!canSend}
               onClick={() => void submit()}
-              style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
-              className="p-0 hover:bg-transparent disabled:hover:bg-transparent"
-            >
-              <span
-                aria-hidden
-                data-slot="composer-send-visual"
-                data-size={SEND_VISUAL}
-                className={cn(
-                  'inline-flex size-8 items-center justify-center rounded-[var(--radius-capsule)]',
-                  canSend
-                    ? 'bg-[var(--text-strong)] text-[var(--surface)]'
-                    : 'bg-[var(--surface-sunken)] text-[var(--text-disabled)]',
-                )}
-              >
-                <ArrowUp size={18} />
-              </span>
-            </IconButton>
+              data-slot="composer-send-visual"
+              data-size={SEND_VISUAL}
+            />
           )}
         </div>
       </div>
@@ -897,14 +884,16 @@ function EditComposer({
   };
   if (edit === null || edit.video === null) {
     return (
-      <Tooltip label={reason ?? t('concept.composer.noSession')} side="top" className={cn('w-full')}>
-        <ComposerBox
-          label={rest.label}
-          placeholder={rest.placeholder}
-          sendLabel={rest.sendLabel}
-          value=""
-          disabled
-        />
+      <Tooltip content={reason ?? t('concept.composer.noSession')} side="top">
+        <div className="w-full">
+          <ComposerBox
+            label={rest.label}
+            placeholder={rest.placeholder}
+            sendLabel={rest.sendLabel}
+            value=""
+            disabled
+          />
+        </div>
       </Tooltip>
     );
   }
@@ -935,7 +924,6 @@ function EditComposer({
         label={rest.label}
         placeholder={number > 0 ? t('edit.composer.placeholderScene', { number }) : t('edit.composer.placeholder')}
         sendLabel={rest.sendLabel}
-        cancelLabel={t('edit.composer.cancel')}
         onCancel={edit.chatBusy ? edit.cancelChat : undefined}
         cancelActive={edit.chatBusy}
         onEditBgm={bgm.upload}
@@ -992,18 +980,20 @@ function ScriptComposer({
           </div>
         </div>
       )}
-      <Tooltip label={reason ?? t('shell.stage.composerReason')} side="top" className="w-full">
-        <ComposerBox
-          {...rest}
-          value=""
-          disabled
-          placeholder={number === null ? rest.placeholder : t('edit.composer.placeholderScene', { number })}
-          targetChip={number === null ? null : {
-            label: t('edit.chat.target', { number }),
-            removeLabel: t('edit.chat.targetRemove'),
-            onRemove: clearScriptTarget,
-          }}
-        />
+      <Tooltip content={reason ?? t('shell.stage.composerReason')} side="top">
+        <div className="w-full">
+          <ComposerBox
+            {...rest}
+            value=""
+            disabled
+            placeholder={number === null ? rest.placeholder : t('edit.composer.placeholderScene', { number })}
+            targetChip={number === null ? null : {
+              label: t('edit.chat.target', { number }),
+              removeLabel: t('edit.chat.targetRemove'),
+              onRemove: clearScriptTarget,
+            }}
+          />
+        </div>
       </Tooltip>
     </div>
   );
@@ -1033,12 +1023,10 @@ export function PlaceholderComposer({
 
   if (snapshot === null) {
     return (
-      <Tooltip
-        label={reason ?? t('concept.composer.noSession')}
-        side="top"
-        className={cn('w-full')}
-      >
-        <ComposerBox {...rest} value="" disabled />
+      <Tooltip content={reason ?? t('concept.composer.noSession')} side="top">
+        <div className="w-full">
+          <ComposerBox {...rest} value="" disabled />
+        </div>
       </Tooltip>
     );
   }

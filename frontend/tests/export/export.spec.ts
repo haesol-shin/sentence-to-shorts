@@ -206,7 +206,7 @@ eachWidth('test_10a_the_result_scenes_use_the_24_number_circle_and_a_press_sets_
   await rail.locator('[data-slot="result-scene"] button').nth(2).click();
   await expect(page.locator(EXPORT_STAGE)).toBeVisible();
   await expect(page.getByRole('button', { name: '대상 지우기' })).toBeVisible();
-  await expect(page.locator('[data-slot="conversation"]').getByText('장면 3', { exact: true })).toBeVisible();
+  await expect(page.locator('[data-slot="conversation"]').getByText('장면 3', { exact: true }).first()).toBeVisible();
   const composer = page.locator('[data-slot="conversation"] [data-slot="composer"]');
   await composer.locator('textarea').fill('이 장면만 줄여 줘');
   await composer.getByRole('button', { name: '보내기' }).click();

@@ -1,10 +1,10 @@
 import { Children, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Image, LockKeyhole } from 'lucide-react';
 
+import { Button } from '@/components/Button/Button';
+import { Chip } from '@/components/Chip/Chip';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { useLocale } from '@/shared/lib/i18n/locale';
-import { Button } from '@/shared/ui/button';
-import { Chip } from '@/shared/ui/chip';
 
 import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, visibleCardCount } from './cards';
 import { cardIdForSettings, originOf, SHORT_OPTIONS } from './model';

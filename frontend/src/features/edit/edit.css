@@ -1,8 +1,24 @@
 /*
- * The 9:16 picture fits the preview area without squashing. The area is a
- * size container, so the frame is width-bound on a narrow desktop and
- * height-bound on a wide one.
+ * The 9:16 preview part fills its width by default, so a frame that is sized by
+ * its height says so here. Below 768px the frame has a fixed height; on a
+ * desktop the preview area decides the size: the area is a size container, so
+ * the frame is width-bound on a narrow desktop and height-bound on a wide one.
  */
+.video-preview.edit-preview-frame--thumb {
+  width: auto;
+  height: var(--layout-thumb-h);
+}
+
+.video-preview.edit-preview-frame--standard {
+  width: auto;
+  height: var(--layout-mobile-preview-h);
+}
+
+.video-preview.edit-preview-frame--large {
+  width: auto;
+  height: 70vh;
+}
+
 @media (min-width: 768px) {
   .edit-stage-panel {
     flex: 0 0 clamp(420px, 28vw, var(--layout-scene-panel-max-w));
@@ -16,7 +32,7 @@
     min-height: 0;
   }
 
-  .edit-preview-area > [data-slot='video-frame'] {
+  .edit-preview-area > .video-preview {
     width: 100%;
     height: auto;
     max-width: 100%;
@@ -24,7 +40,7 @@
   }
 
   @container (min-aspect-ratio: 9 / 16) {
-    .edit-preview-area > [data-slot='video-frame'] {
+    .edit-preview-area > .video-preview {
       width: auto;
       height: 100%;
     }

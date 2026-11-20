@@ -44,6 +44,27 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   min-height: 0;
 }
 
+/*
+ * The cards are the part's grey, so the jump control takes the secondary
+ * button's state colors to stay visible over them.
+ */
+.script-document-pane .scroll-pane__jump .icon-button {
+  background: var(--background);
+  border-color: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--shadow-float);
+}
+
+.script-document-pane .scroll-pane__jump .icon-button:hover:not(:disabled) {
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
+}
+
+.script-document-pane .scroll-pane__jump .icon-button:active:not(:disabled) {
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
+}
+
 .script-head {
   display: flex;
   flex-direction: column;

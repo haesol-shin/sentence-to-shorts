@@ -2,8 +2,8 @@ import { Library, Plus, Settings, type LucideIcon } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
-import { IconButton } from '@/shared/ui/icon-button';
-import { Tooltip } from '@/shared/ui/tooltip';
+import { SidebarItem } from '@/components/SidebarItem/SidebarItem';
+import { Tooltip } from '@/components/Tooltip/Tooltip';
 
 import { LanguageSwitch } from './language-switch';
 import { NAV_LABEL_MODE, type View } from './shell-config';
@@ -82,21 +82,31 @@ export function Sidebar({ view, onNewVideo }: { view: View; onNewVideo: () => vo
             );
           }
 
+          const control = (
+            <SidebarItem
+              label={name}
+              disabled={!item.enabled}
+              selected={active}
+              onClick={item.id === 'newVideo' ? onNewVideo : undefined}
+            >
+              <item.icon aria-hidden size={20} />
+            </SidebarItem>
+          );
+
           return (
             <Tooltip
               key={item.id}
-              label={reason === null ? label : `${label}: ${reason}`}
+              content={reason === null ? label : `${label}: ${reason}`}
               side="right"
             >
-              <IconButton
-                label={name}
-                disabled={!item.enabled}
-                aria-current={active ? 'page' : undefined}
-                onClick={item.id === 'newVideo' ? onNewVideo : undefined}
-                className={cn(active && 'bg-[var(--surface-muted)] text-[var(--text-strong)]')}
-              >
-                <item.icon aria-hidden size={20} />
-              </IconButton>
+              {item.enabled ? (
+                control
+              ) : (
+                // A disabled button takes no pointer or focus, so the seat carries the reason.
+                <span tabIndex={0} className="inline-flex">
+                  {control}
+                </span>
+              )}
             </Tooltip>
           );
         })}

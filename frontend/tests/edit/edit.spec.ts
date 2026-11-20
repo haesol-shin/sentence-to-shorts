@@ -44,7 +44,7 @@ test('test_10a_the_edit_shell_shows_the_scenes_and_the_preview', async ({ page }
   await openEdit(page);
   const column = page.locator(SCENE_COLUMN);
   await expect(column.locator(SCENE_CARD)).toHaveCount(5);
-  await expect(page.locator('[data-slot="video-frame"]')).toBeVisible();
+  await expect(page.locator('.video-preview')).toBeVisible();
   await expect(page.getByRole('heading', { name: '미리보기' })).toBeVisible();
   await expect(page.getByText('synthetic script')).toHaveCount(0);
   await expect(page.locator('[data-slot="top-bar"]').getByText('mp4 저장')).toHaveCount(0);

@@ -13,7 +13,8 @@ import { LocaleProvider, useLocale } from '@/shared/lib/i18n/locale';
 import { useSession, type SessionResult } from '@/shared/lib/session';
 import { useJob } from '@/shared/lib/use-job';
 import { VisualViewportProvider } from '@/shared/lib/visual-viewport';
-import { Notice } from '@/shared/ui/notice';
+import { CloseButton } from '@/components/CloseButton/CloseButton';
+import { Notice, type NoticeTone } from '@/components/Notice/Notice';
 
 import { FirstScreen } from './first-screen';
 import { ConceptRoute } from './routes/concept';
@@ -55,6 +56,28 @@ function BrandName() {
     return null;
   }
   return <>{language === 'ko' ? brand.brand.display_name_ko : brand.brand.display_name_en}</>;
+}
+
+/** One notice row above the stage; a dismissible one carries its own close control. */
+function HeaderNotice({
+  tone = 'neutral',
+  onDismiss,
+  dismissLabel,
+  children,
+}: {
+  tone?: NoticeTone;
+  onDismiss?: () => void;
+  dismissLabel?: string;
+  children: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 px-4 pb-2">
+      <Notice tone={tone}>{children}</Notice>
+      {onDismiss !== undefined && dismissLabel !== undefined ? (
+        <CloseButton label={dismissLabel} onClick={onDismiss} />
+      ) : null}
+    </div>
+  );
 }
 
 function WorkspaceBody({ session }: { session: SessionResult }) {
@@ -140,24 +163,25 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const header = (
     <div className="flex flex-col">
       {session.state === 'pending' ? (
-        <Notice tone="info" message={t('shell.session.connecting')} />
+        <HeaderNotice>{t('shell.session.connecting')}</HeaderNotice>
       ) : null}
       {session.state === 'missing' ? (
-        <Notice tone="error" message={t('shell.session.missing')} />
+        <HeaderNotice tone="error">{t('shell.session.missing')}</HeaderNotice>
       ) : null}
       {session.state === 'failed' && session.errorKey !== null ? (
-        <Notice tone="error" message={t(`errors.${session.errorKey}`)} />
+        <HeaderNotice tone="error">{t(`errors.${session.errorKey}`)}</HeaderNotice>
       ) : null}
       {actionErrorKey === null ? null : (
-        <Notice
+        <HeaderNotice
           tone="error"
-          message={t(`errors.${actionErrorKey}`)}
           onDismiss={() => setActionErrorKey(null)}
           dismissLabel={t('shell.notice.dismiss')}
-        />
+        >
+          {t(`errors.${actionErrorKey}`)}
+        </HeaderNotice>
       )}
       {job.failureKey === null ? null : (
-        <Notice tone="error" message={t(`errors.${job.failureKey}`)} />
+        <HeaderNotice tone="error">{t(`errors.${job.failureKey}`)}</HeaderNotice>
       )}
       {job.job === null ? null : <JobBanner job={job.job} />}
     </div>

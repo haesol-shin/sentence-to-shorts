@@ -5,8 +5,8 @@ import { EditTopBarStatus } from '@/features/edit/top-bar-status';
 import { ExportNextAction } from '@/features/export/next-action';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
-import { Button } from '@/shared/ui/button';
-import { Tooltip } from '@/shared/ui/tooltip';
+import { Button } from '@/components/Button/Button';
+import { Tooltip } from '@/components/Tooltip/Tooltip';
 
 import { showsStageIndicator, type Stage, type View } from './shell-config';
 import { StageIndicator, StageMenu } from './stage-nav';
@@ -24,16 +24,13 @@ function NextAction({ stage, videoId }: { stage: Stage; videoId: string | null }
   if (stage === 'export') return <ExportNextAction videoId={videoId} />;
   const label = t(`shell.nextAction.${stage}`);
   return (
-    <Tooltip label={t('shell.nextAction.reason')} side="top">
-      <Button
-        data-slot="next-action"
-        aria-label={label}
-        className="w-max shrink-0 px-3 whitespace-nowrap"
-        disabled
-      >
-        <span className="hidden md:inline">{label}</span>
-        <span className="md:hidden">{t(`shell.nextActionShort.${stage}`)}</span>
-      </Button>
+    <Tooltip content={t('shell.nextAction.reason')} side="top">
+      <span tabIndex={0} className="inline-flex shrink-0" data-slot="next-action-seat">
+        <Button data-slot="next-action" aria-label={label} className="shrink-0" disabled>
+          <span className="hidden md:inline">{label}</span>
+          <span className="md:hidden">{t(`shell.nextActionShort.${stage}`)}</span>
+        </Button>
+      </span>
     </Tooltip>
   );
 }

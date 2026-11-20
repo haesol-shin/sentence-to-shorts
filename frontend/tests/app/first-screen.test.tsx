@@ -32,7 +32,7 @@ test('test_10a_picking_a_card_marks_the_composer', async () => {
   await renderApp();
 
   fireEvent.click(await screen.findByRole('button', { name: /만약 ~라면/ }));
-  expect(screen.getByText('카드: 만약 ~라면?')).toBeTruthy();
+  expect(screen.getAllByText('카드: 만약 ~라면?')[0]).toBeTruthy();
 
   fireEvent.click(screen.getByRole('button', { name: '고른 카드 지우기' }));
   await waitFor(() => expect(screen.queryByText('카드: 만약 ~라면?')).toBeNull());

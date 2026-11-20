@@ -49,11 +49,11 @@ test('test_19_the_result_composer_sends_to_the_selected_scene_without_leaving_ex
 
   fireEvent.click(await screen.findByRole('button', { name: '결과 카드 닫기' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
-  expect(screen.getByText('장면 1')).toBeTruthy();
+  expect(screen.getAllByText('장면 1')[0]).toBeTruthy();
 
   fireEvent.click(screen.getByRole('button', { name: '첫 번째' }));
 
-  expect(await screen.findByText('장면 2')).toBeTruthy();
+  expect((await screen.findAllByText('장면 2'))[0]).toBeTruthy();
   fireEvent.change(screen.getByRole('textbox', { name: '편집 요청' }), { target: { value: '이 장면만 줄여 줘' } });
   fireEvent.click(screen.getByRole('button', { name: '보내기' }));
   expect(send).toHaveBeenCalledWith(videoId, expect.objectContaining({
