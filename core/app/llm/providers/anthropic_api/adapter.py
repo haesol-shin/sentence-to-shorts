@@ -63,7 +63,9 @@ class AnthropicApiLlm(BaseLlm):
                 raise ProviderError("llm_invalid_output")
         output: dict[str, Any] = {"effort": route.effort}
         if req.output_schema is not None:
-            output["format"] = {"type": "json_schema", "schema": req.output_schema}
+            output["format"] = {
+                "type": "json_schema", "schema": anthropic.transform_schema(req.output_schema),
+            }
         try:
             with anthropic.Anthropic(
                 api_key=key, base_url=self.base_url, max_retries=0, timeout=timeout,

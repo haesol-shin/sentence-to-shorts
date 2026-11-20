@@ -355,6 +355,7 @@ class LlmPort(Protocol):
 
 - 구현은 `core/app/llm/providers/<id>/adapter.py`다. provider SDK는 이 폴더 밖에서 import하지 않는다.
 - `fixture` adapter의 녹화 응답 계약은 [열린 질문](#llm-routing)의 제안이다.
+- `draft`의 `DraftOutput.evidence`는 `{field, quote}` 객체의 배열이다. `field`는 `values`의 필드 이름이고 `quote`는 입력 문장 그대로의 인용이다. 인용할 근거가 없으면 빈 배열을 쓴다.
 - `anthropic_api`는 공식 SDK를 쓴다. profile 기본값은 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md)을 따른다.
 - `openai_compat`는 표준 OpenAI-compatible Chat Completions API로 endpoint를 호출한다. `base_url`과 model 이름을 설정한다. key가 필요한 endpoint는 keyring 또는 env에서 읽는다. key가 필요 없는 endpoint도 지원한다.
 - `openai_compat`는 PNG를 OpenAI `image_url` content part로 보낸다. endpoint가 이미지를 거절하면 `reference_vision`은 `llm_refused`로 실패한다.

@@ -1,6 +1,6 @@
 ---
 route: draft
-version: 1
+version: 2
 data_variables: [message, language, target_duration_s, card_id, topic]
 schema_ref: app.services.story.draft.DraftOutput
 basis:
@@ -44,8 +44,8 @@ topic은 영상 언어로 쓴다. 한국어 topic은 해요체 어미 없이 명
 - card_id가 요청에 있으면 그 카드를 그대로 유지하고 출력 card_id는 null로 둔다.
 - card_id가 없으면 고른 카드의 id를 출력 card_id에 적는다.
 - values에는 사용자가 요청한 항목만 넣고 나머지는 null로 둔다. null은 지금 값과 카드 값을 유지한다.
-- 사용자가 문장에서 직접 고른 값은 evidence에 필드 이름과 사용자의 정확한 표현을 적는다. 예: 사용자가 "1분짜리로"라고 하면 target_duration_s에 "1분짜리로"를 적는다. 표현을 그대로 인용할 수 있을 때만 evidence에 넣는다. 이유: 인용이 확인된 값만 사용자 지정 값으로 표시한다.
-- 카드가 채우는 항목을 사용자가 직접 말했으면 evidence에 그 표현을 적는다. 사용자 표현은 카드 값보다 우선한다.
+- evidence는 `{"field": "target_duration_s", "quote": "1분짜리로"}` 같은 항목의 배열이다. 사용자가 직접 고른 값만 필드마다 한 항목을 넣고, quote에는 문장의 표현을 그대로 인용한다. 이유: 인용이 확인된 값만 사용자 지정 값으로 표시한다.
+- 카드가 채우는 항목을 사용자가 직접 말했으면 그 필드의 인용도 배열에 넣는다. 사용자 표현은 카드 값보다 우선한다.
 - 값 이름은 정해진 표기만 쓴다. 말투는 friendly, neutral, casual이고 유머는 none, light다. 화면 틀은 fixed_stage, full_stage, dialog_stage이고 캐릭터 역할은 none, presenter, subject다.
 - layout, art_style, theme_id, voice에는 데이터에 나온 등록 id만 쓴다. theme_id는 art_style 안의 테마 id다.
 - topic은 500자 이내 한 문장이고 영상 언어로 쓴다.
@@ -60,4 +60,4 @@ topic은 영상 언어로 쓴다. 한국어 topic은 해요체 어미 없이 명
 
 # Output
 
-필드는 card_id, topic, values, evidence다. values와 evidence는 비어 있어도 된다.
+필드는 card_id, topic, values, evidence다. values는 빈 객체여도 된다. 직접 인용할 근거가 없으면 evidence는 `[]`로 둔다.

@@ -67,6 +67,7 @@
     ],
     "core/app/services/reference/": [
       "tests/e2e",
+      "tests/llm",
       "tests/reference"
     ],
     "core/app/services/render/": [
@@ -80,9 +81,11 @@
       "tests/sound"
     ],
     "core/app/services/story/": [
+      "tests/llm",
       "tests/story"
     ],
     "core/app/services/templates/": [
+      "tests/llm",
       "tests/templates"
     ],
     "core/app/services/voice/": [

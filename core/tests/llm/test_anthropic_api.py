@@ -57,8 +57,7 @@ def test_10_1_official_sdk_structured_png_and_usage(settings, request_data, canc
     assert "authorization" not in calls[0].headers
     payload = json.loads(calls[0].content)
     assert payload["model"] == "claude-haiku-5-5"
-    assert payload["output_config"] == {
-        "effort": "low", "format": {"type": "json_schema", "schema": request.output_schema}}
+    assert payload["output_config"]["effort"] == "low"
     assert payload["system"] == request.system
     assert payload["messages"][0]["content"][1] == {"type": "image", "source": {
         "type": "base64", "media_type": "image/png", "data": "c3ludGhldGlj"}}
@@ -119,13 +118,23 @@ def test_10_3_sdk_timeout_and_connection_mapping(
     assert len(calls) == count
 
 
-def test_10_3_sdk_schema_output_has_one_repair(settings, request_data, cancel):
-    llm, calls = adapter(settings, [(200, message('{"answer":4}'), {}), (200, message(), {})])
-    result = llm.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+def test_10_3_schema_transform_keeps_original_response_validation(settings, request_data, cancel):
+    schema = {**request_data.output_schema, "properties": {
+        "answer": {"type": "string", "minLength": 2},
+    }}
+    request = replace(request_data, output_schema=schema)
+    llm, calls = adapter(settings, [(200, message('{"answer":"가"}'), {}), (200, message(), {})])
+    result = llm.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert len(calls) == 2
     repair = json.loads(calls[1].content)
     assert repair["system"] == request_data.system
-    assert "Validation error: type" in repair["messages"][0]["content"][-1]["text"]
+    for call in calls:
+        output_format = json.loads(call.content)["output_config"]["format"]
+        assert output_format["type"] == "json_schema"
+        assert "minLength" not in output_format["schema"]["properties"]["answer"]
+    assert 'Validation error: minLength' in repair["messages"][0]["content"][-1]["text"]
+    assert schema["properties"]["answer"]["minLength"] == 2
+    assert result.parsed == {"answer": "합성"}
     assert result.usage.input_tokens == 26
 
 
