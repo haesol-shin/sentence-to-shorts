@@ -543,6 +543,14 @@ body {
   line-height: var(--line-height-small);
 }
 
+.demo-toast-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: var(--size-control);
+  vertical-align: top;
+}
+
 .probe__log {
   margin: 0;
   padding: var(--space-8);

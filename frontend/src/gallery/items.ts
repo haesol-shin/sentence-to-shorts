@@ -622,6 +622,7 @@ const SPECS: readonly PartSpec[] = [
     cases: [
       { state: 'default', slug: 'default', portal: true, layout: 'top' },
       { state: 'default', slug: 'long', portal: true, layout: 'top', note: '한 줄 말줄임' },
+      { state: 'default', slug: 'action', portal: true, layout: 'top', note: '되돌리기 단추' },
     ],
   },
   {
@@ -861,6 +862,30 @@ const SPECS: readonly PartSpec[] = [
     ],
   },
 ];
+
+/** The surfaces a gallery case opens over the page, in one list for every test. */
+export const GALLERY_SURFACES =
+  '.menu-positioner, .field-positioner, .tooltip-positioner, .status-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop';
+
+/**
+ * The batch 2 parts whose controls the gallery hit area record covers. The
+ * progress part keeps its own state coverage, so it is not listed here.
+ */
+export const HIT_AREA_PART_IDS = [
+  'send-button',
+  'composer',
+  'file-chip',
+  'file-drop',
+  'dialog',
+  'alert',
+  'confirm-delete',
+  'confirm-range',
+  'toast',
+  'bottom-sheet',
+  'skeleton',
+  'empty-state',
+  'error-state',
+] as const;
 
 export const galleryParts: readonly GalleryPart[] = SPECS.map((spec, partIndex) => ({
   ...spec,

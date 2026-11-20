@@ -1,0 +1,2603 @@
+{
+  "method": "elementFromPoint probes in 0.5px steps around every visible control and at points inside it. The record holds the box the browser actually delivers, without adding a CSS declared size, so a clipped or covered control cannot pass. A control still clipped after scrolling stays in the rows as a covered row with a zero hit area. Overlap is compared in document coordinates after any scroll. Measured in the gallery at 1280 and 1920. Sizes are floored to whole CSS pixels so a half pixel boundary cannot move the record.",
+  "widths": [
+    1280,
+    1920
+  ],
+  "parts": {
+    "send-button": {
+      "1280": [
+        {
+          "case": "17-1-default",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-2-hover",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-3-pressed",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-4-disabled",
+          "role": "button",
+          "name": "보내기",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-5-loading",
+          "role": "button",
+          "name": "멈추기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-6-focus-visible",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "17-1-default",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-2-hover",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-3-pressed",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-4-disabled",
+          "role": "button",
+          "name": "보내기",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-5-loading",
+          "role": "button",
+          "name": "멈추기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "17-6-focus-visible",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        }
+      ]
+    },
+    "composer": {
+      "1280": [
+        {
+          "case": "18-1-default",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-1-default",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-1-default",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-4-disabled",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-4-disabled",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-4-disabled",
+          "role": "button",
+          "name": "보내기",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-3-focus-visible",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-3-focus-visible",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-3-focus-visible",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-2-filled",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-2-filled",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-2-filled",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-5-long",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            248
+          ],
+          "hit": [
+            402,
+            248
+          ]
+        },
+        {
+          "case": "18-5-long",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-5-long",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "한국어",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            65,
+            36
+          ],
+          "hit": [
+            65,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "1분",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            45,
+            36
+          ],
+          "hit": [
+            45,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-8-drop",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-8-drop",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-8-drop",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "18-1-default",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-1-default",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-1-default",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-4-disabled",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-4-disabled",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-4-disabled",
+          "role": "button",
+          "name": "보내기",
+          "disabled": true,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-3-focus-visible",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-3-focus-visible",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-3-focus-visible",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-2-filled",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-2-filled",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-2-filled",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-5-long",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            248
+          ],
+          "hit": [
+            402,
+            248
+          ]
+        },
+        {
+          "case": "18-5-long",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-5-long",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "한국어",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            65,
+            36
+          ],
+          "hit": [
+            65,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "1분",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            45,
+            36
+          ],
+          "hit": [
+            45,
+            44
+          ]
+        },
+        {
+          "case": "18-6-chips",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-7-attachments",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-8-drop",
+          "role": "textarea",
+          "name": "메시지 입력",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            402,
+            60
+          ],
+          "hit": [
+            402,
+            60
+          ]
+        },
+        {
+          "case": "18-8-drop",
+          "role": "button",
+          "name": "파일 넣기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "18-8-drop",
+          "role": "button",
+          "name": "보내기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        }
+      ]
+    },
+    "file-chip": {
+      "1280": [
+        {
+          "case": "19-1-default",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-2-loading",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-3-error",
+          "role": "button",
+          "name": "다시",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            52,
+            32
+          ],
+          "hit": [
+            52,
+            44
+          ]
+        },
+        {
+          "case": "19-3-error",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-4-focus-visible",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-5-error-retry",
+          "role": "button",
+          "name": "다시",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            52,
+            32
+          ],
+          "hit": [
+            52,
+            44
+          ]
+        },
+        {
+          "case": "19-5-error-retry",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "19-1-default",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-2-loading",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-3-error",
+          "role": "button",
+          "name": "다시",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            52,
+            32
+          ],
+          "hit": [
+            52,
+            44
+          ]
+        },
+        {
+          "case": "19-3-error",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-4-focus-visible",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "19-5-error-retry",
+          "role": "button",
+          "name": "다시",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            52,
+            32
+          ],
+          "hit": [
+            52,
+            44
+          ]
+        },
+        {
+          "case": "19-5-error-retry",
+          "role": "button",
+          "name": "파일 지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            32,
+            32
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        }
+      ]
+    },
+    "file-drop": {
+      "1280": [],
+      "1920": []
+    },
+    "dialog": {
+      "1280": [
+        {
+          "case": "21-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "21-1-default",
+          "role": "button",
+          "name": "확인",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "21-2-long",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "21-2-long",
+          "role": "button",
+          "name": "확인",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "21-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "21-1-default",
+          "role": "button",
+          "name": "확인",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "21-2-long",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "21-2-long",
+          "role": "button",
+          "name": "확인",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ]
+    },
+    "alert": {
+      "1280": [
+        {
+          "case": "22-1-confirm",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "22-1-confirm",
+          "role": "button",
+          "name": "다시 만들기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            110,
+            44
+          ],
+          "hit": [
+            110,
+            44
+          ]
+        },
+        {
+          "case": "22-2-error",
+          "role": "button",
+          "name": "확인",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "22-1-confirm",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "22-1-confirm",
+          "role": "button",
+          "name": "다시 만들기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            110,
+            44
+          ],
+          "hit": [
+            110,
+            44
+          ]
+        },
+        {
+          "case": "22-2-error",
+          "role": "button",
+          "name": "확인",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ]
+    },
+    "confirm-delete": {
+      "1280": [
+        {
+          "case": "23-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "23-1-default",
+          "role": "button",
+          "name": "지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            81,
+            44
+          ],
+          "hit": [
+            81,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "23-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "23-1-default",
+          "role": "button",
+          "name": "지우기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            81,
+            44
+          ],
+          "hit": [
+            81,
+            44
+          ]
+        }
+      ]
+    },
+    "confirm-range": {
+      "1280": [
+        {
+          "case": "24-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "24-1-default",
+          "role": "button",
+          "name": "적용",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "24-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "24-1-default",
+          "role": "button",
+          "name": "적용",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ]
+    },
+    "toast": {
+      "1280": [
+        {
+          "case": "25-3-action",
+          "role": "button",
+          "name": "되돌리기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            78,
+            32
+          ],
+          "hit": [
+            78,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "25-3-action",
+          "role": "button",
+          "name": "되돌리기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            78,
+            32
+          ],
+          "hit": [
+            78,
+            44
+          ]
+        }
+      ]
+    },
+    "bottom-sheet": {
+      "1280": [
+        {
+          "case": "26-1-default",
+          "role": "button",
+          "name": "닫기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "밝은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "차분한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            140,
+            44
+          ],
+          "hit": [
+            140,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "낮은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "따뜻한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "button",
+          "name": "적용",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "button",
+          "name": "닫기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "밝은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "차분한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            140,
+            44
+          ],
+          "hit": [
+            140,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "낮은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "따뜻한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "또렷한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "부드러운 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            129,
+            44
+          ],
+          "hit": [
+            129,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "힘 있는 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            120,
+            44
+          ],
+          "hit": [
+            120,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "속삭이는 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            129,
+            44
+          ],
+          "hit": [
+            129,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "빠른 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "느린 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "중간 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "아주 낮은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            133,
+            44
+          ],
+          "hit": [
+            133,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "아주 높은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            133,
+            44
+          ],
+          "hit": [
+            133,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "밝은 내레이션",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "차분한 내레이션",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            129,
+            44
+          ],
+          "hit": [
+            129,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "낮은 내레이션",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "button",
+          "name": "적용",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "26-1-default",
+          "role": "button",
+          "name": "닫기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "밝은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "차분한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            140,
+            44
+          ],
+          "hit": [
+            140,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "낮은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "radio",
+          "name": "따뜻한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "26-1-default",
+          "role": "button",
+          "name": "적용",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "button",
+          "name": "닫기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            44,
+            44
+          ],
+          "hit": [
+            44,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "밝은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "차분한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            140,
+            44
+          ],
+          "hit": [
+            140,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "낮은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "따뜻한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "또렷한 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "부드러운 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            129,
+            44
+          ],
+          "hit": [
+            129,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "힘 있는 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            120,
+            44
+          ],
+          "hit": [
+            120,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "속삭이는 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            129,
+            44
+          ],
+          "hit": [
+            129,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "빠른 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "느린 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "중간 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            103,
+            44
+          ],
+          "hit": [
+            103,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "아주 낮은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            133,
+            44
+          ],
+          "hit": [
+            133,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "아주 높은 목소리",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            133,
+            44
+          ],
+          "hit": [
+            133,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "밝은 내레이션",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "차분한 내레이션",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            129,
+            44
+          ],
+          "hit": [
+            129,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "radio",
+          "name": "낮은 내레이션",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            116,
+            44
+          ],
+          "hit": [
+            116,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "button",
+          "name": "취소",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        },
+        {
+          "case": "26-2-long",
+          "role": "button",
+          "name": "적용",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            68,
+            44
+          ],
+          "hit": [
+            68,
+            44
+          ]
+        }
+      ]
+    },
+    "skeleton": {
+      "1280": [],
+      "1920": []
+    },
+    "empty-state": {
+      "1280": [
+        {
+          "case": "29-1-default",
+          "role": "button",
+          "name": "새 영상 만들기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            126,
+            44
+          ],
+          "hit": [
+            126,
+            44
+          ]
+        },
+        {
+          "case": "29-2-long",
+          "role": "button",
+          "name": "장면 만들기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            110,
+            44
+          ],
+          "hit": [
+            110,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "29-1-default",
+          "role": "button",
+          "name": "새 영상 만들기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            126,
+            44
+          ],
+          "hit": [
+            126,
+            44
+          ]
+        },
+        {
+          "case": "29-2-long",
+          "role": "button",
+          "name": "장면 만들기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            110,
+            44
+          ],
+          "hit": [
+            110,
+            44
+          ]
+        }
+      ]
+    },
+    "error-state": {
+      "1280": [
+        {
+          "case": "30-1-retry",
+          "role": "button",
+          "name": "다시 시도",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            97,
+            44
+          ],
+          "hit": [
+            97,
+            44
+          ]
+        },
+        {
+          "case": "30-1-retry",
+          "role": "button",
+          "name": "파일로 올리기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            123,
+            44
+          ],
+          "hit": [
+            123,
+            44
+          ]
+        },
+        {
+          "case": "30-2-long",
+          "role": "button",
+          "name": "다시 시도",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            97,
+            44
+          ],
+          "hit": [
+            97,
+            44
+          ]
+        },
+        {
+          "case": "30-2-long",
+          "role": "button",
+          "name": "파일로 올리기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            123,
+            44
+          ],
+          "hit": [
+            123,
+            44
+          ]
+        }
+      ],
+      "1920": [
+        {
+          "case": "30-1-retry",
+          "role": "button",
+          "name": "다시 시도",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            97,
+            44
+          ],
+          "hit": [
+            97,
+            44
+          ]
+        },
+        {
+          "case": "30-1-retry",
+          "role": "button",
+          "name": "파일로 올리기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            123,
+            44
+          ],
+          "hit": [
+            123,
+            44
+          ]
+        },
+        {
+          "case": "30-2-long",
+          "role": "button",
+          "name": "다시 시도",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            97,
+            44
+          ],
+          "hit": [
+            97,
+            44
+          ]
+        },
+        {
+          "case": "30-2-long",
+          "role": "button",
+          "name": "파일로 올리기",
+          "disabled": false,
+          "covered": false,
+          "visible": [
+            123,
+            44
+          ],
+          "hit": [
+            123,
+            44
+          ]
+        }
+      ]
+    }
+  }
+}

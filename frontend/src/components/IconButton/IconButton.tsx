@@ -32,7 +32,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type}
       aria-label={label}
       aria-pressed={isSelected ? true : undefined}
-      className={cn('icon-button', 'focus-ring', className)}
+      className={cn('icon-button', 'hit-area', 'focus-ring', className)}
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
       disabled={isDisabled}
     >

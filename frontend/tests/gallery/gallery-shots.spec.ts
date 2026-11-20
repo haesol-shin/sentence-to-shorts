@@ -3,15 +3,20 @@ import { join } from 'node:path';
 
 import { expect, test, type Frame, type Page } from '@playwright/test';
 
-import { galleryParts, galleryRanges, inlineCases, portalCases } from '../../src/gallery/items';
+import {
+  GALLERY_SURFACES,
+  HIT_AREA_PART_IDS,
+  galleryParts,
+  galleryRanges,
+  inlineCases,
+  portalCases,
+} from '../../src/gallery/items';
 import { measureFrame, type MeasuredControl, type MeasuredOverlap } from './measure';
 
 const GALLERY = '/src/gallery/index.html';
 const SHOTS = process.env.GALLERY_SHOTS_DIR ?? join(process.cwd(), 'test-results', 'gallery-shots');
 const GALLERY_SHEETS = join(SHOTS, 'gallery');
-const SURFACES =
-  '.menu-positioner, .field-positioner, .tooltip-positioner, .status-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop';
-/** The parts this desktop review round changed, captured at the two desktop widths. */
+/** The parts this desktop review round changed, captured at 1280 as well as 1920. */
 const DESKTOP_PARTS = [
   'radio',
   'switch',
@@ -23,6 +28,7 @@ const DESKTOP_PARTS = [
   'playback-controls',
   'result-card',
   'scroll-pane',
+  ...HIT_AREA_PART_IDS,
 ];
 
 // eslint-disable-next-line no-empty-pattern
@@ -67,7 +73,7 @@ async function frameOf(page: Page, selector: string): Promise<Frame> {
 }
 
 test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) => {
-  testInfo.setTimeout(600_000);
+  testInfo.setTimeout(900_000);
   mkdirSync(SHOTS, { recursive: true });
   mkdirSync(GALLERY_SHEETS, { recursive: true });
   for (const name of readdirSync(SHOTS)) {
@@ -128,7 +134,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
               right: Math.min(window.innerWidth, Math.max(...safe.map((box) => box.right)) + 24),
               bottom: Math.min(window.innerHeight, Math.max(...safe.map((box) => box.bottom)) + 24),
             };
-          }, SURFACES);
+          }, GALLERY_SURFACES);
           await page.screenshot({
             path: join(SHOTS, `${entry.label}-${width}.png`),
             clip: {
@@ -207,7 +213,7 @@ test('test_10a_gallery_screenshots_and_hit_areas', async ({ page }, testInfo) =>
       await page.waitForFunction(() => document.querySelectorAll('[data-case]').length === 1, undefined, {
         timeout: 120_000,
       });
-      const surface = page.locator(SURFACES).filter({ visible: true }).first();
+      const surface = page.locator(GALLERY_SURFACES).filter({ visible: true }).first();
       await expect(surface).toBeVisible();
       await page.addStyleTag({
         content: '*:focus, *:focus-visible { outline: none !important; box-shadow: none !important; }',

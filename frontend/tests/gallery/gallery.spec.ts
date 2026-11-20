@@ -1,9 +1,10 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { expect, test, type Frame, type Locator, type Page } from '@playwright/test';
 
-import { galleryParts, inlineCases, portalCases } from '../../src/gallery/items';
+import { HIT_AREA_PART_IDS, galleryParts, inlineCases, portalCases } from '../../src/gallery/items';
+import type { HitAreaRow } from './measure';
 
 type GalleryWheelEvent = {
   ctrl: boolean;
@@ -422,6 +423,215 @@ test('test_10a_batch_two_boxes_stay_equal_across_states', async ({ page }) => {
     }
     expect(new Set(widths).size).toBe(1);
     expect(widths[0]).toBe(width === 390 ? 342 : 480);
+  }
+});
+
+type Role = Parameters<Locator['getByRole']>[0];
+
+/** Browser role names differ from the DOM tag for a few controls. */
+const ARIA_ROLES: Record<string, Role> = {
+  a: 'link',
+  input: 'textbox',
+  select: 'combobox',
+  textarea: 'textbox',
+};
+const ROVING_ROLES: Record<string, true> = {
+  radio: true,
+  tab: true,
+  menuitem: true,
+  option: true,
+};
+const TABBABLE =
+  'button:not(:disabled), input:not(:disabled), textarea:not(:disabled), select:not(:disabled), a[href], [role=switch]:not([aria-disabled=true]), [role=radio]:not([aria-disabled=true]), [role=tab]:not([aria-disabled=true]), [role=menuitem]:not([aria-disabled=true]), [role=option]:not([aria-disabled=true]), [role=combobox]:not([aria-disabled=true])';
+
+const HIT_AREA_RECORD = JSON.parse(
+  readFileSync(join(process.cwd(), 'tests', 'gallery', 'hit-area.json'), 'utf8'),
+) as { parts: Record<string, Record<string, HitAreaRow[]>> };
+
+/** The name the browser exposes for a control, not a name the test guessed. */
+async function exposedName(locator: Locator): Promise<string> {
+  const snapshot = (await locator.ariaSnapshot()).trim().split('\n')[0];
+  const match = snapshot.match(/^- [\w-]+ "(.*)"(?: \[[^\]]*\])?:?$/);
+  if (match === null) throw new Error(`cannot read the accessible name from ${snapshot}`);
+  return match[1];
+}
+
+test('test_10a_batch_two_controls_keep_the_decided_visible_sizes', async ({ page }) => {
+  await galleryReady(page, 'composer', 2);
+  const composer = await frameOf(page, 'iframe[data-frame-group="composer"][width="1920"]');
+  const send = await composer
+    .locator('[data-case="18-1-default"] button[aria-label="보내기"]')
+    .evaluate((element) => Math.round(element.getBoundingClientRect().height));
+  expect(send).toBe(32);
+  const attach = await composer
+    .locator('[data-case="18-1-default"] button[aria-label="파일 넣기"]')
+    .evaluate((element) => Math.round(element.getBoundingClientRect().height));
+  expect(attach).toBe(44);
+  const chips = await composer
+    .locator('[data-case="18-6-chips"] .composer-chip')
+    .evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().height)));
+  expect(chips).toEqual([36, 36]);
+
+  await galleryReady(page, 'file-chip', 2);
+  const fileChip = await frameOf(page, 'iframe[data-frame-group="file-chip"][width="1920"]');
+  const remove = await fileChip
+    .locator('[data-case="19-1-default"] button[aria-label="파일 지우기"]')
+    .evaluate((element) => Math.round(element.getBoundingClientRect().height));
+  expect(remove).toBe(32);
+
+  await galleryReady(page, 'dialog', 2);
+  const dialog = await frameOf(page, 'iframe[data-frame-case="21-1-default"][width="1920"]');
+  const dialogButtons = await dialog
+    .locator('.dialog button')
+    .evaluateAll((elements) => elements.map((element) => Math.round(element.getBoundingClientRect().height)));
+  expect(dialogButtons).toEqual([44, 44]);
+
+  await galleryReady(page, 'bottom-sheet', 2);
+  const sheet = await frameOf(page, 'iframe[data-frame-case="26-1-default"][width="1920"]');
+  const sheetClose = await sheet
+    .locator('button[aria-label="닫기"]')
+    .evaluate((element) => Math.round(element.getBoundingClientRect().height));
+  expect(sheetClose).toBe(44);
+});
+
+test('test_10a_batch_two_controls_keep_the_focus_order_and_names', async ({ page }) => {
+  test.setTimeout(480_000);
+  await page.setViewportSize({ width: 1280, height: 1080 });
+
+  const checkCase = async (scope: Locator, label: string, partId: string) => {
+    const rows = (HIT_AREA_RECORD.parts[partId]?.['1280'] ?? []).filter((row) => row.case === label);
+    const controls: { row: HitAreaRow; target: Locator; tabIndex: number }[] = [];
+    for (const row of rows) {
+      const role = ARIA_ROLES[row.role] ?? (row.role as Role);
+      const target = scope.getByRole(role, { name: row.name, exact: true });
+      await expect(target, `${label} ${row.name} is not one named control`).toHaveCount(1);
+      const box = await target.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return [Math.floor(rect.width), Math.floor(rect.height)];
+      });
+      expect(box, `${label} ${row.name} visible box`).toEqual(row.visible);
+      expect(await exposedName(target), `${label} ${row.name} accessible name`).toBe(row.name);
+      const tabIndex = await target.evaluate((element) => (element as HTMLElement).tabIndex);
+      controls.push({ row, target, tabIndex });
+      if (row.disabled) continue;
+      if (row.role === 'radio') {
+        const grouped = await target.evaluate((element) => element.closest('[role="radiogroup"]') !== null);
+        if (!grouped) {
+          expect(tabIndex, `${label} ${row.name} is outside a radio group and not tabbable`).toBeGreaterThanOrEqual(0);
+        }
+      } else if (ROVING_ROLES[row.role] !== true) {
+        expect(tabIndex, `${label} ${row.name} is not tabbable`).toBeGreaterThanOrEqual(0);
+      }
+    }
+
+    const tabbable = controls.filter((control) => !control.row.disabled && control.tabIndex >= 0);
+    if (tabbable.length > 0) {
+      const first = tabbable[0].target;
+      const firstFocused = await first.evaluate((element) => element === document.activeElement);
+      if (!firstFocused) {
+        const modal = (await scope.locator('[role="dialog"], [role="alertdialog"]').count()) > 0;
+        if (modal) {
+          // A modal traps focus, so the last tab stop wraps back to the first.
+          await tabbable[tabbable.length - 1].target.focus();
+        } else {
+          // Enter from the element before the case, not by focusing the target itself.
+          await first.evaluate((element, selector) => {
+            const all = [...document.querySelectorAll(selector)].filter((candidate) => {
+              const html = candidate as HTMLElement;
+              return (
+                html.tabIndex >= 0 &&
+                candidate.getClientRects().length > 0 &&
+                getComputedStyle(candidate).visibility !== 'hidden'
+              );
+            });
+            const index = all.indexOf(element);
+            if (index > 0) {
+              (all[index - 1] as HTMLElement).focus();
+            } else {
+              (document.activeElement as HTMLElement | null)?.blur();
+            }
+          }, TABBABLE);
+        }
+        await page.keyboard.press('Tab');
+      }
+      await expect(first, `${label} first tab entry`).toBeFocused();
+      for (let index = 0; index < tabbable.length; index += 1) {
+        if (index > 0) await page.keyboard.press('Tab');
+        await expect(tabbable[index].target, `${label} ${tabbable[index].row.name} tab focus`).toBeFocused();
+      }
+    }
+
+    const groupCount = await scope.locator('[role="radiogroup"]').count();
+    for (let groupIndex = 0; groupIndex < groupCount; groupIndex += 1) {
+      const group = scope.locator('[role="radiogroup"]').nth(groupIndex);
+      const radios = group.getByRole('radio');
+      const count = await radios.count();
+      const names: string[] = [];
+      let selected = -1;
+      for (let index = 0; index < count; index += 1) {
+        names.push(await exposedName(radios.nth(index)));
+        const tabIndex = await radios.nth(index).evaluate((element) => (element as HTMLElement).tabIndex);
+        if (tabIndex >= 0 && selected === -1) selected = index;
+      }
+      expect(selected, `${label} radio group has no tab stop`).toBeGreaterThanOrEqual(0);
+      await radios.nth(selected).focus();
+      for (let index = selected; index > 0; index -= 1) {
+        await page.keyboard.press('ArrowUp');
+        await expect(radios.nth(index - 1), `${label} radio ArrowUp ${names[index - 1]}`).toBeFocused();
+      }
+      for (let index = 1; index < count; index += 1) {
+        await page.keyboard.press('ArrowDown');
+        await expect(radios.nth(index), `${label} radio ArrowDown ${names[index]}`).toBeFocused();
+      }
+    }
+  };
+
+  for (const partId of HIT_AREA_PART_IDS) {
+    const part = galleryParts.find((candidate) => candidate.id === partId);
+    if (part === undefined) throw new Error(`missing part: ${partId}`);
+    if (inlineCases(part).length > 0) {
+      await page.goto(`${GALLERY}?group=${encodeURIComponent(part.id)}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 120_000,
+      });
+      await page.waitForFunction(
+        (count) => document.querySelectorAll('[data-case]').length === count,
+        inlineCases(part).length,
+        { timeout: 120_000 },
+      );
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      for (const entry of inlineCases(part)) {
+        await checkCase(page.locator(`[data-case="${entry.label}"]`), entry.label, part.id);
+      }
+    }
+    for (const entry of portalCases(part)) {
+      await page.goto(`${GALLERY}?case=${encodeURIComponent(entry.label)}`, {
+        waitUntil: 'domcontentloaded',
+        timeout: 120_000,
+      });
+      await page.waitForFunction(() => document.querySelectorAll('[data-case]').length === 1, undefined, {
+        timeout: 120_000,
+      });
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      await page.waitForTimeout(250);
+      await checkCase(page.locator('body'), entry.label, part.id);
+    }
+  }
+});
+
+test('test_10a_toast_opener_tab_reaches_the_undo_action', async ({ page }) => {
+  for (const width of [1280, 1920] as const) {
+    await page.setViewportSize({ width, height: 1080 });
+    await page.goto(`${GALLERY}?probe=1`, { waitUntil: 'domcontentloaded', timeout: 120_000 });
+    await page.getByRole('button', { name: '알림 열기' }).click();
+    const undo = page.getByRole('button', { name: '되돌리기' });
+    await expect(undo).toBeVisible();
+    await page.keyboard.press('Tab');
+    await expect(undo, `${width} toast opener Tab`).toBeFocused();
   }
 });
 
