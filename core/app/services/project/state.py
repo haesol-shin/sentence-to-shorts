@@ -20,11 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.caption_layout import (
-    caption_inner,
-    place_pair,
-    smallest_caption_height,
-)
+from app.caption_layout import caption_pair_fits, supports_caption_pair
 from app.ports import AppError, CatalogPort, Issue, UnknownCatalogId
 from app.schemas.bgm_entry import SfxEntry, SfxKind, TypingSoundEntry
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
@@ -639,9 +635,7 @@ class _Checker:
         language = self.lookup(f"{pointer}/language", "caption_language", layer.language)
         if layer.mode is not CaptionMode.sentence:
             self.add(f"{pointer}/mode", "caption_mode_language")
-        if template is not None and (
-            template.dialog_box or template.renderer.kind != "builtin"
-        ):
+        if template is not None and not supports_caption_pair(template):
             self.add(pointer, "caption_layer_unsupported")
         if style is not None and layer.font_id.id not in style.fonts:
             self.add(f"{pointer}/font_id", "unknown_catalog_id")
@@ -674,21 +668,18 @@ class _Checker:
         template = extra.template
         if (
             template is None
-            or template.dialog_box
-            or template.renderer.kind != "builtin"
+            or not supports_caption_pair(template)
             or extra.primary_font is None
             or extra.extra_font is None
         ):
             return
-        inner = caption_inner(template.regions.caption, dialog=False)
-        pair = place_pair(
-            inner,
-            [smallest_caption_height(extra.primary_font.pixel_size)],
+        if not caption_pair_fits(
+            template,
+            extra.primary_font.pixel_size,
             self.video.settings.caption.position,
-            [smallest_caption_height(extra.extra_font.pixel_size)],
+            extra.extra_font.pixel_size,
             extra.layer.position,
-        )
-        if pair is None:
+        ):
             self.add(pointer, "caption_overlap")
 
     def character(self, style: Any) -> None:

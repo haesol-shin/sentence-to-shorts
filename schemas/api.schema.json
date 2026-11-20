@@ -509,6 +509,62 @@
       "title": "CaptionLayer",
       "type": "object"
     },
+    "CaptionLayout": {
+      "additionalProperties": false,
+      "properties": {
+        "extra_px": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Extra Px"
+        },
+        "pairs": {
+          "items": {
+            "$ref": "#/$defs/CaptionLayoutPair"
+          },
+          "title": "Pairs",
+          "type": "array"
+        },
+        "primary_px": {
+          "title": "Primary Px",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "primary_px",
+        "extra_px",
+        "pairs"
+      ],
+      "title": "CaptionLayout",
+      "type": "object"
+    },
+    "CaptionLayoutPair": {
+      "additionalProperties": false,
+      "properties": {
+        "extra": {
+          "$ref": "#/$defs/CaptionPosition"
+        },
+        "fits": {
+          "title": "Fits",
+          "type": "boolean"
+        },
+        "primary": {
+          "$ref": "#/$defs/CaptionPosition"
+        }
+      },
+      "required": [
+        "primary",
+        "extra",
+        "fits"
+      ],
+      "title": "CaptionLayoutPair",
+      "type": "object"
+    },
     "CaptionMode": {
       "enum": [
         "sentence",

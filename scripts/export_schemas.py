@@ -233,6 +233,7 @@ DOCUMENTS = [
                 api.PresetList,
                 api.PreviewRequest,
                 api.VideoView,
+                api.CaptionLayout,
                 api.PrecheckReport,
                 api.ActivityRequest,
                 api.Metrics,

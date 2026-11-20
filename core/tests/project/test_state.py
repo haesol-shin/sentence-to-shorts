@@ -8,15 +8,16 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
 from app.plugins.registry import Registry
 from app.ports import AppError
-from app.schemas.api import CreateProjectRequest, CreateVideoRequest
+from app.schemas.api import CaptionLayout, CreateProjectRequest, CreateVideoRequest
 from app.schemas.change import ChangeSource, ReorderOp, SetOp, SetScriptOp
 from app.schemas.common import Language, Origin
 from app.schemas.scene import Element, ElementKind, Scene
 from app.schemas.script import Line, Script
-from app.schemas.settings import LockKey, LockState, Settings
+from app.schemas.settings import CaptionPosition, LockKey, LockState, Settings
 from app.schemas.video import Video, VideoStage
 from app.services.project import state
 from app.services.project.service import ProjectService
@@ -415,6 +416,86 @@ def with_extra(
                 [{"language": "en", "text": translated}] if texts else []
             )
     return Video.model_validate(doc)
+
+
+def store_caption_video(
+    client: TestClient, catalog: Registry, *, layout: str = "fixed_stage", extra: bool = True
+) -> Video:
+    app = client.app.state.runtime  # type: ignore[attr-defined]
+    project = app.services.project.create_project(CreateProjectRequest(title=None, language="ko"))
+    video = with_extra(current_bgm(fixture_video(), catalog), catalog, layout=layout)
+    if not extra:
+        video.settings.caption.extra = []
+    return app.project_store.append_revision(
+        video.model_copy(update={"project_id": project.id, "revision": 1})
+    )
+
+
+def test_29_caption_layout_matches_save_check_for_every_pair(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(client, catalog)
+    response = client.get(f"/api/v1/videos/{video.id}/caption-layout")
+    assert response.status_code == 200, response.text
+    result = CaptionLayout.model_validate(response.json())
+    assert len(result.pairs) == len(CaptionPosition) ** 2
+    assert {(pair.primary, pair.extra) for pair in result.pairs} == {
+        (primary, extra) for primary in CaptionPosition for extra in CaptionPosition
+    }
+    assert {pair.fits for pair in result.pairs} == {False, True}
+    for pair in result.pairs:
+        candidate = video.model_copy(deep=True)
+        candidate.settings.caption.position = pair.primary
+        candidate.settings.caption.extra[0].position = pair.extra
+        codes = {issue.code for issue in state.validate(candidate, catalog)}
+        assert pair.fits == ("caption_overlap" not in codes), pair
+
+
+def test_29_caption_layout_overrides_change_pairs_without_saving(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(client, catalog, extra=False)
+    path = f"/api/v1/videos/{video.id}/caption-layout"
+    font = catalog.pin("font", "galmuri14").model_dump_json()
+    for params, sizes in (
+        ({"extra_language": "en"}, (22, 22)),
+        ({"extra_language": "en", "extra_font_id": font}, (22, 28)),
+        ({"extra_language": "en", "font_id": font}, (28, 28)),
+    ):
+        response = client.get(path, params=params)
+        assert response.status_code == 200, response.text
+        result = CaptionLayout.model_validate(response.json())
+        assert (result.primary_px, result.extra_px) == sizes
+        upper_lower = next(
+            pair for pair in result.pairs
+            if pair.primary == CaptionPosition.upper and pair.extra == CaptionPosition.lower
+        )
+        assert upper_lower.fits == (sizes == (22, 22))
+    saved = client.get(f"/api/v1/videos/{video.id}")
+    assert saved.status_code == 200, saved.text
+    assert Video.model_validate(saved.json()["video"]) == video
+
+
+def test_29_caption_layout_dialog_rejects_all_pairs(client: TestClient, catalog: Registry) -> None:
+    video = store_caption_video(client, catalog, layout="dialog_stage")
+    response = client.get(f"/api/v1/videos/{video.id}/caption-layout")
+    assert response.status_code == 200, response.text
+    result = CaptionLayout.model_validate(response.json())
+    assert len(result.pairs) == 25
+    assert not any(pair.fits for pair in result.pairs)
+
+
+def test_29_caption_layout_single_layer_lists_five_positions(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(client, catalog, extra=False)
+    response = client.get(f"/api/v1/videos/{video.id}/caption-layout")
+    assert response.status_code == 200, response.text
+    result = CaptionLayout.model_validate(response.json())
+    assert result.extra_px is None
+    assert [(pair.primary, pair.extra, pair.fits) for pair in result.pairs] == [
+        (position, position, True) for position in CaptionPosition
+    ]
 
 
 def test_29_two_layers_with_translations_have_no_issue(catalog: Registry) -> None:

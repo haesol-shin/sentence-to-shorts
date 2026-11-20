@@ -771,6 +771,62 @@
         "title": "CaptionLayer",
         "type": "object"
       },
+      "CaptionLayout": {
+        "additionalProperties": false,
+        "properties": {
+          "extra_px": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extra Px"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/CaptionLayoutPair"
+            },
+            "title": "Pairs",
+            "type": "array"
+          },
+          "primary_px": {
+            "title": "Primary Px",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "primary_px",
+          "extra_px",
+          "pairs"
+        ],
+        "title": "CaptionLayout",
+        "type": "object"
+      },
+      "CaptionLayoutPair": {
+        "additionalProperties": false,
+        "properties": {
+          "extra": {
+            "$ref": "#/components/schemas/CaptionPosition"
+          },
+          "fits": {
+            "title": "Fits",
+            "type": "boolean"
+          },
+          "primary": {
+            "$ref": "#/components/schemas/CaptionPosition"
+          }
+        },
+        "required": [
+          "primary",
+          "extra",
+          "fits"
+        ],
+        "title": "CaptionLayoutPair",
+        "type": "object"
+      },
       "CaptionMode": {
         "enum": [
           "sentence",
@@ -8626,6 +8682,113 @@
           }
         },
         "summary": "Record Activity"
+      }
+    },
+    "/api/v1/videos/{vid}/caption-layout": {
+      "get": {
+        "operationId": "getCaptionLayout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "vid",
+            "required": true,
+            "schema": {
+              "title": "Vid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "font_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Font Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "extra_language",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/CatalogId"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Extra Language"
+            }
+          },
+          {
+            "in": "query",
+            "name": "extra_font_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Extra Font Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptionLayout"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The request body or parameters do not match the contract."
+          },
+          "500": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "Unexpected server failure."
+          },
+          "501": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            },
+            "description": "The service behind this route is not implemented yet."
+          }
+        },
+        "summary": "Get Caption Layout"
       }
     },
     "/api/v1/videos/{vid}/changes": {

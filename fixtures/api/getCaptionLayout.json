@@ -1,0 +1,50 @@
+{
+  "operationId": "getCaptionLayout",
+  "method": "GET",
+  "path_template": "/api/v1/videos/{vid}/caption-layout",
+  "path": "/api/v1/videos/v_0hzb7bexv28termtt2ypc6trzt/caption-layout",
+  "request": {
+    "path": {
+      "vid": "v_0hzb7bexv28termtt2ypc6trzt"
+    },
+    "query": {},
+    "headers": {},
+    "body": null,
+    "multipart": null
+  },
+  "response": {
+    "status": 200,
+    "media_type": null,
+    "body": {
+      "primary_px": 22,
+      "extra_px": null,
+      "pairs": [
+        {
+          "primary": "top",
+          "extra": "top",
+          "fits": true
+        },
+        {
+          "primary": "upper",
+          "extra": "upper",
+          "fits": true
+        },
+        {
+          "primary": "middle",
+          "extra": "middle",
+          "fits": true
+        },
+        {
+          "primary": "lower",
+          "extra": "lower",
+          "fits": true
+        },
+        {
+          "primary": "bottom",
+          "extra": "bottom",
+          "fits": true
+        }
+      ]
+    }
+  }
+}
