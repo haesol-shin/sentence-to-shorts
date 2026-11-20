@@ -1,8 +1,8 @@
 """Scene still and clip rendering contract.
 
 A still is laid out once on the 1080x1920 output frame and then reduced to the
-540x960 preview, so the preview shows the same caption lines as the output. A
-clip draws every frame with the same function, posed by the scene's timing.
+540x960 preview. The still keeps the frame under the player's timed caption;
+the clip draws the caption on every frame from the scene's timing.
 """
 
 from __future__ import annotations
@@ -753,20 +753,29 @@ class RenderService:
             record["language"] = language
         return record
 
-    def _caption(self, frame: Image.Image, plan: ScenePlan, state: CaptionState) -> dict[str, Any]:
+    def _caption(
+        self,
+        frame: Image.Image,
+        plan: ScenePlan,
+        state: CaptionState,
+        *,
+        draw: bool = True,
+    ) -> dict[str, Any]:
+        """Lay out the caption; a still keeps the record but not the pixels."""
         caption = plan.video.settings.caption
         res = plan.res
         template = res.template
         region = template.regions.caption
         palette = res.palette
-        draw = ImageDraw.Draw(frame)
-        draw.fontmode = "1"
+        target = frame if draw else Image.new("RGBA", (1, 1), (0, 0, 0, 0))
+        pen = ImageDraw.Draw(target)
+        pen.fontmode = "1"
         line = plan.scene.lines[state.line]
         phrase = state.phrase
         if phrase is not None and not line.display_text[phrase[0]:phrase[1]].strip():
             phrase = None
         if res.extra is not None:
-            return self._caption_pair(draw, plan, state, phrase)
+            return self._caption_pair(pen, plan, state, phrase)
         block = self._caption_block(plan, state.line, phrase)
         if state.typed is not None:
             block = _typed(block, state.typed)
@@ -775,19 +784,19 @@ class RenderService:
             plate = region
             text = fixed_text_box(inner, block.height, caption.position)
             if not plan.framed:
-                draw.rectangle(
+                pen.rectangle(
                     (region.x, region.y, region.x + region.w - 1, region.y + region.h - 1),
                     fill=palette.caption_box,
                 )
         else:
             plate = plate_box(inner, block.height, caption.position)
             text = text_box(plate, block.height)
-            draw.rectangle(
+            pen.rectangle(
                 (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
                 fill=palette.caption_box,
             )
         boxes = draw_block(
-            draw, res.font, block, text,
+            pen, res.font, block, text,
             color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
         )
         if not inside(plate, safe_area()) or not all(inside(box, plate) for box in boxes):
@@ -841,7 +850,9 @@ class RenderService:
             top_at=(bbox[0], bbox[1]) if bbox else (0, 0),
         )
 
-    def _draw(self, plan: ScenePlan, pose: Pose) -> tuple[Image.Image, dict[str, Any]]:
+    def _draw(
+        self, plan: ScenePlan, pose: Pose, *, draw_caption: bool = True
+    ) -> tuple[Image.Image, dict[str, Any]]:
         """One 1080x1920 frame in the still's layer order: background and layer,
         character, elements, progress and title, caption, then the fade."""
         frame = plan.base.copy()
@@ -849,22 +860,25 @@ class RenderService:
         self._paste_elements(frame, plan, pose)
         if plan.top is not None:
             frame.alpha_composite(plan.top, plan.top_at)
-        caption = self._caption(frame, plan, pose.caption)
+        caption = self._caption(frame, plan, pose.caption, draw=draw_caption)
         if pose.fade < OPAQUE:
             black = Image.new("RGBA", OUTPUT, (0, 0, 0, 255))
             frame = Image.blend(black, frame, pose.fade / OPAQUE)
         return frame, caption
 
-    def compose(
+    def _rest(
         self,
         video: Video,
         scene_id: str,
         parts: dict[str, bytes],
         layer: bytes | None,
+        *,
+        captions: bool,
     ) -> tuple[Image.Image, dict[str, Any]]:
-        """The 1080x1920 rest frame of a scene and its layout record."""
         plan = self._plan(video, scene_id, parts, layer)
-        frame, caption = self._draw(plan, rest_pose(plan.scene))
+        frame, caption = self._draw(
+            plan, rest_pose(plan.scene), draw_caption=captions
+        )
         extra = caption.pop("caption_extra", None)
         record = {
             "scene_id": plan.scene.id,
@@ -875,6 +889,16 @@ class RenderService:
         if extra is not None:
             record["caption_extra"] = extra
         return frame, record
+
+    def compose(
+        self,
+        video: Video,
+        scene_id: str,
+        parts: dict[str, bytes],
+        layer: bytes | None,
+    ) -> tuple[Image.Image, dict[str, Any]]:
+        """The 1080x1920 rest frame of a scene and its layout record."""
+        return self._rest(video, scene_id, parts, layer, captions=True)
 
     def still(
         self,
@@ -888,11 +912,13 @@ class RenderService:
     ) -> Path:
         """Write a 540x960 PNG still and its layout record to the job folder.
 
-        Without a timing artifact the record and the PNG text chunk say the
-        timing is estimated; the drawn frame is the first line's full caption.
+        The still is the frame under the player's timed caption: the screen and
+        the clip draw the caption, so the PNG keeps none while the layout record
+        still names its plate and lines. Without a timing artifact the record
+        and the PNG text chunk say the timing is estimated.
         """
         ctx.cancel.raise_if_set()
-        frame, record = self.compose(video, scene_id, parts, layer)
+        frame, record = self._rest(video, scene_id, parts, layer, captions=False)
         scene = video.scenes[scene_id]
         record["timing"] = (
             _estimated_timing(scene)

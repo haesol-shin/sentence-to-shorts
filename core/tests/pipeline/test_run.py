@@ -106,6 +106,25 @@ def test_2_preview_fills_scene_data_then_reuses_cached_stills(harness: Harness) 
     )
 
 
+def test_5_preview_reports_progress_once_per_scene(harness: Harness) -> None:
+    video = harness.new_video(stage=VideoStage.script_confirmed)
+    _, ctx = _run(harness, JobKind.preview, video=video)
+
+    total = len(video.scene_order)
+    assert [(done, size) for done, size, _ in ctx.progress_calls] == [
+        (done, total) for done in range(1, total + 1)
+    ]
+
+
+def test_5_generate_reports_progress_once_per_scene(harness: Harness) -> None:
+    _, ctx = _run(harness, JobKind.generate)
+
+    total = len(harness.video.scene_order)
+    assert [(done, size) for done, size, _ in ctx.progress_calls] == [
+        (done, total) for done in range(1, total + 1)
+    ]
+
+
 def test_2_preview_rejects_scene_data_outside_the_missing_visuals(
     harness: Harness,
 ) -> None:
@@ -595,7 +614,7 @@ def test_4_1_scene_rewrite_is_constrained_to_its_target(harness: Harness) -> Non
 def test_4_1_targeted_chat_rejects_other_scene_ops(harness: Harness) -> None:
     video = harness.video
     target, other = video.scene_order[:2]
-    harness.story.proposal_ops = [
+    harness.story.rewrite_ops_by_scene[target] = [
         SetOp(
             op="set",
             path=f"/scenes/{other}/beat_label",
@@ -617,9 +636,72 @@ def test_4_1_targeted_chat_rejects_other_scene_ops(harness: Harness) -> None:
         )
 
     assert caught.value.code == "invalid_op"
+    assert harness.story.rewrite_calls == [(target, "이 장면만 고쳐")]
+    assert harness.story.interpret_calls == []
     assert harness.projects.get_video(video.id).revision == video.revision
     assert harness.projects.list_changes(video.id) == []
     assert _all_calls(harness) == []
+
+
+def test_4_1_scene_chat_with_text_edits_only_its_scene(harness: Harness) -> None:
+    video = harness.video
+    target = video.scene_order[0]
+    harness.story.rewrite_ops_by_scene[target] = [
+        SetOp(
+            op="set",
+            path=f"/scenes/{target}/beat_label",
+            value="새 이름",
+            origin=Origin.llm,
+        )
+    ]
+
+    result, _ = _run(
+        harness,
+        JobKind.chat,
+        video=video,
+        input={
+            "base_revision": video.revision,
+            "text": "이 장면 이름을 새 이름으로 바꿔",
+            "target": {"scene_id": target, "pointer": None},
+        },
+    )
+
+    assert harness.story.rewrite_calls == [
+        (target, "이 장면 이름을 새 이름으로 바꿔")
+    ]
+    assert harness.story.interpret_calls == []
+    plan = harness.projects.get_change(result["change_id"])
+    assert plan.source.value == "scene_rewrite"
+    assert plan.target.scene_id == target
+    assert [op.path for op in plan.ops] == [f"/scenes/{target}/beat_label"]
+    assert plan.unsupported == []
+
+
+def test_4_1_scene_chat_returns_unsupported_instead_of_dropping(
+    harness: Harness,
+) -> None:
+    video = harness.video
+    target = video.scene_order[0]
+    harness.story.rewrite_unsupported_by_scene[target] = [
+        "목소리는 소리 탭에서 바꾼다."
+    ]
+
+    result, _ = _run(
+        harness,
+        JobKind.chat,
+        video=video,
+        input={
+            "base_revision": video.revision,
+            "text": "목소리를 바꿔",
+            "target": {"scene_id": target, "pointer": None},
+        },
+    )
+
+    assert result["change_id"] is None
+    assert result["unsupported"] == ["목소리는 소리 탭에서 바꾼다."]
+    assert harness.story.rewrite_calls == [(target, "목소리를 바꿔")]
+    assert harness.story.interpret_calls == []
+    assert harness.projects.list_changes(video.id) == []
 
 
 def test_4_1_style_and_template_create_plans_without_rendering(harness: Harness) -> None:

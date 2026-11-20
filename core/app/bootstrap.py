@@ -442,12 +442,21 @@ class ConnectedStory(StoryService):
 
     def rewrite_scene(
         self, video: Video, scene_id: str, instruction: str, *, ctx: JobContext
-    ) -> list[Op]:
+    ) -> Proposal:
         # The plan recomputes the neighbor warnings from these ops.
         rewrite = story_scene_edit.plan_scene_rewrite(
-            video, scene_id, instruction, llm=self.llm, ctx=ctx
+            video,
+            scene_id,
+            instruction,
+            llm=self.llm,
+            catalog=self.catalog,
+            ctx=ctx,
         )
-        return rewrite.ops
+        return Proposal(
+            ops=rewrite.ops,
+            notes=rewrite.notes,
+            unsupported=rewrite.unsupported,
+        )
 
     def precheck(self, video: Video, *, ctx: JobContext) -> PrecheckReport:
         return story_precheck.run_precheck(video, llm=self.llm, ctx=ctx)

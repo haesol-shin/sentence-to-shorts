@@ -18,7 +18,14 @@ from pathlib import Path
 from typing import Any
 
 from app.plugins.registry import Registry
-from app.ports import AppError, Cancelled, JobContext, ReferenceOutcome, Usage
+from app.ports import (
+    AppError,
+    Cancelled,
+    JobContext,
+    Proposal,
+    ReferenceOutcome,
+    Usage,
+)
 from app.schemas.api import CreateProjectRequest, PrecheckReport
 from app.schemas.artifact import Timing, TimingCaption, TimingLine
 from app.schemas.bgm_entry import UploadBgm
@@ -443,6 +450,8 @@ class FakeStory:
         self.proposal_notes: list[str] = []
         self.proposal_unsupported: list[str] = []
         self.rewrite_ops_by_scene: dict[str, list[Op]] = {}
+        self.rewrite_notes_by_scene: dict[str, list[str]] = {}
+        self.rewrite_unsupported_by_scene: dict[str, list[str]] = {}
         self.draft_calls: list[tuple[str, str | None]] = []
         self.script_calls: list[str] = []
         self.scene_data_calls: list[list[str]] = []
@@ -479,8 +488,6 @@ class FakeStory:
     ) -> Any:
         self.interpret_calls.append((text, target))
         self._record(ctx)
-        from app.ports import Proposal
-
         return Proposal(
             ops=list(self.proposal_ops),
             notes=list(self.proposal_notes),
@@ -489,10 +496,14 @@ class FakeStory:
 
     def rewrite_scene(
         self, video: Video, scene_id: str, instruction: str, *, ctx: JobContext
-    ) -> list[Op]:
+    ) -> Proposal:
         self.rewrite_calls.append((scene_id, instruction))
         self._record(ctx)
-        return list(self.rewrite_ops_by_scene.get(scene_id, []))
+        return Proposal(
+            ops=list(self.rewrite_ops_by_scene.get(scene_id, [])),
+            notes=list(self.rewrite_notes_by_scene.get(scene_id, [])),
+            unsupported=list(self.rewrite_unsupported_by_scene.get(scene_id, [])),
+        )
 
     def precheck(self, video: Video, *, ctx: JobContext) -> PrecheckReport:
         self.precheck_calls.append(video.id)
