@@ -1,6 +1,6 @@
 """Real dev-provider acceptance, never selected by ordinary test runs.
 
-Requires the selected default aligner, prepared model/media runtimes and private
+Requires the aligner selected in core/config/app.yaml, prepared model/media runtimes and private
 synthetic reference inputs. Missing adapters fail explicitly; no fixture fallback.
 See README.md for invocation and the private evidence layout.
 """
@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import sys
 import uuid
 from collections.abc import Iterator
 from copy import deepcopy
@@ -17,21 +18,21 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from app.bootstrap import AppRuntime, build_runtime
 from app.main import create_app
 from app.schemas.video import Video
-from app.settings import Settings
+from app.settings import CONFIG_DIR, Settings
 from tests.conftest import browser_client, pair
 from tests.e2e.real_support import Evidence, LiveApi
 from tests.e2e.support import CORE, Studio
 
-pytestmark = [pytest.mark.realllm, pytest.mark.usefixtures("selected_default_aligner")]
+pytestmark = [pytest.mark.realllm, pytest.mark.usefixtures("selected_aligner")]
 
 
-class LiveSettings(Settings):
-    llm_options: dict[str, dict[str, Any]]
+REAL_ADAPTER_KINDS = ("llm", "aligner", "transcriber", "media", "downloader")
 
 
 @dataclass
@@ -43,33 +44,30 @@ class LiveRun:
 
 
 @pytest.fixture(scope="module")
-def live_settings(request: pytest.FixtureRequest) -> LiveSettings:
+def live_settings(request: pytest.FixtureRequest) -> Settings:
     if request.config.getoption("markexpr").strip() != "realllm":
         pytest.skip("live calls require explicit -m realllm selection")
     assert os.environ.get("APP_PROFILE") == "dev", "real acceptance requires APP_PROFILE=dev"
     assert os.environ.get("APP_LLM_BASE_URL"), "configure APP_LLM_BASE_URL before live acceptance"
     root = CORE.parent / ".local" / "real-e2e" / uuid.uuid4().hex
-    key_env = os.environ.get("APP_LLM_KEY_ENV")
-    settings = LiveSettings(
-        data_dir=root / "data", cache_dir=root / "cache",
-        llm_options={"openai_compat": {"key_env": key_env, "key_required": bool(key_env)}},
-    )
+    settings = Settings(data_dir=root / "data", cache_dir=root / "cache")
+    assert settings.profile == "dev", "APP_PROFILE=dev must select the dev profile"
     assert settings.deployment == "local", "reference link acceptance requires local deployment"
+    with (CONFIG_DIR / "app.yaml").open(encoding="utf-8") as handle:
+        expected = yaml.safe_load(handle)["providers"]["adapters"]
     adapters = settings.providers.adapters
     assert adapters["llm"] == "openai_compat", "dev provider table changed; do not substitute"
-    for kind in ("aligner", "transcriber", "media", "downloader"):
-        assert adapters[kind] == "default", f"real acceptance needs the selected {kind} adapter"
-    routing = settings.models.model_copy(deep=True)
+    for kind in REAL_ADAPTER_KINDS:
+        assert adapters[kind] == expected[kind], f"real acceptance needs the {kind} adapter"
     for alias in ("haiku", "sonnet"):
-        model = os.environ.get(f"APP_LLM_MODEL_{alias.upper()}")
-        if model:
-            routing.models[alias]["openai_compat"] = model
-        assert routing.models[alias]["openai_compat"], f"configure the {alias} endpoint model ID"
-    return settings.model_copy(update={"models": routing})
+        assert settings.models.models[alias]["openai_compat"], (
+            f"configure APP_LLM_MODEL_{alias.upper()}"
+        )
+    return settings
 
 
 @pytest.fixture(scope="module")
-def live_evidence(live_settings: LiveSettings) -> Evidence:
+def live_evidence(live_settings: Settings) -> Evidence:
     named = os.environ.get("E2E_EVIDENCE_DIR")
     assert named, "set E2E_EVIDENCE_DIR to a new private evidence/I2a directory"
     root = Path(named).expanduser().resolve()
@@ -79,32 +77,43 @@ def live_evidence(live_settings: LiveSettings) -> Evidence:
     return evidence
 
 
+def _align_python() -> Path | None:
+    name = "Scripts/python.exe" if sys.platform == "win32" else "bin/python"
+    candidate = CORE / "align_runtime" / ".venv" / name
+    return candidate if candidate.is_file() else None
+
+
 @pytest.fixture(scope="module")
-def selected_default_aligner(
-    live_settings: LiveSettings, live_evidence: Evidence
-) -> Iterator[AppRuntime]:
+def selected_aligner(live_settings: Settings, live_evidence: Evidence) -> Iterator[AppRuntime]:
+    patch = pytest.MonkeyPatch()
+    python = _align_python()
+    if not os.environ.get("APP_ALIGN_PYTHON") and python is not None:
+        patch.setenv("APP_ALIGN_PYTHON", str(python))
     try:
-        runtime = build_runtime(live_settings)
-    except RuntimeError as error:
-        if "aligner adapter 'default' is not implemented" not in str(error):
-            raise
-        live_evidence.record({
-            "kind": "setup", "state": "blocked", "reason": "selected_default_aligner_unavailable"
-        })
-        pytest.fail(
-            "Real main-path acceptance requires the selected default aligner implementation; "
-            "merge and prepare it before running. No fixture or synthetic timing fallback is used.",
-            pytrace=False,
-        )
-    try:
-        yield runtime
+        try:
+            runtime = build_runtime(live_settings)
+        except RuntimeError as error:
+            if "aligner" not in str(error):
+                raise
+            live_evidence.record({
+                "kind": "setup", "state": "blocked", "reason": "selected_aligner_unavailable"
+            })
+            pytest.fail(
+                "Real main-path acceptance requires the aligner selected in app.yaml; "
+                "prepare it before running. No fixture or synthetic timing fallback is used.",
+                pytrace=False,
+            )
+        try:
+            yield runtime
+        finally:
+            runtime.close()
     finally:
-        runtime.close()
+        patch.undo()
 
 
 @pytest.fixture(scope="module")
-def live_run(selected_default_aligner: AppRuntime, live_evidence: Evidence) -> Iterator[LiveRun]:
-    runtime = selected_default_aligner
+def live_run(selected_aligner: AppRuntime, live_evidence: Evidence) -> Iterator[LiveRun]:
+    runtime = selected_aligner
     urls: list[str] = []
     app = create_app(runtime, pairing_display=urls.append)
     with browser_client(app, runtime.settings.port) as client:

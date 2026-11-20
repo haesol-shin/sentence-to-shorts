@@ -1,5 +1,6 @@
 # LLM routing. Model IDs are the official Claude API IDs for Claude Haiku 5.5 and
-# Claude Sonnet 5.5. openai_compat model ids are set by the endpoint profile.
+# Claude Sonnet 5.5. openai_compat model ids are empty here; the dev profile reads
+# APP_LLM_MODEL_HAIKU and APP_LLM_MODEL_SONNET (see core/app/settings.py).
 
 models:
   haiku:

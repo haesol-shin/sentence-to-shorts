@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from app.schemas.job import Stage
 from tests.e2e.real_support import Evidence
 
 
@@ -19,10 +20,11 @@ def _job() -> dict[str, Any]:
         "input": {"url": "https://private.invalid/synthetic-input", "text": "private-source-text"},
         "result": {"transcript": "private-transcript"},
         "error": {"code": "llm_quota", "detail": {"token": "private-key-value"}},
-        "stages": [{"stage": "draft", "state": "failed", "started_ms": 10,
+        "stages": [{"stage": Stage.llm_draft.value, "state": "failed", "started_ms": 10,
                     "ended_ms": 20, "cache_hits": 0, "rebuilt_scene_ids": []}],
-        "usage": [{"stage": "draft", "provider": "openai_compat", "model": "synthetic-model",
-                   "effort": "low", "input_tokens": None, "output_tokens": None,
+        "usage": [{"stage": Stage.llm_draft.value, "provider": "openai_compat",
+                   "model": "synthetic-model", "effort": "low", "input_tokens": None,
+                   "output_tokens": None,
                    "cache_read_tokens": None, "cache_write_tokens": None,
                    "wall_ms": 10, "retries": 0}],
     }
