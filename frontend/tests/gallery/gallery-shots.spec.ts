@@ -15,6 +15,7 @@ const SURFACES =
 const DESKTOP_PARTS = [
   'radio',
   'switch',
+  'tag',
   'settings-row',
   'progress',
   'top-bar-status',

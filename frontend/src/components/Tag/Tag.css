@@ -6,7 +6,8 @@
   gap: var(--space-4);
   height: var(--part-tag);
   padding-inline: var(--space-8);
-  border-radius: var(--radius-pill);
+  /* The decided 26 high tag keeps a 13 radius, the half of its height. */
+  border-radius: calc(var(--part-tag) / 2);
   background: var(--muted);
   color: var(--foreground);
   font-family: var(--font-family-sans);

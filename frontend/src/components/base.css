@@ -13,7 +13,17 @@
   --part-menu-row: 36px;
   --part-list-row: 44px;
   --part-tab: 36px;
-  --part-tag: 24px;
+  --part-tag: 26px;
+  --part-switch-width: 44px;
+  --part-switch-height: 26px;
+  --part-switch-thumb: 20px;
+  --part-switch-inset: calc(
+    (var(--part-switch-height) - var(--part-switch-thumb)) / 2 - var(--part-hairline)
+  );
+  --part-switch-travel: calc(
+    var(--part-switch-width) - var(--part-switch-thumb) - 2 * var(--part-switch-inset) -
+      2 * var(--part-hairline)
+  );
   --part-grip: 32px;
   --part-move: 36px;
   --part-play: 40px;
@@ -23,7 +33,7 @@
   --part-tooltip: 32px;
   --part-preview-width: calc(var(--space-48) * 6.5);
   --part-scene-width: calc(var(--space-48) * 2.5);
-  --part-format-width: calc(var(--space-48) * 5.5);
+  --part-format-width: 216px;
   --part-tooltip-width: 240px;
   --part-menu-width: calc(var(--space-48) * 6);
 }

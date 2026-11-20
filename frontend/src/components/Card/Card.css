@@ -23,8 +23,14 @@
     color var(--motion-state-duration) var(--motion-ease);
 }
 
+/*
+ * The decided format card is 216 wide with a 200x150 picture. The hairline
+ * border takes one pixel of the 8px inset on each side, so the content box is
+ * exactly the picture width and the 4:3 ratio gives the decided height.
+ */
 .card--format {
   width: var(--part-format-width);
+  padding-inline: calc(var(--space-8) - var(--part-hairline));
 }
 
 .card--scene {
