@@ -5,9 +5,10 @@
 ## 실행 준비
 
 - `core/config/app.yaml`의 공급자 표는 바꾸지 않는다. dev LLM은 `openai_compat`, 참고 분석의 downloader·transcriber·media는 `default`를 사용한다. TTS도 표에 선택된 엔진을 그대로 사용하며 현재 `fixed_wav` 결과를 자연스러운 음성 검수로 간주하지 않는다.
-- 선택된 기본 aligner 구현이 먼저 필요하다. 미구현 상태에서는 `selected_default_aligner` fixture가 명확한 실패 사유를 남긴다. fixture aligner나 가짜 단어 시간으로 대체하지 않는다.
-- `APP_LLM_BASE_URL`과 haiku·sonnet alias의 model ID를 준비한다. alias 값은 읽기 전용 설정 또는 시험용 `APP_LLM_MODEL_HAIKU`, `APP_LLM_MODEL_SONNET`으로 지정한다. 시험용 override는 파일을 변경하지 않는다.
-- 키가 필요한 endpoint는 기존 OS keyring을 쓰거나 `APP_LLM_KEY_ENV`에 키를 보관한 환경변수의 이름을 지정한다. 키가 없는 endpoint도 지원한다. 키를 명령 인자나 증거에 기록하지 않는다.
+- `app.yaml`에 선택된 aligner(현재 `whisperx`) 구현이 먼저 필요하다. 시험은 어댑터 기대값을 `app.yaml`에서 읽는다. 준비되지 않으면 `selected_aligner` fixture가 명확한 실패 사유를 남긴다. fixture aligner나 가짜 단어 시간으로 대체하지 않는다.
+- `APP_LLM_BASE_URL`과 haiku·sonnet alias의 model ID를 준비한다. alias 값은 `APP_LLM_MODEL_HAIKU`, `APP_LLM_MODEL_SONNET`으로 지정한다. dev profile의 `app/settings.py`가 이 변수를 읽으며 앱과 시험이 같은 설정 경로를 쓴다. 파일은 변경하지 않는다.
+- 키가 필요한 endpoint는 기존 OS keyring을 쓰거나 `APP_LLM_KEY_ENV`(dev profile이 읽음)에 키를 보관한 환경변수의 이름을 지정한다. 키가 없는 endpoint도 지원한다. 키를 명령 인자나 증거에 기록하지 않는다.
+- 정렬 작업 프로세스는 환경변수 `APP_ALIGN_PYTHON`(정렬 런타임 venv의 python 경로)이 필요하다. 없으면 시험이 `core/align_runtime/.venv`의 python을 찾아 설정한다. 앱을 직접 띄울 때는 직접 지정한다.
 - `APP_MODEL_DIR`과 `APP_RUNTIME_DIR`에 검증된 모델과 플랫폼에 맞는 ffmpeg·다운로더 runtime을 준비한다. 시험은 설치·다운로드하거나 PATH 실행 파일로 대체하지 않는다. data와 cache는 실행별로 checkout의 `.local/real-e2e/` 아래 격리한다.
 - `E2E_REFERENCE_MP4`는 팀이 만든 합성 영상 파일이다. `E2E_ALLOWED_REFERENCE_URL`은 다운로드 권한이 있는 공개 허용 링크 한 개, `E2E_BLOCKED_REFERENCE_URL`은 로그인 없이 접근할 수 없어야 하는 링크 한 개다. 참고 자료는 기본 포맷과 다른 분석 가능한 설정을 포함해야 한다. 로그인·쿠키·보호 조치 우회는 사용하지 않는다.
 - `E2E_EVIDENCE_DIR`은 checkout 밖의 아직 존재하지 않는 비공개 `evidence/I2a/` 디렉터리다. 반복 실행은 다른 부모 경로를 사용한다. 기존 증거를 덮어쓰지 않는다.

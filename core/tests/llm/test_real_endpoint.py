@@ -1,9 +1,9 @@
 """Opt-in acceptance; ordinary test runs never call a live endpoint.
 
 Select with APP_PROFILE=dev pytest tests/llm -m realllm -q. Supply
-APP_LLM_BASE_URL, alias model IDs in models.yaml (or APP_LLM_MODEL_HAIKU and
-APP_LLM_MODEL_SONNET), and optionally APP_LLM_KEY_ENV naming the key variable.
-The integration environment supplies these values, not recorded test fixtures.
+APP_LLM_BASE_URL, APP_LLM_MODEL_HAIKU and APP_LLM_MODEL_SONNET, and optionally
+APP_LLM_KEY_ENV naming the key variable. The dev profile in app.settings reads
+them; the integration environment supplies the values, not recorded fixtures.
 """
 
 from __future__ import annotations
@@ -44,16 +44,12 @@ def real_client(request):
         pytest.skip("live calls require explicit -m realllm selection")
     settings = Settings()
     assert settings.profile == "dev", "live acceptance requires the dev profile"
-    routing = settings.models.model_copy(deep=True)
     for alias in ("haiku", "sonnet"):
-        model = os.environ.get(f"APP_LLM_MODEL_{alias.upper()}")
-        if model:
-            routing.models[alias]["openai_compat"] = model
-    endpoint = os.environ.get("APP_LLM_BASE_URL")
-    assert endpoint, "APP_LLM_BASE_URL must be configured for live acceptance"
-    return LlmClient(settings, routing=routing, options={
-        "base_url": endpoint, "key_env": os.environ.get("APP_LLM_KEY_ENV"),
-    })
+        assert settings.models.models[alias]["openai_compat"], (
+            f"configure APP_LLM_MODEL_{alias.upper()}"
+        )
+    assert os.environ.get("APP_LLM_BASE_URL"), "APP_LLM_BASE_URL must be configured"
+    return LlmClient(settings)
 
 
 def _request(task, parts):

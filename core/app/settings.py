@@ -10,7 +10,7 @@ import os
 import sys
 import tomllib
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -150,6 +150,7 @@ class Settings(BaseModel):
     app: AppFile
     models: ModelsFile
     runtime: RuntimeFile
+    llm_options: dict[str, dict[str, Any]] = {}
 
     @property
     def providers(self) -> Providers:
@@ -224,6 +225,20 @@ def _env_device() -> Device:
     raise RuntimeError("APP_DEVICE must be auto, cpu or cuda")
 
 
+def _dev_llm(
+    models: ModelsFile,
+) -> tuple[ModelsFile, dict[str, dict[str, Any]]]:
+    """Dev-profile endpoint model IDs and key variable from `APP_LLM_*`."""
+    routing = models.model_copy(deep=True)
+    for alias, ids in routing.models.items():
+        model = os.environ.get(f"APP_LLM_MODEL_{alias.upper()}")
+        if model:
+            ids["openai_compat"] = model
+    key_env = os.environ.get("APP_LLM_KEY_ENV") or None
+    options = {"openai_compat": {"key_env": key_env, "key_required": key_env is not None}}
+    return routing, options
+
+
 def _read_settings() -> dict[str, object]:
     brand = BrandConfig.model_validate(_load_yaml(CONFIG_DIR / "brand.yaml"))
     app_file = AppFile.model_validate(_load_yaml(CONFIG_DIR / "app.yaml"))
@@ -236,6 +251,9 @@ def _read_settings() -> dict[str, object]:
     deployment = (
         _env_deployment() if "APP_DEPLOYMENT" in os.environ else app_file.app.deployment
     )
+    llm_options: dict[str, dict[str, Any]] = {}
+    if profile == "dev":
+        models, llm_options = _dev_llm(models)
     lan = os.environ.get("APP_LAN") == "1"
     data_dir = Path(os.environ.get("APP_DATA_DIR") or _default_data_dir(brand.app_id))
     cache_dir = Path(os.environ.get("APP_CACHE_DIR") or _default_cache_dir(brand.app_id))
@@ -262,4 +280,5 @@ def _read_settings() -> dict[str, object]:
         "app": app_file,
         "models": models,
         "runtime": runtime,
+        "llm_options": llm_options,
     }
