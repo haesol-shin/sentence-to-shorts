@@ -30,6 +30,11 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "build(deps): "
+    # The torch and torchaudio CPU builds come from the PyTorch CPU index,
+    # which Dependabot cannot resolve, so the pins stay a manual change.
+    ignore:
+      - dependency-name: "torch"
+      - dependency-name: "torchaudio"
 
   # WhisperX 3.8.6 pins torch~=2.8.0 and huggingface-hub<1.0, so the patched
   # torch and transformers cannot install here. The ci.yml allow list is the
