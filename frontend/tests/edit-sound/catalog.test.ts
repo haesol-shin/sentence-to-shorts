@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 
-import { CAPTION_MODES, CAPTION_POSITIONS } from '@/features/edit/captions/model';
+import { CAPTION_ISSUE_CODES, CAPTION_MODES, CAPTION_POSITIONS } from '@/features/edit/captions/model';
 import { MOODS } from '@/features/edit/sound/model';
 import { catalogKeys, LANGUAGES, translate } from '@/shared/lib/i18n/catalog';
 
@@ -38,4 +38,27 @@ test('test_24_the_caption_modes_are_three_in_code_and_no_list_file_exists', () =
   expect(CAPTION_MODES).toEqual(['sentence', 'phrase', 'typewriter']);
   const files = import.meta.glob('/src/features/edit/captions/**/*.{json,yaml,yml,toml}');
   expect(Object.keys(files)).toEqual([]);
+});
+
+test('test_24_every_second_layer_word_and_caption_check_has_text_in_both_languages', () => {
+  const ko = catalogKeys('ko').filter((key) => key.startsWith('audio.caption.'));
+  const en = catalogKeys('en').filter((key) => key.startsWith('audio.caption.'));
+  expect([...en].sort()).toEqual([...ko].sort());
+  for (const language of LANGUAGES) {
+    for (const code of CAPTION_ISSUE_CODES) {
+      const key = `audio.caption.issue.${code}`;
+      expect(translate(language, key)).not.toBe(key);
+    }
+    for (const layer of ['primary', 'extra', 'both']) {
+      const key = `audio.caption.layer.${layer}`;
+      expect(translate(language, key)).not.toBe(key);
+    }
+  }
+});
+
+test('test_24_no_caption_word_of_the_second_layer_lives_in_edit_json', () => {
+  for (const language of LANGUAGES) {
+    const edit = catalogKeys(language).filter((key) => key.startsWith('edit.'));
+    expect(edit.filter((key) => /^edit\.caption|translation|layer|overlap|extra/iu.test(key))).toEqual([]);
+  }
 });

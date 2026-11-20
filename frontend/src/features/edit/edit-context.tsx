@@ -11,7 +11,19 @@ import {
 
 import { ApiProblemError, retryJob } from '@/shared/api/client';
 
-import type { BgmChoice, CaptionMode, CatalogItem, ChangePlan, EditApi, Job, Mood, StyleOptions } from './api';
+import type {
+  BgmChoice,
+  CaptionLayout,
+  CaptionLayoutQuery,
+  CaptionMode,
+  CatalogItem,
+  ChangePlan,
+  EditApi,
+  ErrorItem,
+  Job,
+  Mood,
+  StyleOptions,
+} from './api';
 import { createEditApi, EditApiError, sceneFieldOps } from './api';
 import {
   duplicateScene,
@@ -87,6 +99,7 @@ interface EditState {
   style: StyleOptions | null;
   preview: PreviewState;
   actionError: string | null;
+  changeErrors: readonly ErrorItem[];
 }
 
 const INITIAL: EditState = {
@@ -117,6 +130,7 @@ const INITIAL: EditState = {
   style: null,
   preview: { job: null, stills: {}, loading: false, error: null },
   actionError: null,
+  changeErrors: [],
 };
 
 type EditAction =
@@ -149,6 +163,7 @@ type EditAction =
   | { type: 'bgm'; status: BgmStatus; tracks?: readonly BgmChoice[] }
   | { type: 'caption-modes'; modes: readonly CaptionMode[] | null }
   | { type: 'action-error'; error: string | null }
+  | { type: 'change-errors'; errors: readonly ErrorItem[] }
   | { type: 'preview'; planId: string; preview: Partial<PreviewState> };
 
 function phaseOf(job: Job | null, view: VideoView | null): EditPhase {
@@ -259,6 +274,8 @@ function reducer(state: EditState, action: EditAction): EditState {
       return { ...state, captionModes: action.modes };
     case 'action-error':
       return { ...state, actionError: action.error };
+    case 'change-errors':
+      return { ...state, changeErrors: action.errors };
     case 'preview':
       if (state.pending?.id !== action.planId) return state;
       return { ...state, preview: { ...state.preview, ...action.preview } };
@@ -276,6 +293,13 @@ export interface SceneProgress {
 export interface SettingChange {
   path: string;
   value: unknown;
+}
+
+/** What the caption tab reads from the server besides the video itself. */
+export interface EditCaption {
+  languages: () => Promise<readonly CatalogItem[]>;
+  layout: (query: CaptionLayoutQuery) => Promise<CaptionLayout>;
+  singleLayer: () => Promise<boolean>;
 }
 
 /** What the sound tab needs from the server besides the video itself. */
@@ -311,6 +335,8 @@ export interface EditValue {
   phase: EditPhase;
   canPreviewChange: boolean;
   actionError: string | null;
+  /** The semantic checks the last rejected change failed, as the server lists them. */
+  changeErrors: readonly ErrorItem[];
   dismissError: () => void;
   chatBusy: boolean;
   job: Job | null;
@@ -340,6 +366,7 @@ export interface EditValue {
   addSfx: (sceneId: string, item: CatalogItem) => void;
   applySettings: (changes: readonly SettingChange[]) => void;
   audio: EditAudio;
+  caption: EditCaption;
   cancelChat: () => void;
   requestReorder: (order: readonly string[]) => void;
   requestReorderTo: (sceneId: string, toIndex: number) => void;
@@ -904,6 +931,7 @@ export function EditProvider({
       if (videoId === null || state.view === null) return;
       const epoch = videoEpoch.current;
       dispatch({ type: 'busy', value: true });
+      dispatch({ type: 'change-errors', errors: [] });
       void api
         .change(videoId, {
           base_revision: state.view.video.revision,
@@ -925,8 +953,10 @@ export function EditProvider({
             dispatch({ type: 'action-error', error: 'edit.error.change' });
           }
         })
-        .catch(() => {
-          if (epoch === videoEpoch.current) dispatch({ type: 'action-error', error: 'edit.error.change' });
+        .catch((failure: unknown) => {
+          if (epoch !== videoEpoch.current) return;
+          if (failure instanceof EditApiError) dispatch({ type: 'change-errors', errors: failure.errors });
+          dispatch({ type: 'action-error', error: 'edit.error.change' });
         })
         .finally(() => {
           if (epoch === videoEpoch.current) dispatch({ type: 'busy', value: false });
@@ -1011,6 +1041,15 @@ export function EditProvider({
         null,
         null,
       );
+    };
+
+    const caption: EditCaption = {
+      languages: async () => (videoId === null ? [] : api.listCatalog('caption_language', videoId)),
+      layout: (query) => {
+        if (videoId === null) return Promise.reject(new EditApiError('not_found', 404, 'video'));
+        return api.captionLayout(videoId, query);
+      },
+      singleLayer: () => api.templateSingleLayer(layoutId ?? ''),
     };
 
     const audio: EditAudio = {
@@ -1263,6 +1302,7 @@ export function EditProvider({
       canPreviewChange:
         state.view?.video.stage === 'script_confirmed' || state.view?.video.stage === 'scenes_confirmed',
       actionError: state.actionError,
+      changeErrors: state.changeErrors,
       dismissError: () => dispatch({ type: 'action-error', error: null }),
       chatBusy: state.sending,
       unseen: state.unseen,
@@ -1303,6 +1343,7 @@ export function EditProvider({
       addSfx,
       applySettings,
       audio,
+      caption,
       requestReorder,
       requestReorderTo,
       confirmReorder: () => {
@@ -1336,6 +1377,7 @@ export function EditProvider({
     api,
     clipRunning,
     done,
+    layoutId,
     logChatResult,
     phase,
     refresh,
@@ -1386,6 +1428,7 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   canStartVideo: false,
   canPreviewChange: false,
   actionError: null,
+  changeErrors: [],
   dismissError: () => undefined,
   chatBusy: false,
   unseen: [],
@@ -1426,6 +1469,11 @@ export const EMPTY_EDIT_VALUE: EditValue = {
     readJob: () => Promise.reject(new Error('no video is open')),
     cancelJob: () => Promise.reject(new Error('no video is open')),
     reloadBgm: () => Promise.resolve([]),
+  },
+  caption: {
+    languages: () => Promise.resolve([]),
+    layout: () => Promise.reject(new Error('no video is open')),
+    singleLayer: () => Promise.resolve(false),
   },
   requestReorder: () => undefined,
   requestReorderTo: () => undefined,
