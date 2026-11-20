@@ -2,6 +2,10 @@ import type { components, paths } from './generated/openapi';
 
 export const API_BASE = '/api/v1';
 
+export function artifactUrl(artifactId: string): string {
+  return artifactId.startsWith('data:image/') ? artifactId : `${API_BASE}/artifacts/${encodeURIComponent(artifactId)}`;
+}
+
 export type RuntimeStatus =
   paths['/api/v1/runtime']['get']['responses']['200']['content']['application/json'];
 export type Problem = components['schemas']['Problem'];
@@ -291,15 +295,47 @@ export async function createProject(input: { language: Language }): Promise<Proj
   );
 }
 
-export async function createVideo(projectId: string): Promise<Video> {
+export async function createVideo(projectId: string, presetId: string | null = null): Promise<Video> {
   return send<Video>(
     {
       method: 'POST',
       path: `/projects/${encodeURIComponent(projectId)}/videos`,
-      body: { from_video_id: null, preset_id: null },
+      body: { from_video_id: null, preset_id: presetId },
     },
     { idempotencyKey: newIdempotencyKey() },
   );
+}
+
+export type Preset = components['schemas']['Preset'];
+
+export function createPreset(projectId: string, body: { video_id: string; name: string }): Promise<Preset> {
+  return send<Preset>({
+    method: 'POST',
+    path: `/projects/${encodeURIComponent(projectId)}/presets`,
+    body,
+  }, { idempotencyKey: newIdempotencyKey() });
+}
+
+export function retryJob(jobId: string): Promise<Job> {
+  return send<Job>({
+    method: 'POST',
+    path: `/jobs/${encodeURIComponent(jobId)}/retry`,
+  }, { idempotencyKey: newIdempotencyKey() });
+}
+
+export async function videoJobs(videoId: string): Promise<Job[]> {
+  const items: Job[] = [];
+  let cursor: string | null = null;
+  do {
+    const page: ListEnvelope<Job> = await send({
+      method: 'GET',
+      path: '/jobs',
+      query: { video_id: videoId, limit: 50, cursor: cursor ?? undefined },
+    });
+    items.push(...page.items.filter((job) => job.video_id === videoId));
+    cursor = page.next_cursor;
+  } while (cursor !== null);
+  return items;
 }
 
 export async function submitDraft(videoId: string, body: DraftRequest): Promise<Job> {

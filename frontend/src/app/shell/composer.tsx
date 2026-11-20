@@ -1003,7 +1003,7 @@ export function PlaceholderComposer({
   const snapshot = useConcept();
   const deployment = useDeployment();
 
-  if (view === 'edit') {
+  if (view === 'edit' || view === 'export') {
     return <EditComposer reason={reason} rest={rest} />;
   }
   if (view === 'script') {

@@ -6,6 +6,7 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 import { useEdit } from './edit-context';
 import { SceneConfirm } from './scene-confirm';
 
+/** The edit stage confirms the scenes before handing off to the export check. */
 export function EditNextAction() {
   const { t } = useLocale();
   const edit = useEdit();
@@ -32,7 +33,7 @@ export function EditNextAction() {
         onOpenChange={setConfirmOpen}
         onStart={() => {
           setConfirmOpen(false);
-          edit.startVideo();
+          edit.confirmForOutput();
         }}
       />
     </>

@@ -60,6 +60,7 @@ function BrandName() {
 function WorkspaceBody({ session }: { session: SessionResult }) {
   const { t, language } = useLocale();
   const [view, setView] = useState<View>('first');
+  const nextPreset = useRef<{ projectId: string; presetId: string } | null>(null);
   const [video, setVideo] = useState<{
     id: string;
     scriptSessionId: string;
@@ -94,13 +95,15 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     setSubmitting(true);
     setActionErrorKey(null);
     try {
-      const project = await createProject({ language });
-      const created = await createVideo(project.id);
+      const preset = nextPreset.current;
+      const projectId = preset?.projectId ?? (await createProject({ language })).id;
+      const created = await createVideo(projectId, preset?.presetId);
       const started = await submitDraft(created.id, {
         base_revision: created.revision,
         message,
         card_id: card?.id ?? null,
       });
+      if (nextPreset.current === preset) nextPreset.current = null;
       setJobId(started.id);
       sessionSeq.current += 1;
       setVideo({
@@ -167,6 +170,9 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       brand={session.state === 'ready' ? <BrandName /> : null}
       onNewVideo={openNewVideo}
       onStage={setView}
+      draftWaiting={draftJob === null ? jobId !== null : (
+        draftJob.state === 'queued' || draftJob.state === 'running' || draftJob.state === 'cancelling'
+      )}
       header={header}
       jobStatus={job.job === null ? null : <JobStatusShort job={job.job} />}
       announcer={<JobAnnouncer job={job.job} />}
@@ -208,7 +214,14 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       ) : view === 'edit' ? (
         <EditRoute />
       ) : (
-        <ExportRoute />
+        <ExportRoute
+          key={video?.id}
+          videoId={video?.id ?? null}
+          onStage={setView}
+          onSavePreset={(preset) => {
+            nextPreset.current = { projectId: preset.project_id, presetId: preset.id };
+          }}
+        />
       )}
     </AppShell>
   );

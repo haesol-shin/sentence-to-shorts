@@ -49,6 +49,14 @@ function EditActions() {
   return (
     <>
       <EditNextAction />
+      {edit.confirmedForOutput && edit.video !== null ? (
+        <button onClick={() => {
+          const revision = edit.video?.revision;
+          if (revision === undefined) return;
+          edit.acknowledgeOutput();
+          void edit.generateVideo(revision);
+        }}>확인 후 생성</button>
+      ) : null}
       <EditTopBarStatus />
       <StillBuild edit={edit} />
     </>
@@ -249,7 +257,7 @@ test('test_10a_the_scene_picture_build_modal_blocks_and_only_cancels', async () 
   await waitFor(() => expect(screen.queryByRole('dialog', { name: '장면 그림을 만들고 있어요' })).toBeNull());
 });
 
-test('test_10a_script_confirmed_previews_then_confirms_then_generates', async () => {
+test('test_10a_script_confirmed_previews_and_waits_for_output_confirmation_to_generate', async () => {
   const scriptView = makeView();
   scriptView.video.stage = 'script_confirmed';
   wrap(
@@ -262,6 +270,9 @@ test('test_10a_script_confirmed_previews_then_confirms_then_generates', async ()
   await startVideo();
   expect(await screen.findByRole('dialog', { name: '장면 그림을 만들고 있어요' })).toBeTruthy();
   expect(await within(screen.getByRole('dialog', { name: '장면 그림을 만들고 있어요' })).findByText('1 / 3')).toBeTruthy();
+  const confirmed = await screen.findByRole('button', { name: '확인 후 생성' });
+  expect(screen.queryByRole('button', { name: /영상 만드는 중/u })).toBeNull();
+  fireEvent.click(confirmed);
   expect(await screen.findByRole('button', { name: '영상 만드는 중 1 / 3' }, { timeout: 6000 })).toBeTruthy();
   expect(screen.queryByRole('dialog', { name: '장면 그림을 만들고 있어요' })).toBeNull();
 });
@@ -315,6 +326,7 @@ test('test_10a_the_progress_window_has_no_stop_control', async () => {
   };
   wrap(<EditActions />, api);
   await startVideo();
+  fireEvent.click(await screen.findByRole('button', { name: '확인 후 생성' }));
   const status = await screen.findByRole('button', { name: /영상 만드는 중/ }, { timeout: 5000 });
   fireEvent.click(status);
   const dialog = await screen.findByRole('dialog', { name: '영상을 만들고 있어요' });
@@ -328,6 +340,7 @@ test('test_10a_the_progress_window_has_no_stop_control', async () => {
 test('test_10a_the_top_bar_stop_works_while_the_progress_window_is_open', async () => {
   wrap(<EditActions />);
   await startVideo();
+  fireEvent.click(await screen.findByRole('button', { name: '확인 후 생성' }));
   const status = await screen.findByRole('button', { name: /영상 만드는 중/ }, { timeout: 5000 });
   fireEvent.click(status);
   const dialog = await screen.findByRole('dialog', { name: '영상을 만들고 있어요' });
