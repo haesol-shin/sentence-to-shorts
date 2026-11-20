@@ -75,7 +75,7 @@ test('test_10a_the_preview_keeps_its_nine_by_sixteen_frame', async ({ page }) =>
   await page.goto('/');
   await openEdit(page);
 
-  const frame = page.locator('[data-slot="video-frame"]').first();
+  const frame = page.locator('.video-preview').first();
   const box = await frame.boundingBox();
   expect(box).not.toBeNull();
   if (box === null) return;

@@ -14,10 +14,13 @@ test('test_10a_sidebar_names_an_icon_on_hover', async () => {
 
   expect(screen.queryByRole('tooltip')).toBeNull();
 
-  fireEvent.pointerOver(icon);
+  fireEvent.pointerEnter(icon, { pointerType: 'mouse' });
+  fireEvent.mouseEnter(icon);
+  fireEvent.mouseMove(icon);
   expect((await screen.findByRole('tooltip')).textContent).toContain('새로 만들기');
 
-  fireEvent.pointerOut(icon);
+  fireEvent.pointerLeave(icon, { pointerType: 'mouse' });
+  fireEvent.mouseLeave(icon);
   await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
 });
 

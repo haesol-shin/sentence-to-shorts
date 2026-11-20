@@ -6,9 +6,8 @@ import { CloseButton } from '@/components/CloseButton/CloseButton';
 import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
 import { PlaybackControls } from '@/components/PlaybackControls/PlaybackControls';
 import { IconButton } from '@/components/IconButton/IconButton';
-import { VideoFrame } from '@/shared/ui/video-frame';
+import { VideoPreview } from '@/components/VideoPreview/VideoPreview';
 import { useLocale } from '@/shared/lib/i18n/locale';
-import { cn } from '@/shared/lib/utils';
 
 import { artifactUrl } from './api';
 import type { EditValue } from './edit-context';
@@ -64,19 +63,21 @@ function StillFrame({
   const number = sceneNumber(edit.video, edit.selectedId);
 
   return (
-    <VideoFrame className={className}>
+    <VideoPreview
+      label={
+        ready ? t('edit.preview.still', { number, label: scene.beat_label }) : t('edit.preview.title')
+      }
+      state={ready ? 'ready' : state === 'building' ? 'loading' : 'empty'}
+      duration={ready ? t('edit.scene.estimated', { seconds: estimatedSeconds(scene) }) : undefined}
+      className={className}
+    >
       {scene === null ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-[var(--text-muted)]">
           <Film aria-hidden size={32} />
           <p className="text-[15px]">{t('edit.preview.noScene')}</p>
         </div>
       ) : ready ? (
-        <div
-          data-state="fresh"
-          role="img"
-          aria-label={t('edit.preview.still', { number, label: scene.beat_label })}
-          className="relative h-full w-full bg-[var(--surface-sunken)]"
-        >
+        <div data-state="fresh" className="relative h-full w-full bg-[var(--surface-sunken)]">
           {edit.build?.scenes[scene.id]?.still.artifact === null ||
           edit.build?.scenes[scene.id]?.still.artifact === undefined ? null : (
             <img
@@ -86,9 +87,6 @@ function StillFrame({
               className="h-full w-full object-cover"
             />
           )}
-          <span className="absolute right-3 bottom-3 rounded-[var(--radius-pill)] bg-[var(--overlay-length)] px-2 text-[12px] text-[var(--primary-foreground)]">
-            {t('edit.scene.estimated', { seconds: estimatedSeconds(scene) })}
-          </span>
         </div>
       ) : state === 'building' ? (
         <div
@@ -114,7 +112,7 @@ function StillFrame({
         </div>
       )}
       {ready ? caption : null}
-    </VideoFrame>
+    </VideoPreview>
   );
 }
 
@@ -199,9 +197,7 @@ export function ScenePreview({ edit, collapsed }: { edit: EditValue; collapsed: 
         <div className="edit-preview-area relative flex h-full max-h-full min-h-0 w-full items-center justify-center">
           <StillFrame
             edit={edit}
-            className={cn(
-              collapsed ? 'h-[var(--layout-thumb-h)] w-auto' : 'h-[var(--layout-mobile-preview-h)] w-auto',
-            )}
+            className={collapsed ? 'edit-preview-frame--thumb' : 'edit-preview-frame--standard'}
             caption={caption}
           />
         </div>
@@ -251,7 +247,7 @@ export function ScenePreview({ edit, collapsed }: { edit: EditValue; collapsed: 
           }
         />
         <div className="flex max-h-[70vh] justify-center py-2">
-          <StillFrame edit={edit} className="h-[70vh] w-auto" caption={caption} />
+          <StillFrame edit={edit} className="edit-preview-frame--large" caption={caption} />
         </div>
       </Dialog>
     </div>

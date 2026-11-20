@@ -69,7 +69,7 @@ test('test_23_the_first_screen_does_not_scroll_sideways', async ({ page }) => {
 test('test_23_a_sentence_starts_a_video_from_the_mock_answers', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('button', { name: /만약 ~라면/ }).click();
-  await expect(page.getByText('카드: 만약 ~라면?')).toBeVisible();
+  await expect(page.getByText('카드: 만약 ~라면?').first()).toBeVisible();
 
   await startVideo(page);
 

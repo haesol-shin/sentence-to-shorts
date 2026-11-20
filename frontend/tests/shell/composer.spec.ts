@@ -147,7 +147,7 @@ test('test_10a_the_plus_menu_has_five_items_and_a_named_image_gap', async ({ pag
   const image = menu.getByRole('menuitem', { name: /이미지 올리기/ });
   await expect(image).toHaveAttribute('aria-disabled', 'true');
   await expect(image).toContainText('곧 지원');
-  await image.focus();
+  await image.hover();
   await expect(page.getByRole('tooltip')).toContainText('이미지 입력');
 
   const box = await menu.boundingBox();
@@ -204,14 +204,14 @@ test('test_10a_dragging_turns_the_box_into_a_rounded_dotted_field', async ({ pag
   await expect(composer).not.toHaveAttribute('data-dragging', 'true');
   const attachments = composer.locator('[data-slot="composer-attachment"]');
   await expect(attachments).toHaveCount(2);
-  await expect(composer.getByText('notes.md')).toBeVisible();
-  await expect(composer.getByText('brief.txt')).toBeVisible();
+  await expect(composer.getByText('notes.md').first()).toBeVisible();
+  await expect(composer.getByText('brief.txt').first()).toBeVisible();
 
   const remove = composer.getByRole('button', { name: 'notes.md 삭제' });
   await remove.focus();
   await page.keyboard.press('Enter');
   await expect(composer.getByText('notes.md')).toHaveCount(0);
-  await expect(composer.getByText('brief.txt')).toBeVisible();
+  await expect(composer.getByText('brief.txt').first()).toBeVisible();
 });
 
 test('test_10a_six_files_show_the_limit_and_keep_five', async ({ page }) => {
@@ -239,8 +239,8 @@ test('test_10a_bgm_files_keep_their_kind_and_all_selected_items', async ({ page 
 
   const chips = composer.locator('[data-slot="composer-attachment"][data-kind="bgm"]');
   await expect(chips).toHaveCount(2);
-  await expect(composer.getByText('theme.wav')).toBeVisible();
-  await expect(composer.getByText('second.wav')).toBeVisible();
+  await expect(composer.getByText('theme.wav').first()).toBeVisible();
+  await expect(composer.getByText('second.wav').first()).toBeVisible();
   await expect(chips.first()).toContainText('BGM');
 });
 

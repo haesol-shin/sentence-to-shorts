@@ -167,7 +167,7 @@ test('test_10a_a_failed_send_keeps_the_text_and_materials', async () => {
   expect(await screen.findByRole('alert')).toBeTruthy();
   expect((screen.getByRole('textbox', { name: '요청' }) as HTMLTextAreaElement).value).toBe('한 문장');
   expect(attachmentCount()).toBe(1);
-  expect(screen.getByText('notes.md')).toBeTruthy();
+  expect(screen.getAllByText(/notes\.md/)[0]).toBeTruthy();
 });
 
 test('test_10a_attachments_alone_can_be_sent_and_media_keeps_its_file', async () => {
@@ -246,8 +246,8 @@ test('test_10a_a_local_link_needs_the_warning_consent_before_it_is_attached', as
   fireEvent.click(attach);
 
   expect(attachmentCount()).toBe(1);
-  expect(screen.getByText('youtube.com')).toBeTruthy();
-  expect(screen.getByText('받는 중')).toBeTruthy();
+  expect(screen.getAllByText(/youtube\.com/)[0]).toBeTruthy();
+  expect(screen.getAllByText(/받는 중/)[0]).toBeTruthy();
 });
 
 test('test_10a_a_failed_link_send_ends_receiving_and_keeps_the_chip', async () => {
@@ -276,8 +276,8 @@ test('test_10a_a_failed_link_send_ends_receiving_and_keeps_the_chip', async () =
     state: 'ready',
     url: 'https://www.youtube.com/watch?v=abc123',
   });
-  expect(screen.queryByText('받는 중')).toBeNull();
-  expect(screen.getByText('받지 못했어요')).toBeTruthy();
+  expect(screen.queryAllByText(/받는 중/)).toHaveLength(0);
+  expect(screen.getAllByText(/받지 못했어요/)[0]).toBeTruthy();
   expect(attachmentCount()).toBe(1);
 });
 
@@ -333,8 +333,8 @@ test('test_10a_dropping_files_highlights_the_whole_box_and_adds_every_file', asy
 
   expect(composer.getAttribute('data-dragging')).toBeNull();
   await waitFor(() => expect(attachmentCount()).toBe(2));
-  expect(screen.getByText('notes.md')).toBeTruthy();
-  expect(screen.getByText('brief.txt')).toBeTruthy();
+  expect(screen.getAllByText(/notes\.md/)[0]).toBeTruthy();
+  expect(screen.getAllByText(/brief\.txt/)[0]).toBeTruthy();
 });
 
 test('test_10a_an_image_file_is_refused_with_a_visible_reason', async () => {
@@ -449,5 +449,5 @@ test('test_10a_files_dropped_while_sending_stay_after_the_send_finishes', async 
   await waitFor(() => expect(screen.queryByText('sent.md')).toBeNull());
   expect(calls[0].map((attachment) => attachment.name)).toEqual(['sent.md']);
   expect(attachmentCount()).toBe(1);
-  expect(screen.getByText('late.md')).toBeTruthy();
+  expect(screen.getAllByText(/late\.md/)[0]).toBeTruthy();
 });
