@@ -433,7 +433,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
                 ...(['body', 'face'].includes(slot) ? [] : [null]), ...(style?.rig.slots[slot] ?? []),
               ])} lockKey={slot === 'body' ? 'character' : undefined} />)}
           </div>
-          <div className="concept-example" role="img" aria-label={t('concept.preview')}>
+          <div className="concept-example">
             <Image aria-hidden size={36} /><span>{t('concept.preview')}</span>
             <span>{valueLabel(settings.visual.art_style, t)} · {valueLabel(settings.visual.theme_id, t)} · {valueLabel(settings.visual.character?.slots.body, t)}</span>
           </div>

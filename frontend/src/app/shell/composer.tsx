@@ -775,6 +775,7 @@ function ComposerBox({
           {onCancel !== undefined && (cancelActive || disabled) ? (
             <SendButton
               label={sendLabel}
+              stopLabel={t('edit.composer.cancel')}
               loading
               onClick={onCancel}
               data-slot="composer-send-visual"
@@ -783,6 +784,7 @@ function ComposerBox({
           ) : (
             <SendButton
               label={sendLabel}
+              stopLabel={t('edit.composer.cancel')}
               disabled={!canSend}
               onClick={() => void submit()}
               data-slot="composer-send-visual"

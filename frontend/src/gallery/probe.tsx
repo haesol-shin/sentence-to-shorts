@@ -191,6 +191,7 @@ export function ProbePage() {
         <h2>입력창</h2>
         <Composer
           label="메시지 입력"
+          stopLabel="멈추기"
           attachLabel="파일 넣기"
           placeholder="어떤 영상을 만들까요?"
           onSend={() => setLog('composer:send')}
@@ -279,6 +280,7 @@ export function ProbePage() {
         <h2>재생 제어</h2>
         <PlaybackControls
           label="재생 조절"
+          labels={{ play: '재생', pause: '일시정지', seek: '재생 위치', mute: '소리 끄기', unmute: '소리 켜기' }}
           playing={playing}
           onToggle={() => {
             const next = !playing;

@@ -64,9 +64,6 @@ function StillFrame({
 
   return (
     <VideoPreview
-      label={
-        ready ? t('edit.preview.still', { number, label: scene.beat_label }) : t('edit.preview.title')
-      }
       state={ready ? 'ready' : state === 'building' ? 'loading' : 'empty'}
       duration={ready ? t('edit.scene.estimated', { seconds: estimatedSeconds(scene) }) : undefined}
       className={className}
@@ -74,10 +71,15 @@ function StillFrame({
       {scene === null ? (
         <div className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-[var(--text-muted)]">
           <Film aria-hidden size={32} />
-          <p className="text-[15px]">{t('edit.preview.noScene')}</p>
+          <p className="text-[15px]" role="status">{t('edit.preview.noScene')}</p>
         </div>
       ) : ready ? (
-        <div data-state="fresh" className="relative h-full w-full bg-[var(--surface-sunken)]">
+        <div
+          data-state="fresh"
+          role="img"
+          aria-label={t('edit.preview.still', { number, label: scene.beat_label })}
+          className="relative h-full w-full bg-[var(--surface-sunken)]"
+        >
           {edit.build?.scenes[scene.id]?.still.artifact === null ||
           edit.build?.scenes[scene.id]?.still.artifact === undefined ? null : (
             <img
@@ -94,7 +96,7 @@ function StillFrame({
           className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-[var(--text-muted)]"
         >
           <span className="spinner text-[var(--emphasis)]" aria-hidden="true" />
-          <p className="text-[15px]">{t('edit.preview.building')}</p>
+          <p className="text-[15px]" role="status">{t('edit.preview.building')}</p>
         </div>
       ) : (
         <div
@@ -102,7 +104,7 @@ function StillFrame({
           className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-[var(--text-muted)]"
         >
           <Film aria-hidden size={32} />
-          <p className="text-[15px]">
+          <p className="text-[15px]" role="status">
             {state === 'stale'
               ? t('edit.preview.stale')
               : state === 'failed'
@@ -206,6 +208,13 @@ export function ScenePreview({ edit, collapsed }: { edit: EditValue; collapsed: 
       <div className="edit-preview-controls min-w-0">
         <PlaybackControls
           label={t('edit.preview.play')}
+          labels={{
+            play: t('export.player.play'),
+            pause: t('export.player.pause'),
+            seek: t('export.player.seek'),
+            mute: t('export.player.mute'),
+            unmute: t('export.player.unmute'),
+          }}
           playing={playing}
           onToggle={() => {
             if (lines.length === 0) return;

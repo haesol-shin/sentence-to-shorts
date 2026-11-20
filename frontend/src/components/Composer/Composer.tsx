@@ -24,6 +24,7 @@ export type ComposerProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'o
   onValueChange?: (value: string) => void;
   onSend?: () => void;
   sendLabel?: string;
+  stopLabel: string;
   loading?: boolean;
   disabled?: boolean;
   /** Shows the rounded dashed file drop state on the box itself. */
@@ -52,6 +53,7 @@ export function Composer({
   onValueChange,
   onSend,
   sendLabel = '보내기',
+  stopLabel,
   loading = false,
   disabled = false,
   dropActive = false,
@@ -126,6 +128,7 @@ export function Composer({
         <div className="composer__send">
           <SendButton
             label={sendLabel}
+            stopLabel={stopLabel}
             loading={loading}
             disabled={isDisabled}
             onClick={onSend}

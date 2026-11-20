@@ -133,6 +133,13 @@ test('test_5_terms_come_from_concept_json_without_old_terms', async ({ page }) =
   expect(text).not.toContain('화면 틀');
 });
 
+test('test_10a_the_character_preview_values_are_exposed_as_text', async ({ page }) => {
+  const concept = await start(page);
+  const preview = concept.locator('.concept-example');
+  const values = await preview.locator('span').last().innerText();
+  expect(await preview.ariaSnapshot()).toContain(values);
+});
+
 test('test_5_reference_band_sits_above_the_groups_and_opens_the_reference_screen', async ({ page }) => {
   const concept = await start(page);
   const band = concept.getByRole('button', { name: '참고 영상으로 채우기', exact: true });
