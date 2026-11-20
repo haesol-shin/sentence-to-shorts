@@ -7,7 +7,10 @@ import {
 import {
   CONCEPT_LOCK_KEYS,
   applySettingsOps,
-  changeCard,
+  cardIdForSettings,
+  cardTuneOf,
+  cardTunePreset,
+  changeCardTune,
   changeConceptValue,
   cloneSettings,
   isConceptLockedPath,
@@ -27,6 +30,7 @@ import {
 } from './api';
 import type {
   Attachment,
+  CardTune,
   ConceptCatalog,
   ConceptDocument,
   ConceptJob,
@@ -76,6 +80,7 @@ interface SessionState {
   edits: EditRecord[];
   catalogRequest: number;
   applyingPlanId: string | null;
+  cardTunes: Record<string, CardTune>;
 }
 
 let api: ConceptApi = createMockConceptApi();
@@ -103,7 +108,7 @@ function localizedIssue(session: SessionState, key: string): string {
       en: 'This role needs a character body and face.',
     },
     'concept.reason.typewriterNeedsDialog': {
-      ko: '타자기 자막은 대화창 화면 틀에서만 쓸 수 있어요.',
+      ko: '타자기 자막은 대화창 화면 구성에서만 쓸 수 있어요.',
       en: 'Typewriter captions need a dialog-stage layout.',
     },
     'concept.reason.unknownAsset': {
@@ -167,6 +172,7 @@ function buildSnapshot(): ConceptSnapshot | null {
     job,
     draft: session.draft,
     canUndo: session.undo.length > 0,
+    cardTunes: session.cardTunes,
   };
 }
 
@@ -204,6 +210,7 @@ function createSession(document: ConceptDocument): SessionState {
     edits: [],
     catalogRequest: 0,
     applyingPlanId: null,
+    cardTunes: {},
   };
 }
 
@@ -504,7 +511,12 @@ export function chooseConcept(path: string, value: unknown): void {
   commitChange(session, result, pointer === null ? [] : [pointer]);
 }
 
-export function chooseCard(id: string): void {
+/**
+ * Select a story card with the four values shown in its fine-tune panel.
+ * The values of the card being left stay with the video session, so a step
+ * change does not reset them, and the card being entered gets its own values.
+ */
+export function chooseCardTune(id: string): void {
   const session = activeSession();
   if (session === null) {
     return;
@@ -514,12 +526,27 @@ export function chooseCard(id: string): void {
     emit();
     return;
   }
-  const result = changeCard(
-    session.document.settings,
+  const settings = session.document.settings;
+  const active = cardIdForSettings(settings);
+  if (active === id) {
+    return;
+  }
+  const tune = session.cardTunes[id] ?? cardTunePreset(id, session.catalog);
+  if (tune === null) {
+    setError(session, ERROR_INVALID);
+    emit();
+    return;
+  }
+  const result = changeCardTune(
+    settings,
     id,
-    session.document.settings.target_duration_s,
+    tune,
+    settings.target_duration_s,
     session.catalog,
   );
+  if (result.kind === 'changed' && active !== null) {
+    session.cardTunes[active] = cardTuneOf(settings);
+  }
   commitChange(session, result, ['/format/card_id', '/format/story_structure']);
 }
 

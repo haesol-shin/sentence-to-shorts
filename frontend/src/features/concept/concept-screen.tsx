@@ -1,20 +1,22 @@
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Image, LockKeyhole, Sparkles } from 'lucide-react';
+import { Children, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { ChevronDown, ChevronRight, Image, LockKeyhole } from 'lucide-react';
 
+import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/shared/ui/button';
 import { Chip } from '@/shared/ui/chip';
 
+import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, visibleCardCount } from './cards';
+import { cardIdForSettings, originOf, SHORT_OPTIONS } from './model';
 import {
-  analyzeConceptReference, applyConceptPlan, chooseCard, chooseConcept,
+  analyzeConceptReference, applyConceptPlan, chooseCardTune, chooseConcept,
   confirmConcept, createConceptStyle, ensureConcept, rejectConceptPlan,
   reloadConceptCatalog, resetConcept, toggleConceptLock, undoConcept, useConcept,
 } from './store';
 import type { Attachment, ConceptSnapshot, LockKey, Plan, Settings, Slot } from './types';
 import './concept.css';
 
-const STORIES = ['just_three', 'its_like', 'what_if'];
-const STRUCTURES = ['numbered_three', 'single_analogy', 'hypothetical'];
+const STORIES = ['just_three', 'its_like', 'what_if'] as const;
 const SLOTS: Slot[] = ['body', 'face', 'hair', 'hat', 'outfit', 'prop'];
 
 export interface EntryComposerProps {
@@ -62,13 +64,15 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
     <dialog ref={dialog} aria-label={title} className="concept-dialog" onCancel={(event) => {
       event.preventDefault(); onClose();
     }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="flex flex-col gap-4 p-6">
-        <h2 className="text-[22px] font-bold">{title}</h2>
-        {children}
-        <button ref={cancel} type="button" className="concept-small-button" onClick={onClose}>
-          {t('concept.cancel')}
-        </button>
-      </div>
+      <ScrollPane label={title} className="concept-dialog__pane">
+        <div className="flex flex-col gap-4 p-6">
+          <h2 className="text-[22px] font-bold">{title}</h2>
+          {children}
+          <button ref={cancel} type="button" className="concept-small-button" onClick={onClose}>
+            {t('concept.cancel')}
+          </button>
+        </div>
+      </ScrollPane>
     </dialog>
   );
 }
@@ -115,10 +119,121 @@ function Field({ snapshot, path, name, options, lockKey }: {
   );
 }
 
+/**
+ * Lock and origin controls for a value whose value field lives elsewhere, so
+ * the fine-tune panel keeps one value and the lock stays reachable.
+ */
+function LockRow({ snapshot, path, name, lockKey, resettable = true }: {
+  snapshot: ConceptSnapshot; path: string; name: string; lockKey: LockKey; resettable?: boolean;
+}) {
+  const { t } = useLocale();
+  const locked = snapshot.document.settings.locks[lockKey] ?? 'varied';
+  const origin = originOf(snapshot.document.settings, path);
+  return (
+    <div className="concept-field" data-field={path}>
+      <span className="font-bold">{name}</span>
+      <div className="flex flex-wrap items-center gap-1 text-[15px]">
+        <span className="concept-origin">{t(`concept.origin.${origin}`)}</span>
+        <button type="button" className="concept-small-button"
+          disabled={snapshot.document.confirmed || snapshot.busy}
+          aria-label={`${name}: ${t(`concept.lock.${locked}`)}`} aria-pressed={locked === 'locked'}
+          onClick={() => toggleConceptLock(lockKey)}>{t(`concept.lock.${locked}`)}</button>
+        {resettable ? <button type="button" className="concept-small-button"
+          aria-label={`${name}: ${t('concept.reset')}`} disabled={snapshot.document.confirmed || snapshot.busy}
+          onClick={() => resetConcept(path)}>{t('concept.reset')}</button> : null}
+      </div>
+    </div>
+  );
+}
+
+function CardGrid({ children }: { children: ReactNode }) {
+  const { t } = useLocale();
+  const grid = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(3);
+  const [expanded, setExpanded] = useState(false);
+  useLayoutEffect(() => {
+    const node = grid.current;
+    if (node === null) return undefined;
+    const update = () => setColumns(cardColumns(node.clientWidth));
+    update();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(update);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const items = Children.toArray(children);
+  const shown = expanded ? items : items.slice(0, visibleCardCount(items.length, columns));
+  return (
+    <>
+      <div ref={grid} className="concept-card-grid">{shown}</div>
+      {expanded || items.length <= shown.length ? null : (
+        <Button variant="ghost" className="concept-more" onClick={() => setExpanded(true)}>{t('concept.more')}</Button>
+      )}
+    </>
+  );
+}
+
+function PictureCard({ title, description, selected, disabled, onClick }: {
+  title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void;
+}) {
+  return (
+    <button type="button" className="concept-card" aria-label={title} title={title}
+      aria-pressed={selected} disabled={disabled} onClick={onClick}>
+      <span className="concept-card__picture"><Image aria-hidden size={28} /></span>
+      <span className="concept-card__title">{clampCardText(title)}</span>
+      <span className="concept-card__description">{clampCardText(description ?? '', CARD_DESCRIPTION_LIMIT)}</span>
+    </button>
+  );
+}
+
+function StoryCard({ id, title, description, selected, disabled, open, onPick, onToggle, panel }: {
+  id: string; title: string; description: string; selected: boolean; disabled: boolean;
+  open: boolean; onPick: () => void; onToggle: () => void; panel: ReactNode;
+}) {
+  const { t } = useLocale();
+  return (
+    <div className="concept-card-slot" data-card={id}>
+      <PictureCard title={title} description={description} selected={selected} disabled={disabled} onClick={onPick} />
+      <button type="button" className="concept-tune-toggle" aria-expanded={open}
+        aria-label={`${title} ${t('concept.tune')}`} aria-controls={`concept-tune-${id}`}
+        onClick={onToggle}>
+        <span>{t('concept.tune')}</span><ChevronDown aria-hidden size={16} />
+      </button>
+      {open ? <section id={`concept-tune-${id}`} className="concept-tune-panel" aria-label={`${title} ${t('concept.tune')}`}>
+        {panel}
+      </section> : null}
+    </div>
+  );
+}
+
+function TuneChip({ name, path, options, value, disabled }: {
+  name: string; path: string; options: { value: unknown; label: string }[]; value: unknown; disabled: boolean;
+}) {
+  const { t } = useLocale();
+  const index = options.findIndex((option) => JSON.stringify(option.value) === JSON.stringify(value));
+  const current = index < 0 ? valueLabel(value, t) : options[index].label;
+  return (
+    <label className="concept-tune-chip">
+      <span className="concept-tune-chip__label">{name}</span>
+      <span className="concept-tune-chip__value">{current}</span>
+      <ChevronDown aria-hidden size={16} className="concept-tune-chip__icon" />
+      <select className="concept-tune-chip__select" aria-label={name} disabled={disabled}
+        value={index < 0 ? '' : index} onChange={(event) => {
+          const option = options[Number(event.target.value)];
+          if (option !== undefined) chooseConcept(path, option.value);
+        }}>
+        {index < 0 ? <option value="" disabled>{current}</option> : null}
+        {options.map((option, i) => <option key={i} value={i}>{option.label}</option>)}
+      </select>
+    </label>
+  );
+}
+
 export function ChangeReview({ plan, settings, busy }: { plan: Plan; settings: Settings; busy: boolean }) {
   const { t } = useLocale();
   const name = (path: string) => {
     const normalized = path.replace(/^\/settings/u, '');
+    if (normalized === '/format/story_structure' || normalized === '/format/card_id') return t('concept.story');
     const key = `concept.field.${normalized.split('/').filter(Boolean).join('.')}`;
     return t(key) === key ? normalized : t(key);
   };
@@ -193,6 +308,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
   const snapshot = useConcept();
   const [entry, setEntry] = useState<'reference' | 'style' | 'styleReference' | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [openTune, setOpenTune] = useState<string | null>(null);
   useEffect(() => { ensureConcept(); }, []);
   if (snapshot === null) return <p role="status">{t('concept.loading')}</p>;
   const { document: doc, catalog } = snapshot;
@@ -204,9 +320,51 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
     <Field snapshot={snapshot} path={path} name={t(`concept.field.${path.slice(1).replaceAll('/', '.')}`)}
       options={choices(values)} lockKey={lockKey} />
   );
+  const activeCardId = cardIdForSettings(settings) ?? '';
+  const pickCard = (id: string) => {
+    if (frozen || id === activeCardId) return;
+    chooseCardTune(id);
+  };
+  const onCard = (id: string) => {
+    pickCard(id);
+    if (openTune !== null) setOpenTune(id);
+  };
+  const toggleTune = (id: string) => {
+    if (id !== activeCardId) {
+      if (frozen) return;
+      pickCard(id);
+    }
+    setOpenTune((open) => open === id ? null : id);
+  };
+  const openCardId = openTune !== null && openTune === activeCardId ? openTune : null;
+  const tuneOrigins = ['/format/layout', '/format/character_role', '/format/register', '/format/humor']
+    .map((path) => originOf(settings, path));
+  const tuneSummary = tuneOrigins.includes('user')
+    ? 'concept.tune.userValues'
+    : tuneOrigins.includes('reference') ? 'concept.tune.referenceValues' : 'concept.tune.cardValues';
+  const layoutOptions = (catalog?.layouts ?? []).map((item) => ({ value: item.ref, label: valueLabel(item.ref, t) }));
+  const roleOptions = choices(SHORT_OPTIONS.character_role);
+  const registerOptions = choices(SHORT_OPTIONS.register);
+  const humorOptions = choices(SHORT_OPTIONS.humor);
+  const tunePanel = (id: string) => (
+    <>
+      <div className="concept-tune-panel__head">
+        <span className="concept-tune-panel__mark"><Image aria-hidden size={16} /></span>
+        <div className="concept-tune-panel__names">
+          <strong>{t(`concept.card.${id}`)}</strong><span>{t(tuneSummary)}</span>
+        </div>
+      </div>
+      <div className="concept-tune-panel__grid">
+        <TuneChip name={t('concept.field.format.layout')} path="/format/layout" options={layoutOptions} value={settings.format.layout} disabled={frozen} />
+        <TuneChip name={t('concept.field.format.character_role')} path="/format/character_role" options={roleOptions} value={settings.format.character_role} disabled={frozen} />
+        <TuneChip name={t('concept.field.format.register')} path="/format/register" options={registerOptions} value={settings.format.register} disabled={frozen} />
+        <TuneChip name={t('concept.field.format.humor')} path="/format/humor" options={humorOptions} value={settings.format.humor} disabled={frozen} />
+      </div>
+    </>
+  );
   return (
     <section data-slot="concept-screen" className="concept-screen" aria-label={t('concept.title')}>
-      <div className="concept-content">
+      <ScrollPane label={t('concept.document')} className="concept-content">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div><h1 className="text-[22px] font-bold">{t('concept.title')}</h1>
             <p>{doc.topic}</p><p className="text-[15px]">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>
@@ -221,43 +379,45 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
           <Button variant="ghost" disabled={snapshot.loading} onClick={() => void reloadConceptCatalog()}>{t('concept.retryCatalog')}</Button>
         </div>}
         {snapshot.loading ? <p role="status">{t('concept.loading')}</p> : null}
+        <button type="button" className="concept-reference-band" aria-label={t('concept.reference')}
+          disabled={frozen} onClick={() => setEntry('reference')}>
+          <span className="concept-reference-band__mark"><Image aria-hidden size={20} /></span>
+          <span className="concept-reference-band__text">
+            <strong>{t('concept.reference')}</strong><span>{t('concept.reference.help')}</span>
+          </span>
+          <ChevronRight aria-hidden size={20} className="concept-reference-band__icon" />
+        </button>
         <section aria-labelledby="concept-story-title" className="concept-group">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="concept-story-title" className="text-[22px] font-bold">{t('concept.story')}</h2>
-            <Button variant="ghost" disabled={frozen} onClick={() => setEntry('reference')}>{t('concept.reference')}</Button>
+          <div className="concept-group__head">
+            <div><h2 id="concept-story-title" className="text-[22px] font-bold">{t('concept.story')}</h2>
+              <p className="text-[15px]">{t('concept.chooseOne')}</p></div>
           </div>
-          <div className="concept-tiles">
-            {STORIES.map((id, index) => <button type="button" key={id} disabled={frozen}
-              className="concept-tile" aria-pressed={settings.format.story_structure === STRUCTURES[index]}
-              onClick={() => chooseCard(id)}>
-              <span className="concept-picture"><Image aria-hidden size={28} /></span>
-              <strong>{t(`concept.card.${id}`)}</strong><span>{t(`concept.example.${id}`)}</span>
-            </button>)}
-          </div>
-          <div className="concept-fields">
-            {field('/format/story_structure', STRUCTURES, 'story_structure')}
-            {field('/format/register', ['friendly', 'neutral', 'casual'], 'register')}
-            {field('/format/humor', ['none', 'light'], 'humor')}
-          </div>
+          <CardGrid>
+            {STORIES.map((id) => (
+              <StoryCard key={id} id={id} title={t(`concept.card.${id}`)} description={t(`concept.example.${id}`)}
+                selected={activeCardId === id} disabled={frozen}
+                open={openCardId === id} onPick={() => onCard(id)} onToggle={() => toggleTune(id)}
+                panel={openCardId === id ? tunePanel(id) : null} />
+            ))}
+          </CardGrid>
         </section>
         <section aria-labelledby="concept-style-title" className="concept-group">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 id="concept-style-title" className="text-[22px] font-bold">{t('concept.style')}</h2>
+          <div className="concept-group__head">
+            <div><h2 id="concept-style-title" className="text-[22px] font-bold">{t('concept.style')}</h2>
+              <p className="text-[15px]">{t('concept.chooseOne')}</p></div>
             <div className="flex flex-wrap gap-1">
               <Button variant="ghost" disabled={frozen} onClick={() => setEntry('style')}>{t('concept.entry.style')}</Button>
               <Button variant="ghost" disabled={frozen} onClick={() => setEntry('styleReference')}>{t('concept.entry.styleReference')}</Button>
             </div>
           </div>
-          <p>{t('concept.style.groups')}</p>
-          <div className="concept-tiles">
-            {(catalog?.styles ?? []).map((item) => <button type="button" key={item.ref.id}
-              disabled={frozen} className="concept-tile" aria-pressed={settings.visual.art_style.id === item.ref.id}
-              onClick={() => chooseConcept('/visual/art_style', item.ref)}>
-              <span className="concept-picture"><Sparkles aria-hidden size={28} /></span>
-              <strong>{item.manifest.label[language]}</strong>
-              <span>{t(item.manifest.origin === 'builtin' ? 'concept.style.builtin' : 'concept.style.mine')}</span>
-            </button>)}
-          </div>
+          <CardGrid>
+            {(catalog?.styles ?? []).map((item) => (
+              <PictureCard key={item.ref.id} title={item.manifest.label[language]}
+                description={t(item.manifest.origin === 'builtin' ? 'concept.style.builtin' : 'concept.style.mine')}
+                selected={settings.visual.art_style.id === item.ref.id} disabled={frozen}
+                onClick={() => chooseConcept('/visual/art_style', item.ref)} />
+            ))}
+          </CardGrid>
           <div className="concept-fields">
             <Field snapshot={snapshot} path="/visual/art_style" name={t('concept.field.visual.art_style')}
               options={(catalog?.styles ?? []).map((item) => ({ value: item.ref, label: item.manifest.label[language] }))} lockKey="art_style" />
@@ -268,7 +428,6 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         <section aria-labelledby="concept-character-title" className="concept-group">
           <h2 id="concept-character-title" className="text-[22px] font-bold">{t('concept.character')}</h2>
           <div className="concept-fields">
-            {field('/format/character_role', ['none', 'presenter', 'subject'], 'character_role')}
             {SLOTS.map((slot) => <Field key={slot} snapshot={snapshot} path={`/visual/character/slots/${slot}`}
               name={t(`concept.slot.${slot}`)} options={choices([
                 ...(['body', 'face'].includes(slot) ? [] : [null]), ...(style?.rig.slots[slot] ?? []),
@@ -282,8 +441,6 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         <details className="concept-group">
           <summary className="min-h-11 cursor-pointer font-bold">{t('concept.details')}</summary>
           <div className="concept-fields">
-            <Field snapshot={snapshot} path="/format/layout" name={t('concept.field.format.layout')}
-              options={(catalog?.layouts ?? []).map((item) => ({ value: item.ref, label: valueLabel(item.ref, t) }))} lockKey="layout" />
             {field('/caption/mode', ['sentence', 'phrase', 'typewriter'], 'caption_mode')}
             {field('/caption/font_id', catalog?.fonts ?? [settings.caption.font_id], 'caption_font')}
             {field('/caption/position', ['top', 'middle', 'bottom'])}
@@ -291,6 +448,14 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
             {field('/motion/character_motion', ['none', 'pop', 'bob'])}
             {field('/audio/bgm/mood', ['curious', 'playful', 'tense', 'calm'], 'bgm')}
             {field('/audio/bgm/gain_db_x10', [-200, -120, -60])}
+          </div>
+          <h3 className="font-bold">{t('concept.locks')}</h3>
+          <div className="concept-fields">
+            <LockRow snapshot={snapshot} path="/format/story_structure" name={t('concept.field.format.story_structure')} lockKey="story_structure" resettable={false} />
+            <LockRow snapshot={snapshot} path="/format/layout" name={t('concept.field.format.layout')} lockKey="layout" />
+            <LockRow snapshot={snapshot} path="/format/character_role" name={t('concept.field.format.character_role')} lockKey="character_role" />
+            <LockRow snapshot={snapshot} path="/format/register" name={t('concept.field.format.register')} lockKey="register" />
+            <LockRow snapshot={snapshot} path="/format/humor" name={t('concept.field.format.humor')} lockKey="humor" />
           </div>
         </details>
         <details className="concept-group">
@@ -308,7 +473,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
             {snapshot.unsupported.map((text, index) => <p key={index}>{text}</p>)}</div> : null}
         </section>
         {snapshot.pending?.status === 'proposed' ? <ChangeReview plan={snapshot.pending} settings={settings} busy={snapshot.busy} /> : null}
-      </div>
+      </ScrollPane>
       <footer className="concept-footer">
         {snapshot.canUndo ? <Button variant="ghost" disabled={snapshot.busy || doc.confirmed} onClick={undoConcept}>{t('concept.undo')}</Button> : null}
         {doc.confirmed ? <span className="flex items-center gap-2"><LockKeyhole aria-hidden size={20} />{t('concept.confirmed.next')}</span>
