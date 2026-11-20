@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   createProject,
@@ -59,6 +59,13 @@ function BrandName() {
 function WorkspaceBody({ session }: { session: SessionResult }) {
   const { t, language } = useLocale();
   const [view, setView] = useState<View>('first');
+  const [video, setVideo] = useState<{
+    id: string;
+    topic: string;
+    script: string;
+    language: Language;
+  } | null>(null);
+  const sessionSeq = useRef(0);
   const [jobId, setJobId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [card, setCard] = useState<CardPick | null>(null);
@@ -86,6 +93,13 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
         card_id: card?.id ?? null,
       });
       setJobId(started.id);
+      sessionSeq.current += 1;
+      setVideo({
+        id: `${created.id}#${sessionSeq.current}`,
+        topic: message,
+        script: message,
+        language,
+      });
       setDraft('');
       setCard(null);
       setView('concept');
@@ -98,6 +112,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
 
   const openNewVideo = () => {
     setView('first');
+    setVideo(null);
     setJobId(null);
     setDraft('');
     setCard(null);
@@ -164,7 +179,13 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       ) : view === 'concept' ? (
         <ConceptRoute />
       ) : view === 'script' ? (
-        <ScriptRoute />
+        <ScriptRoute
+          videoId={video?.id ?? null}
+          topic={video?.topic ?? null}
+          userScript={video?.script ?? null}
+          language={video?.language ?? language}
+          onNext={() => setView('edit')}
+        />
       ) : view === 'edit' ? (
         <EditRoute />
       ) : (

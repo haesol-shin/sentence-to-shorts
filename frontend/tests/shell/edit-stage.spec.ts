@@ -101,7 +101,7 @@ test('test_10a_the_next_action_keeps_its_seat_at_the_top_right', async ({ page }
   expect(box.y + box.height).toBeLessThan(100);
 });
 
-test('test_10a_the_next_action_stays_inside_every_stage_screen', async ({ page }) => {
+test('test_10a_the_next_action_stays_inside_the_screen_that_owns_it', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('textbox', { name: '만들고 싶은 영상을 한 문장으로 적어 주세요' }).fill('커피를 고르는 세 가지 기준');
   await page.getByRole('button', { name: '보내기' }).click();
@@ -119,17 +119,22 @@ test('test_10a_the_next_action_stays_inside_every_stage_screen', async ({ page }
     if (stage !== 'concept') {
       await openStage(page, label);
     }
-    // The concept screen owns its action in its own dock, so the top bar seat stays shut.
     await expect(
       page.locator(stage === 'concept' ? '[data-slot="concept-screen"]' : '[data-slot="stage-panel"]'),
     ).toBeVisible();
     if (stage !== 'concept') {
       await expect(page.locator('[data-slot="stage-panel"]')).toHaveAttribute('data-stage', stage);
-      const box = await page.locator('[data-slot="next-action"]').boundingBox();
-      expect(box).not.toBeNull();
-      if (box === null) continue;
-      expect(box.x).toBeGreaterThan(0);
-      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      if (stage === 'script') {
+        // The script screen carries its step action in the document footer.
+        await expect(page.locator('[data-slot="next-action"]')).toHaveCount(0);
+        await expect(page.locator('[data-slot="script-next"]')).toBeVisible();
+      } else {
+        const box = await page.locator('[data-slot="next-action"]').boundingBox();
+        expect(box).not.toBeNull();
+        if (box === null) continue;
+        expect(box.x).toBeGreaterThan(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+      }
     }
 
     const overflows = await page.evaluate(

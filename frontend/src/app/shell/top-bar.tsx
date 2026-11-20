@@ -80,7 +80,7 @@ export function TopBar({
         </>
       )}
       <div className="flex min-w-0 flex-1 items-center">{status}</div>
-      {stage === null ? null : <NextAction stage={stage} />}
+      {stage === null || stage === 'script' ? null : <NextAction stage={stage} />}
     </header>
   );
 }

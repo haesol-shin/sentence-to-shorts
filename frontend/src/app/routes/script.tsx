@@ -1,6 +1,37 @@
-import { StagePanel } from './stage-panel';
+import { recommendedSceneCount } from '@/features/concept/model';
+import type { Language } from '@/shared/api/client';
+import { configureScriptSceneCounts, DURATIONS } from '@/features/script/model';
+import { ScriptScreen } from '@/features/script/script-screen';
 
-/** The script step. The script document arrives with the script screen. */
-export function ScriptRoute() {
-  return <StagePanel stage="script" />;
+// The concept screen owns the target length to scene count rule. The app reads
+// it once here instead of keeping a second copy in the script feature.
+configureScriptSceneCounts(DURATIONS.map((seconds) => recommendedSceneCount(seconds)));
+
+/**
+ * The script step: lines, their order and their tone, behind one confirm gate.
+ * The screen takes the current video, its original script and the step change
+ * as optional props so the shell can pass them without the screen owning them.
+ */
+export function ScriptRoute({
+  videoId = null,
+  topic = null,
+  userScript = null,
+  language = 'ko',
+  onNext,
+}: {
+  videoId?: string | null;
+  topic?: string | null;
+  userScript?: string | null;
+  language?: Language;
+  onNext?: () => void;
+}) {
+  return (
+    <ScriptScreen
+      videoId={videoId}
+      topic={topic}
+      userScript={userScript}
+      language={language}
+      onNext={onNext}
+    />
+  );
 }
