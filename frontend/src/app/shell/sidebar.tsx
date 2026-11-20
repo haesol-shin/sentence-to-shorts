@@ -1,4 +1,4 @@
-import { Clapperboard, Library, Settings, type LucideIcon } from 'lucide-react';
+import { Library, Plus, Settings, type LucideIcon } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
@@ -17,7 +17,7 @@ interface NavItem {
 }
 
 const ITEMS: readonly NavItem[] = [
-  { id: 'newVideo', labelKey: 'shell.nav.newVideo', icon: Clapperboard, enabled: true },
+  { id: 'newVideo', labelKey: 'shell.nav.newVideo', icon: Plus, enabled: true },
   {
     id: 'myVideos',
     labelKey: 'shell.nav.myVideos',

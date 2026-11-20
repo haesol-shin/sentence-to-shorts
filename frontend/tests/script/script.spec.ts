@@ -77,7 +77,7 @@ test('test_2_the_confirmed_step_opens_edit_and_a_new_video_starts_clean', async 
   await backLine.fill('확인한 뒤에도 고칠 수 있어요.');
   await expect(backLine).toHaveValue('확인한 뒤에도 고칠 수 있어요.');
 
-  await page.getByRole('button', { name: '새 영상' }).click();
+  await page.getByRole('button', { name: '새로 만들기' }).click();
   await page
     .getByRole('textbox', { name: '만들고 싶은 영상을 한 문장으로 적어 주세요' })
     .fill('겨울 산책을 즐기는 세 가지 방법');
@@ -98,7 +98,7 @@ test('test_1_a_new_video_with_the_same_sentence_opens_a_fresh_script', async ({ 
   await screen.getByRole('button', { name: '이대로 영상 만들기', exact: true }).click();
   await expect(page.locator('[data-slot="stage-panel"]')).toHaveAttribute('data-stage', 'edit');
 
-  await page.getByRole('button', { name: '새 영상' }).click();
+  await page.getByRole('button', { name: '새로 만들기' }).click();
   await page
     .getByRole('textbox', { name: '만들고 싶은 영상을 한 문장으로 적어 주세요' })
     .fill('커피를 고르는 세 가지 기준');

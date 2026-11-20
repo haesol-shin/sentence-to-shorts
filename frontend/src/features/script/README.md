@@ -10,9 +10,9 @@ The route passes the video's original script to the screen. The mock loader puts
 
 ## Confirmation gate
 
-The screen never asks for scene previews. The mock boundary answers `script_not_confirmed` until the script is confirmed, so the edit step cannot request a preview before the script gate (SPEC 2, CONTRACTS 4.1). The step button confirms the script, and the app opens Edit from it through the optional `onNext`. After confirmation the lines stay editable, so returning from the edit step shows one document. The shell's top bar carries no script step action; the document footer is the one seat.
+The screen never asks for scene previews. The step button saves and confirms the script, and the app opens Edit from it through the optional `onNext`. After confirmation the lines stay editable, so returning from the edit step shows one document. The shell's top bar carries no script step action; the document footer is the one seat.
 
-The screen opens a session for the video id it receives. The workspace gives every creation attempt its own id and passes the video's language and original script; the interface language never enters the key, so switching labels does not reopen or reset the lines. Returning to the same video keeps the session.
+The screen opens a session for the per-attempt key it receives. The workspace gives every creation attempt its own key and passes the video's language and original script; the interface language never enters the key, so switching labels does not reopen or reset the lines. Returning to the same attempt keeps the session. The server video id travels separately as `serverVideoId`, so the session key never reaches the video API paths.
 
 ## Scene count
 
@@ -33,12 +33,14 @@ The conversation pane is not part of this feature. It reads `useScript()` and ca
 - `rewriteScene(id)` and `stopRewrite()` when a chat instruction targets a scene.
 - `undo()` for the one step back the screen offers.
 
-## Mock boundary
+## Server and mock paths
 
-`api.ts` is a mock boundary, not a network client. It records the requests a transport would send and answers with synthetic data. The rewrite prefixes a scene's first line with a synthetic lead-in so a review can be shown; the tone shifter changes known Korean endings and leaves a line it cannot re-say as written. The real script job owns wording. Confirmation and previews stay in this mock's memory; the connected edit screen is still the existing placeholder and does not read the confirmed script.
+With a server video id, the screen waits for the draft job to end with an applied plan (`draftState`). A failed, cancelled or unapplied draft shows the load error and nothing is saved. When the draft has applied, `server-script.ts` reads the video and maps it to the document, putting the original script in the first scene as the user wrote it.
 
-The display and speech limits count code points, the same unit as the contract, and the screen error and the confirm boundary share that count.
+Confirming uses only existing endpoints: it re-reads the head, sends the length, tone, scene count and script as one `POST /videos/{id}/changes`, applies that plan if it asks for confirmation (the footer press is the user's confirmation), then calls `POST /videos/{id}/script/confirm` with the new revision. Edit opens only after the server answers `script_confirmed` or later. If anything fails the screen stays on Script with 「대본을 확인하지 못했어요」 and every edit is kept. A retry rereads the head; a save whose reply was lost is recognized and not sent twice, and any other change to the script text, order, length, tone or scene count on the server is reported instead of overwritten. The change request reuses its idempotency key for the same document and revision. Scene visuals, speakers and highlights a scene already has are carried over; a highlight on a line whose text changed is cleared.
+
+With `VITE_API_MODE=mock`, or when no server video id is passed, `api.ts` stays a mock boundary: it records the requests a transport would send and answers with synthetic data. The rewrite prefixes a scene's first line with a synthetic lead-in so a review can be shown; the tone shifter changes known Korean endings and leaves a line it cannot re-say as written. The real script job owns wording. The display and speech limits count code points, the same unit as the contract, and the screen error and the confirm boundary share that count.
 
 ## Verification
 
-Run `npx vitest run tests/script` and `npx playwright test tests/script` from the frontend directory. The browser tests open the step at 1280 and 1920, check the reorder controls, the rewrite review, the tone preview, the new video and the scroll pane, and write the step captures for the pull request.
+Run `npx vitest run tests/script` and `npx vitest run tests/edit` (including `tests/edit/script-server.test.ts`, which checks the draft wait, the save, the lost reply, the confirm failure and the entry into Edit) and `npx playwright test tests/script` from the frontend directory. The browser tests open the step at 1280 and 1920, check the reorder controls, the rewrite review, the tone preview, the new video and the scroll pane, and write the step captures for the pull request.

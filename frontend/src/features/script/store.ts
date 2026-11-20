@@ -19,6 +19,7 @@ import {
   withSceneCount,
   withSceneOrder,
 } from './model';
+import { openServerScript } from './server-script';
 import type {
   Register,
   RewriteProposal,
@@ -32,6 +33,9 @@ import type {
 
 interface SessionState {
   document: ScriptDocument;
+  confirm: ScriptApi['confirm'];
+  confirmedDocument: ScriptDocument | null;
+  serverBacked: boolean;
   busy: boolean;
   error: string | null;
   targetSceneId: string | null;
@@ -76,9 +80,16 @@ function subscribe(listener: () => void): () => void {
   };
 }
 
-function createSession(document: ScriptDocument): SessionState {
+function createSession(
+  document: ScriptDocument,
+  confirm: ScriptApi['confirm'],
+  serverBacked: boolean,
+): SessionState {
   return {
     document,
+    confirm,
+    confirmedDocument: null,
+    serverBacked,
     busy: false,
     error: null,
     targetSceneId: null,
@@ -145,7 +156,7 @@ function buildSnapshot(): ScriptSnapshot | null {
     focusToken: state.focusToken,
     totalSeconds: totalSeconds(state.document),
     canUndo: state.undo !== null && !jobRunning(state) && state.rewrite === null,
-    confirmed: isConfirmed(state.document),
+    confirmed: state.serverBacked ? state.confirmedDocument === state.document : isConfirmed(state.document),
     nextBlockedReason: blockedReason(state),
   };
 }
@@ -166,7 +177,7 @@ export function useScript(): ScriptSnapshot | null {
   return useSyncExternalStore(subscribe, readSnapshot, readSnapshot);
 }
 
-/** True when the mock session could not be opened; the screen still reports it. */
+/** True when the script session could not be opened. */
 export function useScriptLoadFailed(): boolean {
   return useSyncExternalStore(
     subscribe,
@@ -233,13 +244,13 @@ function applySceneCount(state: SessionState, count: number): void {
 }
 
 /**
- * Open the screen's mock video once per video id. The UI language and the
- * topic text are not part of the key, so switching labels or editing a line
- * never reopens; a new creation attempt carries its own id.
+ * Open the script once per creation attempt. The server video id is separate,
+ * and changing the interface language or the topic does not reopen the session.
  */
 export function ensureScript(
   language: Language,
   target: ScriptTarget = EMPTY_TARGET,
+  serverVideoId: string | null = null,
 ): Promise<void> {
   const key = target.id ?? '';
   if (session !== null && targetKey === key) {
@@ -261,13 +272,19 @@ export function ensureScript(
   emit();
 
   const token = ++openToken;
-  opening = api
-    .open(language, target)
-    .then((document) => {
+  const currentApi = api;
+  const opened = serverVideoId === null
+    ? currentApi.open(language, target).then((document) => ({
+        document,
+        confirm: currentApi.confirm.bind(currentApi),
+      }))
+    : openServerScript(serverVideoId, target);
+  opening = opened
+    .then(({ document, confirm }) => {
       if (token !== openToken) {
         return;
       }
-      session = createSession(document);
+      session = createSession(document, confirm, serverVideoId !== null);
       opening = null;
       emit();
     })
@@ -572,23 +589,31 @@ export function undo(): void {
   emit();
 }
 
-export async function confirmScript(): Promise<void> {
+export async function confirmScript(): Promise<boolean> {
   const state = requireSession();
   if (state === null || blockedReason(state) !== null || state.busy) {
-    return;
+    return false;
   }
   state.busy = true;
+  state.error = null;
   emit();
   try {
-    const confirmed = await api.confirm(state.document);
+    const confirmed = await state.confirm(state.document);
+    if (session !== state) {
+      return false;
+    }
     state.document = confirmed;
+    state.confirmedDocument = confirmed;
     state.undo = null;
-    state.error = null;
+    return true;
   } catch {
     state.error = 'script.error.confirm';
+    return false;
   } finally {
     state.busy = false;
-    emit();
+    if (session === state) {
+      emit();
+    }
   }
 }
 

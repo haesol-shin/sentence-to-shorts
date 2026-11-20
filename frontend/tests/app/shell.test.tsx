@@ -10,12 +10,12 @@ afterEach(() => {
 
 test('test_10a_sidebar_names_an_icon_on_hover', async () => {
   await renderApp();
-  const icon = screen.getByRole('button', { name: '새 영상' });
+  const icon = screen.getByRole('button', { name: '새로 만들기' });
 
   expect(screen.queryByRole('tooltip')).toBeNull();
 
   fireEvent.pointerOver(icon);
-  expect((await screen.findByRole('tooltip')).textContent).toContain('새 영상');
+  expect((await screen.findByRole('tooltip')).textContent).toContain('새로 만들기');
 
   fireEvent.pointerOut(icon);
   await waitFor(() => expect(screen.queryByRole('tooltip')).toBeNull());
@@ -23,11 +23,11 @@ test('test_10a_sidebar_names_an_icon_on_hover', async () => {
 
 test('test_10a_sidebar_names_an_icon_on_keyboard_focus', async () => {
   await renderApp();
-  const icon = screen.getByRole('button', { name: '새 영상' });
+  const icon = screen.getByRole('button', { name: '새로 만들기' });
 
   icon.focus();
 
-  expect((await screen.findByRole('tooltip')).textContent).toContain('새 영상');
+  expect((await screen.findByRole('tooltip')).textContent).toContain('새로 만들기');
 });
 
 test('test_10a_first_screen_shows_no_step_indicator', async () => {

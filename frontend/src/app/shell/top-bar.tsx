@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { EditNextAction } from '@/features/edit/next-action';
+import { EditTopBarStatus } from '@/features/edit/top-bar-status';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/shared/ui/button';
@@ -7,6 +9,7 @@ import { Tooltip } from '@/shared/ui/tooltip';
 
 import { showsStageIndicator, type Stage, type View } from './shell-config';
 import { StageIndicator, StageMenu } from './stage-nav';
+import { VideoSettings } from './video-settings';
 
 /**
  * The right-hand action the shell keeps a seat for (SPEC 10a.2). Each stage
@@ -16,6 +19,7 @@ import { StageIndicator, StageMenu } from './stage-nav';
  */
 function NextAction({ stage }: { stage: Stage }) {
   const { t } = useLocale();
+  if (stage === 'edit') return <EditNextAction />;
   const label = t(`shell.nextAction.${stage}`);
   return (
     <Tooltip label={t('shell.nextAction.reason')} side="top">
@@ -79,7 +83,14 @@ export function TopBar({
           ) : null}
         </>
       )}
-      <div className="flex min-w-0 flex-1 items-center">{status}</div>
+      {view === 'edit' ? (
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+          <EditTopBarStatus />
+          <VideoSettings />
+        </div>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center">{status}</div>
+      )}
       {stage === null || stage === 'script' ? null : <NextAction stage={stage} />}
     </header>
   );

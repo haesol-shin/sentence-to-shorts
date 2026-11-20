@@ -51,9 +51,9 @@ test('test_10a_the_first_screen_has_no_step_indicator', async ({ page }) => {
 
 test('test_10a_the_sidebar_names_an_icon_on_hover', async ({ page }) => {
   await page.goto('/');
-  await page.getByRole('button', { name: '새 영상' }).hover();
+  await page.getByRole('button', { name: '새로 만들기' }).hover();
 
-  await expect(page.getByRole('tooltip')).toContainText('새 영상');
+  await expect(page.getByRole('tooltip')).toContainText('새로 만들기');
 });
 
 test('test_23_the_first_screen_does_not_scroll_sideways', async ({ page }) => {
