@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import time
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
@@ -115,11 +116,20 @@ def wait_active(seconds: float, *, cancel: CancelToken, deadline: float) -> None
         cancel.wait(delay)
 
 
+_FENCE = re.compile(r"\A```(?:json)?[ \t]*\r?\n(.*?)\r?\n?```\Z", re.DOTALL)
+
+
+def _unfence(text: str) -> str:
+    """Strip one outer Markdown code fence when it wraps the whole text."""
+    match = _FENCE.match(text.strip())
+    return match.group(1) if match else text
+
+
 def validate_output(text: str, schema: dict[str, Any] | None) -> dict[str, Any] | None:
     if schema is None:
         return None
     try:
-        parsed = json.loads(text)
+        parsed = json.loads(_unfence(text))
         validator = validator_for(schema)
         validator.check_schema(schema)
         validator(schema, registry=Registry()).validate(parsed)

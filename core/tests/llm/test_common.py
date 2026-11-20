@@ -196,3 +196,30 @@ def test_10_3_zero_configured_retries_disables_retry(settings, request_data, clo
     with pytest.raises(AppError, match="llm_connection"):
         adapter.complete(request_data, owner_id=OWNER, cancel=Token(clock), deadline=150)
     assert len(adapter.calls) == 1
+
+
+SCHEMA = {"type": "object", "required": ["answer"],
+          "properties": {"answer": {"type": "string"}}}
+
+
+@pytest.mark.parametrize("text", [
+    '{"answer":"x"}',
+    '```json\n{"answer":"x"}\n```',
+    '```\n{"answer":"x"}\n```\n',
+    '  ```json\r\n{"answer":"x"}\r\n```  ',
+])
+def test_10_3_validate_output_accepts_bare_and_fenced_json(text):
+    assert common.validate_output(text, SCHEMA) == {"answer": "x"}
+
+
+@pytest.mark.parametrize("text", [
+    'Here it is:\n```json\n{"answer":"x"}\n```',
+    '```json\n{"answer":"x"}\n```\nDone.',
+    'Sure {"answer":"x"}',
+    '```json\n```json\n{"answer":"x"}\n```\n```',
+])
+def test_10_3_validate_output_rejects_prose_around_json(text):
+    with pytest.raises(AppError) as caught:
+        common.validate_output(text, SCHEMA)
+    assert caught.value.detail == {"validation_rule": "json_object"}
+    assert "Sure" not in str(caught.value) and "Here" not in str(caught.value)
