@@ -7,14 +7,23 @@ import os
 from pathlib import Path
 from typing import Annotated, Any
 
-from fastapi import APIRouter, File, Form, Header, Request, Response, UploadFile
+from fastapi import APIRouter, File, Form, Header, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 
+from app.caption_layout import (
+    POSITIONS,
+    caption_pair_fits,
+    single_caption_fits,
+    smallest_caption_size,
+)
 from app.ports import AppError, canonical_json
 from app.routers.deps import request_digest, runtime
 from app.schemas.api import (
     ActivityRequest,
     BaseRevision,
+    CaptionLayout,
+    CaptionLayoutPair,
     ChangeRequest,
     DraftRequest,
     Job,
@@ -24,7 +33,7 @@ from app.schemas.api import (
     PreviewRequest,
 )
 from app.schemas.change import ChangePlan
-from app.schemas.common import PERSONAL_OWNER_ID
+from app.schemas.common import PERSONAL_OWNER_ID, CatalogId, PinnedRef
 from app.schemas.job import JobKind
 from app.schemas.video import Video
 from app.services.pipeline.dependencies import plan_change
@@ -356,6 +365,75 @@ def record_activity(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> None:
     runtime(request).project_store.add_activity(vid, body.spans)
+
+
+def _pinned_query(value: str | None) -> PinnedRef | None:
+    """A pinned font reference sent as a JSON query value."""
+    if value is None:
+        return None
+    try:
+        return PinnedRef.model_validate_json(value)
+    except ValidationError as error:
+        raise AppError("validation_failed") from error
+
+
+@router.get(
+    "/videos/{vid}/caption-layout",
+    operation_id="getCaptionLayout",
+    response_model=CaptionLayout,
+)
+def get_caption_layout(
+    request: Request,
+    vid: str,
+    font_id: Annotated[str | None, Query()] = None,
+    extra_language: Annotated[CatalogId | None, Query()] = None,
+    extra_font_id: Annotated[str | None, Query()] = None,
+) -> CaptionLayout:
+    app = runtime(request)
+    settings = app.project_store.get_video(vid).settings
+    caption = settings.caption
+    layout = settings.format.layout
+    template = app.catalog.get("template", layout.id, layout.revision)
+    primary_ref = _pinned_query(font_id) or caption.font_id
+    primary = app.catalog.get("font", primary_ref.id, primary_ref.revision)
+    primary_px = smallest_caption_size(primary.pixel_size)
+    saved_extra = caption.extra[0] if caption.extra else None
+    language = extra_language or (saved_extra.language if saved_extra else None)
+    if language is None:
+        return CaptionLayout(
+            primary_px=primary_px,
+            extra_px=None,
+            pairs=[
+                CaptionLayoutPair(
+                    primary=position,
+                    extra=position,
+                    fits=single_caption_fits(template, primary.pixel_size, position),
+                )
+                for position in POSITIONS
+            ],
+        )
+
+    app.catalog.get("caption_language", language)
+    extra_ref = _pinned_query(extra_font_id) or (
+        saved_extra.font_id if saved_extra else primary_ref
+    )
+    extra = app.catalog.get("font", extra_ref.id, extra_ref.revision)
+    return CaptionLayout(
+        primary_px=primary_px,
+        extra_px=smallest_caption_size(extra.pixel_size),
+        pairs=[
+            CaptionLayoutPair(
+                primary=primary_position,
+                extra=extra_position,
+                fits=caption_pair_fits(
+                    template, primary.pixel_size, primary_position,
+                    extra.pixel_size, extra_position,
+                ),
+            )
+            for primary_position in POSITIONS
+            for extra_position in POSITIONS
+        ],
+    )
 
 
 @router.get("/videos/{vid}/metrics", operation_id="getMetrics", response_model=Metrics)

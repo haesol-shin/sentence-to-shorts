@@ -29,6 +29,7 @@ OPERATIONS = {
     "deleteProject",
     "createVideo",
     "getVideo",
+    "getCaptionLayout",
     "listVideoRevisions",
     "getVideoRevision",
     "createDraft",

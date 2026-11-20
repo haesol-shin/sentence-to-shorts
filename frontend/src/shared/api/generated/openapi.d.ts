@@ -505,6 +505,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/videos/{vid}/caption-layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Caption Layout */
+        get: operations["getCaptionLayout"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/videos/{vid}/changes": {
         parameters: {
             query?: never;
@@ -1040,6 +1057,22 @@ export interface components {
             language: components["schemas"]["CatalogId"];
             mode: components["schemas"]["CaptionMode"];
             position: components["schemas"]["CaptionPosition"];
+        };
+        /** CaptionLayout */
+        CaptionLayout: {
+            /** Extra Px */
+            extra_px: number | null;
+            /** Pairs */
+            pairs: components["schemas"]["CaptionLayoutPair"][];
+            /** Primary Px */
+            primary_px: number;
+        };
+        /** CaptionLayoutPair */
+        CaptionLayoutPair: {
+            extra: components["schemas"]["CaptionPosition"];
+            /** Fits */
+            fits: boolean;
+            primary: components["schemas"]["CaptionPosition"];
         };
         /**
          * CaptionMode
@@ -4381,6 +4414,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The request body or parameters do not match the contract. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Unexpected server failure. */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The service behind this route is not implemented yet. */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    getCaptionLayout: {
+        parameters: {
+            query?: {
+                font_id?: string | null;
+                extra_language?: components["schemas"]["CatalogId"] | null;
+                extra_font_id?: string | null;
+            };
+            header?: never;
+            path: {
+                vid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptionLayout"];
+                };
             };
             /** @description The request body or parameters do not match the contract. */
             422: {

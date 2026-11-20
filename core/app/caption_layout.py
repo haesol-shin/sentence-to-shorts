@@ -15,6 +15,7 @@ from dataclasses import dataclass
 
 from app.schemas.common import Box
 from app.schemas.settings import CaptionPosition
+from app.schemas.template_manifest import TemplateManifest
 
 SAFE_TOP = 1030
 """Top of the band that platform UI leaves uncovered, on the 1080x1920 frame."""
@@ -80,9 +81,14 @@ def line_height(size: int) -> int:
     return size * 5 // 4
 
 
+def smallest_caption_size(pixel_size: int | None) -> int:
+    """The smallest text size used to check caption positions."""
+    return (pixel_size or 12) * 2
+
+
 def smallest_caption_height(pixel_size: int | None) -> int:
     """Height of the smallest caption block a layer may draw at its line limit."""
-    return line_height((pixel_size or 12) * 2) * CAPTION_MAX_LINES
+    return line_height(smallest_caption_size(pixel_size)) * CAPTION_MAX_LINES
 
 
 def _offset(free: int, position: CaptionPosition) -> int:
@@ -214,6 +220,38 @@ def place_pair(
     return None
 
 
+def supports_caption_pair(template: TemplateManifest) -> bool:
+    return not template.dialog_box and template.renderer.kind == "builtin"
+
+
+def caption_pair_fits(
+    template: TemplateManifest,
+    primary_pixel_size: int | None,
+    primary: CaptionPosition,
+    extra_pixel_size: int | None,
+    extra: CaptionPosition,
+) -> bool:
+    """Whether the template has room for the smallest two-line plates."""
+    return supports_caption_pair(template) and place_pair(
+        caption_inner(template.regions.caption, dialog=False),
+        (smallest_caption_height(primary_pixel_size),),
+        primary,
+        (smallest_caption_height(extra_pixel_size),),
+        extra,
+    ) is not None
+
+
+def single_caption_fits(
+    template: TemplateManifest, pixel_size: int | None, position: CaptionPosition
+) -> bool:
+    region = template.regions.caption
+    inner = caption_inner(region, dialog=template.dialog_box)
+    height = smallest_caption_height(pixel_size)
+    if supports_caption_pair(template):
+        return inside(plate_box(inner, height, position), safe_area())
+    return height <= inner.h and inside(region, safe_area())
+
+
 __all__ = [
     "CAPTION_INSET",
     "CAPTION_MAX_LINES",
@@ -227,6 +265,7 @@ __all__ = [
     "SAFE_HEIGHT",
     "SAFE_TOP",
     "caption_inner",
+    "caption_pair_fits",
     "fixed_text_box",
     "inside",
     "intersects",
@@ -237,6 +276,9 @@ __all__ = [
     "rank_pairs",
     "safe_area",
     "separated",
+    "single_caption_fits",
     "smallest_caption_height",
+    "smallest_caption_size",
+    "supports_caption_pair",
     "text_box",
 ]

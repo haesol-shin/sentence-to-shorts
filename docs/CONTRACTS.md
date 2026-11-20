@@ -71,6 +71,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | `caption_overlap` | 두 layer의 가장 작은 두 줄 상자가 안전 영역에 함께 들어가지 않거나 고른 위치에서 겹침. 실제 글 상자가 겹치면 renderer도 같은 code로 거절한다 |
 | `revision_conflict` | 요청의 base_revision이 head가 아님 (HTTP 409 problem으로 응답하고 `current_revision` 확장 멤버를 함께 돌려준다) |
 
+`getCaptionLayout`은 영상의 현재 설정으로 저장 전에 자막 위치 조합을 조회한다. `font_id`와 `extra_font_id`는 JSON으로 인코딩한 `PinnedRef`, `extra_language`는 `CatalogId`이며, 지정한 값은 조회에서만 적용한다. 저장된 보조 layer가 없으면 `extra_language`로 추가할 수 있고, 보조 글꼴도 생략하면 조회의 주 글꼴을 쓴다. 보조 언어가 없으면 `extra_font_id`만으로 layer를 추가하지 않는다. `primary_px`와 `extra_px`는 판정에 쓰는 최소 글자 크기(px)이며 실제 렌더 크기는 글에 따라 달라진다. 한 layer는 `extra_px: null`과 `primary == extra`인 다섯 위치의 안전 영역 판정을 돌려준다. 두 layer는 25개 조합에 저장 검사의 위치 판정을 적용하며, dialog 상자나 sandbox template는 모두 `fits: false`다. 번역 유무는 위치 조회와 별도로 저장할 때 검사한다.
+
 ## 2. 버전과 migration
 
 - 저장 문서(project, video, preset, change, 모든 manifest, timing)는 정수 `schema_version`을 갖는다.
@@ -143,6 +145,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | DELETE `/projects/{pid}` | 없음 | 204 | 404, 409 `job_running` | 아니오 |
 | POST `/projects/{pid}/videos` | `CreateVideoRequest` | 201 Video revision 1 | 404, 422 `unknown_catalog_id` | 예 |
 | GET `/videos/{vid}` | 없음 | 200 `VideoView` | 404 | 아니오 |
+| GET `/videos/{vid}/caption-layout` | 선택 `font_id`, `extra_language`, `extra_font_id` | 200 `CaptionLayout` (글자 크기와 각 위치 조합의 `fits`) | 404 `not_found`, 422 `validation_failed` | 아니오 |
 | GET `/videos/{vid}/revisions` | `?cursor=&limit=` | 200 `{items: RevisionInfo[], next_cursor}`, `RevisionInfo`는 `{revision, created_at, created_by, change_id}` | 404 | 아니오 |
 | GET `/videos/{vid}/revisions/{n}` | 없음 | 200 Video | 404 | 아니오 |
 | POST `/videos/{vid}/draft` | `DraftRequest` | 202 Job `draft` | 409 `revision_conflict`, 503 `llm_auth_required` | 예 |

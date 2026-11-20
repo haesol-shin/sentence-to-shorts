@@ -26,6 +26,7 @@ from app.schemas.font_manifest import FontManifest
 from app.schemas.format_card import FormatCard, StoryStructure
 from app.schemas.job import Job
 from app.schemas.preset import Preset
+from app.schemas.settings import CaptionPosition
 from app.schemas.style_manifest import StyleManifest
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import RevisionInfo, Video, VideoBuild
@@ -348,6 +349,18 @@ class VideoView(ContractModel):
     build: VideoBuild
     open_jobs: list[EntityId]
     pending_change: EntityId | None
+
+
+class CaptionLayoutPair(ContractModel):
+    primary: CaptionPosition
+    extra: CaptionPosition
+    fits: bool
+
+
+class CaptionLayout(ContractModel):
+    primary_px: int
+    extra_px: int | None
+    pairs: list[CaptionLayoutPair]
 
 
 class Claim(ContractModel):
