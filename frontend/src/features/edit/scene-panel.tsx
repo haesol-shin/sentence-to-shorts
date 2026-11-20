@@ -16,6 +16,8 @@ import { useLocale, type Translate } from '@/shared/lib/i18n/locale';
 import { cn } from '@/shared/lib/utils';
 
 import type { CatalogItem } from './api';
+import { CaptionsTab } from './captions/captions-tab';
+import { SoundTab } from './sound/sound-tab';
 import { EDIT_TABS } from './tabs';
 import type { EditValue, SceneFieldPatch } from './edit-context';
 import {
@@ -25,6 +27,7 @@ import {
   estimatedSeconds,
   newLocalId,
   sceneNumber,
+  sceneVisualLabel,
   spanSelected,
   toggleSpan,
   wordSpans,
@@ -69,7 +72,7 @@ function PositionGrid({
           <button
             key={anchor}
             type="button"
-            aria-label={t(cell.labelKey)}
+            aria-label={sceneVisualLabel(t, 'position', anchor)}
             aria-pressed={active}
             data-anchor={anchor}
             disabled={disabled}
@@ -162,7 +165,7 @@ function SfxPicker({
       open={open}
       onOpenChange={onOpenChange}
       title={t('edit.sfx.title')}
-      description={t('edit.sfx.description')}
+      description={t('audio.sfx.rule')}
       label={t('edit.sfx.title')}
       actions={
         <DialogClose render={<Button variant="ghost">{t('edit.sfx.close')}</Button>} />
@@ -310,12 +313,16 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
   const expression = character?.expression_id ?? '';
   const anchor = character?.anchor ?? 'center';
   const cues = scene.visual?.sfx ?? [];
-  const backgroundItems = [
-    ...new Set([... (background === '' ? [] : [background]), ...(edit.styleOptions?.backgrounds ?? [])]),
-  ].map((id) => ({ value: id, label: labelFor(t, 'edit.background', id) }));
-  const expressionItems = [
-    ...new Set([... (expression === '' ? [] : [expression]), ...(edit.styleOptions?.expressions ?? [])]),
-  ].map((id) => ({ value: id, label: labelFor(t, 'edit.expression', id) }));
+  const backgrounds = edit.styleOptions?.backgrounds ?? [];
+  const expressions = edit.styleOptions?.expressions ?? [];
+  const backgroundIds = [...new Set([...(background ? [background] : []), ...backgrounds])];
+  const expressionIds = [...new Set([...(expression ? [expression] : []), ...expressions])];
+  const backgroundItems = backgroundIds.map((id) => ({
+    value: id, label: sceneVisualLabel(t, 'background', id, backgrounds),
+  }));
+  const expressionItems = expressionIds.map((id) => ({
+    value: id, label: sceneVisualLabel(t, 'expression', id, expressions),
+  }));
   const moveItems = edit.scenes.map((_, index) => ({
     value: String(index),
     label: t('edit.scene.number', { number: index + 1 }),
@@ -572,9 +579,9 @@ export function ScenePanel({ edit }: { edit: EditValue }) {
         </Tooltip>
       </div>
       {edit.tab === 'sound' ? (
-        <Notice>{t('edit.tabs.soundPending')}</Notice>
+        <SoundTab edit={edit} />
       ) : edit.tab === 'captions' ? (
-        <Notice>{t('edit.tabs.captionsPending')}</Notice>
+        <CaptionsTab edit={edit} />
       ) : edit.selectedScene === null ? (
         <EmptyState
           title={t('edit.scene.chooseTitle')}

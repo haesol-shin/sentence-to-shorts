@@ -11,7 +11,7 @@ import {
 
 import { ApiProblemError, retryJob } from '@/shared/api/client';
 
-import type { CatalogItem, ChangePlan, EditApi, Job, StyleOptions } from './api';
+import type { BgmChoice, CaptionMode, CatalogItem, ChangePlan, EditApi, Job, Mood, StyleOptions } from './api';
 import { createEditApi, EditApiError, sceneFieldOps } from './api';
 import {
   duplicateScene,
@@ -25,6 +25,7 @@ import {
   type Video,
   type VideoView,
 } from './model';
+import { EMPTY_BGM_WORK, useBgmWork, type BgmWork } from './sound/use-bgm-work';
 
 export type EditPhase = 'idle' | 'stills' | 'video' | 'done';
 export type { SceneFieldPatch } from './model';
@@ -56,6 +57,8 @@ interface ReorderReview {
   revision: number;
 }
 
+type BgmStatus = 'loading' | 'ready' | 'failed';
+
 interface EditState {
   view: VideoView | null;
   loading: boolean;
@@ -77,6 +80,10 @@ interface EditState {
   busy: boolean;
   sfx: readonly CatalogItem[];
   voices: readonly CatalogItem[];
+  fonts: readonly CatalogItem[];
+  bgm: readonly BgmChoice[];
+  bgmStatus: BgmStatus;
+  captionModes: readonly CaptionMode[] | null;
   style: StyleOptions | null;
   preview: PreviewState;
   actionError: string | null;
@@ -103,6 +110,10 @@ const INITIAL: EditState = {
   busy: false,
   sfx: [],
   voices: [],
+  fonts: [],
+  bgm: [],
+  bgmStatus: 'loading',
+  captionModes: null,
   style: null,
   preview: { job: null, stills: {}, loading: false, error: null },
   actionError: null,
@@ -128,7 +139,15 @@ type EditAction =
   | { type: 'chat-job'; job: Job | null }
   | { type: 'message'; message: ChatMessage }
   | { type: 'sending'; value: boolean }
-  | { type: 'catalog'; sfx: readonly CatalogItem[]; voices: readonly CatalogItem[]; style: StyleOptions | null }
+  | {
+      type: 'catalog';
+      sfx: readonly CatalogItem[];
+      voices: readonly CatalogItem[];
+      fonts: readonly CatalogItem[];
+      style: StyleOptions | null;
+    }
+  | { type: 'bgm'; status: BgmStatus; tracks?: readonly BgmChoice[] }
+  | { type: 'caption-modes'; modes: readonly CaptionMode[] | null }
   | { type: 'action-error'; error: string | null }
   | { type: 'preview'; planId: string; preview: Partial<PreviewState> };
 
@@ -227,7 +246,17 @@ function reducer(state: EditState, action: EditAction): EditState {
     case 'sending':
       return { ...state, sending: action.value };
     case 'catalog':
-      return { ...state, sfx: action.sfx, voices: action.voices, style: action.style };
+      return {
+        ...state,
+        sfx: action.sfx,
+        voices: action.voices,
+        fonts: action.fonts,
+        style: action.style,
+      };
+    case 'bgm':
+      return { ...state, bgmStatus: action.status, bgm: action.tracks ?? state.bgm };
+    case 'caption-modes':
+      return { ...state, captionModes: action.modes };
     case 'action-error':
       return { ...state, actionError: action.error };
     case 'preview':
@@ -243,6 +272,22 @@ export interface SceneProgress {
   state: 'done' | 'running' | 'waiting';
 }
 
+/** One settings value the sound and caption tabs write, as a path under the video. */
+export interface SettingChange {
+  path: string;
+  value: unknown;
+}
+
+/** What the sound tab needs from the server besides the video itself. */
+export interface EditAudio {
+  previewUrl: (kind: 'voice' | 'bgm', id: string) => Promise<string | null>;
+  uploadBgm: (file: File, mood: Mood) => Promise<Job>;
+  generateBgm: (mood: Mood, instruction: string | null) => Promise<Job>;
+  readJob: (id: string) => Promise<Job>;
+  cancelJob: (id: string) => Promise<Job>;
+  reloadBgm: () => Promise<readonly BgmChoice[]>;
+}
+
 export interface EditValue {
   active: boolean;
   video: Video | null;
@@ -255,6 +300,7 @@ export interface EditValue {
   loading: boolean;
   error: string | null;
   busy: boolean;
+  settingsBusy: boolean;
   tab: string;
   canUndo: boolean;
   canStartVideo: boolean;
@@ -276,6 +322,11 @@ export interface EditValue {
   sending: boolean;
   sfx: readonly CatalogItem[];
   voices: readonly CatalogItem[];
+  fonts: readonly CatalogItem[];
+  bgm: readonly BgmChoice[];
+  bgmStatus: BgmStatus;
+  bgmWork: BgmWork;
+  captionOptions: { modes: readonly CaptionMode[]; fonts: readonly string[] } | null;
   styleOptions: StyleOptions | null;
   totalSeconds: number;
   progress: { done: number; total: number; scenes: SceneProgress[] };
@@ -287,6 +338,8 @@ export interface EditValue {
   applyLine: (sceneId: string, lineId: string, display: string, speech: string) => void;
   addLine: (sceneId: string, display: string, speech: string) => void;
   addSfx: (sceneId: string, item: CatalogItem) => void;
+  applySettings: (changes: readonly SettingChange[]) => void;
+  audio: EditAudio;
   cancelChat: () => void;
   requestReorder: (order: readonly string[]) => void;
   requestReorderTo: (sceneId: string, toIndex: number) => void;
@@ -556,12 +609,15 @@ export function EditProvider({
         const styleRef = view.video.settings.visual.art_style;
         const styleId = typeof styleRef?.id === 'string' ? styleRef.id : '';
         const themeId = typeof view.video.settings.visual.theme_id === 'string' ? view.video.settings.visual.theme_id : '';
-        const [sfx, voices, style] = await Promise.all([
+        const [sfx, voices, fonts, style] = await Promise.all([
           api.listCatalog('sfx', videoId).catch(() => []),
           api.listCatalog('voice', videoId).catch(() => []),
+          api.listCatalog('font', videoId).catch(() => []),
           api.styleOptions(styleId, themeId).catch(() => null),
         ]);
-        if (!cancelled && epoch === videoEpoch.current) dispatch({ type: 'catalog', sfx, voices, style });
+        if (!cancelled && epoch === videoEpoch.current) {
+          dispatch({ type: 'catalog', sfx, voices, fonts, style });
+        }
       })
       .catch(() => {
         if (!cancelled && epoch === videoEpoch.current) dispatch({ type: 'load-failed' });
@@ -790,7 +846,41 @@ export function EditProvider({
     (stage) => stage.stage === 'clip' && stage.state === 'running',
   );
 
-  const value = useMemo<EditValue>(() => {
+  const loadedVideo = state.view?.video;
+  const loadedVideoId = loadedVideo?.id;
+  const layoutId = loadedVideo?.settings.format.layout?.id;
+  const bgmRequest = useRef(0);
+  const reloadBgm = useCallback(async () => {
+    if (!active || videoId === null || videoId !== loadedVideoId) return [];
+    const epoch = videoEpoch.current;
+    const request = ++bgmRequest.current;
+    const current = () => epoch === videoEpoch.current && request === bgmRequest.current;
+    dispatch({ type: 'bgm', status: 'loading' });
+    try {
+      const tracks = await api.listBgm(videoId);
+      if (current()) dispatch({ type: 'bgm', status: 'ready', tracks });
+      return tracks;
+    } catch (failure) {
+      if (current()) dispatch({ type: 'bgm', status: 'failed' });
+      throw failure;
+    }
+  }, [active, api, loadedVideoId, videoId]);
+
+  useEffect(() => {
+    void reloadBgm().catch(() => { /* The catalog state carries the failure. */ });
+  }, [reloadBgm]);
+
+  useEffect(() => {
+    if (!active || loadedVideoId !== videoId) return;
+    let current = true;
+    dispatch({ type: 'caption-modes', modes: null });
+    void api.templateCaptionModes(layoutId ?? '').then((modes) => {
+      if (current) dispatch({ type: 'caption-modes', modes });
+    }).catch(() => { /* No compatibility data means no new selection. */ });
+    return () => { current = false; };
+  }, [active, api, layoutId, loadedVideoId, videoId]);
+
+  const value = useMemo<Omit<EditValue, 'bgmWork'>>(() => {
     const progressScenes: SceneProgress[] = scenes.map((scene, index) => ({
       id: scene.id,
       state:
@@ -904,6 +994,38 @@ export function EditProvider({
       };
       const cues = [...(scene.visual?.sfx ?? []), cue];
       submitChange([{ op: 'set', path: `/scenes/${sceneId}/visual/sfx`, value: cues, origin: 'user' }], null, sceneId);
+    };
+
+    const settingsBusy = state.busy || state.sending || state.pending !== null ||
+      state.reorder !== null || chatQueue.current.length > 0;
+    const applySettings = (changes: readonly SettingChange[]) => {
+      if (state.view === null || changes.length === 0) return;
+      if (settingsBusy) return;
+      submitChange(
+        changes.map((change) => ({
+          op: 'set' as const,
+          path: change.path,
+          value: change.value,
+          origin: 'user' as const,
+        })),
+        null,
+        null,
+      );
+    };
+
+    const audio: EditAudio = {
+      previewUrl: (kind, id) => api.previewUrl(kind, id),
+      uploadBgm: (file, mood) => {
+        if (state.view === null) return Promise.reject(new EditApiError('not_found', 404, 'video'));
+        return api.uploadBgm(state.view.video.project_id, file, mood);
+      },
+      generateBgm: (mood, instruction) => {
+        if (state.view === null) return Promise.reject(new EditApiError('not_found', 404, 'video'));
+        return api.createBgmCode(state.view.video.project_id, mood, instruction);
+      },
+      readJob: (id) => api.readJob(id),
+      cancelJob: (id) => api.cancelJob(id),
+      reloadBgm,
     };
 
     const requestReorder = (order: readonly string[]) => {
@@ -1129,6 +1251,7 @@ export function EditProvider({
       loading: state.loading,
       error: state.error,
       busy: state.busy,
+      settingsBusy,
       tab: state.tab,
       canUndo:
         state.view !== null &&
@@ -1158,6 +1281,12 @@ export function EditProvider({
       sending: state.sending,
       sfx: state.sfx,
       voices: state.voices,
+      fonts: state.fonts,
+      bgm: state.bgm,
+      bgmStatus: state.bgmStatus,
+      captionOptions: state.captionModes === null || state.style === null
+        ? null
+        : { modes: state.captionModes, fonts: state.style.fonts },
       styleOptions: state.style,
       totalSeconds:
         state.view !== null && state.view.build.estimated_ms > 0
@@ -1172,6 +1301,8 @@ export function EditProvider({
       applyLine,
       addLine,
       addSfx,
+      applySettings,
+      audio,
       requestReorder,
       requestReorderTo,
       confirmReorder: () => {
@@ -1208,6 +1339,7 @@ export function EditProvider({
     logChatResult,
     phase,
     refresh,
+    reloadBgm,
     rememberSelection,
     scenes,
     selectedScene,
@@ -1220,7 +1352,8 @@ export function EditProvider({
     videoId,
   ]);
 
-  return <EditContext.Provider value={value}>{children}</EditContext.Provider>;
+  const bgmWork = useBgmWork(value);
+  return <EditContext.Provider value={{ ...value, bgmWork }}>{children}</EditContext.Provider>;
 }
 
 export function useEdit(): EditValue {
@@ -1247,6 +1380,7 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   loading: false,
   error: null,
   busy: false,
+  settingsBusy: false,
   tab: 'scenes',
   canUndo: false,
   canStartVideo: false,
@@ -1268,6 +1402,11 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   sending: false,
   sfx: [],
   voices: [],
+  fonts: [],
+  bgm: [],
+  bgmStatus: 'loading',
+  bgmWork: EMPTY_BGM_WORK,
+  captionOptions: null,
   styleOptions: null,
   totalSeconds: 0,
   progress: { done: 0, total: 0, scenes: [] },
@@ -1279,6 +1418,15 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   applyLine: () => undefined,
   addLine: () => undefined,
   addSfx: () => undefined,
+  applySettings: () => undefined,
+  audio: {
+    previewUrl: () => Promise.resolve(null),
+    uploadBgm: () => Promise.reject(new Error('no video is open')),
+    generateBgm: () => Promise.reject(new Error('no video is open')),
+    readJob: () => Promise.reject(new Error('no video is open')),
+    cancelJob: () => Promise.reject(new Error('no video is open')),
+    reloadBgm: () => Promise.resolve([]),
+  },
   requestReorder: () => undefined,
   requestReorderTo: () => undefined,
   confirmReorder: () => undefined,

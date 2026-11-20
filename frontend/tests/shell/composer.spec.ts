@@ -244,23 +244,23 @@ test('test_10a_bgm_files_keep_their_kind_and_all_selected_items', async ({ page 
   await expect(chips.first()).toContainText('BGM');
 });
 
+/**
+ * The first screen is centred, so the cards and recent projects arriving below
+ * the input move it. Reading the four boxes in one pass keeps them on one
+ * frame; separate reads could straddle the move and report a row as tall as it.
+ */
 async function buttonRowHeight(composer: Locator): Promise<number> {
-  const parts = ['composer-plus', 'composer-send'].map((slot) =>
-    composer.locator(`[data-slot="${slot}"]`),
-  );
-  for (const kind of ['language', 'duration']) {
-    parts.push(composer.locator(`[data-slot="composer-action"][data-kind="${kind}"]`));
-  }
-  const tops: number[] = [];
-  const bottoms: number[] = [];
-  for (const part of parts) {
-    const box = await part.boundingBox();
-    expect(box).not.toBeNull();
-    if (box === null) continue;
-    tops.push(box.y);
-    bottoms.push(box.y + box.height);
-  }
-  return Math.max(...bottoms) - Math.min(...tops);
+  return composer.evaluate((root) => {
+    const parts = [
+      '[data-slot="composer-plus"]',
+      '[data-slot="composer-send"]',
+      '[data-slot="composer-action"][data-kind="language"]',
+      '[data-slot="composer-action"][data-kind="duration"]',
+    ].map((selector) => root.querySelector(selector));
+    if (parts.some((part) => part === null)) throw new Error('a button row part is missing');
+    const boxes = parts.map((part) => (part as Element).getBoundingClientRect());
+    return Math.max(...boxes.map((box) => box.bottom)) - Math.min(...boxes.map((box) => box.top));
+  });
 }
 
 test('test_10a_the_button_row_stays_on_one_line_so_the_box_keeps_its_height', async ({ page }) => {
