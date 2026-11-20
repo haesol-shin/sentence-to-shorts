@@ -9,10 +9,21 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { ArrowUp, FileText, Film, Link2, Music, Plus, X } from 'lucide-react';
+import { ArrowUp, FileText, Film, Link2, Music, Plus, Square, X } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
-import { chooseConcept, loadConceptDeployment, useConcept, sendConcept, setConceptDraft } from '@/features/concept/store';
+import { chatProposal } from '@/features/concept/model';
+import {
+  applyConceptPlan,
+  chooseConcept,
+  getConceptSnapshot,
+  loadConceptDeployment,
+  sendConcept,
+  setConceptDraft,
+  useConcept,
+} from '@/features/concept/store';
+import { useEditOptional } from '@/features/edit/edit-context';
+import { sceneNumber } from '@/features/edit/model';
 import { ChangeReview } from '@/features/concept/concept-screen';
 import {
   MAX_TEXT_ATTACHMENTS,
@@ -25,6 +36,8 @@ import {
   type Deployment,
 } from '@/features/concept/attachments';
 import type { Attachment } from '@/features/concept/types';
+import { sceneNumber as scriptSceneNumber } from '@/features/script/model';
+import { applyTone, clearTarget as clearScriptTarget, dismissTone, useScript } from '@/features/script/store';
 import { LANGUAGES } from '@/shared/lib/i18n/catalog';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { useLoad } from '@/shared/lib/use-load';
@@ -33,6 +46,8 @@ import { Chip } from '@/shared/ui/chip';
 import { IconButton } from '@/shared/ui/icon-button';
 import { Tooltip } from '@/shared/ui/tooltip';
 import { cn } from '@/shared/lib/utils';
+
+import { useShellView } from './shell-view';
 
 /** One line of the text field; ten of them is the tallest the box may grow. */
 const LINE_HEIGHT = 24;
@@ -62,12 +77,16 @@ interface ComposerBoxProps {
   label: string;
   placeholder: string;
   sendLabel: string;
+  cancelLabel?: string;
+  onCancel?: () => void;
+  cancelActive?: boolean;
   value: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
   onSubmit?: ComposerSubmit;
   card?: { label: string } | null;
   onClearCard?: () => void;
+  targetChip?: { label: string; removeLabel: string; onRemove: () => void } | null;
   options?: ReactNode;
   language?: Language;
   duration?: number;
@@ -200,12 +219,16 @@ function ComposerBox({
   label,
   placeholder,
   sendLabel,
+  cancelLabel,
+  onCancel,
+  cancelActive = false,
   value,
   disabled = false,
   onChange,
   onSubmit,
   card = null,
   onClearCard,
+  targetChip = null,
   options,
   language,
   duration,
@@ -490,8 +513,22 @@ function ComposerBox({
         className,
       )}
     >
-      {card === null && attachments.length === 0 ? null : (
+      {card === null && targetChip === null && attachments.length === 0 ? null : (
         <div data-slot="composer-attachments" className="flex min-w-0 flex-col items-start gap-1">
+          {targetChip === null ? null : (
+            <Chip data-slot="composer-target" data-kind="scene" className="h-9 max-w-full">
+              <span className="truncate">{targetChip.label}</span>
+              <button
+                type="button"
+                aria-label={targetChip.removeLabel}
+                disabled={submitting}
+                onClick={targetChip.onRemove}
+                className="-mr-1 inline-flex size-6 shrink-0 items-center justify-center rounded-[var(--radius-capsule)] hover:bg-[var(--surface-sunken)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+              >
+                <X aria-hidden size={14} />
+              </button>
+            </Chip>
+          )}
           {card === null ? null : (
             <Chip data-slot="composer-action" data-kind="card" className="max-w-full">
               <span className="truncate">{t('shell.first.cardChip', { label: card.label })}</span>
@@ -716,27 +753,45 @@ function ComposerBox({
         )}
 
         <div data-slot="composer-send" data-hit={TOUCH_TARGET} className="ml-auto shrink-0">
-          <IconButton
-            label={sendLabel}
-            disabled={!canSend}
-            onClick={() => void submit()}
-            style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
-            className="p-0 hover:bg-transparent disabled:hover:bg-transparent"
-          >
-            <span
-              aria-hidden
-              data-slot="composer-send-visual"
-              data-size={SEND_VISUAL}
-              className={cn(
-                'inline-flex size-8 items-center justify-center rounded-[var(--radius-capsule)]',
-                canSend
-                  ? 'bg-[var(--text-strong)] text-[var(--surface)]'
-                  : 'bg-[var(--surface-sunken)] text-[var(--text-disabled)]',
-              )}
+          {onCancel !== undefined && (cancelActive || disabled) ? (
+            <IconButton
+              label={cancelLabel ?? sendLabel}
+              onClick={onCancel}
+              style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+              className="p-0 hover:bg-transparent"
             >
-              <ArrowUp size={18} />
-            </span>
-          </IconButton>
+              <span
+                aria-hidden
+                data-slot="composer-send-visual"
+                data-size={SEND_VISUAL}
+                className="inline-flex size-8 items-center justify-center rounded-[var(--radius-capsule)] bg-[var(--text-strong)] text-[var(--surface)]"
+              >
+                <Square size={16} fill="currentColor" />
+              </span>
+            </IconButton>
+          ) : (
+            <IconButton
+              label={sendLabel}
+              disabled={!canSend}
+              onClick={() => void submit()}
+              style={{ width: TOUCH_TARGET, height: TOUCH_TARGET }}
+              className="p-0 hover:bg-transparent disabled:hover:bg-transparent"
+            >
+              <span
+                aria-hidden
+                data-slot="composer-send-visual"
+                data-size={SEND_VISUAL}
+                className={cn(
+                  'inline-flex size-8 items-center justify-center rounded-[var(--radius-capsule)]',
+                  canSend
+                    ? 'bg-[var(--text-strong)] text-[var(--surface)]'
+                    : 'bg-[var(--surface-sunken)] text-[var(--text-disabled)]',
+                )}
+              >
+                <ArrowUp size={18} />
+              </span>
+            </IconButton>
+          )}
         </div>
       </div>
 
@@ -799,6 +854,141 @@ export function Composer({
 }
 
 /**
+ * The edit conversation. The scene chip is the request target; clearing it
+ * sends the sentence to the whole video. A whole-video sentence that changes
+ * the tone waits for the user's decision before the concept's tone changes.
+ * The input stays active while a video job runs, because the job belongs to
+ * the top bar, not the composer.
+ */
+function EditComposer({
+  reason,
+  rest,
+}: {
+  reason?: string;
+  rest: Omit<ComposerBoxProps, 'value' | 'onChange' | 'onSubmit' | 'disabled'>;
+}) {
+  const { t } = useLocale();
+  const edit = useEditOptional();
+  const [value, setValue] = useState('');
+  const concept = useConcept();
+  const [toneRequest, setToneRequest] = useState<string | null>(null);
+  const [toneFailed, setToneFailed] = useState(false);
+  const decideTone = async (change: boolean) => {
+    const text = toneRequest;
+    setToneRequest(null);
+    if (!change || text === null) return;
+    setToneFailed(false);
+    try {
+      await sendConcept(text);
+      if (getConceptSnapshot()?.pending?.status === 'proposed') await applyConceptPlan();
+    } catch {
+      setToneFailed(true);
+    }
+  };
+  if (edit === null || edit.video === null) {
+    return (
+      <Tooltip label={reason ?? t('concept.composer.noSession')} side="top" className={cn('w-full')}>
+        <ComposerBox
+          label={rest.label}
+          placeholder={rest.placeholder}
+          sendLabel={rest.sendLabel}
+          value=""
+          disabled
+        />
+      </Tooltip>
+    );
+  }
+  const number = edit.targetId === null ? 0 : sceneNumber(edit.video, edit.targetId);
+  return (
+    <div className="flex w-full flex-col gap-2">
+      {toneRequest === null ? null : (
+        <div className="flex flex-col gap-2">
+          <p>{t('edit.tone.preview')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void decideTone(true)}>{t('edit.tone.applyAll')}</Button>
+            <Button variant="ghost" onClick={() => void decideTone(false)}>{t('edit.tone.keepAll')}</Button>
+          </div>
+        </div>
+      )}
+      {toneFailed ? <p role="alert">{t('edit.tone.failed')}</p> : null}
+      <Composer
+        {...rest}
+        label={rest.label}
+        placeholder={number > 0 ? t('edit.composer.placeholderScene', { number }) : t('edit.composer.placeholder')}
+        sendLabel={rest.sendLabel}
+        cancelLabel={t('edit.composer.cancel')}
+        onCancel={edit.chatBusy ? edit.cancelChat : undefined}
+        cancelActive={edit.chatBusy}
+        value={value}
+        onChange={setValue}
+        onSubmit={() => {
+          const text = value.trim();
+          if (text === '') return;
+          const changesTone =
+            number === 0 &&
+            concept !== null &&
+            chatProposal(concept.document.settings, text, null).ops.some((op) => op.path === '/format/register');
+          if (changesTone) {
+            setToneFailed(false);
+            setToneRequest(text);
+          } else {
+            edit.sendMessage(text);
+          }
+          setValue('');
+        }}
+        targetChip={
+          number > 0
+            ? {
+                label: t('edit.chat.target', { number }),
+                removeLabel: t('edit.chat.targetRemove'),
+                onRemove: edit.clearTarget,
+              }
+            : null
+        }
+      />
+    </div>
+  );
+}
+
+function ScriptComposer({
+  reason,
+  rest,
+}: {
+  reason?: string;
+  rest: Omit<ComposerBoxProps, 'value' | 'onChange' | 'onSubmit' | 'disabled'>;
+}) {
+  const { t } = useLocale();
+  const script = useScript();
+  const number = script?.targetSceneId == null ? null : scriptSceneNumber(script.document, script.targetSceneId);
+  return (
+    <div className="flex w-full flex-col gap-2">
+      {script?.tone == null ? null : (
+        <div className="flex flex-col gap-2">
+          <p>{t('script.tone.preview')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
+            <Button variant="ghost" onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
+          </div>
+        </div>
+      )}
+      <Tooltip label={reason ?? t('shell.stage.composerReason')} side="top" className="w-full">
+        <ComposerBox
+          {...rest}
+          value=""
+          disabled
+          placeholder={number === null ? rest.placeholder : t('edit.composer.placeholderScene', { number })}
+          targetChip={number === null ? null : {
+            label: t('edit.chat.target', { number }),
+            removeLabel: t('edit.chat.targetRemove'),
+            onRemove: clearScriptTarget,
+          }}
+        />
+      </Tooltip>
+    </div>
+  );
+}
+
+/**
  * The conversation rail. With a live concept it sends into that same concept
  * state; only when no video session is open does it stay a named placeholder.
  */
@@ -809,8 +999,16 @@ export function PlaceholderComposer({
   reason?: string;
 }) {
   const { t } = useLocale();
+  const view = useShellView();
   const snapshot = useConcept();
   const deployment = useDeployment();
+
+  if (view === 'edit') {
+    return <EditComposer reason={reason} rest={rest} />;
+  }
+  if (view === 'script') {
+    return <ScriptComposer reason={reason} rest={rest} />;
+  }
 
   if (snapshot === null) {
     return (

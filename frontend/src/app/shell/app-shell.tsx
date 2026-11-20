@@ -1,8 +1,11 @@
 import { useEffect, useState, type ReactNode, type UIEvent } from 'react';
 
+import { EditChatHistory } from '@/features/edit/chat-history';
 import { StageScrollProvider } from '@/shared/lib/stage-scroll';
 import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
+import { EditBridge } from './edit-bridge';
+import { ShellViewProvider } from './shell-view';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
 import { type Stage, type View } from './shell-config';
@@ -17,6 +20,7 @@ const SCROLLED_AT = 24;
  */
 export function AppShell({
   view,
+  videoId = null,
   brand,
   onNewVideo,
   onStage,
@@ -27,6 +31,7 @@ export function AppShell({
   children,
 }: {
   view: View;
+  videoId?: string | null;
   brand: ReactNode;
   onNewVideo: () => void;
   onStage: (stage: Stage) => void;
@@ -51,51 +56,73 @@ export function AppShell({
   };
 
   return (
-    <main
-      data-screen="app"
-      className="flex w-full overflow-hidden bg-[var(--surface)]"
-      // A phone keyboard covers the bottom of the layout viewport without
-      // resizing it, so the shell gives up exactly the covered height. The dock
-      // then ends at the top of the keys instead of riding over the stage.
-      style={{ height: keyboardOpen ? `calc(100dvh - ${inset}px)` : '100dvh' }}
-    >
-      {announcer}
-      <Sidebar view={view} onNewVideo={onNewVideo} />
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <TopBar
-          brand={brand}
-          view={view}
-          onStage={onStage}
-          status={keyboardOpen ? jobStatus : null}
-        />
-        {/* While the keys are up the phone shows the sheet: step, panel and input. */}
-        {keyboardOpen ? null : header}
-        <div className="flex min-h-0 flex-1">
-          {stage !== null && composer !== null ? (
-            <div
-              data-slot="conversation"
-              className="hidden shrink-0 flex-col justify-end p-3 md:flex"
-              style={{ aspectRatio: 'var(--layout-conversation-aspect)' }}
-            >
-              {composer}
+    <ShellViewProvider value={view}>
+      <EditBridge active={view === 'edit'} videoId={videoId}>
+        <main
+          data-screen="app"
+          className="flex w-full overflow-hidden bg-[var(--surface)]"
+          // A phone keyboard covers the bottom of the layout viewport without
+          // resizing it, so the shell gives up exactly the covered height. The dock
+          // then ends at the top of the keys instead of riding over the stage.
+          style={{ height: keyboardOpen ? `calc(100dvh - ${inset}px)` : '100dvh' }}
+        >
+          {announcer}
+          <Sidebar view={view} onNewVideo={onNewVideo} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+            <TopBar
+              brand={brand}
+              view={view}
+              onStage={onStage}
+              status={keyboardOpen ? jobStatus : null}
+            />
+            {/* While the keys are up the phone shows the sheet: step, panel and input. */}
+            {keyboardOpen ? null : header}
+            <div className="flex min-h-0 flex-1">
+              {stage !== null && composer !== null ? (
+                <div
+                  data-slot="conversation"
+                  className={
+                    view === 'edit'
+                      ? 'hidden min-w-[260px] shrink flex-col justify-end p-3 md:flex'
+                      : 'hidden shrink-0 flex-col justify-end p-3 md:flex'
+                  }
+                  style={{
+                    width:
+                      view === 'edit'
+                        ? 'min(calc((100dvh - var(--layout-topbar-h) - 40px) * 0.477), 26vw)'
+                        : undefined,
+                    aspectRatio: 'var(--layout-conversation-aspect)',
+                  }}
+                >
+                  {view === 'edit' ? (
+                    <div className="flex min-h-0 flex-1 flex-col gap-2">
+                      <EditChatHistory />
+                      {composer}
+                    </div>
+                  ) : (
+                    composer
+                  )}
+                </div>
+              ) : null}
+              <section data-slot="stage" className="flex min-h-0 min-w-0 flex-1 flex-col">
+                <div
+                  key={view === 'edit' ? 'edit' : 'stage'}
+                  data-slot="stage-scroll"
+                  className="flex min-h-0 flex-1 flex-col overflow-y-auto"
+                  onScroll={onScroll}
+                >
+                  <StageScrollProvider scrolled={scrolled}>{children}</StageScrollProvider>
+                </div>
+                {stage !== null && composer !== null ? (
+                  <div data-slot="composer-dock" className="shrink-0 px-3 pb-3 md:hidden">
+                    {composer}
+                  </div>
+                ) : null}
+              </section>
             </div>
-          ) : null}
-          <section data-slot="stage" className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <div
-              data-slot="stage-scroll"
-              className="flex min-h-0 flex-1 flex-col overflow-y-auto"
-              onScroll={onScroll}
-            >
-              <StageScrollProvider scrolled={scrolled}>{children}</StageScrollProvider>
-            </div>
-            {stage !== null && composer !== null ? (
-              <div data-slot="composer-dock" className="shrink-0 px-3 pb-3 md:hidden">
-                {composer}
-              </div>
-            ) : null}
-          </section>
-        </div>
-      </div>
-    </main>
+          </div>
+        </main>
+      </EditBridge>
+    </ShellViewProvider>
   );
 }

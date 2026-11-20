@@ -21,7 +21,6 @@ import {
   dismissRewrite,
   editLine,
   ensureScript,
-  getScriptSnapshot,
   moveScene,
   moveSceneTo,
   retryRewrite,
@@ -42,7 +41,7 @@ import {
   REGISTERS,
   textLength,
 } from './model';
-import type { Register, TargetDuration, ToneSceneReview } from './types';
+import type { Register, ScriptDraftState, TargetDuration, ToneSceneReview } from './types';
 import './script.css';
 
 function LineBox({
@@ -94,12 +93,16 @@ function LineBox({
  */
 export function ScriptScreen({
   videoId = null,
+  serverVideoId = null,
+  draftState = 'ready',
   topic = null,
   userScript = null,
   language = 'ko',
   onNext,
 }: {
   videoId?: string | null;
+  serverVideoId?: string | null;
+  draftState?: ScriptDraftState;
   topic?: string | null;
   userScript?: string | null;
   /** The video's language; the interface language is not the session. */
@@ -111,10 +114,18 @@ export function ScriptScreen({
   const loadFailed = useScriptLoadFailed();
   const cardRefs = useRef(new Map<string, HTMLLIElement>());
   const noteId = useId();
+  const mounted = useRef(false);
 
   useEffect(() => {
-    void ensureScript(language, { id: videoId, topic, script: userScript });
-  }, [language, videoId, topic, userScript]);
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  useEffect(() => {
+    if (draftState === 'ready') {
+      void ensureScript(language, { id: videoId, topic, script: userScript }, serverVideoId);
+    }
+  }, [draftState, language, videoId, topic, userScript, serverVideoId]);
 
   const highlighted = snapshot?.highlightedSceneId ?? null;
   const focusToken = snapshot?.focusToken ?? 0;
@@ -125,7 +136,8 @@ export function ScriptScreen({
     cardRefs.current.get(highlighted)?.scrollIntoView?.({ block: 'nearest' });
   }, [highlighted, focusToken]);
 
-  if (snapshot === null) {
+  if (draftState !== 'ready' || snapshot === null ||
+      (videoId !== null && snapshot.document.id !== videoId)) {
     return (
       <section
         data-slot="stage-panel"
@@ -133,7 +145,7 @@ export function ScriptScreen({
         aria-label={t('script.title')}
         className="script-screen script-screen--empty"
       >
-        {loadFailed ? (
+        {draftState === 'failed' || (draftState === 'ready' && loadFailed) ? (
           <p role="alert" className="script-message">
             {t('script.error.load')}
           </p>
@@ -168,12 +180,11 @@ export function ScriptScreen({
           : t('script.hint');
 
   const goNext = async () => {
-    if (confirmed) {
+    if (serverVideoId === null && confirmed) {
       onNext?.();
       return;
     }
-    await confirmScript();
-    if (getScriptSnapshot()?.confirmed === true) {
+    if (await confirmScript() && mounted.current) {
       onNext?.();
     }
   };

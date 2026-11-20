@@ -61,7 +61,7 @@ export function sceneNumber(document: ScriptDocument, sceneId: string): number |
   return index < 0 ? null : index + 1;
 }
 
-export function isConfirmed(document: ScriptDocument): boolean {
+export function isConfirmed(document: Pick<ScriptDocument, 'stage'>): boolean {
   return document.stage === 'script_confirmed' || document.stage === 'scenes_confirmed';
 }
 

@@ -1,0 +1,568 @@
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import type { ReactNode } from 'react';
+import { afterEach, beforeEach, expect, test } from 'vitest';
+
+import { PlaceholderComposer } from '@/app/shell/composer';
+import { ShellViewProvider } from '@/app/shell/shell-view';
+import { createMockEditApi, stageRecord, type Job } from '@/features/edit/api';
+import { EditChatHistory } from '@/features/edit/chat-history';
+import { EditProvider, useEdit } from '@/features/edit/edit-context';
+import { EditScreen } from '@/features/edit/edit-screen';
+import { EditNextAction } from '@/features/edit/next-action';
+import { StillBuild } from '@/features/edit/still-build';
+import { EditTopBarStatus } from '@/features/edit/top-bar-status';
+import { LocaleProvider } from '@/shared/lib/i18n/locale';
+
+import { makeView } from './fixtures';
+
+afterEach(() => {
+  cleanup();
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+});
+
+beforeEach(() => {
+  window.localStorage.clear();
+  window.sessionStorage.clear();
+});
+
+const view = makeView();
+
+function wrap(children: ReactNode, api = createMockEditApi(view)) {
+  return render(
+    <LocaleProvider language="ko" setLanguage={() => undefined}>
+      <EditProvider active videoId="v_test" api={api}>
+        {children}
+      </EditProvider>
+    </LocaleProvider>,
+  );
+}
+
+async function renderScreen() {
+  wrap(<EditScreen />);
+  await screen.findByRole('heading', { name: '장면 1' });
+  return document.querySelector<HTMLElement>('[data-slot="scene-column"]') as HTMLElement;
+}
+
+function EditActions() {
+  const edit = useEdit();
+  return (
+    <>
+      <EditNextAction />
+      <EditTopBarStatus />
+      <StillBuild edit={edit} />
+    </>
+  );
+}
+
+function openComposer(api = createMockEditApi(view), children?: ReactNode) {
+  return wrap(
+    <ShellViewProvider value="edit">
+      <div className="flex h-96 flex-col">
+        <EditChatHistory />
+        <PlaceholderComposer label="편집 요청" placeholder="편집 요청" sendLabel="보내기" />
+      </div>
+      {children}
+    </ShellViewProvider>,
+    api,
+  );
+}
+
+async function startVideo() {
+  const action = await screen.findByRole('button', { name: '영상 만들기' });
+  await waitFor(() => expect((action as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(action);
+  fireEvent.click(
+    within(screen.getByRole('dialog', { name: '장면 확인' })).getByRole('button', {
+      name: '영상 만들기',
+    }),
+  );
+}
+
+test('test_10a_the_edit_screen_lists_the_scene_cards', async () => {
+  const column = await renderScreen();
+  expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(3);
+  expect(column.querySelector('[data-slot="scene-still"]')).not.toBeNull();
+  expect(screen.getByRole('heading', { name: '미리보기' })).toBeTruthy();
+  expect(screen.getAllByText('첫 줄').length).toBeGreaterThan(0);
+});
+
+test('test_23_the_position_grid_shows_nine_places_and_undoes', async () => {
+  await renderScreen();
+  const group = screen.getByRole('group', { name: '위치' });
+  expect(within(group).getAllByRole('button')).toHaveLength(9);
+  expect(within(group).getByRole('button', { name: '가운데 아래' }).getAttribute('aria-pressed')).toBe('true');
+
+  fireEvent.click(within(group).getByRole('button', { name: '왼쪽 위' }));
+  await waitFor(() =>
+    expect(within(group).getByRole('button', { name: '왼쪽 위' }).getAttribute('aria-pressed')).toBe('true'),
+  );
+  await waitFor(() => expect((screen.getByRole('button', { name: '되돌리기' }) as HTMLButtonElement).disabled).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+  await waitFor(() =>
+    expect(within(group).getByRole('button', { name: '가운데 아래' }).getAttribute('aria-pressed')).toBe('true'),
+  );
+});
+
+test('test_23_undo_applies_only_once', async () => {
+  await renderScreen();
+  const undo = screen.getByRole('button', { name: '되돌리기' }) as HTMLButtonElement;
+  expect(undo.disabled).toBe(true);
+  fireEvent.click(within(screen.getByRole('group', { name: '위치' })).getByRole('button', { name: '왼쪽 위' }));
+  await waitFor(() => expect(undo.disabled).toBe(false));
+  fireEvent.click(undo);
+  await waitFor(() => expect(undo.disabled).toBe(true));
+  expect(within(screen.getByRole('group', { name: '위치' })).getByRole('button', { name: '가운데 아래' }).getAttribute('aria-pressed')).toBe('true');
+});
+
+test('test_23_a_current_scene_change_does_not_leave_an_unseen_dot', async () => {
+  const column = await renderScreen();
+  fireEvent.click(screen.getByRole('button', { name: '왼쪽 위' }));
+  await waitFor(() => expect(column.querySelectorAll('[data-slot="scene-unseen"]')).toHaveLength(0));
+});
+
+test('test_23_the_position_change_invalidates_the_still', async () => {
+  await renderScreen();
+  expect(document.querySelector('[data-slot="preview-still"]')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: '왼쪽 위' }));
+  await waitFor(() => expect(document.querySelector('[data-slot="preview-still"]')).toBeNull());
+});
+
+test('test_23_adding_a_scene_asks_for_the_server_rebuild_scope', async () => {
+  const api = createMockEditApi(view);
+  const first = wrap(<EditScreen />, api);
+  await screen.findByRole('heading', { name: '장면 1' });
+  const column = document.querySelector<HTMLElement>('[data-slot="scene-column"]')!;
+  fireEvent.click(within(column).getByRole('button', { name: '장면 추가' }));
+  const dialog = await screen.findByRole('dialog', { name: '장면을 추가할까요?' });
+  expect(within(dialog).getByText('다시 만들 범위')).toBeTruthy();
+  expect(dialog.querySelector('[data-slot="text-compare"]')).not.toBeNull();
+  await waitFor(() => expect(dialog.querySelector('[data-slot="preview-after"]')).not.toBeNull());
+  const previewImage = dialog.querySelector<HTMLImageElement>('img[data-slot="preview-after"]');
+  expect(previewImage?.src.startsWith('data:image/png')).toBe(true);
+  const apply = within(dialog).getByRole('button', { name: '바꾸기' });
+  expect(apply).toHaveProperty('disabled', true);
+  fireEvent.load(previewImage!);
+  fireEvent.click(apply);
+  await waitFor(() => expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(4));
+  expect(await screen.findByRole('heading', { name: '장면 2' })).toBeTruthy();
+  first.unmount();
+  wrap(<EditScreen />, api);
+  expect(await screen.findByRole('heading', { name: '장면 2' })).toBeTruthy();
+});
+
+test.each(['image', 'job'] as const)('test_23_a_failed_%s_cannot_bypass_change_comparison', async (failure) => {
+  const api = createMockEditApi(view);
+  const originalPreview = api.previewChange.bind(api);
+  if (failure === 'job') {
+    api.previewChange = async (id) => ({ ...await originalPreview(id), state: 'failed', result: null });
+  }
+  wrap(<EditScreen />, api);
+  await screen.findByRole('heading', { name: '장면 1' });
+  const column = document.querySelector<HTMLElement>('[data-slot="scene-column"]')!;
+  fireEvent.click(within(column).getByRole('button', { name: '장면 추가' }));
+  const dialog = await screen.findByRole('dialog', { name: '장면을 추가할까요?' });
+  if (failure === 'image') {
+    const image = await waitFor(() => {
+      const node = dialog.querySelector('[data-slot="preview-after"]');
+      expect(node).not.toBeNull();
+      return node!;
+    });
+    fireEvent.error(image);
+  }
+  await within(dialog).findByText('미리보기를 만들지 못했어요.');
+  expect(within(dialog).getByRole('button', { name: '바꾸기' })).toHaveProperty('disabled', true);
+  fireEvent.click(within(dialog).getByRole('button', { name: '그대로 두기' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(3);
+});
+
+test('test_23_the_order_warning_precedes_even_an_auto_applied_server_change', async () => {
+  const api = createMockEditApi(view);
+  const originalChange = api.change.bind(api);
+  const savedOrders: string[][] = [];
+  api.change = async (id, body) => {
+    for (const op of body.ops) if (op.op === 'reorder') savedOrders.push(op.order);
+    return originalChange(id, body);
+  };
+  wrap(<EditScreen />, api);
+  await screen.findByRole('heading', { name: '장면 1' });
+  const moveDown = document.querySelector<HTMLButtonElement>('.reorder-row button[aria-label*="아래로 이동"]');
+  expect(moveDown).not.toBeNull();
+  if (moveDown !== null) fireEvent.click(moveDown);
+  const dialog = await screen.findByRole('dialog', { name: '장면 순서를 바꿀까요?' });
+  expect(within(dialog).getByText('장면 흐름이 끊길 수 있어요. 순서를 한 번 더 확인해 주세요.')).toBeTruthy();
+  expect(savedOrders).toEqual([]);
+  fireEvent.click(within(dialog).getByRole('button', { name: '바꾸기' }));
+  await waitFor(() => expect(savedOrders).toEqual([[view.video.scene_order[1], view.video.scene_order[0], view.video.scene_order[2]]]));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+});
+
+test('test_26_a_new_line_draft_does_not_follow_the_selection_to_another_scene', async () => {
+  const column = await renderScreen();
+  fireEvent.click(screen.getByRole('button', { name: '대사 줄 추가' }));
+  fireEvent.change(screen.getByRole('textbox', { name: '화면 글 3' }), { target: { value: '다른 장면에 남기면 안 되는 글' } });
+  fireEvent.click(within(column).getByRole('button', { name: /^첫 번째$/ }));
+  await screen.findByRole('heading', { name: '장면 2' });
+  expect(screen.queryByDisplayValue('다른 장면에 남기면 안 되는 글')).toBeNull();
+  expect(screen.getAllByRole('textbox', { name: /화면 글/ })).toHaveLength(1);
+});
+
+test('test_23_deleting_a_scene_asks_first_and_can_be_kept', async () => {
+  const column = await renderScreen();
+  fireEvent.click(screen.getByRole('button', { name: '장면 삭제' }));
+  const dialog = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' });
+  fireEvent.click(within(dialog).getByRole('button', { name: '그대로 두기' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '장면을 삭제할까요?' })).toBeNull());
+  expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(3);
+
+  fireEvent.click(screen.getByRole('button', { name: '장면 삭제' }));
+  const second = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' });
+  expect(within(second).getByText('삭제될 장면')).toBeTruthy();
+  fireEvent.click(within(second).getByRole('button', { name: '바꾸기' }));
+  await waitFor(() => expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(2));
+});
+
+test('test_10a_the_preview_advances_the_last_line_and_stops_at_the_end', async () => {
+  await renderScreen();
+  const preview = within(document.querySelector('[data-slot="preview"]') as HTMLElement);
+  expect(preview.getAllByText('첫 줄')).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: '재생' }));
+  expect(await preview.findByText('둘째 줄', {}, { timeout: 2500 })).toBeTruthy();
+  expect(preview.queryByText('첫 줄')).toBeNull();
+  await waitFor(() => expect(screen.getByRole('button', { name: '재생' })).toBeTruthy(), {
+    timeout: 3500,
+  });
+});
+
+test('test_10a_the_scene_picture_build_modal_blocks_and_only_cancels', async () => {
+  const scriptView = makeView();
+  scriptView.video.stage = 'script_confirmed';
+  wrap(<><EditScreen /><EditNextAction /></>, createMockEditApi(scriptView));
+  await startVideo();
+  const stills = await screen.findByRole('dialog', { name: '장면 그림을 만들고 있어요' });
+  expect(within(stills).getByRole('button', { name: '작업 취소' })).toBeTruthy();
+  expect(within(stills).queryByRole('button', { name: '닫기' })).toBeNull();
+  expect(document.querySelectorAll('[data-slot="scene-column"] [data-busy]')).toHaveLength(3);
+  expect(await within(stills).findByText('1 / 3')).toBeTruthy();
+  fireEvent.click(within(stills).getByRole('button', { name: '작업 취소' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '장면 그림을 만들고 있어요' })).toBeNull());
+});
+
+test('test_10a_script_confirmed_previews_then_confirms_then_generates', async () => {
+  const scriptView = makeView();
+  scriptView.video.stage = 'script_confirmed';
+  wrap(
+    <LocaleProvider language="ko" setLanguage={() => undefined}>
+      <EditProvider active videoId="v_test" api={createMockEditApi(scriptView)}>
+        <EditActions />
+      </EditProvider>
+    </LocaleProvider>,
+  );
+  await startVideo();
+  expect(await screen.findByRole('dialog', { name: '장면 그림을 만들고 있어요' })).toBeTruthy();
+  expect(await within(screen.getByRole('dialog', { name: '장면 그림을 만들고 있어요' })).findByText('1 / 3')).toBeTruthy();
+  expect(await screen.findByRole('button', { name: '영상 만드는 중 1 / 3' }, { timeout: 6000 })).toBeTruthy();
+  expect(screen.queryByRole('dialog', { name: '장면 그림을 만들고 있어요' })).toBeNull();
+});
+
+test('test_10a_a_comparison_preview_is_not_resumed_as_scene_picture_work', async () => {
+  const scriptView = makeView();
+  scriptView.video.stage = 'script_confirmed';
+  const api = createMockEditApi(scriptView);
+  const originalLoad = api.load.bind(api);
+  api.load = async (videoId) => {
+    const view = await originalLoad(videoId);
+    view.open_jobs = ['j_compare'];
+    return view;
+  };
+  api.readJob = async () => ({
+    id: 'j_compare',
+    kind: 'preview',
+    state: 'running',
+    stages: [],
+    checkpoints: [],
+  } as unknown as Job);
+  const calls: string[] = [];
+  api.confirmScenes = async () => {
+    calls.push('confirm');
+    return scriptView.video;
+  };
+  api.generate = async () => {
+    calls.push('generate');
+    return {} as Job;
+  };
+  wrap(
+    <LocaleProvider language="ko" setLanguage={() => undefined}>
+      <EditProvider active videoId="v_test" api={api}>
+        <EditActions />
+      </EditProvider>
+    </LocaleProvider>,
+  );
+  await screen.findByRole('button', { name: '영상 만들기' });
+  await new Promise((resolve) => setTimeout(resolve, 700));
+  expect(calls).toEqual([]);
+});
+
+test('test_10a_the_progress_window_has_no_stop_control', async () => {
+  const api = createMockEditApi(view);
+  const originalGenerate = api.generate.bind(api);
+  api.generate = async (id, revision) => {
+    const job = await originalGenerate(id, revision);
+    const started = { ...job, stages: [stageRecord('clip', 'running')] };
+    api.readJob = async () => started;
+    return started;
+  };
+  wrap(<EditActions />, api);
+  await startVideo();
+  const status = await screen.findByRole('button', { name: /영상 만드는 중/ }, { timeout: 5000 });
+  fireEvent.click(status);
+  const dialog = await screen.findByRole('dialog', { name: '영상을 만들고 있어요' });
+  expect(status.textContent).toContain('0 / 3');
+  const scenes = dialog.querySelectorAll('[data-slot="progress-scene"]');
+  expect([...scenes].map((scene) => scene.getAttribute('data-state'))).toEqual(['running', 'waiting', 'waiting']);
+  expect(within(dialog).getAllByRole('button')).toHaveLength(1);
+  expect(within(dialog).getByRole('button', { name: /닫기/ })).toBeTruthy();
+});
+
+test('test_10a_the_top_bar_stop_works_while_the_progress_window_is_open', async () => {
+  wrap(<EditActions />);
+  await startVideo();
+  const status = await screen.findByRole('button', { name: /영상 만드는 중/ }, { timeout: 5000 });
+  fireEvent.click(status);
+  const dialog = await screen.findByRole('dialog', { name: '영상을 만들고 있어요' });
+  expect(dialog).toBeTruthy();
+  const stop = screen.getByRole('button', { name: /만들기 멈추기/ });
+  fireEvent.click(stop);
+  await waitFor(() => expect(screen.getByRole('button', { name: '영상 만들기' })).toBeTruthy());
+});
+
+test('test_23_the_sfx_picker_uses_catalog_references', async () => {
+  await renderScreen();
+  fireEvent.click(screen.getByRole('button', { name: '효과음 추가' }));
+  const picker = await screen.findByRole('dialog', { name: '효과음 추가' });
+  fireEvent.click(within(picker).getByRole('button', { name: '팝' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '효과음 추가' })).toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: '효과음 추가' }));
+  const second = await screen.findByRole('dialog', { name: '효과음 추가' });
+  fireEvent.click(within(second).getByRole('button', { name: '휙' }));
+  await waitFor(() => expect((screen.getByRole('button', { name: '효과음 추가' }) as HTMLButtonElement).disabled).toBe(true));
+});
+
+test('test_26_a_line_can_be_edited_and_added', async () => {
+  await renderScreen();
+  const display = screen.getByRole('textbox', { name: '화면 글 1' }) as HTMLTextAreaElement;
+  const speech = screen.getByRole('textbox', { name: '말할 글 1' }) as HTMLTextAreaElement;
+  fireEvent.change(display, { target: { value: '고친 첫 줄' } });
+  fireEvent.change(speech, { target: { value: '고친 첫 줄 말' } });
+  fireEvent.click(within(display.closest('[data-slot="line-editor"]') as HTMLElement).getByRole('button', { name: '줄 저장' }));
+  await waitFor(() => expect(screen.getByRole('button', { name: '되돌리기' })).toHaveProperty('disabled', false));
+  expect(display.value).toBe('고친 첫 줄');
+  expect(speech.value).toBe('고친 첫 줄 말');
+
+  fireEvent.click(screen.getByRole('button', { name: '대사 줄 추가' }));
+  const draft = document.querySelector<HTMLElement>('[data-slot="line-draft"]') as HTMLElement;
+  expect(within(draft).getByRole('button', { name: '줄 저장' })).toHaveProperty('disabled', true);
+  fireEvent.change(within(draft).getByRole('textbox', { name: '화면 글 3' }), { target: { value: '새 화면 글' } });
+  fireEvent.change(within(draft).getByRole('textbox', { name: '말할 글 3' }), { target: { value: '새 말할 글' } });
+  fireEvent.click(within(draft).getByRole('button', { name: '줄 저장' }));
+  await waitFor(() => expect(screen.getAllByRole('textbox', { name: /화면 글/ })).toHaveLength(3));
+});
+
+test('test_10a_the_edit_composer_targets_a_scene_and_sends', async () => {
+  openComposer();
+  await screen.findByRole('textbox', { name: '편집 요청' });
+  const target = screen.getByText('장면 1');
+  expect(target).toBeTruthy();
+  const input = screen.getByRole('textbox', { name: '편집 요청' }) as HTMLTextAreaElement;
+  expect(input.disabled).toBe(false);
+  expect(input.getAttribute('placeholder')).toContain('장면 1');
+  fireEvent.change(input, { target: { value: '이 장면을 더 짧게' } });
+  fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+  expect(await screen.findByText('바꿀 값이 없어요.', {}, { timeout: 3000 })).toBeTruthy();
+  expect(screen.getByText('이 장면을 더 짧게')).toBeTruthy();
+});
+
+test('test_10a_a_chat_request_can_be_stopped_and_keeps_the_composer_open', async () => {
+  openComposer();
+  await screen.findByText('장면 1');
+  const input = screen.getByRole('textbox', { name: '편집 요청' });
+  fireEvent.change(input, { target: { value: '이 장면을 더 짧게' } });
+  const send = screen.getByRole('button', { name: '보내기' }) as HTMLButtonElement;
+  await waitFor(() => expect(send.disabled).toBe(false));
+  fireEvent.click(send);
+  const stop = await screen.findByRole('button', { name: '요청 멈추기' });
+  expect((input as HTMLTextAreaElement).disabled).toBe(false);
+  fireEvent.click(stop);
+  await waitFor(() => expect(screen.getByRole('button', { name: '보내기' })).toBeTruthy());
+  expect((screen.getByRole('textbox', { name: '편집 요청' }) as HTMLTextAreaElement).disabled).toBe(false);
+  expect(await screen.findByText('요청을 멈췄어요.')).toBeTruthy();
+});
+
+test('test_10a_a_message_sent_while_chat_waits_runs_after_it', async () => {
+  openComposer();
+  await screen.findByText('장면 1');
+  const input = screen.getByRole('textbox', { name: '편집 요청' }) as HTMLTextAreaElement;
+  fireEvent.change(input, { target: { value: '첫 요청' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  await screen.findByRole('button', { name: '요청 멈추기' });
+  fireEvent.change(input, { target: { value: '둘째 요청' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  expect(await screen.findByText('둘째 요청')).toBeTruthy();
+  await waitFor(() => expect(screen.getAllByText('바꿀 값이 없어요.').length).toBeGreaterThanOrEqual(2), { timeout: 5000 });
+  expect((screen.getByRole('textbox', { name: '편집 요청' }) as HTMLTextAreaElement).disabled).toBe(false);
+});
+
+test('test_10a_stopping_a_later_post_cancels_that_job_and_discards_only_the_waiting_requests', async () => {
+  const api = createMockEditApi(view);
+  const originalSend = api.sendMessage.bind(api);
+  const originalCancel = api.cancelJob.bind(api);
+  const sent: string[] = [];
+  const cancelled: string[] = [];
+  let releaseSecond!: () => void;
+  const secondResponse = new Promise<void>((resolve) => { releaseSecond = resolve; });
+  let secondJob: Job | undefined;
+  api.sendMessage = async (videoId, body) => {
+    sent.push(body.text);
+    const job = await originalSend(videoId, body);
+    if (body.text !== '둘째 요청') return job;
+    secondJob = job;
+    await secondResponse;
+    return job;
+  };
+  api.cancelJob = async (id) => {
+    cancelled.push(id);
+    const job = await originalCancel(id);
+    return { ...job, state: 'cancelling' };
+  };
+
+  openComposer(api);
+  await screen.findByText('장면 1');
+  const input = screen.getByRole('textbox', { name: '편집 요청' });
+  const send = (message: string) => {
+    fireEvent.change(input, { target: { value: message } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  };
+  send('첫 요청');
+  await screen.findByRole('button', { name: '요청 멈추기' });
+  send('둘째 요청');
+  await waitFor(() => expect(secondJob).toBeDefined());
+  send('버릴 요청');
+  fireEvent.click(screen.getByRole('button', { name: '요청 멈추기' }));
+  expect(await screen.findByText('대기 중이던 요청은 보내지 않았어요.')).toBeTruthy();
+  expect(cancelled).toEqual([]);
+  expect(input).toHaveProperty('disabled', false);
+  releaseSecond();
+
+  expect(await screen.findByText('요청을 멈췄어요.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '요청 멈추기' })).toBeNull();
+  expect(cancelled).toEqual([secondJob!.id]);
+  send('멈춘 뒤 새 요청');
+  await waitFor(() => expect(screen.getAllByText('바꿀 값이 없어요.')).toHaveLength(2));
+  expect(sent).toEqual(['첫 요청', '둘째 요청', '멈춘 뒤 새 요청']);
+});
+
+test('test_10a_scene_chat_uses_the_change_and_reports_unsupported_parts_of_the_same_result', async () => {
+  const api = createMockEditApi(view);
+  const originalSend = api.sendMessage.bind(api);
+  let target: string | null = null;
+  api.sendMessage = async (videoId, body) => {
+    target = body.target.scene_id;
+    const job = await originalSend(videoId, body);
+    const plan = await api.change(videoId, {
+      base_revision: body.base_revision,
+      source: 'direct',
+      target: body.target,
+      ops: [{ op: 'set', path: `/scenes/${target}/beat_label`, value: '새 진행 제목', origin: 'user' }],
+    });
+    return { ...job, state: 'succeeded', result: { change_id: plan.id, unsupported: ['영상의 언어 변경'] } };
+  };
+  openComposer(api);
+  await screen.findByText('장면 1');
+  fireEvent.change(screen.getByRole('textbox', { name: '편집 요청' }), { target: { value: '진행 제목과 영상 언어를 바꿔 주세요.' } });
+  fireEvent.click(screen.getByRole('button', { name: '보내기' }));
+
+  expect(await screen.findByText('장면을 바꿨어요.')).toBeTruthy();
+  expect(await screen.findByText('그 요청은 아직 다룰 수 없어요.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: '요청 멈추기' })).toBeNull();
+  expect(target).toBe(view.video.scene_order[0]);
+});
+
+test.each(['바꾸기', '그대로 두기'])('test_10a_queued_chat_waits_for_the_first_proposal_to_be_decided_with_%s', async (decision) => {
+  const api = createMockEditApi(view);
+  const originalSend = api.sendMessage.bind(api);
+  const firstResult = new Map<string, Job>();
+  const sentRevisions: number[] = [];
+  const originalRead = api.readJob.bind(api);
+  api.sendMessage = async (videoId, body) => {
+    const job = await originalSend(videoId, body);
+    sentRevisions.push(body.base_revision);
+    if (sentRevisions.length === 1) {
+      const plan = await api.change(videoId, {
+        base_revision: body.base_revision,
+        source: 'direct',
+        target: body.target,
+        ops: [{ op: 'remove_scene', scene_id: view.video.scene_order[2] }],
+      });
+      firstResult.set(job.id, { ...job, state: 'succeeded', result: { change_id: plan.id } });
+    }
+    return job;
+  };
+  api.readJob = async (id) => firstResult.get(id) ?? originalRead(id);
+  openComposer(api, <EditScreen />);
+  await screen.findByRole('heading', { name: '장면 1' });
+  const input = screen.getByRole('textbox', { name: '편집 요청' });
+  fireEvent.change(input, { target: { value: '마지막 장면 삭제' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  await screen.findByRole('button', { name: '요청 멈추기' });
+  fireEvent.change(input, { target: { value: '두 번째 요청' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  const dialog = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' }, { timeout: 5000 });
+  expect(sentRevisions).toEqual([view.video.revision]);
+  fireEvent.click(within(dialog).getByRole('button', { name: decision }));
+  await screen.findByText('바꿀 값이 없어요.', {}, { timeout: 5000 });
+  expect(sentRevisions).toEqual([view.video.revision, view.video.revision + (decision === '바꾸기' ? 1 : 0)]);
+});
+
+test('test_10a_a_stale_chat_change_is_neither_proposed_nor_reported_as_applied', async () => {
+  const api = createMockEditApi(view);
+  const originalSend = api.sendMessage.bind(api);
+  const originalReadChange = api.readChange.bind(api);
+  api.readChange = async (id) => ({ ...await originalReadChange(id), status: 'stale' });
+  api.sendMessage = async (videoId, body) => {
+    const job = await originalSend(videoId, body);
+    const plan = await api.change(videoId, {
+      base_revision: body.base_revision,
+      source: 'direct',
+      target: body.target,
+      ops: [{ op: 'remove_scene', scene_id: view.video.scene_order[2] }],
+    });
+    return { ...job, state: 'succeeded', result: { change_id: plan.id } };
+  };
+  openComposer(api, <EditScreen />);
+  await screen.findByRole('heading', { name: '장면 1' });
+  const input = screen.getByRole('textbox', { name: '편집 요청' });
+  fireEvent.change(input, { target: { value: '마지막 장면 삭제' } });
+  fireEvent.keyDown(input, { key: 'Enter' });
+  await screen.findByText('다른 편집이 먼저 저장됐어요. 바꿀 내용을 다시 요청해 주세요.');
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.queryByText('장면을 바꿨어요.')).toBeNull();
+  expect(screen.queryByText('확인할 변경이 있어요.')).toBeNull();
+});
+
+test('test_23_a_field_edit_survives_reopening', async () => {
+  const api = createMockEditApi(view);
+  const first = wrap(<EditScreen />, api);
+  await screen.findByRole('heading', { name: '장면 1' });
+  fireEvent.click(screen.getByRole('button', { name: '왼쪽 위' }));
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '왼쪽 위' }).getAttribute('aria-pressed')).toBe('true'),
+  );
+  first.unmount();
+  cleanup();
+  wrap(<EditScreen />, api);
+  await screen.findByRole('heading', { name: '장면 1' });
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '왼쪽 위' }).getAttribute('aria-pressed')).toBe('true'),
+  );
+});

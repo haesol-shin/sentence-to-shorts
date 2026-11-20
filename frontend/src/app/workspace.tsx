@@ -7,6 +7,7 @@ import {
   submitDraft,
   type Language,
 } from '@/shared/api/client';
+import { resetRememberedScene } from '@/features/edit/edit-context';
 import { useBrand } from '@/features/runtime/use-brand';
 import { LocaleProvider, useLocale } from '@/shared/lib/i18n/locale';
 import { useSession, type SessionResult } from '@/shared/lib/session';
@@ -61,6 +62,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const [view, setView] = useState<View>('first');
   const [video, setVideo] = useState<{
     id: string;
+    scriptSessionId: string;
     topic: string;
     script: string;
     language: Language;
@@ -72,6 +74,13 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const [submitting, setSubmitting] = useState(false);
   const [actionErrorKey, setActionErrorKey] = useState<string | null>(null);
   const job = useJob(jobId);
+  const draftJob = job.job?.id === jobId ? job.job : null;
+  const serverScriptVideoId = import.meta.env.VITE_API_MODE === 'mock' ? null : video?.id ?? null;
+  const draftState = serverScriptVideoId === null
+    ? 'ready'
+    : draftJob?.state === 'succeeded'
+      ? draftJob.result?.status === 'applied' ? 'ready' : 'failed'
+      : draftJob?.state === 'failed' || draftJob?.state === 'cancelled' ? 'failed' : 'pending';
 
   /**
    * One sentence starts a video: a project holds it, the video is the unit the
@@ -95,7 +104,8 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       setJobId(started.id);
       sessionSeq.current += 1;
       setVideo({
-        id: `${created.id}#${sessionSeq.current}`,
+        id: created.id,
+        scriptSessionId: `${created.id}#${sessionSeq.current}`,
         topic: message,
         script: message,
         language,
@@ -117,6 +127,11 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     setDraft('');
     setCard(null);
     setActionErrorKey(null);
+  };
+
+  const openEditAfterScriptConfirm = () => {
+    if (video !== null) resetRememberedScene(video.id);
+    setView('edit');
   };
 
   const header = (
@@ -148,6 +163,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   return (
     <AppShell
       view={view}
+      videoId={video?.id ?? null}
       brand={session.state === 'ready' ? <BrandName /> : null}
       onNewVideo={openNewVideo}
       onStage={setView}
@@ -180,11 +196,14 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
         <ConceptRoute />
       ) : view === 'script' ? (
         <ScriptRoute
-          videoId={video?.id ?? null}
+          key={video?.scriptSessionId}
+          videoId={video?.scriptSessionId ?? null}
+          serverVideoId={serverScriptVideoId}
+          draftState={draftState}
           topic={video?.topic ?? null}
           userScript={video?.script ?? null}
           language={video?.language ?? language}
-          onNext={() => setView('edit')}
+          onNext={openEditAfterScriptConfirm}
         />
       ) : view === 'edit' ? (
         <EditRoute />

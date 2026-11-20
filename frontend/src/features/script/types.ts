@@ -8,6 +8,8 @@ export type TargetDuration = 30 | 60 | 120;
 /** The backend stages the script gate moves between (CONTRACTS 4.1). */
 export type ScriptStage = 'draft' | 'concept_confirmed' | 'script_confirmed' | 'scenes_confirmed';
 
+export type ScriptDraftState = 'pending' | 'ready' | 'failed';
+
 /**
  * One spoken line. The screen writes the same value to `display_text` and
  * `speech_text`, so the caption and the voice never drift apart (contract:

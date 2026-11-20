@@ -2,6 +2,7 @@ import { recommendedSceneCount } from '@/features/concept/model';
 import type { Language } from '@/shared/api/client';
 import { configureScriptSceneCounts, DURATIONS } from '@/features/script/model';
 import { ScriptScreen } from '@/features/script/script-screen';
+import type { ScriptDraftState } from '@/features/script/types';
 
 // The concept screen owns the target length to scene count rule. The app reads
 // it once here instead of keeping a second copy in the script feature.
@@ -14,12 +15,16 @@ configureScriptSceneCounts(DURATIONS.map((seconds) => recommendedSceneCount(seco
  */
 export function ScriptRoute({
   videoId = null,
+  serverVideoId = null,
+  draftState = 'ready',
   topic = null,
   userScript = null,
   language = 'ko',
   onNext,
 }: {
   videoId?: string | null;
+  serverVideoId?: string | null;
+  draftState?: ScriptDraftState;
   topic?: string | null;
   userScript?: string | null;
   language?: Language;
@@ -28,6 +33,8 @@ export function ScriptRoute({
   return (
     <ScriptScreen
       videoId={videoId}
+      serverVideoId={serverVideoId}
+      draftState={draftState}
       topic={topic}
       userScript={userScript}
       language={language}

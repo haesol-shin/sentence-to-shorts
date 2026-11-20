@@ -314,6 +314,33 @@ export async function readVideo(videoId: string, signal?: AbortSignal): Promise<
   return send<VideoView>({ method: 'GET', path: `/videos/${encodeURIComponent(videoId)}`, signal });
 }
 
+export async function submitVideoChange(
+  videoId: string,
+  body: components['schemas']['ChangeRequest'],
+  idempotencyKey: string,
+): Promise<components['schemas']['ChangePlan']> {
+  return send(
+    { method: 'POST', path: `/videos/${encodeURIComponent(videoId)}/changes`, body },
+    { idempotencyKey },
+  );
+}
+
+export async function applyVideoChange(changeId: string, baseRevision: number): Promise<Video> {
+  return send<Video>({
+    method: 'POST',
+    path: `/changes/${encodeURIComponent(changeId)}/apply`,
+    body: { base_revision: baseRevision },
+  }, { idempotencyKey: newIdempotencyKey() });
+}
+
+export async function confirmVideoScript(videoId: string, baseRevision: number): Promise<Video> {
+  return send<Video>({
+    method: 'POST',
+    path: `/videos/${encodeURIComponent(videoId)}/script/confirm`,
+    body: { base_revision: baseRevision },
+  }, { idempotencyKey: newIdempotencyKey() });
+}
+
 export interface JobRead {
   notModified: boolean;
   job: Job | null;
