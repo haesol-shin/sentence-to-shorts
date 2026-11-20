@@ -896,6 +896,14 @@ export interface components {
             /** Seed */
             seed: number | null;
         };
+        /** BgmParams */
+        BgmParams: {
+            /** Bars */
+            bars: number;
+            /** Bpm */
+            bpm: number;
+            mood: components["schemas"]["Mood"];
+        };
         BgmRelPath: string;
         /** BgmSettings */
         BgmSettings: {
@@ -1190,6 +1198,47 @@ export interface components {
             line_id: components["schemas"]["EntityId"] | null;
             scene_id: components["schemas"]["EntityId"] | null;
             stage: components["schemas"]["Stage"];
+        };
+        /** CodeBgm */
+        CodeBgm: {
+            /**
+             * Channels
+             * @constant
+             */
+            channels: 1;
+            /** Duration Ms */
+            duration_ms: number;
+            file: components["schemas"]["WavRelPath"];
+            id: components["schemas"]["CatalogId"];
+            label: components["schemas"]["LocalizedText"];
+            /** Loudness Lufs X10 */
+            loudness_lufs_x10: number | null;
+            mood: components["schemas"]["Mood"];
+            params: components["schemas"]["BgmParams"];
+            program: components["schemas"]["RelPath"];
+            program_digest: components["schemas"]["Digest"];
+            provenance: components["schemas"]["Provenance"];
+            runtime_digest: components["schemas"]["Digest"];
+            /**
+             * Sample Rate
+             * @constant
+             */
+            sample_rate: 44100;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            /** Seed */
+            seed: number;
+            sha256: components["schemas"]["Digest"];
+            /**
+             * Source
+             * @constant
+             */
+            source: "code";
+            /** True Peak Dbtp X10 */
+            true_peak_dbtp_x10: number | null;
         };
         /** Compat */
         Compat: {
@@ -2404,6 +2453,46 @@ export interface components {
              */
             schema_version: 1;
         };
+        /** UploadBgm */
+        UploadBgm: {
+            accepted_at: components["schemas"]["Timestamp"];
+            /**
+             * Channels
+             * @enum {integer}
+             */
+            channels: 1 | 2;
+            /** Duration Ms */
+            duration_ms: number;
+            file: components["schemas"]["WavRelPath"];
+            id: components["schemas"]["CatalogId"];
+            label: components["schemas"]["LocalizedText"];
+            /** Loudness Lufs X10 */
+            loudness_lufs_x10: number | null;
+            mood: components["schemas"]["Mood"];
+            /** Original Bytes */
+            original_bytes: number;
+            owner_id: components["schemas"]["OwnerId"];
+            project_id: components["schemas"]["EntityId"];
+            /**
+             * Sample Rate
+             * @enum {integer}
+             */
+            sample_rate: 44100 | 48000;
+            /**
+             * Schema Version
+             * @constant
+             */
+            schema_version: 1;
+            sha256: components["schemas"]["Digest"];
+            /**
+             * Source
+             * @constant
+             */
+            source: "upload";
+            /** True Peak Dbtp X10 */
+            true_peak_dbtp_x10: number | null;
+            upload_id: components["schemas"]["EntityId"];
+        };
         /** Usage */
         Usage: {
             /** Cache Read Tokens */
@@ -2881,7 +2970,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["StyleManifest"] | components["schemas"]["TemplateManifest"] | components["schemas"]["VoiceManifest"] | components["schemas"]["BuiltinBgm"] | components["schemas"]["SfxEntry"] | components["schemas"]["TypingSoundEntry"] | components["schemas"]["FontManifest"] | components["schemas"]["FormatCard"] | components["schemas"]["StoryStructure"] | components["schemas"]["CaptionLanguageManifest"];
+                    "application/json": components["schemas"]["StyleManifest"] | components["schemas"]["TemplateManifest"] | components["schemas"]["VoiceManifest"] | components["schemas"]["BuiltinBgm"] | components["schemas"]["UploadBgm"] | components["schemas"]["CodeBgm"] | components["schemas"]["SfxEntry"] | components["schemas"]["TypingSoundEntry"] | components["schemas"]["FontManifest"] | components["schemas"]["FormatCard"] | components["schemas"]["StoryStructure"] | components["schemas"]["CaptionLanguageManifest"];
                 };
             };
             /** @description The request body or parameters do not match the contract. */

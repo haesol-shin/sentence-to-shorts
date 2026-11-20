@@ -504,3 +504,36 @@ def test_39_import_upload_without_a_mood_uses_calm(registry: Registry, tmp_path:
         src, "p_06pxfteaw88hs93kkckw5j51ng", ctx=Ctx(tmp_path / "job")
     )
     assert entry.mood is Mood.calm
+
+
+@ffmpeg.requires_ffmpeg
+def test_39_registered_upload_is_listed_restored_and_mixed(tmp_path: Path) -> None:
+    from app.schemas.common import Mood
+
+    project_id = "p_06pxfteaw88hs93kkckw5j51ng"
+    catalog = Registry(data_dir=tmp_path / "data")
+    service = _service(catalog, ffmpeg.adapter())
+    src = tone_wav(tmp_path / "tone", duration_ms=1500)
+    ctx = Ctx(tmp_path / "job")
+    entry = service.import_upload(src, project_id, ctx=ctx, mood=Mood.tense)
+    ref = service.register_upload(entry, ctx=ctx)
+
+    assert ref.id == entry.id
+    assert list(ctx.job_dir.glob("staging/*")) == []
+    listed = {item.id for item in catalog.list("bgm")}
+    assert entry.id in listed
+    assert entry.id in {item.id for item in catalog.list("bgm", video=video(catalog))}
+    restored = Registry(data_dir=tmp_path / "data")
+    assert restored.get("bgm", entry.id, ref.revision) == entry
+    assert (restored.package_dir("bgm", ref) / entry.file).is_file()
+
+    built = video(restored, bgm=entry.id)
+    assert built.settings.audio.bgm.entry == ref
+    scene_timings = timings(built)
+    tts = tts_tones(built, tmp_path / "tts")
+    out = _service(restored, ffmpeg.adapter()).mix(
+        built, scene_timings, tts, ctx=Ctx(tmp_path / "mix")
+    )
+    _, total_ms = scene_starts_ms(scene_timings)
+    assert abs(len(_samples(out)) * 1000 // RATE - total_ms) <= 2
+    assert _rms(_samples(out), 0, total_ms) > 0

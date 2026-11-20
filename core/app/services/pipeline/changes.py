@@ -164,9 +164,12 @@ def run_bgm_upload(body: dict[str, Any], ctx: JobContext, services: Services) ->
     entry = services.sound.import_upload(
         _bgm_upload_path(ctx), project_id, ctx=ctx, mood=mood
     )
+    ref = services.sound.register_upload(entry, ctx=ctx)
     return {
         "bgm_id": entry.id,
-        "upload_id": getattr(entry, "upload_id", None),
+        "upload_id": entry.upload_id,
+        "revision": ref.revision,
+        "ref": ref.model_dump(mode="json"),
         "entry": entry.model_dump(mode="json"),
     }
 

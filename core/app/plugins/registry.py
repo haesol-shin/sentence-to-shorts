@@ -22,9 +22,15 @@ from pydantic import BaseModel, ValidationError
 from app.caption_layout import inside, safe_area
 from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
-from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry
+from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry, UploadBgm
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
-from app.schemas.common import Language, LocalizedText, PackageOrigin, PinnedRef
+from app.schemas.common import (
+    PERSONAL_OWNER_ID,
+    Language,
+    LocalizedText,
+    PackageOrigin,
+    PinnedRef,
+)
 from app.schemas.font_manifest import FontManifest, FontScript
 from app.schemas.format_card import FormatCard, StoryStructure
 from app.schemas.style_manifest import StyleManifest
@@ -64,8 +70,11 @@ MODELS: dict[str, type[BaseModel]] = {
 
 def _manifest_model(kind: str, raw: Any) -> type[BaseModel]:
     """Use the same BGM source and sfx keys discriminator for loading and restore."""
-    if kind == "bgm" and isinstance(raw, dict) and raw.get("source") == "code":
-        return CodeBgm
+    if kind == "bgm" and isinstance(raw, dict):
+        if raw.get("source") == "code":
+            return CodeBgm
+        if raw.get("source") == "upload":
+            return UploadBgm
     if kind == "sfx" and isinstance(raw, dict) and "keys" in raw:
         return TypingSoundEntry
     return MODELS[kind]
@@ -109,6 +118,8 @@ def _referenced_files(manifest: BaseModel) -> list[str]:
         return [key.file for key in manifest.keys] + [manifest.license.license_file]
     if isinstance(manifest, (BuiltinBgm, SfxEntry)):
         return [manifest.file, manifest.license.license_file]
+    if isinstance(manifest, UploadBgm):
+        return [manifest.file]
     if isinstance(manifest, CodeBgm):
         return [manifest.file, manifest.program]
     return []
@@ -155,6 +166,8 @@ def _digest_files(manifest: BaseModel) -> list[tuple[str, str]]:
     if isinstance(manifest, VoiceManifest):
         return [(manifest.sample.file, manifest.sample.sha256)]
     if isinstance(manifest, FontManifest):
+        return [(manifest.file, manifest.sha256)]
+    if isinstance(manifest, UploadBgm):
         return [(manifest.file, manifest.sha256)]
     if isinstance(manifest, CodeBgm):
         return [
@@ -242,6 +255,15 @@ def validate_package(
                 "unsafe_caption_box", expected_id, package_dir / "manifest.json"
             )
     return manifest
+
+
+def _listed_for(manifest: BaseModel, video: Video | None) -> bool:
+    """An upload shows only to its owner, and with a video only in that video's project."""
+    if not isinstance(manifest, UploadBgm):
+        return True
+    if manifest.owner_id != PERSONAL_OWNER_ID:
+        return False
+    return video is None or manifest.project_id == video.project_id
 
 
 def _compatibility(
@@ -493,6 +515,8 @@ class Registry:
         )
         items = []
         for _, entry in sorted(entries.items()):
+            if not _listed_for(entry.manifest, video):
+                continue
             items.append(
                 CatalogItem(
                     kind=CatalogKind(kind),
@@ -555,7 +579,7 @@ class Registry:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
         if not isinstance(raw, dict):
             raise RegistryError("invalid_manifest", staged_dir.name, manifest_path)
-        if kind == "bgm" and raw.get("source") != "code":
+        if kind == "bgm" and raw.get("source") not in ("code", "upload"):
             raise RegistryError("invalid_manifest", staged_dir.name, manifest_path, "source")
         manifest = validate_package(kind, staged_dir, staged_dir.name, raw)
         revision = file_list_revision(staged_dir)

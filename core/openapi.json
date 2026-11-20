@@ -349,6 +349,33 @@
         "title": "BgmCodeRequest",
         "type": "object"
       },
+      "BgmParams": {
+        "additionalProperties": false,
+        "properties": {
+          "bars": {
+            "maximum": 16.0,
+            "minimum": 1.0,
+            "title": "Bars",
+            "type": "integer"
+          },
+          "bpm": {
+            "maximum": 180.0,
+            "minimum": 60.0,
+            "title": "Bpm",
+            "type": "integer"
+          },
+          "mood": {
+            "$ref": "#/components/schemas/Mood"
+          }
+        },
+        "required": [
+          "bpm",
+          "bars",
+          "mood"
+        ],
+        "title": "BgmParams",
+        "type": "object"
+      },
       "BgmRelPath": {
         "not": {
           "pattern": "\\.\\.|//"
@@ -1386,6 +1413,121 @@
           "digest"
         ],
         "title": "Checkpoint",
+        "type": "object"
+      },
+      "CodeBgm": {
+        "additionalProperties": false,
+        "properties": {
+          "channels": {
+            "const": 1,
+            "title": "Channels",
+            "type": "integer"
+          },
+          "duration_ms": {
+            "maximum": 16000.0,
+            "minimum": 500.0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "file": {
+            "$ref": "#/components/schemas/WavRelPath"
+          },
+          "id": {
+            "$ref": "#/components/schemas/CatalogId"
+          },
+          "label": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "loudness_lufs_x10": {
+            "anyOf": [
+              {
+                "maximum": 0.0,
+                "minimum": -700.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loudness Lufs X10"
+          },
+          "mood": {
+            "$ref": "#/components/schemas/Mood"
+          },
+          "params": {
+            "$ref": "#/components/schemas/BgmParams"
+          },
+          "program": {
+            "$ref": "#/components/schemas/RelPath"
+          },
+          "program_digest": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "runtime_digest": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "sample_rate": {
+            "const": 44100,
+            "title": "Sample Rate",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "source": {
+            "const": "code",
+            "title": "Source",
+            "type": "string"
+          },
+          "true_peak_dbtp_x10": {
+            "anyOf": [
+              {
+                "maximum": 0.0,
+                "minimum": -1000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "True Peak Dbtp X10"
+          }
+        },
+        "required": [
+          "schema_version",
+          "id",
+          "label",
+          "mood",
+          "file",
+          "sha256",
+          "duration_ms",
+          "sample_rate",
+          "channels",
+          "loudness_lufs_x10",
+          "true_peak_dbtp_x10",
+          "source",
+          "program",
+          "program_digest",
+          "runtime_digest",
+          "seed",
+          "params",
+          "provenance"
+        ],
+        "title": "CodeBgm",
         "type": "object"
       },
       "Compat": {
@@ -5283,6 +5425,122 @@
         "title": "TypingSoundEntry",
         "type": "object"
       },
+      "UploadBgm": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_at": {
+            "$ref": "#/components/schemas/Timestamp"
+          },
+          "channels": {
+            "enum": [
+              1,
+              2
+            ],
+            "title": "Channels",
+            "type": "integer"
+          },
+          "duration_ms": {
+            "maximum": 600000.0,
+            "minimum": 500.0,
+            "title": "Duration Ms",
+            "type": "integer"
+          },
+          "file": {
+            "$ref": "#/components/schemas/WavRelPath"
+          },
+          "id": {
+            "$ref": "#/components/schemas/CatalogId"
+          },
+          "label": {
+            "$ref": "#/components/schemas/LocalizedText"
+          },
+          "loudness_lufs_x10": {
+            "anyOf": [
+              {
+                "maximum": 0.0,
+                "minimum": -700.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Loudness Lufs X10"
+          },
+          "mood": {
+            "$ref": "#/components/schemas/Mood"
+          },
+          "original_bytes": {
+            "minimum": 1.0,
+            "title": "Original Bytes",
+            "type": "integer"
+          },
+          "owner_id": {
+            "$ref": "#/components/schemas/OwnerId"
+          },
+          "project_id": {
+            "$ref": "#/components/schemas/EntityId"
+          },
+          "sample_rate": {
+            "enum": [
+              44100,
+              48000
+            ],
+            "title": "Sample Rate",
+            "type": "integer"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "sha256": {
+            "$ref": "#/components/schemas/Digest"
+          },
+          "source": {
+            "const": "upload",
+            "title": "Source",
+            "type": "string"
+          },
+          "true_peak_dbtp_x10": {
+            "anyOf": [
+              {
+                "maximum": 0.0,
+                "minimum": -1000.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "True Peak Dbtp X10"
+          },
+          "upload_id": {
+            "$ref": "#/components/schemas/EntityId"
+          }
+        },
+        "required": [
+          "schema_version",
+          "id",
+          "label",
+          "mood",
+          "file",
+          "sha256",
+          "duration_ms",
+          "sample_rate",
+          "channels",
+          "loudness_lufs_x10",
+          "true_peak_dbtp_x10",
+          "source",
+          "owner_id",
+          "project_id",
+          "upload_id",
+          "original_bytes",
+          "accepted_at"
+        ],
+        "title": "UploadBgm",
+        "type": "object"
+      },
       "Usage": {
         "additionalProperties": false,
         "properties": {
@@ -6422,6 +6680,12 @@
                     },
                     {
                       "$ref": "#/components/schemas/BuiltinBgm"
+                    },
+                    {
+                      "$ref": "#/components/schemas/UploadBgm"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CodeBgm"
                     },
                     {
                       "$ref": "#/components/schemas/SfxEntry"
