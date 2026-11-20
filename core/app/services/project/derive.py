@@ -108,7 +108,10 @@ class _Picker:
     def refs(self, kind: str) -> list[dict[str, str]]:
         return [
             self.catalog.pin(kind, item.id).model_dump(mode="json")
-            for item in sorted(self.catalog.list(kind), key=lambda item: item.id)
+            for item in sorted(
+                self.catalog.list(kind, video=self.probe if kind == "bgm" else None),
+                key=lambda item: item.id,
+            )
         ]
 
     def style(self, settings: Settings) -> Any:

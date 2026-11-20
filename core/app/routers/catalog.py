@@ -8,9 +8,11 @@ from typing import Annotated, Any
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse
 
+from app.ports import UnknownCatalogId
 from app.routers.deps import runtime
 from app.schemas.api import CatalogItem, CatalogList, CatalogManifest
-from app.schemas.bgm_entry import BuiltinBgm, SfxEntry, TypingSoundEntry
+from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry, UploadBgm
+from app.schemas.common import PERSONAL_OWNER_ID
 from app.schemas.style_manifest import StyleManifest
 from app.schemas.voice_manifest import VoiceManifest
 
@@ -27,7 +29,7 @@ def _media_file(manifest: object, name: str) -> tuple[Path, str] | None:
         relative = manifest.preview
     elif isinstance(manifest, TypingSoundEntry):
         relative = manifest.keys[0].file
-    elif isinstance(manifest, (BuiltinBgm, SfxEntry)):
+    elif isinstance(manifest, (BuiltinBgm, UploadBgm, CodeBgm, SfxEntry)):
         relative = manifest.file
     if relative is None or Path(relative).name != name:
         return None
@@ -35,6 +37,12 @@ def _media_file(manifest: object, name: str) -> tuple[Path, str] | None:
     if media_type is None:
         return None
     return Path(relative), media_type
+
+
+def _owned(kind: str, item_id: str, manifest: object) -> None:
+    """An upload belongs to its owner; anyone else sees it as missing."""
+    if isinstance(manifest, UploadBgm) and manifest.owner_id != PERSONAL_OWNER_ID:
+        raise UnknownCatalogId(f"{kind}:{item_id}")
 
 
 def _page(items: list[CatalogItem], cursor: str | None, limit: int) -> CatalogList:
@@ -72,7 +80,9 @@ def list_catalog(
     response_model=CatalogManifest,
 )
 def get_catalog_item(request: Request, kind: str, item_id: str) -> Any:
-    return runtime(request).catalog.get(kind, item_id)
+    manifest = runtime(request).catalog.get(kind, item_id)
+    _owned(kind, item_id, manifest)
+    return manifest
 
 
 @router.get("/catalog/{kind}/{item_id}/media/{name}", operation_id="getCatalogMedia")
@@ -81,6 +91,7 @@ def get_catalog_media(
 ) -> FileResponse:
     app = runtime(request)
     manifest = app.catalog.get(kind, item_id)
+    _owned(kind, item_id, manifest)
     found = _media_file(manifest, name)
     if found is None:
         raise HTTPException(status_code=404, detail="catalog media not found")
@@ -94,7 +105,8 @@ def get_catalog_media(
 def get_bgm_audio(request: Request, item_id: str) -> FileResponse:
     app = runtime(request)
     manifest = app.catalog.get("bgm", item_id)
-    if not isinstance(manifest, BuiltinBgm):
+    _owned("bgm", item_id, manifest)
+    if not isinstance(manifest, (BuiltinBgm, UploadBgm, CodeBgm)):
         raise HTTPException(status_code=404, detail="bgm audio not found")
     ref = app.catalog.pin("bgm", item_id)
     path = app.catalog.package_dir("bgm", ref) / manifest.file

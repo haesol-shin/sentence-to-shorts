@@ -339,6 +339,7 @@ class FakeSound:
         self.media = None
         self.mix_calls: list[list[str]] = []
         self.import_calls: list[str] = []
+        self.registered: list[str] = []
         self.fail_mix = False
 
     def pick_bgm(self, settings: Any, recent: list[str], seed: int) -> PinnedRef:
@@ -360,6 +361,10 @@ class FakeSound:
         if mood is not None:
             raw["mood"] = mood.value
         return UploadBgm.model_validate(raw)
+
+    def register_upload(self, entry: UploadBgm, *, ctx: JobContext) -> PinnedRef:
+        self.registered.append(entry.id)
+        return PinnedRef(id=entry.id, revision="0" * 64)
 
     def mix(
         self,

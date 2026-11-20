@@ -7,7 +7,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import Field
 
-from app.schemas.bgm_entry import BuiltinBgm, SfxEntry, TypingSoundEntry
+from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry, UploadBgm
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
 from app.schemas.change import Op, Target
 from app.schemas.common import (
@@ -403,6 +403,8 @@ CatalogManifest = (
     | TemplateManifest
     | VoiceManifest
     | BuiltinBgm
+    | UploadBgm
+    | CodeBgm
     | SfxEntry
     | TypingSoundEntry
     | FontManifest

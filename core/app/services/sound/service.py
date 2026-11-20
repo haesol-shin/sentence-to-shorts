@@ -11,8 +11,10 @@ target apply.
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import secrets
+import shutil
 import struct
 import sys
 import threading
@@ -41,7 +43,6 @@ from app.ports import (
 )
 from app.schemas.artifact import Timing
 from app.schemas.bgm_entry import (
-    BgmEntry,
     BuiltinBgm,
     CodeBgm,
     ReviewStatus,
@@ -271,7 +272,7 @@ class SoundService:
         *,
         ctx: JobContext,
         mood: Mood | None = None,
-    ) -> BgmEntry:
+    ) -> UploadBgm:
         """Convert an uploaded file to 44.1 kHz mono PCM16 WAV under a new upload id.
 
         The file opens only through the media adapter's fixed demuxer list. Too
@@ -335,6 +336,27 @@ class SoundService:
             original_bytes=size,
             accepted_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         )
+
+    def register_upload(self, entry: UploadBgm, *, ctx: JobContext) -> PinnedRef:
+        """Make an imported upload selectable: the catalog lists and pins it by id.
+
+        The WAV that ``import_upload`` wrote is copied into a staged package with its
+        manifest, which the catalog stores under its digest like a code BGM.
+        """
+        ctx.cancel.raise_if_set()
+        source = ctx.job_dir / UPLOAD_DIR / entry.file
+        staged = ctx.job_dir / "staging" / entry.id
+        shutil.rmtree(staged, ignore_errors=True)
+        staged.mkdir(parents=True)
+        try:
+            shutil.copyfile(source, staged / entry.file)
+            (staged / "manifest.json").write_text(
+                json.dumps(entry.model_dump(mode="json"), indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            return self.catalog.register_generated("bgm", staged)
+        finally:
+            shutil.rmtree(staged, ignore_errors=True)
 
     def submit_upload(
         self,

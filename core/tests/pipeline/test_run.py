@@ -904,6 +904,8 @@ def test_4_1_bgm_code_and_upload_return_entries_without_rendering(
     upload_result = run_bgm_upload(upload_ctx.input, upload_ctx, harness.services)
     assert harness.sound.import_calls == [str(staged)]
     assert upload_result["bgm_id"].startswith("u_")
+    assert harness.sound.registered == [upload_result["bgm_id"]]
+    assert upload_result["ref"]["id"] == upload_result["bgm_id"]
     assert _all_calls(harness) == []
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -18,9 +19,10 @@ from app.schemas.video import CreatedBy, Video, VideoStage
 from app.services.project import derive
 from app.services.project.service import ProjectService
 from app.storage.paths import Layout
-from app.storage.projects import SqliteProjectStore
+from app.storage.projects import SqliteProjectStore, new_typeid
 from app.storage.sqlite import Database
 from tests.conftest import load_json
+from tests.fixtures.media import tone_wav
 from tests.project.test_revision import plan, set_op
 
 
@@ -300,3 +302,28 @@ def test_8_impossible_varied_value_fails_after_bounded_search(service: ProjectSe
         derive.pick_varied(KoreanOnlyVoices(), project, [], 1, settings=settings)
     assert error.value.code == "invalid_combination"
     assert KoreanOnlyVoices.calls < 50_000
+
+
+def test_8_varied_bgm_skips_uploads_of_other_projects(
+    service: ProjectService, tmp_path: Path
+) -> None:
+    first = project_video(service)
+    others: set[str] = set()
+    for _ in range(40):
+        item_id = new_typeid("u")
+        others.add(item_id)
+        staged = tmp_path / "staging" / item_id
+        staged.mkdir(parents=True)
+        wav = tone_wav(staged / f"{item_id}.wav", duration_ms=1000).read_bytes()
+        raw = load_json("contracts/valid/bgm_upload.json")
+        raw.update(
+            id=item_id, upload_id=item_id, file=f"{item_id}.wav", channels=1, duration_ms=1000,
+            sha256=hashlib.sha256(wav).hexdigest(),
+            project_id="p_0cvg4rwzzp8zp90cpp9shhp80x",
+        )
+        (staged / "manifest.json").write_text(json.dumps(raw), encoding="utf-8")
+        service.catalog.register_generated("bgm", staged)
+    source = first
+    for _ in range(6):
+        source = next_video(service, source)
+        assert source.settings.audio.bgm.entry.id not in others
