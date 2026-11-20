@@ -1,6 +1,7 @@
 .concept-screen {
   display: flex;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
   width: min(100%, 960px);
   margin-inline: auto;
@@ -17,17 +18,22 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   overflow: hidden;
 }
 
-.concept-screen {
-  flex-direction: column;
+.concept-content {
+  flex: 1;
+  min-height: 0;
 }
 
-.concept-content {
-  min-height: 0;
-  overflow-y: auto;
+.concept-content .scroll-pane__content {
   display: flex;
   flex-direction: column;
   gap: 24px;
   padding: 22px 28px;
+}
+
+/* Card faces use the same grey as the jump control; the floating shadow keeps
+   the 44 round control readable over them without changing the shared part. */
+.concept-content .scroll-pane__jump .icon-button {
+  box-shadow: var(--shadow-float);
 }
 
 .concept-group {
@@ -36,47 +42,315 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   gap: 16px;
 }
 
-.concept-tiles {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.concept-group__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.concept-tile {
+.concept-card-grid {
+  container-type: inline-size;
   display: flex;
-  min-width: 0;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 16px;
-  text-align: left;
-  background: var(--surface-muted);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
 }
 
-.concept-tile[aria-pressed="true"] {
+.concept-card-slot {
+  position: relative;
+  flex: 0 0 216px;
+  width: 216px;
+}
+
+/* 216 x 266: 8 padding, 200 x 150 picture, 52 title and 44 description slots. */
+.concept-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  width: 216px;
+  height: 266px;
+  padding: 8px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--surface-muted);
+  color: var(--text);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.concept-card:hover:not(:disabled):not([aria-pressed="true"]) {
+  background: var(--state-hover-gray);
+}
+
+.concept-card[aria-pressed="true"] {
   background: var(--surface-sunken);
 }
 
-.concept-tile:disabled,
-.concept-field select:disabled {
-  cursor: not-allowed;
-}
-
-.concept-tile:focus-visible,
-.concept-small-button:focus-visible,
-.concept-field select:focus-visible {
+.concept-card:focus-visible,
+.concept-tune-toggle:focus-visible,
+.concept-tune-chip:focus-within,
+.concept-reference-band:focus-visible {
   outline: 2px solid var(--text-strong);
   outline-offset: 2px;
 }
 
-.concept-picture {
-  min-height: 72px;
+.concept-card:disabled,
+.concept-tune-toggle:disabled,
+.concept-tune-chip:has(select:disabled) {
+  cursor: not-allowed;
+}
+
+.concept-card__picture {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
+  width: 200px;
+  height: 150px;
+  border-radius: var(--radius-inset);
   background: var(--surface);
+  color: var(--sub);
+}
+
+.concept-card__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 200px;
+  height: 52px;
+  margin-top: 4px;
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 17px;
+  line-height: 26px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.concept-card[aria-pressed="true"] .concept-card__title {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.concept-card__description {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  width: 200px;
+  height: 44px;
+  overflow: hidden;
+  color: var(--sub);
+  font-size: 15px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.concept-tune-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 200px;
+  height: 44px;
+  margin: 8px 8px 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 22px;
+  text-align: start;
+  cursor: pointer;
+}
+
+.concept-tune-toggle:hover:not(:disabled) {
+  background: var(--state-hover-gray);
+}
+
+.concept-tune-toggle svg {
+  transition: transform var(--motion-panel-duration) var(--motion-ease);
+}
+
+.concept-tune-toggle[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+/* The floating board keeps the selected card's left edge and clears the card row. */
+.concept-tune-panel {
+  position: absolute;
+  top: 324px;
+  left: 0;
+  z-index: var(--z-menu);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(448px, calc(100vw - 32px));
+  height: 172px;
+  padding: 12px;
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+}
+
+@container (max-width: 903px) {
+  .concept-card-slot:last-child .concept-tune-panel {
+    right: 0;
+    left: auto;
+  }
+}
+
+.concept-tune-panel__head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+}
+
+.concept-tune-panel__mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-inset);
+  background: var(--surface-muted);
+  color: var(--sub);
+}
+
+.concept-tune-panel__names {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 20px;
+}
+
+.concept-tune-panel__names strong {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.concept-tune-panel__names span {
+  color: var(--sub);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.concept-tune-panel__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.concept-tune-chip {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 12px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.concept-tune-chip__label {
+  flex: none;
+  color: var(--sub);
+}
+
+.concept-tune-chip__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 700;
+  text-align: end;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.concept-tune-chip__icon {
+  flex: none;
+  color: var(--sub);
+}
+
+.concept-tune-chip__select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.concept-tune-chip__select:disabled {
+  cursor: not-allowed;
+}
+
+.concept-reference-band {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-sizing: border-box;
+  width: 680px;
+  max-width: 100%;
+  height: 80px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-content);
+  background: var(--surface-muted);
+  color: var(--text);
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.concept-reference-band:hover:not(:disabled) {
+  background: var(--state-hover-gray);
+}
+
+.concept-reference-band:disabled {
+  cursor: not-allowed;
+}
+
+.concept-reference-band__mark {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  color: var(--sub);
+}
+
+.concept-reference-band__text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.concept-reference-band__text strong {
+  font-size: 17px;
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.concept-reference-band__text span {
+  color: var(--sub);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.concept-reference-band__icon {
+  flex: none;
+  margin-inline-start: auto;
+  color: var(--sub);
 }
 
 .concept-fields {
@@ -100,6 +374,15 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   padding: 8px 12px;
   background: var(--surface-muted);
   color: var(--text);
+}
+
+.concept-field select:disabled {
+  cursor: not-allowed;
+}
+
+.concept-field select:focus-visible {
+  outline: 2px solid var(--text-strong);
+  outline-offset: 2px;
 }
 
 .concept-small-button {
@@ -147,33 +430,49 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   width: 100%;
   max-height: calc(100dvh - 32px);
   margin: auto;
-  overflow-y: auto;
+  overflow: hidden;
   border: 0;
   border-radius: 24px;
   background: var(--surface);
   color: var(--text);
 }
 
+.concept-dialog__pane {
+  max-height: calc(100dvh - 32px);
+}
+
 .concept-dialog::backdrop {
-  background: rgb(0 0 0 / 25%);
+  background: var(--overlay-dialog-scrim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .concept-card,
+  .concept-reference-band,
+  .concept-tune-toggle svg {
+    transition: none;
+  }
 }
 
 @media (max-width: 767px) {
-  .concept-content {
+  .concept-content .scroll-pane__content {
     padding: 16px;
     gap: 20px;
   }
 
-  .concept-tiles {
-    grid-template-columns: minmax(0, 1fr);
+  /* One card per row: the board takes its own row so the next card stays pressable. */
+  .concept-card-grid {
+    flex-direction: column;
   }
 
-  .concept-tile {
-    gap: 4px;
+  .concept-card-slot {
+    width: 100%;
+    flex-basis: 100%;
   }
 
-  .concept-picture {
-    min-height: 48px;
+  .concept-tune-panel {
+    position: static;
+    width: min(448px, 100%);
+    margin-top: 6px;
   }
 
   .concept-footer {

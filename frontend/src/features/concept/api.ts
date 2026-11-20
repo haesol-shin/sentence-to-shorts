@@ -298,7 +298,7 @@ function unsupportedText(language: 'ko' | 'en', key: string): string {
       en: 'This role needs a character body and face.',
     },
     'concept.reason.typewriterNeedsDialog': {
-      ko: '타자기 자막은 대화창 화면 틀에서만 쓸 수 있어요.',
+      ko: '타자기 자막은 대화창 화면 구성에서만 쓸 수 있어요.',
       en: 'Typewriter captions need a dialog-stage layout.',
     },
     'concept.reason.unknownAsset': {
@@ -314,7 +314,7 @@ function unsupportedText(language: 'ko' | 'en', key: string): string {
       en: 'That theme is not part of this style.',
     },
     'concept.reason.unknownLayout': {
-      ko: '요청한 화면 틀을 찾지 못했어요.',
+      ko: '요청한 화면 구성을 찾지 못했어요.',
       en: 'I could not find that layout.',
     },
     'concept.reason.unknownFont': {

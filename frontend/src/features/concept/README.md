@@ -10,6 +10,10 @@ Confirmation saves the selected settings first, including pinned layout and styl
 
 The change review lists values before and after, affected locks, user values being replaced and rebuild effects. Notes and unsupported requests remain visible even when the response contains no change. Immediate changes offer one undo.
 
+## Fine-tune panel
+
+The reference entry is one band above the three groups. Each story card carries a 「세부 조정」 row; the selected card opens a floating white panel with the card's layout, character role, register and humor. The panel keeps one value per card, so changing the card loads that card's values and never copies them into another card. Locks for those four values stay in 「세부 설정」.
+
 ## Input
 
 The first screen and the conversation rail share `ComposerBox`. Text files retain their contents, media retain their `File` objects, and links retain their URLs until the complete attachment payload reaches the mock API. Failed sends keep the input available. Images are unavailable; hosted deployments cannot accept reference links.
@@ -20,4 +24,4 @@ Production video IDs, revisions, uploads, downloads and server job polling belon
 
 ## Verification
 
-Run `npx vitest run src/features/concept tests/app/composer.test.tsx tests/app/first-screen.test.tsx` and `npx playwright test tests/concept tests/shell/composer.spec.ts` from the frontend directory. Browser coverage uses synthetic data at 390px and 1920px. Real mobile keyboards and iOS Safari require device testing.
+Run `npx vitest run src/features/concept tests/app/composer.test.tsx tests/app/first-screen.test.tsx` and `npx playwright test tests/concept tests/shell/composer.spec.ts` from the frontend directory. Browser coverage uses synthetic data at 1280px and 1920px. Mobile is outside the MVP, and real mobile keyboards and iOS Safari require device testing.

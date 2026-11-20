@@ -10,6 +10,17 @@ export type Character = components['schemas']['CharacterSpec'];
 export type Slot = keyof Character['slots'];
 export type SetOp = components['schemas']['SetOp'];
 
+/**
+ * The four values a story card owns. They live beside the card, so switching
+ * cards carries that card's values and leaves the other cards' values alone.
+ */
+export interface CardTune {
+  layout: PinnedRef;
+  role: Settings['format']['character_role'];
+  register: Settings['format']['register'];
+  humor: Settings['format']['humor'];
+}
+
 export interface Attachment {
   id: string;
   kind: 'text' | 'reference' | 'bgm' | 'link';
@@ -63,4 +74,6 @@ export interface ConceptSnapshot {
   job: ConceptJob | null;
   draft: string;
   canUndo: boolean;
+  /** Values remembered for the cards that are not selected. */
+  cardTunes: Record<string, CardTune>;
 }

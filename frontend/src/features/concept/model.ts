@@ -1,4 +1,5 @@
 import type {
+  CardTune,
   Character,
   ConceptCatalog,
   LockKey,
@@ -120,6 +121,37 @@ export const CARD_PRESETS: Record<string, CardPreset> = {
     caption: 'phrase',
   },
 };
+
+export function cardTunePreset(
+  cardId: string | null,
+  catalog: ConceptCatalog | null,
+): CardTune | null {
+  const preset = cardId === null ? undefined : CARD_PRESETS[cardId];
+  const layout = preset === undefined ? null : resolveLayoutRef(catalog, preset.layout);
+  if (preset === undefined || layout === null) return null;
+  return {
+    layout,
+    role: preset.role,
+    register: preset.register,
+    humor: preset.humor,
+  };
+}
+
+export function cardTuneOf(settings: Settings): CardTune {
+  return {
+    layout: settings.format.layout,
+    role: settings.format.character_role,
+    register: settings.format.register,
+    humor: settings.format.humor,
+  };
+}
+
+/** The one card a settings value follows, even before the first card click. */
+export function cardIdForSettings(settings: Settings): string | null {
+  if (settings.format.card_id !== null) return settings.format.card_id;
+  return Object.entries(CARD_PRESETS)
+    .find(([, preset]) => preset.storyStructure === settings.format.story_structure)?.[0] ?? null;
+}
 
 export const SHORT_OPTIONS = {
   story_structure: ['numbered_three', 'single_analogy', 'hypothetical'],
@@ -1004,6 +1036,66 @@ export function changeCard(
     next.origins['/format/character_role'] = 'card';
     next.origins['/visual/character'] = 'card';
     editedPaths.push('/format/character_role', '/visual/character');
+  }
+
+  const validation = validateConcept(next, catalog);
+  if (!validation.ok) {
+    return { kind: 'invalid', issue: validation.blocked[0] };
+  }
+  return { kind: 'changed', settings: next, editedPaths };
+}
+
+/**
+ * Select a story card together with the four values shown beside it. Unlike
+ * `changeCard`, the card's own values win even when the user edited them on
+ * another card, because each card keeps its own fine-tune row.
+ */
+export function changeCardTune(
+  settings: Settings,
+  cardId: string,
+  tune: CardTune,
+  duration: number,
+  catalog: ConceptCatalog | null,
+): ChangeResult {
+  const preset = CARD_PRESETS[cardId];
+  const presetLayout = resolveLayoutRef(catalog, preset?.layout ?? '');
+  if (preset === undefined || presetLayout === null) {
+    return { kind: 'invalid', issue: issue('invalid_combination', '/format/card_id', ISSUE_KEYS.invalid) };
+  }
+  let next = cloneSettings(settings);
+  const editedPaths: string[] = [];
+  const set = (path: string, value: unknown, origin: Origin): void => {
+    next = withSettingsValue(next, path, value);
+    next.origins[originPath(path)] = origin;
+    editedPaths.push(path);
+  };
+
+  set('/format/card_id', cardId, 'card');
+  set('/format/story_structure', preset.storyStructure, 'card');
+
+  const fill = (path: string, value: unknown): void => {
+    if (ORIGIN_RANK[originOf(next, path)] > ORIGIN_RANK.card) {
+      return;
+    }
+    next = withSettingsValue(next, path, value);
+    next.origins[originPath(path)] = 'card';
+    editedPaths.push(path);
+  };
+  fill('/format/progress_mode', preset.progress);
+  fill('/caption/mode', preset.caption);
+  fill('/format/scene_count', recommendedSceneCount(duration));
+
+  const layoutSame = JSON.stringify(tune.layout) === JSON.stringify(presetLayout);
+  set('/format/layout', tune.layout, layoutSame ? 'card' : 'user');
+  set('/format/register', tune.register, tune.register === preset.register ? 'card' : 'user');
+  set('/format/humor', tune.humor, tune.humor === preset.humor ? 'card' : 'user');
+
+  const roleChanged = settings.format.character_role !== tune.role;
+  set('/format/character_role', tune.role, tune.role === preset.role ? 'card' : 'user');
+  if (roleChanged || (next.visual.character === null && tune.role !== 'none')) {
+    next = withSettingsValue(next, '/visual/character', characterForRole(next, tune.role, catalog));
+    next.origins['/visual/character'] = tune.role === preset.role ? 'card' : 'user';
+    editedPaths.push('/visual/character');
   }
 
   const validation = validateConcept(next, catalog);

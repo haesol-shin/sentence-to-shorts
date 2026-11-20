@@ -7,7 +7,7 @@ import {
   analyzeConceptReference,
   applyConceptPlan,
   beginConcept,
-  chooseCard,
+  chooseCardTune,
   chooseConcept,
   confirmConcept,
   configureConceptApi,
@@ -242,10 +242,13 @@ test('test_direct_and_chat_edits_share_one_state_and_block_invalid_combinations'
   await sendConcept('반말로 바꿔');
   expect(current().document.settings.format.register).toBe('casual');
   expect(current().document.settings.origins['/format/register']).toBe('user');
-  chooseCard('its_like');
-  expect(current().document.settings.format.register).toBe('casual');
+  chooseCardTune('its_like');
+  expect(current().document.settings.format.register).toBe('friendly');
   expect(current().document.settings.format.story_structure).toBe('single_analogy');
   expect(current().document.settings.format.layout.id).toBe('full_stage');
+  expect(current().cardTunes.just_three.register).toBe('casual');
+  chooseCardTune('just_three');
+  expect(current().document.settings.format.register).toBe('casual');
 
   await beginConcept({ topic: '막힌 대화' });
   await reloadConceptCatalog();
@@ -253,6 +256,28 @@ test('test_direct_and_chat_edits_share_one_state_and_block_invalid_combinations'
   expect(current().pending).toBeNull();
   expect(current().document.settings.caption.mode).toBe('sentence');
   expect(current().unsupported.length).toBeGreaterThan(0);
+});
+
+test('test_4_card_tunes_keep_each_card_values_and_replace_the_visible_ones', async () => {
+  await beginConcept({ topic: '카드 값' });
+  await reloadConceptCatalog();
+
+  chooseConcept('/format/register', 'neutral');
+  chooseCardTune('its_like');
+  expect(current().document.settings.format.register).toBe('friendly');
+  expect(current().document.settings.format.humor).toBe('light');
+  expect(current().cardTunes.just_three.register).toBe('neutral');
+
+  chooseConcept('/format/humor', 'none');
+  expect(current().document.settings.origins['/format/humor']).toBe('user');
+  chooseCardTune('what_if');
+  expect(current().document.settings.format.humor).toBe('light');
+  expect(current().document.settings.format.character_role).toBe('subject');
+  expect(current().cardTunes.its_like.humor).toBe('none');
+
+  chooseCardTune('its_like');
+  expect(current().document.settings.format.humor).toBe('none');
+  expect(current().document.settings.format.layout.id).toBe('full_stage');
 });
 
 test('test_a_late_chat_result_does_not_replace_a_concurrent_direct_edit', async () => {
@@ -389,7 +414,7 @@ test('test_confirmation_locks_concept_fields_and_saves_full_selections', async (
   chooseConcept('/format/story_structure', 'hypothetical');
   expect(current().error).toBe('concept.error.conceptLocked');
   expect(current().document.settings.format.story_structure).toBe('single_analogy');
-  chooseCard('what_if');
+  chooseCardTune('what_if');
   expect(current().error).toBe('concept.error.conceptLocked');
   resetConcept('/visual/art_style');
   expect(current().error).toBe('concept.error.conceptLocked');
