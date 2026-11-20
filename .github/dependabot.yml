@@ -31,6 +31,23 @@ updates:
     commit-message:
       prefix: "build(deps): "
 
+  # WhisperX 3.8.6 pins torch~=2.8.0 and huggingface-hub<1.0, so the patched
+  # torch and transformers cannot install here. The ci.yml allow list is the
+  # only place that lists their advisories. Remove this ignore when WhisperX
+  # allows the patched versions.
+  - package-ecosystem: pip
+    directory: /core/align_runtime
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: "build(deps): "
+    ignore:
+      - dependency-name: "torch"
+      - dependency-name: "transformers"
+
   - package-ecosystem: npm
     directory: /frontend
     schedule:
