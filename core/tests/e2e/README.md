@@ -4,6 +4,17 @@
 
 ## 실행 준비
 
+실제 시험 전에 저장소 루트에서 사전 점검을 실행한다. 런타임과 정렬기 설정은 실제 시험과 같은 값을 쓰며, `APP_ALIGN_PYTHON`은 WhisperX를 설치한 별도 환경의 Python 경로로 지정한다.
+
+```sh
+cd core
+APP_PROFILE=dev poetry run python ../scripts/realpath_preflight.py
+```
+
+점검은 앱이 참조하는 런타임 항목의 플랫폼별 lock 파일과 설치된 실행 파일의 버전 응답, 정렬기의 WhisperX import를 검사한다. `APP_LLM_BASE_URL`이 있으면 API 모델 목록과 각 route의 짧은 합성 JSON 응답을 검사한다. 아래의 모델 ID와 `APP_LLM_KEY_ENV`를 같은 방식으로 지정하고, base URL에는 API 경로(`/v1`)까지 포함한다. 앱과 같은 요청 형식과 출력 스키마 검증을 쓰지만, 시험 응답이 유효하다고 해서 게이트웨이가 JSON schema를 강제한다는 뜻은 아니다.
+
+허용된 공개 링크의 해석도 확인하려면 `PREFLIGHT_LINK_1`, `PREFLIGHT_LINK_2`에 링크를 넣는다. 번들 다운로더는 메타데이터만 확인하고 미디어는 받지 않는다. 게이트웨이 주소와 링크가 없는 항목은 각각 `SKIP`으로 표시된다. `FAIL`이 하나라도 있으면 종료 코드는 0이 아니다. 사전 점검은 아래의 실제 생성 시험을 대체하지 않는다.
+
 - `core/config/app.yaml`의 공급자 표는 바꾸지 않는다. dev LLM은 `openai_compat`, 참고 분석의 downloader·transcriber·media는 `default`를 사용한다. TTS도 표에 선택된 엔진을 그대로 사용하며 현재 `fixed_wav` 결과를 자연스러운 음성 검수로 간주하지 않는다.
 - `app.yaml`에 선택된 aligner(현재 `whisperx`) 구현이 먼저 필요하다. 시험은 어댑터 기대값을 `app.yaml`에서 읽는다. 준비되지 않으면 `selected_aligner` fixture가 명확한 실패 사유를 남긴다. fixture aligner나 가짜 단어 시간으로 대체하지 않는다.
 - `APP_LLM_BASE_URL`과 haiku·sonnet alias의 model ID를 준비한다. alias 값은 `APP_LLM_MODEL_HAIKU`, `APP_LLM_MODEL_SONNET`으로 지정한다. dev profile의 `app/settings.py`가 이 변수를 읽으며 앱과 시험이 같은 설정 경로를 쓴다. 파일은 변경하지 않는다.

@@ -1,0 +1,56 @@
+name: Real models (x64)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 2 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: models-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  models:
+    name: "test | real models (x64)"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      APP_DATA_DIR: ${{ github.workspace }}/.local/data
+      APP_CACHE_DIR: ${{ github.workspace }}/.local/cache
+      APP_MODEL_DIR: ${{ github.workspace }}/.local/models
+      APP_RUNTIME_DIR: ${{ github.workspace }}/.local/rt
+      APP_ALIGN_PYTHON: ${{ github.workspace }}/core/align_runtime/.venv/bin/python
+      APP_DEVICE: cpu
+      APP_PROFILE: fixture
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - name: Cache pinned runtime and model files
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            .local/models
+            .local/rt
+          key: models-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('core/config/runtime.lock.json') }}
+      - name: Install Poetry and the locked test environment
+        working-directory: core
+        run: |
+          python -m pip install poetry==2.5.1
+          python -m poetry install
+      - name: Prepare runtime and models
+        working-directory: core
+        run: python -m poetry run python ../scripts/dev_setup.py --runtime --models
+      - name: Run real model tests and report synthesis wall time
+        working-directory: core
+        run: |
+          APP_TEST_WHISPER_MODEL="$APP_MODEL_DIR/$(jq -er '.items[] | select(.id == "model-asr-small") | .install_path' config/runtime.lock.json)"
+          export APP_TEST_WHISPER_MODEL
+          python -m poetry run pytest -m models -q -rs --timeout=900 -p tests.tts.test_model_timing

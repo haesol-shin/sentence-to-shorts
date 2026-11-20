@@ -209,6 +209,9 @@
       "tests/runtime",
       "tests/tools"
     ],
+    "scripts/realpath_preflight.py": [
+      "tests/tools"
+    ],
     "THIRD_PARTY_NOTICES.md": [
       "tests/runtime"
     ]
