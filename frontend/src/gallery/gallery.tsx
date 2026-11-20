@@ -2,6 +2,7 @@ import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 
 
 import './gallery.css';
 import {
+  GALLERY_SURFACES,
   findCase,
   findPart,
   galleryParts,
@@ -132,10 +133,6 @@ function GroupFrame({ part }: { part: GalleryPart }) {
   );
 }
 
-/** Every surface a part opens on top of the page (menus, tooltips, windows). */
-const SURFACE_SELECTOR =
-  '.menu-positioner, .field-positioner, .tooltip-positioner, .status-positioner, .dialog, .sheet-popup, .toast-surface, .file-drop';
-
 /** Height and used width of one state list, read from inside its frame. */
 type GroupSize = { height: number; used: number };
 
@@ -173,7 +170,7 @@ function useAlignedGroups(frames: { current: (HTMLIFrameElement | null)[] }, par
       setSizes(
         groups.map((group, index) => {
           // Menus and tooltips opened by hand inside the list draw outside the cases.
-          const surfaces = [...((group as Element).ownerDocument.querySelectorAll(SURFACE_SELECTOR) ?? [])];
+          const surfaces = [...((group as Element).ownerDocument.querySelectorAll(GALLERY_SURFACES) ?? [])];
           const right = Math.max(
             0,
             ...[...cases[index], ...surfaces].map((element) => element.getBoundingClientRect().right),
@@ -296,7 +293,7 @@ function StateFrames({ part, cropped }: { part: GalleryPart; cropped: boolean })
 }
 
 /** What a popup frame draws: the case and every open surface, read from inside the frame. */
-const POPUP_SELECTOR = `[data-case], ${SURFACE_SELECTOR}`;
+const POPUP_SELECTOR = `[data-case], ${GALLERY_SURFACES}`;
 
 /** Room kept around the drawn area of a popup frame, in CSS px. */
 const CROP_MARGIN = 24;

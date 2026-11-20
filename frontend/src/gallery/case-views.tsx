@@ -45,6 +45,7 @@ import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
 import { TopBarStatus } from '@/components/TopBarStatus/TopBarStatus';
 import { ValueField, type ValueFieldItem } from '@/components/ValueField/ValueField';
 import { VideoPreview } from '@/components/VideoPreview/VideoPreview';
+import { GalleryToast } from './gallery-toast';
 import type { GalleryCase } from './items';
 
 const SOON_TAG = (
@@ -707,7 +708,9 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         />
       );
     case 'toast':
-      return (
+      return entry.slug === 'action' ? (
+        <GalleryToast open />
+      ) : (
         <Toast open>
           {entry.slug === 'long'
             ? '장면 3을 다시 만들었어요. 목소리와 렌더를 새로 만들었어요.'

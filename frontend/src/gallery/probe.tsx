@@ -14,11 +14,11 @@ import { StageIndicator } from '@/components/StageIndicator/StageIndicator';
 import { Switch } from '@/components/Switch/Switch';
 import { Tabs } from '@/components/Tabs/Tabs';
 import { Tag } from '@/components/Tag/Tag';
-import { Toast } from '@/components/Toast/Toast';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
 import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
 import { TopBarStatus } from '@/components/TopBarStatus/TopBarStatus';
 import { ValueField } from '@/components/ValueField/ValueField';
+import { GalleryToast } from './gallery-toast';
 
 const SOON = (
   <Tag variant="neutral" icon={<Info aria-hidden="true" />}>
@@ -303,7 +303,7 @@ export function ProbePage() {
         <Button variant="secondary" onClick={() => setToastOpen(true)}>
           알림 열기
         </Button>
-        <Toast open={toastOpen}>대본을 저장했어요</Toast>
+        <GalleryToast open={toastOpen} onUndo={() => setToastOpen(false)} />
       </section>
       <p className="probe__log" data-probe="log">
         {log}
