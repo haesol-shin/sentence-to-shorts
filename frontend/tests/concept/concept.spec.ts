@@ -155,8 +155,11 @@ test('test_7_chat_values_survive_steps_and_confirmation', async ({ page }) => {
   await expect(tune.getByRole('combobox', { name: '유머', exact: true }).locator('option:checked')).toHaveText('없음');
   await move(page, '편집');
   await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
+  await expect(input.locator('[data-slot="composer-target"]')).toContainText('장면 1');
+  await input.getByRole('button', { name: '대상 지우기', exact: true }).click();
   await input.getByRole('textbox').fill('설명체로');
   await input.getByRole('button', { name: '보내기', exact: true }).click();
+  await input.getByRole('button', { name: '모두 바꾸기', exact: true }).click();
   await move(page, '컨셉');
   concept = page.locator('[data-slot="concept-screen"]');
   await applyIfNeeded(concept);

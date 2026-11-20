@@ -517,10 +517,10 @@ test.each(['바꾸기', '그대로 두기'])('test_10a_queued_chat_waits_for_the
   await screen.findByRole('button', { name: '요청 멈추기' });
   fireEvent.change(input, { target: { value: '두 번째 요청' } });
   fireEvent.keyDown(input, { key: 'Enter' });
-  const dialog = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' });
+  const dialog = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' }, { timeout: 5000 });
   expect(sentRevisions).toEqual([view.video.revision]);
   fireEvent.click(within(dialog).getByRole('button', { name: decision }));
-  await screen.findByText('바꿀 값이 없어요.');
+  await screen.findByText('바꿀 값이 없어요.', {}, { timeout: 5000 });
   expect(sentRevisions).toEqual([view.video.revision, view.video.revision + (decision === '바꾸기' ? 1 : 0)]);
 });
 

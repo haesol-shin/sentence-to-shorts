@@ -180,5 +180,7 @@
   "tabs.sound": "Sound",
   "tabs.soundPending": "Sound settings open in the next step.",
   "tone.applyAll": "Change all",
-  "tone.keepAll": "Keep all as is"
+  "tone.failed": "The tone could not be changed. Check that the concept is not already confirmed.",
+  "tone.keepAll": "Keep all as is",
+  "tone.preview": "Changing the tone also changes the concept's tone."
 }

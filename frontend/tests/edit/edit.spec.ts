@@ -295,19 +295,19 @@ test('test_10a_the_script_tone_is_decided_in_the_conversation', async ({ page })
   await openStage(page, '대본');
   const script = page.locator('[data-slot="stage-panel"][data-stage="script"]');
   const input = script.locator('[data-slot="script-line-input"]').first();
-  await input.fill('커피를 천천히 마셔요.');
+  await input.fill('커피 맛을 천천히 봐요.');
   const tone = script.getByRole('combobox', { name: '말투' });
   const chat = page.locator('[data-slot="conversation"]');
   await tone.click();
   await page.getByRole('option', { name: '~합니다', exact: true }).click();
   await chat.getByRole('button', { name: '모두 그대로 두기' }).click();
-  await expect(input).toHaveValue('커피를 천천히 마셔요.');
+  await expect(input).toHaveValue('커피 맛을 천천히 봐요.');
 
   await tone.click();
   await page.getByRole('option', { name: '~합니다', exact: true }).click();
   await chat.getByRole('button', { name: '모두 바꾸기', exact: true }).click();
   await expect(script.locator('[data-slot="script-changed"]').first()).toHaveText('바뀜');
-  await expect(input).not.toHaveValue('커피를 천천히 마셔요.');
+  await expect(input).toHaveValue('커피 맛을 천천히 봅니다.');
 });
 
 test('test_10a_the_edit_composer_has_no_example_chips', async ({ page }) => {
@@ -332,10 +332,8 @@ test('test_23_the_sfx_picker_uses_the_shared_scroll_pane_and_stops_at_two', asyn
   expect(await viewport.evaluate((node) => getComputedStyle(node).scrollbarWidth)).toBe('none');
   const jump = picker.locator('.scroll-pane__jump .icon-button');
   await expect(jump).toBeVisible();
-  const box = await jump.boundingBox();
-  expect(box).not.toBeNull();
-  if (box === null) return;
-  expect(Math.round(box.width)).toBe(44);
+  // The dialog opens at a 0.98 scale, so measure the layout size, not the animated box.
+  expect(await jump.evaluate((node) => (node as HTMLElement).offsetWidth)).toBe(44);
   await picker.getByRole('button', { name: '휙', exact: true }).click();
 
   await form.getByRole('button', { name: '효과음 추가' }).click();

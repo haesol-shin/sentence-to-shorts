@@ -180,5 +180,7 @@
   "tabs.sound": "소리",
   "tabs.soundPending": "소리 설정은 다음 단계에서 열려요.",
   "tone.applyAll": "모두 바꾸기",
-  "tone.keepAll": "모두 그대로 두기"
+  "tone.failed": "말투를 바꾸지 못했어요. 컨셉이 이미 정해졌는지 확인해 주세요.",
+  "tone.keepAll": "모두 그대로 두기",
+  "tone.preview": "말투를 바꾸면 컨셉의 말투도 함께 바뀌어요."
 }

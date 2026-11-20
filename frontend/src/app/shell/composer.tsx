@@ -12,7 +12,16 @@ import {
 import { ArrowUp, FileText, Film, Link2, Music, Plus, Square, X } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
-import { chooseConcept, loadConceptDeployment, useConcept, sendConcept, setConceptDraft } from '@/features/concept/store';
+import { chatProposal } from '@/features/concept/model';
+import {
+  applyConceptPlan,
+  chooseConcept,
+  getConceptSnapshot,
+  loadConceptDeployment,
+  sendConcept,
+  setConceptDraft,
+  useConcept,
+} from '@/features/concept/store';
 import { useEditOptional } from '@/features/edit/edit-context';
 import { sceneNumber } from '@/features/edit/model';
 import { ChangeReview } from '@/features/concept/concept-screen';
@@ -846,8 +855,10 @@ export function Composer({
 
 /**
  * The edit conversation. The scene chip is the request target; clearing it
- * sends the sentence to the whole video. The input stays active while a video
- * job runs, because the job belongs to the top bar, not the composer.
+ * sends the sentence to the whole video. A whole-video sentence that changes
+ * the tone waits for the user's decision before the concept's tone changes.
+ * The input stays active while a video job runs, because the job belongs to
+ * the top bar, not the composer.
  */
 function EditComposer({
   reason,
@@ -859,6 +870,21 @@ function EditComposer({
   const { t } = useLocale();
   const edit = useEditOptional();
   const [value, setValue] = useState('');
+  const concept = useConcept();
+  const [toneRequest, setToneRequest] = useState<string | null>(null);
+  const [toneFailed, setToneFailed] = useState(false);
+  const decideTone = async (change: boolean) => {
+    const text = toneRequest;
+    setToneRequest(null);
+    if (!change || text === null) return;
+    setToneFailed(false);
+    try {
+      await sendConcept(text);
+      if (getConceptSnapshot()?.pending?.status === 'proposed') await applyConceptPlan();
+    } catch {
+      setToneFailed(true);
+    }
+  };
   if (edit === null || edit.video === null) {
     return (
       <Tooltip label={reason ?? t('concept.composer.noSession')} side="top" className={cn('w-full')}>
@@ -874,32 +900,53 @@ function EditComposer({
   }
   const number = edit.targetId === null ? 0 : sceneNumber(edit.video, edit.targetId);
   return (
-    <Composer
-      {...rest}
-      label={rest.label}
-      placeholder={number > 0 ? t('edit.composer.placeholderScene', { number }) : t('edit.composer.placeholder')}
-      sendLabel={rest.sendLabel}
-      cancelLabel={t('edit.composer.cancel')}
-      onCancel={edit.chatBusy ? edit.cancelChat : undefined}
-      cancelActive={edit.chatBusy}
-      value={value}
-      onChange={setValue}
-      onSubmit={() => {
-        const text = value.trim();
-        if (text === '') return;
-        edit.sendMessage(text);
-        setValue('');
-      }}
-      targetChip={
-        number > 0
-          ? {
-              label: t('edit.chat.target', { number }),
-              removeLabel: t('edit.chat.targetRemove'),
-              onRemove: edit.clearTarget,
-            }
-          : null
-      }
-    />
+    <div className="flex w-full flex-col gap-2">
+      {toneRequest === null ? null : (
+        <div className="flex flex-col gap-2">
+          <p>{t('edit.tone.preview')}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void decideTone(true)}>{t('edit.tone.applyAll')}</Button>
+            <Button variant="ghost" onClick={() => void decideTone(false)}>{t('edit.tone.keepAll')}</Button>
+          </div>
+        </div>
+      )}
+      {toneFailed ? <p role="alert">{t('edit.tone.failed')}</p> : null}
+      <Composer
+        {...rest}
+        label={rest.label}
+        placeholder={number > 0 ? t('edit.composer.placeholderScene', { number }) : t('edit.composer.placeholder')}
+        sendLabel={rest.sendLabel}
+        cancelLabel={t('edit.composer.cancel')}
+        onCancel={edit.chatBusy ? edit.cancelChat : undefined}
+        cancelActive={edit.chatBusy}
+        value={value}
+        onChange={setValue}
+        onSubmit={() => {
+          const text = value.trim();
+          if (text === '') return;
+          const changesTone =
+            number === 0 &&
+            concept !== null &&
+            chatProposal(concept.document.settings, text, null).ops.some((op) => op.path === '/format/register');
+          if (changesTone) {
+            setToneFailed(false);
+            setToneRequest(text);
+          } else {
+            edit.sendMessage(text);
+          }
+          setValue('');
+        }}
+        targetChip={
+          number > 0
+            ? {
+                label: t('edit.chat.target', { number }),
+                removeLabel: t('edit.chat.targetRemove'),
+                onRemove: edit.clearTarget,
+              }
+            : null
+        }
+      />
+    </div>
   );
 }
 
