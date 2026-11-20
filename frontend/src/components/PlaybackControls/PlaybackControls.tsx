@@ -10,6 +10,14 @@ import { statesOf, type ForceState } from '../force-state';
 export type PlaybackControlsProps = {
   /** The accessible name of the row. */
   label: string;
+  /** Accessible names for the visual-only controls. */
+  labels: {
+    play: string;
+    pause: string;
+    seek: string;
+    mute: string;
+    unmute: string;
+  };
   playing?: boolean;
   onToggle?: () => void;
   /** The played share, 0 to 100. */
@@ -39,6 +47,7 @@ export type PlaybackControlsProps = {
  */
 export function PlaybackControls({
   label,
+  labels,
   playing = false,
   onToggle,
   position = 0,
@@ -65,7 +74,7 @@ export function PlaybackControls({
       <button
         type="button"
         className="player__control hit-area focus-ring"
-        aria-label={playing ? '일시정지' : '재생'}
+        aria-label={playing ? labels.pause : labels.play}
         data-force-state={playForced.length > 0 ? playForced.join(' ') : undefined}
         disabled={isDisabled}
         onClick={onToggle}
@@ -87,7 +96,7 @@ export function PlaybackControls({
           max={100}
           step={1}
           value={Math.max(0, Math.min(100, position))}
-          aria-label="재생 위치"
+          aria-label={labels.seek}
           data-force-state={progressForced.length > 0 ? progressForced.join(' ') : undefined}
           disabled={isDisabled}
           onChange={(event) => onSeek?.(Number(event.target.value))}
@@ -99,7 +108,7 @@ export function PlaybackControls({
       <button
         type="button"
         className="player__control hit-area focus-ring"
-        aria-label={muted ? '소리 켜기' : '소리 끄기'}
+        aria-label={muted ? labels.unmute : labels.mute}
         data-force-state={soundForced.length > 0 ? soundForced.join(' ') : undefined}
         disabled={isDisabled}
         onClick={onToggleMute}

@@ -36,7 +36,6 @@ export function ResultPlayer({
   return (
     <div data-slot="result-player" className="export-player">
       <VideoPreview
-        label={t('export.player.label')}
         state="ready"
         duration={total > 0 ? formatClock(total) : undefined}
       >
@@ -49,6 +48,7 @@ export function ResultPlayer({
             ref={video}
             data-slot="result-video"
             className="export-player__video"
+            aria-label={t('export.player.label')}
             src={import.meta.env.VITE_API_MODE === 'mock' ? mockMediaUrl('mp4') : artifactUrl(artifactId)}
             preload="metadata"
             playsInline
@@ -70,6 +70,13 @@ export function ResultPlayer({
       </VideoPreview>
       <PlaybackControls
         label={t('export.player.controls')}
+        labels={{
+          play: t('export.player.play'),
+          pause: t('export.player.pause'),
+          seek: t('export.player.seek'),
+          mute: t('export.player.mute'),
+          unmute: t('export.player.unmute'),
+        }}
         playing={playing}
         onToggle={() => {
           const element = video.current;

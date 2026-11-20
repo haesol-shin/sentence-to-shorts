@@ -5,33 +5,35 @@ import { PlaybackControls } from './PlaybackControls';
 
 afterEach(cleanup);
 
+const LABELS = { play: 'Play', pause: 'Pause', seek: 'Playback position', mute: 'Mute', unmute: 'Unmute' };
+
 describe('PlaybackControls', () => {
   test('test_10a_playback_controls_toggle_play_and_sound', () => {
     const onToggle = vi.fn();
     const onToggleMute = vi.fn();
     render(
-      <PlaybackControls label="재생 조절" onToggle={onToggle} onToggleMute={onToggleMute} />,
+      <PlaybackControls label="Playback controls" labels={LABELS} onToggle={onToggle} onToggleMute={onToggleMute} />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: '재생' }));
-    fireEvent.click(screen.getByRole('button', { name: '소리 끄기' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Mute' }));
 
     expect(onToggle).toHaveBeenCalledTimes(1);
     expect(onToggleMute).toHaveBeenCalledTimes(1);
   });
 
   test('test_10a_playback_controls_show_the_pause_state_without_moving', () => {
-    render(<PlaybackControls label="재생 조절" playing muted />);
+    render(<PlaybackControls label="Playback controls" labels={LABELS} playing muted />);
 
-    expect(screen.getByRole('button', { name: '일시정지' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '소리 켜기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Pause' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Unmute' })).toBeTruthy();
   });
 
   test('test_10a_playback_controls_seek_reaches_the_caller', () => {
     const onSeek = vi.fn();
-    render(<PlaybackControls label="재생 조절" position={20} onSeek={onSeek} />);
+    render(<PlaybackControls label="Playback controls" labels={LABELS} position={20} onSeek={onSeek} />);
 
-    fireEvent.change(screen.getByRole('slider', { name: '재생 위치' }), {
+    fireEvent.change(screen.getByRole('slider', { name: 'Playback position' }), {
       target: { value: '40' },
     });
 
@@ -39,11 +41,11 @@ describe('PlaybackControls', () => {
   });
 
   test('test_10a_playback_controls_forced_disabled_stops_both_controls', () => {
-    render(<PlaybackControls label="재생 조절" forceState="disabled" />);
+    render(<PlaybackControls label="Playback controls" labels={LABELS} forceState="disabled" />);
 
-    expect((screen.getByRole('button', { name: '재생' }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Play' }) as HTMLButtonElement).disabled).toBe(true);
     expect(
-      (screen.getByRole('button', { name: '소리 끄기' }) as HTMLButtonElement).disabled,
+      (screen.getByRole('button', { name: 'Mute' }) as HTMLButtonElement).disabled,
     ).toBe(true);
   });
 });

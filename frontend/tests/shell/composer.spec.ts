@@ -135,7 +135,7 @@ test('test_10a_send_and_plus_keep_a_44px_target_and_chips_stay_36px', async ({ p
 
 test('test_10a_the_plus_menu_has_five_items_and_a_named_image_gap', async ({ page }) => {
   const composer = await openFirst(page);
-  await composer.getByRole('button', { name: '파일이나 링크 더하기' }).click();
+  await composer.getByRole('button', { name: '파일이나 링크 더하기' }).press('Enter');
 
   const menu = page.getByRole('menu', { name: '더하기 메뉴' });
   await expect(menu).toBeVisible();
@@ -147,8 +147,23 @@ test('test_10a_the_plus_menu_has_five_items_and_a_named_image_gap', async ({ pag
   const image = menu.getByRole('menuitem', { name: /이미지 올리기/ });
   await expect(image).toHaveAttribute('aria-disabled', 'true');
   await expect(image).toContainText('곧 지원');
+  const reason = page.getByRole('tooltip').filter({ hasText: '이미지 입력' });
+  for (const item of [
+    menu.getByRole('menuitem').first(),
+    link,
+    menu.getByRole('menuitem', { name: 'BGM 올리기' }),
+    image,
+  ]) {
+    await page.keyboard.press('Tab');
+    await expect(item).toBeFocused();
+  }
+  await expect(reason).toBeVisible();
+
+  await page.keyboard.press('Tab');
+  await expect(image).not.toBeFocused();
+  await expect(reason).toBeHidden();
   await image.hover();
-  await expect(page.getByRole('tooltip')).toContainText('이미지 입력');
+  await expect(reason).toBeVisible();
 
   const box = await menu.boundingBox();
   const viewport = page.viewportSize();

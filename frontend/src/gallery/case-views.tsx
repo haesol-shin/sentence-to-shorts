@@ -554,12 +554,13 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       );
     }
     case 'send-button':
-      return <SendButton label="보내기" forceState={state} loading={state === 'loading'} />;
+      return <SendButton label="보내기" stopLabel="멈추기" forceState={state} loading={state === 'loading'} />;
     case 'composer': {
       const long = entry.slug === 'long';
       return (
         <Composer
           label="메시지 입력"
+          stopLabel="멈추기"
           attachLabel="파일 넣기"
           placeholder={entry.slug === 'drop' ? '여기에 놓으면 올라가요' : '어떤 영상을 만들까요?'}
           defaultValue={long ? COMPOSER_LONG : entry.slug === 'filled' ? '차분한 다큐멘터리로 만들어 줘.' : undefined}
@@ -884,6 +885,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       return (
         <PlaybackControls
           label="재생 조절"
+          labels={{ play: '재생', pause: '일시정지', seek: '재생 위치', mute: '소리 끄기', unmute: '소리 켜기' }}
           playing={entry.slug === 'playing'}
           position={progressCase ? 40 : 0}
           current={progressCase ? '0:03' : '0:00'}
@@ -894,14 +896,20 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         />
       );
     }
-    case 'video-preview':
+    case 'video-preview': {
+      const previewState = entry.slug as 'empty' | 'loading' | 'ready';
+      const note =
+        previewState === 'empty' ? '장면 그림이 아직 없어요'
+          : previewState === 'loading' ? '미리보기를 준비하는 중' : undefined;
       return (
         <VideoPreview
-          label={entry.slug === 'ready' ? '완성된 영상 미리보기' : '장면 3 미리보기'}
-          state={entry.slug as 'empty' | 'loading' | 'ready'}
-          duration={entry.slug === 'ready' ? '0:07' : undefined}
+          placeholderLabel="완성된 영상 미리보기"
+          state={previewState}
+          note={note}
+          duration={previewState === 'ready' ? '0:07' : undefined}
         />
       );
+    }
     case 'scroll-pane':
       return <ScrollPaneCase atEnd={entry.slug === 'end'} short={entry.slug === 'short'} />;
     case 'result-card':
@@ -913,9 +921,10 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         >
           <div className="demo-result">
             <div className="demo-result__player">
-              <VideoPreview label="영상 미리보기" state="ready" duration="0:23" />
+              <VideoPreview placeholderLabel="영상 미리보기" state="ready" duration="0:23" />
               <PlaybackControls
                 label="영상 재생 조절"
+                labels={{ play: '재생', pause: '일시정지', seek: '재생 위치', mute: '소리 끄기', unmute: '소리 켜기' }}
                 position={0}
                 current="0:00"
                 duration="0:23"

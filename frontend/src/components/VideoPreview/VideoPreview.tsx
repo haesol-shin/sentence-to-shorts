@@ -8,11 +8,13 @@ import './VideoPreview.css';
 export type VideoPreviewState = 'empty' | 'loading' | 'ready';
 
 export type VideoPreviewProps = {
-  /** The accessible name of the picture. */
-  label: string;
+  /** The accessible name of the ready placeholder when there is no custom media. */
+  placeholderLabel?: string;
   state?: VideoPreviewState;
-  /** The still picture. The fallbacks stay quiet and use tokens only. */
+  /** The media or status content. Name custom media at its source. */
   children?: ReactNode;
+  /** The empty or loading text that accompanies the default placeholder. */
+  note?: string;
   /** The length chip on a ready preview. */
   duration?: string;
   className?: string;
@@ -24,17 +26,18 @@ export type VideoPreviewProps = {
  * and the ready frame all keep the same box.
  */
 export function VideoPreview({
-  label,
+  placeholderLabel,
   state = 'empty',
   children,
+  note,
   duration,
   className,
 }: VideoPreviewProps) {
+  const readyLabel = state === 'ready' ? placeholderLabel : undefined;
+
   return (
     <div
       className={cn('video-preview', `video-preview--${state}`, className)}
-      role="img"
-      aria-label={label}
       data-state={state}
     >
       {children ?? (
@@ -48,13 +51,13 @@ export function VideoPreview({
                   ? 'video-preview__mark video-preview__mark--ready'
                   : 'video-preview__mark'
               }
-              aria-hidden="true"
+              role={readyLabel === undefined ? undefined : 'img'}
+              aria-label={readyLabel}
+              aria-hidden={readyLabel === undefined || undefined}
             />
           )}
-          {state === 'empty' || state === 'loading' ? (
-            <span className="video-preview__note">
-              {state === 'loading' ? '미리보기를 준비하는 중' : '장면 그림이 아직 없어요'}
-            </span>
+          {state !== 'ready' && note !== undefined ? (
+            <span className="video-preview__note" role="status">{note}</span>
           ) : null}
         </>
       )}

@@ -196,6 +196,18 @@ test('test_10a_the_result_card_has_the_x_and_the_bottom_row_and_nothing_else_to_
   expect(card.querySelector('button.focus-ring--inset')?.getAttribute('aria-label')).toBe('결과 카드 닫기');
 });
 
+test('test_10a_a_video_that_fails_to_play_announces_the_reason_outside_the_picture', async () => {
+  renderExport(builtView(), stubApi());
+  const card = await screen.findByRole('dialog', { name: '영상' });
+  const video = within(card).getByLabelText('영상 미리보기', { selector: 'video' });
+
+  fireEvent.error(video);
+
+  const reason = within(card).getByRole('alert');
+  expect(reason.textContent).toBe('영상을 재생하지 못했어요');
+  expect(reason.closest('[role="img"]')).toBeNull();
+});
+
 test('test_10a_the_card_edit_button_asks_for_the_edit_step_and_closes_the_card', async () => {
   const onOpenEdit = vi.fn();
   renderExport(builtView(), stubApi(), { onOpenEdit });
