@@ -175,8 +175,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | POST `/jobs/{jid}/retry` | 없음 | 202 Job | 409 `job_not_retryable` | 예 |
 | GET `/artifacts/{aid}` | `Range` 지원 | 200 또는 206 | 404 | 아니오 |
 | GET `/videos/{vid}/download/{kind}` | kind는 `mp4`, `srt` | 200 attachment | 409 `not_built` | 아니오 |
-| POST `/videos/{vid}/activity` | `ActivityRequest` | 204 | 400 | 아니오 |
-| GET `/videos/{vid}/metrics` | 없음 | 200 `Metrics` | 404 | 아니오 |
+| POST `/videos/{vid}/activity` | `ActivityRequest` | 204 | 400 | 예 |
+| GET `/videos/{vid}/metrics` | 없음 | 200 `Metrics`(토큰은 usage event 합, `job_wall_ms`는 끝난 job의 시작부터 끝까지 합, `regenerated_scene_ids`는 job 단계 기록의 재생성 scene) | 404 | 아니오 |
 
 ### 4.1 단계 gate와 변경 적용
 

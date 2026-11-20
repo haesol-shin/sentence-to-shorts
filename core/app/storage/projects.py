@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from app.ports import AppError
 from app.schemas.api import ActivityKind, ActivitySpan, Metrics
 from app.schemas.change import ChangePlan
+from app.schemas.job import Job
 from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.video import RevisionInfo, Video
@@ -318,8 +319,12 @@ class SqliteProjectStore:
             )
 
     def metrics(self, video_id: str) -> Metrics:
-        """Activity totals. Job wall time, tokens and regenerated scenes come from job
-        records, which this store does not hold; they stay empty until those exist."""
+        """Activity totals, plus job wall time, tokens and rebuilt scenes of the video.
+
+        Tokens sum the usage ledger, which holds failed and retried requests too; a
+        token count no request reported stays null. Wall time sums the finished jobs'
+        start to end, and rebuilt scenes are the ids the jobs' stage records list.
+        """
         with self._db.read() as conn:
             if not _exists(conn, "videos", video_id):
                 raise _not_found()
@@ -330,14 +335,33 @@ class SqliteProjectStore:
                     (video_id,),
                 ).fetchall()
             )
+            tokens = conn.execute(
+                "SELECT SUM(e.input_tokens), SUM(e.output_tokens) "
+                "FROM usage_events e JOIN jobs j ON j.id = e.job_id "
+                "WHERE j.video_id = ?",
+                (video_id,),
+            ).fetchone()
+            documents = conn.execute(
+                "SELECT doc FROM jobs WHERE video_id = ? ORDER BY created_at, id", (video_id,)
+            ).fetchall()
+        wall_ms = 0
+        rebuilt: list[str] = []
+        for (document,) in documents:
+            job = Job.model_validate_json(document)
+            if job.started_at is not None and job.ended_at is not None:
+                wall_ms += max(0, int((job.ended_at - job.started_at).total_seconds() * 1000))
+            for record in job.stages:
+                rebuilt.extend(
+                    scene_id for scene_id in record.rebuilt_scene_ids if scene_id not in rebuilt
+                )
         return Metrics(
             active_ms=int(totals.get(ActivityKind.active.value) or 0),
             waiting_ms=int(totals.get(ActivityKind.waiting.value) or 0),
-            job_wall_ms=0,
-            input_tokens=None,
-            output_tokens=None,
+            job_wall_ms=wall_ms,
+            input_tokens=tokens[0],
+            output_tokens=tokens[1],
             cost_micro_usd=None,
-            regenerated_scene_ids=[],
+            regenerated_scene_ids=rebuilt,
         )
 
     @staticmethod

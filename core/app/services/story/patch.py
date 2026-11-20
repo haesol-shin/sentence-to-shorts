@@ -44,6 +44,7 @@ from app.schemas.common import (
     Origin,
     PinnedRef,
 )
+from app.schemas.job import Stage, WaitingOn
 from app.schemas.settings import (
     CaptionPosition,
     CharacterMotion,
@@ -375,6 +376,18 @@ REPAIR_NOTE = "\n\n# Repair\n\nReturn corrected JSON that validates against the 
 
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
+StepT = TypeVar("StepT")
+
+
+def llm_step(
+    ctx: JobContext, stage: Stage, *, done: int, total: int, call: Callable[[], StepT]
+) -> StepT:
+    """Run one LLM call as a recorded stage: waiting on the model, then one step done."""
+    with ctx.stage(stage):
+        ctx.progress(done=done, total=total, waiting_on=WaitingOn.llm)
+        value = call()
+        ctx.progress(done=done + 1, total=total)
+    return value
 
 
 def _validated(
@@ -463,6 +476,7 @@ __all__ = [
     "complete_json",
     "current_origin",
     "field_patches",
+    "llm_step",
     "load_prompt",
     "lock_key_for",
     "rejection",

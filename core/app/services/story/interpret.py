@@ -15,6 +15,7 @@ from pydantic import Field
 from app.ports import CatalogPort, JobContext, LlmPort, LlmTask, Proposal
 from app.schemas.change import Target
 from app.schemas.common import ContractModel, Language, Origin
+from app.schemas.job import Stage
 from app.schemas.settings import Settings
 from app.schemas.video import Video
 from app.services.story.patch import (
@@ -25,6 +26,7 @@ from app.services.story.patch import (
     check_theme_id,
     complete_json,
     field_patches,
+    llm_step,
 )
 
 CHAT_ROUTE = "chat"
@@ -134,16 +136,22 @@ def interpret(
         "scenes": _scenes_data(video),
         "extra_instructions": list(video.settings.extra_instructions),
     }
-    out = complete_json(
-        llm,
-        task=LlmTask.chat,
-        route=CHAT_ROUTE,
-        model=ChatOutput,
-        data=data,
-        max_output_tokens=CHAT_MAX_TOKENS,
-        ctx=ctx,
-        check=lambda value: _check_chat(
-            value, catalog, video.settings.visual.art_style.id
+    out = llm_step(
+        ctx,
+        Stage.llm_chat,
+        done=0,
+        total=1,
+        call=lambda: complete_json(
+            llm,
+            task=LlmTask.chat,
+            route=CHAT_ROUTE,
+            model=ChatOutput,
+            data=data,
+            max_output_tokens=CHAT_MAX_TOKENS,
+            ctx=ctx,
+            check=lambda value: _check_chat(
+                value, catalog, video.settings.visual.art_style.id
+            ),
         ),
     )
     if out.question:

@@ -36,6 +36,8 @@ API_VERSION = 2
 """Builtin layers stopped drawing the caption box at version 2, so layer_png is redrawn."""
 TIMING_API_VERSION = 2
 """Typewriter lines carry display spans from version 2, so old timing_json is not reused."""
+STILL_API_VERSION = 3
+"""Stills stopped drawing captions at version 3, so still_png cached earlier is not reused."""
 
 SPEED_DECIMALS = 2
 
@@ -541,6 +543,7 @@ class Graph:
         return cache_key(
             ArtifactKind.still_png.value,
             {**inputs, "timing": self._published_digest(timing)},
+            api_version=STILL_API_VERSION,
         )
 
     def _clip_key(
@@ -719,6 +722,7 @@ __all__ = [
     "LAYER_CANVAS",
     "PART_SEED",
     "SPEED_DECIMALS",
+    "STILL_API_VERSION",
     "TIMING_API_VERSION",
     "SceneKeys",
     "cache_key",

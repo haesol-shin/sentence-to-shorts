@@ -4361,7 +4361,9 @@ export interface operations {
     recordActivity: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "Idempotency-Key"?: string | null;
+            };
             path: {
                 vid: string;
             };

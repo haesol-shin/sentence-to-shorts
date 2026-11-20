@@ -359,6 +359,20 @@ def test_20_analysis_without_a_value_to_set_stores_no_plan(
     assert outcome.reference.summary.status.value == "analyzed"
 
 
+def test_27_reference_progress_ends_at_total(
+    registry: Registry, clip: Path, tmp_path: Path
+) -> None:
+    service = _service(registry, tmp_path, ScriptedLlm(ANSWER), store=Store())
+    staged = _stage_upload(tmp_path, clip)
+    ctx = _context(tmp_path, upload_path=str(staged))
+
+    _run(service, ctx, draft_video(), staged)
+
+    assert ctx.progress_calls[-1] == (5, 5)
+    steps = [done for done, _ in ctx.progress_calls]
+    assert steps == sorted(steps)
+
+
 def test_20_analysis_repairs_one_invalid_answer_then_fails(
     registry: Registry, clip: Path, tmp_path: Path
 ) -> None:
