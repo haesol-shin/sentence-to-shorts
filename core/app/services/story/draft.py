@@ -20,6 +20,7 @@ from app.ports import AppError, CatalogPort, JobContext, LlmPort, LlmTask, Unkno
 from app.schemas.change import Op
 from app.schemas.common import CatalogId, ContractModel, Language, Origin
 from app.schemas.format_card import FormatCard
+from app.schemas.job import Stage
 from app.schemas.settings import Humor, Register
 from app.schemas.video import Video
 from app.services.story.patch import (
@@ -30,8 +31,9 @@ from app.services.story.patch import (
     check_theme_id,
     complete_json,
     field_patches,
+    llm_step,
 )
-from app.services.story.script import ScriptBrief, build_script_ops
+from app.services.story.script import ScriptBrief, build_script_ops, script_steps
 
 DRAFT_ROUTE = "draft"
 DRAFT_MAX_TOKENS = 1200
@@ -190,19 +192,27 @@ def draft(
         "card_id": card_id,
         "topic": video.topic,
     }
-    out = complete_json(
-        llm,
-        task=LlmTask.draft,
-        route=DRAFT_ROUTE,
-        model=DraftOutput,
-        data=data,
-        max_output_tokens=DRAFT_MAX_TOKENS,
-        ctx=ctx,
-        check=lambda value: _check_draft(
-            value,
-            requested_card=card_id,
-            catalog=catalog,
-            current_art_style=video.settings.visual.art_style.id,
+    writes_script = video.script is None
+    total = 1 + script_steps(video) if writes_script else 1
+    out = llm_step(
+        ctx,
+        Stage.llm_draft,
+        done=0,
+        total=total,
+        call=lambda: complete_json(
+            llm,
+            task=LlmTask.draft,
+            route=DRAFT_ROUTE,
+            model=DraftOutput,
+            data=data,
+            max_output_tokens=DRAFT_MAX_TOKENS,
+            ctx=ctx,
+            check=lambda value: _check_draft(
+                value,
+                requested_card=card_id,
+                catalog=catalog,
+                current_art_style=video.settings.visual.art_style.id,
+            ),
         ),
     )
     chosen = card_id or out.card_id
@@ -229,9 +239,19 @@ def draft(
     )
     outcome = build_ops(video, patches)
     ops: list[Op] = list(outcome.ops)
-    if video.script is None:
+    if writes_script:
         brief = _effective_brief(video, ops, out.topic)
-        ops.extend(build_script_ops(video, brief, llm=llm, catalog=catalog, ctx=ctx))
+        ops.extend(
+            build_script_ops(
+                video,
+                brief,
+                llm=llm,
+                catalog=catalog,
+                ctx=ctx,
+                steps_done=1,
+                steps_total=total,
+            )
+        )
     return ops
 
 

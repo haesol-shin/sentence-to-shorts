@@ -138,6 +138,27 @@ UsageCallback = Callable[[Usage], None]
 UsageEventCallback = Callable[[UsageEvent], None]
 
 
+def _known_sum(values: list[int | None]) -> int | None:
+    known = [value for value in values if value is not None]
+    return sum(known) if known else None
+
+
+def _summarize_replies(replies: list[ProviderRequest], wall_ms: int) -> Usage:
+    last = replies[-1]
+    return Usage(
+        stage=last.stage,
+        provider=last.provider,
+        model=last.model or "",
+        effort=None,
+        input_tokens=_known_sum([reply.input_tokens for reply in replies]),
+        output_tokens=_known_sum([reply.output_tokens for reply in replies]),
+        cache_read_tokens=_known_sum([reply.cache_read_tokens for reply in replies]),
+        cache_write_tokens=_known_sum([reply.cache_write_tokens for reply in replies]),
+        wall_ms=wall_ms,
+        retries=last.try_index,
+    )
+
+
 @dataclass
 class LocalJobContext:
     """JobContext implementation used by the local job runner and by tests."""
@@ -157,6 +178,8 @@ class LocalJobContext:
     on_request: UsageEventCallback | None = None
     _stages: list[tuple[Stage, str]] = field(default_factory=list)
     _call_seq: int = field(default=0, repr=False)
+    _replied: dict[int, list[ProviderRequest]] = field(default_factory=dict, repr=False)
+    _call_opened: float = field(default_factory=time.monotonic, repr=False)
 
     @property
     def cancel(self) -> CancelToken:
@@ -204,6 +227,8 @@ class LocalJobContext:
             self._call_seq += 1
         elif self._call_seq == 0:
             self._call_seq = 1
+        if request.outcome == "ok":
+            self._replied.setdefault(self._call_seq, []).append(request)
         if self.on_request is None:
             return
         self.on_request(UsageEvent(
@@ -227,8 +252,22 @@ class LocalJobContext:
         ))
 
     def record_usage(self, usage: Usage) -> None:
+        self._replied.pop(self._call_seq, None)
+        self._call_opened = time.monotonic()
         if self.on_usage is not None:
             self.on_usage(usage)
+
+    def unreported_usage(self) -> list[Usage]:
+        """Summaries of calls the provider answered but that never reached `record_usage`.
+
+        A reply that failed output validation spent tokens yet returns no usage, so the
+        ledger holds the spend and the job document would not. Wall time is measured from
+        the end of the previous call, so it includes work between the calls.
+        """
+        wall_ms = max(0, int((time.monotonic() - self._call_opened) * 1000))
+        summaries = [_summarize_replies(replies, wall_ms) for replies in self._replied.values()]
+        self._replied.clear()
+        return summaries
 
     @property
     def stages(self) -> list[tuple[Stage, str]]:
@@ -356,6 +395,41 @@ def _store(conn: sqlite3.Connection, job: Job, *, state: JobState, attempt: int)
         (job.state.value, job.attempt, job.model_dump_json(), job.id, state.value, attempt),
     )
     return cursor.rowcount == 1
+
+
+def _with_work_counts(
+    stages: list[StageRecord], result: Mapping[str, Any] | None
+) -> list[StageRecord]:
+    """Copy cache hits and rebuilt scene ids from the result's own stage log.
+
+    The runner learns of a stage only by its name and state; the pipeline that did
+    the work reports the counts in its result, so the job record takes them there.
+    """
+    logged = (result or {}).get("stages")
+    if not isinstance(logged, list):
+        return stages
+    hits: dict[str, int] = {}
+    rebuilt: dict[str, list[str]] = {}
+    for entry in logged:
+        if not isinstance(entry, Mapping):
+            continue
+        name = str(entry.get("stage"))
+        hits[name] = hits.get(name, 0) + int(entry.get("cache_hits") or 0)
+        scene_ids = rebuilt.setdefault(name, [])
+        scene_ids.extend(
+            str(scene_id)
+            for scene_id in entry.get("rebuilt_scene_ids") or []
+            if str(scene_id) not in scene_ids
+        )
+    return [
+        record.model_copy(
+            update={
+                "cache_hits": hits.get(record.stage.value, 0),
+                "rebuilt_scene_ids": rebuilt.get(record.stage.value, []),
+            }
+        )
+        for record in stages
+    ]
 
 
 def _next_attempt(job: Job) -> Job:
@@ -593,6 +667,7 @@ class SqliteJobStore:
                     "result": None if result is None else dict(result),
                     "error": error,
                     "partial": partial,
+                    "stages": _with_work_counts(job.stages, result),
                     "progress": job.progress.model_copy(update={"waiting_on": None}),
                 }
             )
@@ -1211,6 +1286,7 @@ class JobRunner:
 
         result: Mapping[str, Any] | None = None
         failure: BaseException | None = None
+        ctx: LocalJobContext | None = None
         try:
             # Preparing the context belongs to the attempt: a full disk while creating
             # the job folder fails the job instead of the queue worker.
@@ -1232,6 +1308,9 @@ class JobRunner:
             result = self._run_job(job, ctx)
         except Exception as error:  # noqa: BLE001 - every failure becomes a job error
             failure = error
+            if ctx is not None:
+                for usage in ctx.unreported_usage():
+                    on_usage(usage)
         self._close(job, active, result, failure, current[0], recorded[0], elapsed_ms())
 
     def _close(

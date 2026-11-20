@@ -255,6 +255,7 @@ class ReferenceService:
             style_hints=StyleHints(palette=[color.lower() for color in answer.palette]),
             kept_user_values=built.kept_user_values,
         )
+        ctx.progress(done=STEPS, total=STEPS)
         return ReferenceOutcome(change_id=change_id, reference=report)
 
     def _probe(self, source: Path, *, link: bool) -> MediaInfo:

@@ -12,6 +12,7 @@ import pytest
 
 from app.plugins.registry import Registry
 from app.schemas.video import Video
+from app.services.pipeline import cache_keys
 from app.services.pipeline.cache_keys import Graph, cache_key, canonical_json, speed_key
 from app.services.pipeline.types import KeyRuntime
 
@@ -455,3 +456,17 @@ def test_29_extra_font_and_language_move_the_still(registry: Registry) -> None:
         assert before.scenes[scene_id].still != after.scenes[scene_id].still
         assert before.scenes[scene_id].timing == after.scenes[scene_id].timing
         assert before.srt == after.srt
+
+
+def test_27_still_key_differs_from_the_key_before_stills_dropped_captions(
+    registry: Registry, video: Video, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    scene_id = video.scene_order[0]
+    services = _services(registry, MemoryStore())
+    current = Graph(video, services, symbolic=True).scenes[scene_id]
+    monkeypatch.setattr(cache_keys, "STILL_API_VERSION", cache_keys.API_VERSION)
+    before = Graph(video, services, symbolic=True).scenes[scene_id]
+
+    assert current.still != before.still
+    assert current.clip == before.clip
+    assert current.layer == before.layer

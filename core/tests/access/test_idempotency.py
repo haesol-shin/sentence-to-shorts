@@ -458,3 +458,20 @@ def test_spool_rolls_over_under_the_cache_directory(
     assert len(recorded["dirs"]) == 1
     assert Path(recorded["dirs"][0]).resolve() == cache_dir  # type: ignore[arg-type]
     assert recorded["rolled"] == [True]
+
+
+def test_27_repeated_activity_key_is_counted_once(client: TestClient) -> None:
+    video = create_upload_video(client)
+    path = f"/api/v1/videos/{video['id']}/activity"
+    metrics = f"/api/v1/videos/{video['id']}/metrics"
+    body = {"spans": [{"kind": "active", "start_ms": 0, "end_ms": 1500}]}
+
+    first = client.post(path, json=body, headers={"Idempotency-Key": "activity-key-0001"})
+    assert first.status_code == 204, first.text
+    retry = client.post(path, json=body, headers={"Idempotency-Key": "activity-key-0001"})
+    assert retry.status_code == 204
+    assert client.get(metrics).json()["active_ms"] == 1500
+
+    other = client.post(path, json=body, headers={"Idempotency-Key": "activity-key-0002"})
+    assert other.status_code == 204
+    assert client.get(metrics).json()["active_ms"] == 3000

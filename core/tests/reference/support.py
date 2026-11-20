@@ -47,9 +47,10 @@ class Context:
     deadline: float = field(default_factory=lambda: time.monotonic() + 120)
     stages: list[Stage] = field(default_factory=list)
     usages: list[Usage] = field(default_factory=list)
+    progress_calls: list[tuple[int, int]] = field(default_factory=list)
 
-    def progress(self, **_: Any) -> None:
-        return None
+    def progress(self, *, done: int, total: int, waiting_on: Any = None) -> None:
+        self.progress_calls.append((done, total))
 
     def stage(self, stage: Stage):  # type: ignore[no-untyped-def]
         from contextlib import contextmanager

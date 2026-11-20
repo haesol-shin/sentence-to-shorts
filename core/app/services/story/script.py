@@ -20,11 +20,12 @@ from app.ports import AppError, CatalogPort, JobContext, LlmPort, LlmTask
 from app.schemas.change import Op, SetScriptOp
 from app.schemas.common import ContractModel, Language, LocalizedText
 from app.schemas.format_card import StoryStructure
+from app.schemas.job import Stage
 from app.schemas.scene import Line, Scene
 from app.schemas.script import Script, ScriptSource, Span, Speaker
 from app.schemas.settings import Humor, Register
 from app.schemas.video import Video
-from app.services.story.patch import complete_json
+from app.services.story.patch import complete_json, llm_step
 
 NUMBERED_THREE = "numbered_three"
 SCRIPT_NUMBERED_ROUTE = "script.numbered_three"
@@ -218,16 +219,24 @@ def _split(
     structure: StoryStructure,
     llm: LlmPort,
     ctx: JobContext,
+    done: int,
+    total: int,
 ) -> SplitOutput:
-    return complete_json(
-        llm,
-        task=LlmTask.split,
-        route=SPLIT_ROUTE,
-        model=SplitOutput,
-        data=_split_data(brief, beats, lines, line_beats),
-        max_output_tokens=SPLIT_MAX_TOKENS,
-        ctx=ctx,
-        check=lambda value: _check_split(value, structure, len(lines), line_beats),
+    return llm_step(
+        ctx,
+        Stage.llm_split,
+        done=done,
+        total=total,
+        call=lambda: complete_json(
+            llm,
+            task=LlmTask.split,
+            route=SPLIT_ROUTE,
+            model=SplitOutput,
+            data=_split_data(brief, beats, lines, line_beats),
+            max_output_tokens=SPLIT_MAX_TOKENS,
+            ctx=ctx,
+            check=lambda value: _check_split(value, structure, len(lines), line_beats),
+        ),
     )
 
 
@@ -289,6 +298,11 @@ def _generated_lines(out: ScriptOutput) -> list[ScriptLineOut]:
     return [line for beat in out.beats for line in beat.lines]
 
 
+def script_steps(video: Video) -> int:
+    """LLM calls `build_script_ops` makes: the split, and a script unless the user wrote one."""
+    return 1 if _user_script(video) is not None else 2
+
+
 def build_script_ops(
     video: Video,
     brief: ScriptBrief,
@@ -296,8 +310,15 @@ def build_script_ops(
     llm: LlmPort,
     catalog: CatalogPort,
     ctx: JobContext,
+    steps_done: int = 0,
+    steps_total: int | None = None,
 ) -> list[Op]:
-    """Write or split a script and return the one op that stores it."""
+    """Write or split a script and return the one op that stores it.
+
+    Progress counts the LLM calls of the job: a caller that ran calls before this one
+    passes how many are done and the job's total.
+    """
+    total = steps_total if steps_total is not None else steps_done + script_steps(video)
     structure = _structure(catalog, brief.story_structure)
     beats = _beats(structure, brief.language)
     script = _user_script(video)
@@ -306,16 +327,23 @@ def build_script_ops(
         line_beats: list[str | None] = [None] * len(lines)
         source = Script(source=ScriptSource.user, raw_text=script.raw_text, title=script.title)
     else:
-        out = complete_json(
-            llm,
-            task=LlmTask.script,
-            route=script_route(brief.story_structure),
-            model=ScriptOutput,
-            data=_script_data(video, brief, [beat_id for beat_id, _ in beats]),
-            max_output_tokens=SCRIPT_MAX_TOKENS,
-            ctx=ctx,
-            check=lambda value: _check_script(value, structure),
+        out = llm_step(
+            ctx,
+            Stage.llm_script,
+            done=steps_done,
+            total=total,
+            call=lambda: complete_json(
+                llm,
+                task=LlmTask.script,
+                route=script_route(brief.story_structure),
+                model=ScriptOutput,
+                data=_script_data(video, brief, [beat_id for beat_id, _ in beats]),
+                max_output_tokens=SCRIPT_MAX_TOKENS,
+                ctx=ctx,
+                check=lambda value: _check_script(value, structure),
+            ),
         )
+        steps_done += 1
         lines = _generated_lines(out)
         line_beats = [beat.beat_id for beat in out.beats for _ in beat.lines]
         source = Script(
@@ -325,7 +353,7 @@ def build_script_ops(
         )
     if not lines:
         raise AppError("llm_invalid_output", detail={"task": LlmTask.script.value})
-    split = _split(brief, beats, lines, line_beats, structure, llm, ctx)
+    split = _split(brief, beats, lines, line_beats, structure, llm, ctx, steps_done, total)
     return [SetScriptOp(op="set_script", script=source, scenes=_scenes(split, lines))]
 
 
@@ -356,6 +384,7 @@ __all__ = [
     "build_script_ops",
     "brief_from_video",
     "script_route",
+    "script_steps",
     "split_sentences",
     "write_script",
 ]

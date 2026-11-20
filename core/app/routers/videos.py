@@ -349,7 +349,12 @@ def link_reference(
     response_model=None,
     status_code=204,
 )
-def record_activity(request: Request, vid: str, body: ActivityRequest) -> None:
+def record_activity(
+    request: Request,
+    vid: str,
+    body: ActivityRequest,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> None:
     runtime(request).project_store.add_activity(vid, body.spans)
 
 
