@@ -104,6 +104,10 @@ class Studio:
         ctx = Ctx(job_dir=self.root / name, cancel=Token())
         return self.service.still(video, scene_id, parts, layer, timing, ctx=ctx)
 
+    def compose(self, video: Video, scene_id: str) -> tuple[Any, dict[str, Any]]:
+        parts, layer = self.inputs(video, scene_id)
+        return self.service.compose(video, scene_id, parts, layer)
+
 
 @pytest.fixture(scope="session")
 def registry() -> Registry:

@@ -225,24 +225,25 @@ def _chat(
     video: Video, request: MessageRequest, ctx: JobContext, services: Services
 ) -> dict[str, object]:
     scene_target = request.target.scene_id
-    if scene_target is not None and not request.text.strip():
+    if scene_target is not None:
+        # A scene target keeps the whole request in that scene: lines, sound and
+        # beat changes stay, and anything else comes back in unsupported.
         if scene_target not in video.scenes:
             raise AppError("validation_failed", detail={"scene_id": scene_target})
-        ops = services.story.rewrite_scene(video, scene_target, request.text, ctx=ctx)
+        proposal = services.story.rewrite_scene(
+            video, scene_target, request.text, ctx=ctx
+        )
+        ops = list(proposal.ops)
         _only_scene(ops, scene_target)
         source = "scene_rewrite"
         target = request.target
     else:
         proposal = services.story.interpret(video, request.text, request.target, ctx=ctx)
         ops = proposal.ops
-        if scene_target is not None:
-            _only_scene(ops, scene_target)
         source = "chat"
         target = request.target
-        notes = list(proposal.notes)
-        unsupported = list(proposal.unsupported)
-    if source != "chat":
-        notes, unsupported = [], []
+    notes = list(proposal.notes)
+    unsupported = list(proposal.unsupported)
     if not ops:
         return {
             "change_id": None,

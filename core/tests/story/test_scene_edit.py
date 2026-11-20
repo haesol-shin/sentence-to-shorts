@@ -353,3 +353,107 @@ def test_26_scene_rewrite_keeps_rewritten_wording_out_of_neighbors(
 
     assert result.warnings == []
     assert stale_wording_warnings(video, result.ops) == []
+
+
+def test_4_1_scene_chat_adds_or_replaces_sound_cues(
+    ctx: LocalJobContext,
+) -> None:
+    video = _video_with_visual()
+    target = video.scene_order[1]
+    second = video.scenes[target].lines[1]
+    llm = ScriptedLlm(
+        {
+            "scene_id": target,
+            "sfx": [
+                {"sfx_id": "whoosh_page", "line_index": 1, "at": "start", "offset_ms": 0}
+            ],
+        }
+    )
+
+    result = plan_scene_rewrite(
+        video,
+        target,
+        "둘째 줄에 종이 넘기는 소리를 넣어 줘",
+        llm=llm,
+        catalog=Registry(),
+        ctx=ctx,
+    )
+
+    assert [op.path for op in result.ops] == [f"/scenes/{target}/visual"]
+    visual = SceneVisual.model_validate(result.ops[0].value)
+    assert [(cue.sfx_id.id, cue.line_id) for cue in visual.sfx] == [
+        ("whoosh_page", second.id)
+    ]
+    assert result.unsupported == []
+
+
+def test_4_1_scene_chat_reports_what_the_scene_route_cannot_do(
+    ctx: LocalJobContext,
+) -> None:
+    video = _video()
+    target = video.scene_order[1]
+    llm = ScriptedLlm(
+        {"scene_id": target, "unsupported": ["목소리는 소리 탭에서 바꾼다."]}
+    )
+
+    result = plan_scene_rewrite(video, target, "목소리를 바꿔", llm=llm, ctx=ctx)
+
+    assert result.ops == []
+    assert result.unsupported == ["목소리는 소리 탭에서 바꾼다."]
+    assert result.notes == []
+
+
+def test_4_1_scene_chat_renames_the_beat_without_rewriting_lines(
+    ctx: LocalJobContext,
+) -> None:
+    video = _video()
+    target = video.scene_order[1]
+    llm = ScriptedLlm({"scene_id": target, "beat_label": "새 이름"})
+
+    result = plan_scene_rewrite(video, target, "장면 이름을 새 이름으로", llm=llm, ctx=ctx)
+
+    assert [op.path for op in result.ops] == [f"/scenes/{target}/beat_label"]
+    assert result.ops[0].value == "새 이름"
+
+
+def test_4_1_scene_chat_repairs_an_unknown_sound_id(
+    ctx: LocalJobContext,
+) -> None:
+    video = _video_with_visual()
+    target = video.scene_order[1]
+    llm = ScriptedLlm(
+        {
+            "scene_id": target,
+            "sfx": [{"sfx_id": "no_such_sfx", "line_index": 0, "at": "start", "offset_ms": 0}],
+        },
+        {
+            "scene_id": target,
+            "sfx": [{"sfx_id": "pop", "line_index": 0, "at": "start", "offset_ms": 0}],
+        },
+    )
+
+    result = plan_scene_rewrite(
+        video, target, "시작에 팝 소리를 넣어", llm=llm, catalog=Registry(), ctx=ctx
+    )
+
+    assert len(llm.requests) == 2
+    assert json.loads(llm.requests[1].parts[-1].text)["repair"]["problems"]
+    visual = SceneVisual.model_validate(result.ops[0].value)
+    assert [cue.sfx_id.id for cue in visual.sfx] == ["pop"]
+
+
+def test_4_1_scene_chat_with_empty_text_requires_rewritten_lines(
+    ctx: LocalJobContext,
+) -> None:
+    video = _video()
+    target = video.scene_order[1]
+    llm = ScriptedLlm(
+        {"scene_id": target, "unsupported": ["바꿀 것이 없다."]},
+        _response(target, "짧아요."),
+    )
+
+    result = plan_scene_rewrite(video, target, "", llm=llm, ctx=ctx)
+
+    assert len(llm.requests) == 2
+    assert json.loads(llm.requests[1].parts[-1].text)["repair"]["problems"]
+    assert result.ops[0].path == f"/scenes/{target}/lines"

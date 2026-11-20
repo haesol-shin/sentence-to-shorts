@@ -145,10 +145,31 @@ def test_29_first_scene_of_language_video_renders_png(studio: Studio, base: str)
     path = studio.still(video, video.scene_order[0])
     with Image.open(path) as image:
         assert image.size == (540, 960)
-    record = _record(path)
+    _, record = studio.compose(video, video.scene_order[0])
     assert record["caption"]["lines"][0]["text"] == video.scenes[video.scene_order[0]].lines[
         0
     ].display_text
+
+
+def test_29_preview_still_has_no_baked_caption(studio: Studio) -> None:
+    scene = load("scene_text_edge.json")
+    other = copy.deepcopy(scene)
+    other["lines"][0]["display_text"] = "다른 대사"
+    other["lines"][0]["speech_text"] = "다른 대사"
+    first = studio.video(scene)
+    second = studio.video(other)
+
+    first_path = studio.still(first, scene["id"], name="caption_free_first")
+    second_path = studio.still(second, scene["id"], name="caption_free_second")
+
+    assert hashlib.sha256(first_path.read_bytes()).hexdigest() == hashlib.sha256(
+        second_path.read_bytes()
+    ).hexdigest()
+    record = _record(first_path)
+    assert record["caption"]["line_id"] == scene["lines"][0]["id"]
+    assert "caption_extra" not in record
+    _, composed = studio.compose(first, scene["id"])
+    assert composed["caption"]["plate"] == record["caption"]["plate"]
 
 
 def test_29_same_input_gives_same_png_digest(studio: Studio) -> None:
@@ -223,9 +244,9 @@ def test_6_theme_change_changes_background_box_and_palette(studio: Studio) -> No
         scene = load("scene_fixed_stage.json")
         scene["visual"]["background_id"] = background
         video = studio.video(scene, theme=theme)
-        path = studio.still(video, scene["id"], name=theme)
-        frames[theme] = Image.open(path).convert("RGB")
-        plates[theme] = _record(path)["caption"]["plate"]
+        frame, record = studio.compose(video, scene["id"])
+        frames[theme] = frame.convert("RGB")
+        plates[theme] = record["caption"]["plate"]
     # preview pixels: half of the 1080x1920 layout coordinates
     x, y, w, _ = plates["day"]
     areas = {
@@ -246,7 +267,7 @@ def test_29_caption_lines_stay_in_safe_area_and_line_limit(studio: Studio) -> No
     for name, layout, mode, role in FIXTURE_SCENES:
         scene = load(name)
         video = studio.video(scene, layout=layout, mode=mode, role=role)
-        record = _record(studio.still(video, scene["id"], name=name))
+        _, record = studio.compose(video, scene["id"])
         _assert_safe(record)
 
 
@@ -256,8 +277,7 @@ def test_29_plate_follows_the_text_through_each_position(studio: Studio) -> None
         for position in POSITIONS:
             scene = load("scene_fixed_stage.json")
             video = studio.video(scene, layout=layout, position=position)
-            path = studio.still(video, scene["id"], name=f"{layout}_{position}")
-            record = _record(path)
+            _, record = studio.compose(video, scene["id"])
             _assert_safe(record)
             plate_rows.append(record["caption"]["plate"][1])
         assert plate_rows == sorted(plate_rows)
@@ -269,9 +289,9 @@ def test_29_dialog_bubble_stays_while_the_text_moves(studio: Studio) -> None:
     for position in ("top", "bottom"):
         scene = load("scene_dialog_stage_typewriter.json")
         video = studio.video(scene, layout="dialog_stage", mode="typewriter", position=position)
-        path = studio.still(video, scene["id"], name=position)
-        frames[position] = Image.open(path).convert("RGB")
-        records[position] = _record(path)
+        frame, record = studio.compose(video, scene["id"])
+        frames[position] = frame.convert("RGB")
+        records[position] = record
     bubble = (61, 521, 479, 530)  # preview rows of the speech bubble's top border
     assert frames["top"].crop(bubble).tobytes() == frames["bottom"].crop(bubble).tobytes()
     assert records["top"]["caption"]["plate"] == records["bottom"]["caption"]["plate"]
@@ -288,7 +308,7 @@ def test_29_long_identifier_wraps_by_glyph_width(studio: Studio) -> None:
     scene["lines"][0]["display_text"] = text
     scene["lines"][0]["highlight"] = []
     video = studio.video(scene)
-    record = _record(studio.still(video, scene["id"]))
+    _, record = studio.compose(video, scene["id"])
     lines = [line["text"] for line in record["caption"]["lines"]]
     assert "".join(lines) == text
     assert len(lines) == 2
@@ -301,7 +321,7 @@ def test_29_caption_that_cannot_fit_fails_instead_of_clipping(studio: Studio) ->
     scene["lines"][0]["highlight"] = []
     video = studio.video(scene)
     with pytest.raises(AppError) as error:
-        studio.still(video, scene["id"])
+        studio.compose(video, scene["id"])
     assert error.value.code == "text_overflow"
 
 
@@ -311,7 +331,7 @@ def test_29_missing_glyph_fails_without_font_fallback(studio: Studio) -> None:
     scene["lines"][0]["highlight"] = []
     video = studio.video(scene)
     with pytest.raises(AppError) as error:
-        studio.still(video, scene["id"])
+        studio.compose(video, scene["id"])
     assert error.value.code == "font_missing_glyph"
     assert error.value.detail["code_points"] == ["U+1F600"]
 
@@ -321,7 +341,7 @@ def test_29_decomposed_jamo_is_drawn_as_syllables(studio: Studio) -> None:
     scene["lines"][0]["display_text"] = "\u1100\u1161\u11a8\u1109\u1175\u11ab 확인"
     scene["lines"][0]["highlight"] = [{"start": 0, "end": 3}]
     video = studio.video(scene)
-    record = _record(studio.still(video, scene["id"]))
+    _, record = studio.compose(video, scene["id"])
     assert record["caption"]["lines"][0]["text"] == "각신 확인"
 
 

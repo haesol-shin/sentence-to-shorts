@@ -1,10 +1,12 @@
 """Rewrite one scene and report neighbor text that still uses the old wording.
 
-The rewrite returns ops on the target scene's lines and, only when a reference
-broke, on its visual. Lines whose text did not change keep their id, highlight
-spans and references wherever they moved in the list; every other visual
-reference is repointed or dropped inside that scene. Neighbor text is only
-inspected for a warning; it is never edited.
+A scene-targeted message changes that scene only: its lines, beat label and
+sound cues. Lines whose text did not change keep their id, highlight spans and
+references wherever they moved in the list; every other visual reference is
+repointed or dropped inside that scene. A request the scene route cannot carry
+(voice, BGM, style, template, adding or removing scenes) comes back as
+unsupported instead of being dropped. Neighbor text is only inspected for a
+warning; it is never edited.
 """
 
 from __future__ import annotations
@@ -18,6 +20,7 @@ from pydantic import Field
 
 from app.ports import (
     AppError,
+    CatalogPort,
     JobContext,
     LlmPart,
     LlmPort,
@@ -25,14 +28,15 @@ from app.ports import (
     canonical_json,
 )
 from app.schemas.change import Op, PlanWarning, ReplaceSceneOp, SetOp, WarningCode
-from app.schemas.common import ContractModel, EntityId, Origin
+from app.schemas.common import CatalogId, ContractModel, EntityId, Origin
 from app.schemas.job import Stage, WaitingOn
-from app.schemas.scene import Element, Scene, SceneVisual, SfxCue
+from app.schemas.scene import CueAt, Element, Scene, SceneVisual, SfxCue
 from app.schemas.script import Line, Span, Speaker
 from app.schemas.video import Video
 from app.services.story.scene_data import ask_json, new_entity_id
 
-SCENE_REWRITE_MAX_TOKENS = 800
+SCENE_REWRITE_MAX_TOKENS = 1000
+MAX_SFX_PER_SCENE = 2
 
 _LINES_PATH = re.compile(r"^/scenes/([^/]+)/lines$")
 _TOKEN = re.compile(r"[0-9A-Za-z가-힣]+")
@@ -121,18 +125,39 @@ class LineChoice(ContractModel):
     speaker: Speaker
 
 
+class SfxChoice(ContractModel):
+    """One cue the model adds to the target scene, named by its line position."""
+
+    sfx_id: CatalogId
+    line_index: Annotated[int, Field(ge=0, le=3)]
+    at: CueAt
+    offset_ms: Annotated[int, Field(ge=-500, le=2000)]
+
+
 class SceneRewriteResponse(ContractModel):
+    """Model output of the scene route. Missing fields mean "leave it alone"."""
+
     scene_id: EntityId
-    lines: Annotated[list[LineChoice], Field(min_length=1, max_length=4)]
+    beat_label: Annotated[str, Field(min_length=1, max_length=40)] | None = None
+    lines: Annotated[list[LineChoice], Field(min_length=1, max_length=4)] | None = None
+    sfx: Annotated[list[SfxChoice], Field(max_length=MAX_SFX_PER_SCENE)] | None = None
+    notes: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=300)]], Field(max_length=5)
+    ] = Field(default_factory=list)
+    unsupported: Annotated[
+        list[Annotated[str, Field(min_length=1, max_length=200)]], Field(max_length=10)
+    ] = Field(default_factory=list)
 
 
 @dataclass(frozen=True)
 class SceneRewrite:
-    """Ops for the target scene plus warning candidates for the plan."""
+    """Ops for the target scene, plus warnings and the reply for the chat."""
 
     scene_id: str
     ops: list[Op]
     warnings: list[PlanWarning]
+    notes: list[str]
+    unsupported: list[str]
 
 
 def plan_scene_rewrite(
@@ -142,35 +167,89 @@ def plan_scene_rewrite(
     *,
     llm: LlmPort,
     ctx: JobContext,
+    catalog: CatalogPort | None = None,
 ) -> SceneRewrite:
-    """Rewrite the lines of one scene; the returned op keeps id and order."""
+    """Change the target scene from one instruction; nothing outside it is touched.
+
+    An empty instruction rewrites the lines shorter. A spoken instruction may
+    rewrite the lines, rename the beat and add or replace sound cues; anything
+    else the scene route cannot do comes back in ``unsupported``.
+    """
     scene = video.scenes.get(scene_id)
     if scene is None:
         raise AppError("validation_failed", detail={"unknown_scene_ids": [scene_id]})
+    sfx_options = _sfx_options(catalog)
+    sfx_ids = {str(item["id"]) for item in sfx_options}
     with ctx.stage(Stage.llm_chat):
         ctx.progress(done=0, total=1, waiting_on=WaitingOn.llm)
         response = ask_json(
             route="scene_rewrite",
             task=LlmTask.scene_rewrite,
             schema_model=SceneRewriteResponse,
-            parts=_rewrite_parts(video, scene, instruction),
-            validate=lambda item: _rewrite_problems(item, scene),
+            parts=_rewrite_parts(video, scene, instruction, sfx_options),
+            validate=lambda item: _rewrite_problems(item, scene, instruction, sfx_ids),
             llm=llm,
             ctx=ctx,
             max_output_tokens=SCENE_REWRITE_MAX_TOKENS,
         )
         ctx.progress(done=1, total=1)
-    rewrite = _rewrite_lines(scene, response.lines)
-    ops: list[Op] = [
-        SetOp(
-            op="set",
-            path=f"/scenes/{scene.id}/lines",
-            value=[line.model_dump(mode="json") for line in rewrite.lines],
-            origin=Origin.llm,
+    return _scene_rewrite(video, scene, response, catalog)
+
+
+def _scene_rewrite(
+    video: Video,
+    scene: Scene,
+    response: SceneRewriteResponse,
+    catalog: CatalogPort | None,
+) -> SceneRewrite:
+    ops: list[Op] = []
+    rewrite = None
+    lines = scene.lines
+    if response.lines is not None:
+        rewrite = _rewrite_lines(scene, response.lines)
+        lines = rewrite.lines
+        ops.append(
+            SetOp(
+                op="set",
+                path=f"/scenes/{scene.id}/lines",
+                value=[line.model_dump(mode="json") for line in lines],
+                origin=Origin.llm,
+            )
         )
-    ]
-    visual = _cleaned_visual(scene, rewrite)
-    if visual is not None:
+    if response.beat_label is not None and response.beat_label != scene.beat_label:
+        ops.append(
+            SetOp(
+                op="set",
+                path=f"/scenes/{scene.id}/beat_label",
+                value=response.beat_label,
+                origin=Origin.llm,
+            )
+        )
+    visual = _cleaned_visual(scene, rewrite) if rewrite is not None else scene.visual
+    if response.sfx is not None:
+        if catalog is None:
+            raise AppError(
+                "llm_invalid_output",
+                detail={"route": "scene_rewrite", "problems": ["sfx needs the catalog"]},
+            )
+        if visual is None:
+            raise AppError(
+                "scene_visual_missing", detail={"scene_id": scene.id}
+            )
+        visual = visual.model_copy(
+            update={
+                "sfx": [
+                    SfxCue(
+                        sfx_id=catalog.pin("sfx", choice.sfx_id),
+                        line_id=lines[choice.line_index].id,
+                        at=choice.at,
+                        offset_ms=choice.offset_ms,
+                    )
+                    for choice in response.sfx
+                ]
+            }
+        )
+    if visual is not None and visual != scene.visual:
         ops.append(
             SetOp(
                 op="set",
@@ -183,15 +262,33 @@ def plan_scene_rewrite(
         scene_id=scene.id,
         ops=ops,
         warnings=stale_wording_warnings(video, ops),
+        notes=list(response.notes),
+        unsupported=list(response.unsupported),
     )
 
 
-def _rewrite_parts(video: Video, scene: Scene, instruction: str) -> list[LlmPart]:
+def _sfx_options(catalog: CatalogPort | None) -> list[dict[str, object]]:
+    if catalog is None:
+        return []
+    return [
+        {"id": item.id, "label": item.label.model_dump(mode="json")}
+        for item in catalog.list("sfx")
+    ]
+
+
+def _rewrite_parts(
+    video: Video,
+    scene: Scene,
+    instruction: str,
+    sfx_options: list[dict[str, object]],
+) -> list[LlmPart]:
+    line_index = {line.id: index for index, line in enumerate(scene.lines)}
     payload = {
         "language": video.settings.language.value,
         "register": video.settings.format.register_value.value,
         "humor": video.settings.format.humor.value,
         "instruction": instruction,
+        "sfx_options": sfx_options,
         "scene": {
             "id": scene.id,
             "beat_id": scene.beat_id,
@@ -205,15 +302,50 @@ def _rewrite_parts(video: Video, scene: Scene, instruction: str) -> list[LlmPart
                 }
                 for line in scene.lines
             ],
+            "sfx": [
+                {
+                    "sfx_id": cue.sfx_id.id,
+                    "line_index": line_index.get(cue.line_id),
+                    "at": cue.at.value,
+                    "offset_ms": cue.offset_ms,
+                }
+                for cue in (scene.visual.sfx if scene.visual is not None else [])
+            ],
         },
     }
     return [LlmPart(kind="text", text=canonical_json(payload).decode("utf-8"))]
 
 
-def _rewrite_problems(response: SceneRewriteResponse, scene: Scene) -> list[str]:
+def _rewrite_problems(
+    response: SceneRewriteResponse,
+    scene: Scene,
+    instruction: str,
+    sfx_ids: set[str],
+) -> list[str]:
     problems: list[str] = []
     if response.scene_id != scene.id:
         problems.append(f"scene_id must stay {scene.id}")
+    if not instruction.strip() and response.lines is None:
+        problems.append("lines are required when the instruction is empty")
+    line_count = (
+        len(response.lines) if response.lines is not None else len(scene.lines)
+    )
+    if response.sfx is not None:
+        if scene.visual is None:
+            problems.append("the scene has no visual to place a sound effect")
+        for choice in response.sfx:
+            if choice.sfx_id not in sfx_ids:
+                problems.append(f"unknown sfx id: {choice.sfx_id}")
+            if choice.line_index >= line_count:
+                problems.append(f"line_index out of range: {choice.line_index}")
+    if (
+        response.lines is None
+        and response.sfx is None
+        and response.beat_label is None
+        and not response.notes
+        and not response.unsupported
+    ):
+        problems.append("nothing to do: name a change or explain why it cannot be done")
     return problems
 
 

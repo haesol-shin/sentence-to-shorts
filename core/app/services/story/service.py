@@ -46,7 +46,8 @@ class StoryService:
 
     def rewrite_scene(
         self, video: Video, scene_id: str, instruction: str, *, ctx: JobContext
-    ) -> list[Op]:
+    ) -> Proposal:
+        """Change one scene; the proposal carries what the scene route cannot do."""
         raise NotImplementedError
 
     def precheck(self, video: Video, *, ctx: JobContext) -> PrecheckReport:

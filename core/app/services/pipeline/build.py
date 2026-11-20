@@ -222,8 +222,9 @@ def _preview(run: RunState, scene_ids: list[str]) -> None:
             build.ensure_layer(scene_id, log)
     build.refresh_if_dirty()
     with run.stage(Stage.still) as log:
-        for scene_id in scene_ids:
+        for done, scene_id in enumerate(scene_ids, start=1):
             build.ensure_still(scene_id, build.published_timing(scene_id), log)
+            run.ctx.progress(done=done, total=len(scene_ids))
 
 
 def _generate(run: RunState) -> None:
@@ -259,8 +260,9 @@ def _generate(run: RunState) -> None:
     # A still artifact is not an input to a clip, mix, final or srt key.
     build.dirty = False
     with run.stage(Stage.clip) as log:
-        for scene_id in scene_ids:
+        for done, scene_id in enumerate(scene_ids, start=1):
             build.ensure_clip(scene_id, log)
+            run.ctx.progress(done=done, total=len(scene_ids))
     with run.stage(Stage.mix) as log:
         build.ensure_mix(log)
     build.refresh_if_dirty()
