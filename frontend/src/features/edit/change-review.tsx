@@ -4,11 +4,13 @@ import { Button } from '@/components/Button/Button';
 import { CloseButton } from '@/components/CloseButton/CloseButton';
 import { Dialog } from '@/components/Dialog/Dialog';
 import { Notice } from '@/components/Notice/Notice';
-import { useLocale } from '@/shared/lib/i18n/locale';
+import { useLocale, type LocaleValue } from '@/shared/lib/i18n/locale';
 
-import { artifactUrl, type ChangePlan } from './api';
+import { artifactUrl, type CatalogItem, type ChangePlan } from './api';
+import { CAPTION_FONT_PATH, CAPTION_MODE_PATH, CAPTION_POSITION_PATH } from './captions/model';
 import type { EditValue } from './edit-context';
 import { breaksFlow, sceneNumber, stillIsReady, type Line, type Video } from './model';
+import { BGM_PATH, VOICE_PATH } from './sound/model';
 
 function sceneLabel(video: Video | null, sceneId: string): string {
   const number = sceneNumber(video, sceneId);
@@ -44,19 +46,133 @@ function valueAtPath(document: unknown, path: string): unknown {
   return cursor;
 }
 
-function displayValue(value: unknown): string {
-  return typeof value === 'string' ? value : JSON.stringify(value);
+type ChangedValue = { path: string; label: string; before: string; after: string };
+type ReviewLocale = Pick<LocaleValue, 't' | 'language'>;
+
+function namedValue(prefix: string, value: unknown, { t }: ReviewLocale): string {
+  if (typeof value !== 'string') return t('audio.review.unknown');
+  const key = `${prefix}.${value}`;
+  const label = t(key);
+  return label === key ? t('audio.review.unknown') : label;
 }
 
-function changedValues(video: Video | null, plan: ChangePlan): Array<{ path: string; before: string; after: string }> {
+const CAPTION_NAMED = [
+  [CAPTION_MODE_PATH, 'audio.caption.mode'],
+  [CAPTION_POSITION_PATH, 'audio.caption.position'],
+] as const;
+
+const BGM_FIELDS = [
+  ['enabled', 'audio.bgm.switch'],
+  ['mood', 'audio.bgm.mood'],
+  ['entry', 'audio.bgm.track'],
+  ['gain_db_x10', 'audio.bgm.gain'],
+  ['ducking', 'audio.bgm.ducking'],
+] as const;
+
+function refId(value: unknown): string | null {
+  const id = valueAtPath(value, '/id');
+  return typeof id === 'string' && id !== '' ? id : null;
+}
+
+function catalogLabel(
+  id: string | null,
+  items: readonly Pick<CatalogItem, 'id' | 'label'>[],
+  { t, language }: ReviewLocale,
+  none: string,
+): string {
+  if (id === null) return t(none);
+  const label = items.find((item) => item.id === id)?.label?.[language]?.trim();
+  return label && label !== id ? label : t('audio.review.unknown');
+}
+
+function bgmValue(
+  field: (typeof BGM_FIELDS)[number][0],
+  value: unknown,
+  edit: EditValue,
+  locale: ReviewLocale,
+): string {
+  const { t } = locale;
+  if (field === 'entry' && (typeof value === 'string' || value === null)) {
+    return catalogLabel(value, edit.bgm, locale, 'audio.bgm.trackNone');
+  }
+  if (field === 'enabled' || field === 'ducking') {
+    if (typeof value === 'boolean') return t(value ? 'audio.on' : 'audio.off');
+  } else if (field === 'mood' && typeof value === 'string') {
+    const key = `audio.mood.${value}`;
+    const label = t(key);
+    if (label !== key) return label;
+  } else if (field === 'gain_db_x10' && typeof value === 'number') {
+    const key = `audio.bgm.gain.${value}`;
+    const label = t(key);
+    return label === key ? t('audio.bgm.gainCustom', { db: value / 10 }) : label;
+  }
+  return t('audio.review.unknown');
+}
+
+function changedValues(edit: EditValue, plan: ChangePlan, locale: ReviewLocale): ChangedValue[] {
+  const { t } = locale;
   return plan.ops.flatMap((op) => {
-    if (op.op !== 'set') return [];
-    if (op.path.endsWith('/lines')) return [];
-    return [{
-      path: op.path.split('/').slice(2).join('/'),
-      before: displayValue(valueAtPath(video, op.path)),
-      after: displayValue(op.value),
-    }];
+    if (op.op !== 'set' || op.path.endsWith('/lines')) return [];
+    if (op.path === VOICE_PATH || op.path.startsWith(`${VOICE_PATH}/`)) {
+      const before = refId(valueAtPath(edit.video, VOICE_PATH));
+      let after = before;
+      if (op.path === VOICE_PATH) after = refId(op.value);
+      if (op.path === `${VOICE_PATH}/id` && typeof op.value === 'string') after = op.value;
+      if (before === after) return [];
+      return [{
+        path: VOICE_PATH,
+        label: t('audio.voice.title'),
+        before: catalogLabel(before, edit.voices, locale, 'audio.voice.none'),
+        after: catalogLabel(after, edit.voices, locale, 'audio.voice.none'),
+      }];
+    }
+    if (op.path === BGM_PATH || op.path.startsWith(`${BGM_PATH}/`)) {
+      return BGM_FIELDS.flatMap(([field, label]) => {
+        const path = `${BGM_PATH}/${field}`;
+        const oldValue = valueAtPath(edit.video, path);
+        const before = field === 'entry' ? refId(oldValue) : oldValue;
+        let after: unknown;
+        if (op.path === BGM_PATH || op.path === path) {
+          const next = op.path === path ? op.value : valueAtPath(op.value, `/${field}`);
+          after = field === 'entry' ? refId(next) : next;
+        } else if (field === 'entry' && op.path === `${path}/id` && typeof op.value === 'string') {
+          after = op.value;
+        } else {
+          return [];
+        }
+        return before === after ? [] : [{
+          path,
+          label: t(label),
+          before: bgmValue(field, before, edit, locale),
+          after: bgmValue(field, after, edit, locale),
+        }];
+      });
+    }
+    for (const [path, prefix] of CAPTION_NAMED) {
+      if (op.path !== path) continue;
+      const before = valueAtPath(edit.video, path);
+      if (before === op.value) return [];
+      return [{
+        path,
+        label: t(prefix),
+        before: namedValue(prefix, before, locale),
+        after: namedValue(prefix, op.value, locale),
+      }];
+    }
+    if (op.path === CAPTION_FONT_PATH || op.path === `${CAPTION_FONT_PATH}/id`) {
+      const before = refId(valueAtPath(edit.video, CAPTION_FONT_PATH));
+      const after = op.path === CAPTION_FONT_PATH
+        ? refId(op.value)
+        : (typeof op.value === 'string' ? op.value : null);
+      if (before === after) return [];
+      return [{
+        path: CAPTION_FONT_PATH,
+        label: t('audio.caption.font'),
+        before: catalogLabel(before, edit.fonts, locale, 'audio.caption.fontNone'),
+        after: catalogLabel(after, edit.fonts, locale, 'audio.caption.fontNone'),
+      }];
+    }
+    return [{ path: op.path, label: t('audio.review.generic'), before: '', after: '' }];
   });
 }
 
@@ -97,13 +213,14 @@ function PendingBody({
   onLoaded: (sceneId: string) => void;
   onFailed: (sceneId: string) => void;
 }) {
-  const { t } = useLocale();
+  const locale = useLocale();
+  const { t } = locale;
   const newTexts = newLines(plan);
-  const values = changedValues(edit.video, plan);
+  const values = changedValues(edit, plan, locale);
   const opScenes = plan.ops.flatMap((op) => {
     if (op.op === 'add_scene') return [op.scene.id];
     if (op.op === 'remove_scene') return [op.scene_id];
-    if (op.op === 'set') return [op.path.split('/')[2] ?? ''];
+    if (op.op === 'set' && op.path.startsWith('/scenes/')) return [op.path.split('/')[2] ?? ''];
     return [];
   });
   const scenes = [
@@ -166,9 +283,13 @@ function PendingBody({
         <ul className="flex flex-col gap-1 text-[15px]">
           {values.map((value) => (
             <li key={value.path} className="flex justify-between gap-2 rounded-[var(--radius-row)] bg-[var(--surface-muted)] px-3 py-2">
-              <span className="min-w-0 truncate text-[var(--text-muted)]">{value.path}</span>
-              <span className="shrink-0 text-[var(--text-muted)]">{value.before} → </span>
-              <span className="shrink-0 font-bold text-[var(--text-strong)]">{value.after}</span>
+              <span className="min-w-0 truncate text-[var(--text-muted)]">{value.label}</span>
+              {value.before === '' && value.after === '' ? null : (
+                <>
+                  <span className="shrink-0 text-[var(--text-muted)]">{value.before} → </span>
+                  <span className="shrink-0 font-bold text-[var(--text-strong)]">{value.after}</span>
+                </>
+              )}
             </li>
           ))}
         </ul>

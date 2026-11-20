@@ -16,6 +16,8 @@ import { useLocale, type Translate } from '@/shared/lib/i18n/locale';
 import { cn } from '@/shared/lib/utils';
 
 import type { CatalogItem } from './api';
+import { CaptionsTab } from './captions/captions-tab';
+import { SoundTab } from './sound/sound-tab';
 import { EDIT_TABS } from './tabs';
 import type { EditValue, SceneFieldPatch } from './edit-context';
 import {
@@ -162,7 +164,7 @@ function SfxPicker({
       open={open}
       onOpenChange={onOpenChange}
       title={t('edit.sfx.title')}
-      description={t('edit.sfx.description')}
+      description={t('audio.sfx.rule')}
       label={t('edit.sfx.title')}
       actions={
         <DialogClose render={<Button variant="ghost">{t('edit.sfx.close')}</Button>} />
@@ -572,9 +574,9 @@ export function ScenePanel({ edit }: { edit: EditValue }) {
         </Tooltip>
       </div>
       {edit.tab === 'sound' ? (
-        <Notice>{t('edit.tabs.soundPending')}</Notice>
+        <SoundTab edit={edit} />
       ) : edit.tab === 'captions' ? (
-        <Notice>{t('edit.tabs.captionsPending')}</Notice>
+        <CaptionsTab edit={edit} />
       ) : edit.selectedScene === null ? (
         <EmptyState
           title={t('edit.scene.chooseTitle')}
