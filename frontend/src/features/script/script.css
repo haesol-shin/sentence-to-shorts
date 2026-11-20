@@ -1,0 +1,400 @@
+/* The screen keeps its own scroll column, so the step button can stay fixed. */
+main:has(.script-screen) [data-slot='stage-scroll'] {
+  overflow: hidden;
+}
+
+.script-screen {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  width: 100%;
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  word-break: keep-all;
+}
+
+.script-screen--empty {
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-24);
+}
+
+.script-message {
+  margin: 0;
+  color: var(--sub);
+  text-align: center;
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.script-document {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.script-document-pane {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.script-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-20) var(--space-24) var(--space-8);
+}
+
+.script-head h2 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+  font-weight: var(--font-weight-bold);
+}
+
+.script-topic {
+  margin: 0;
+  color: var(--foreground);
+}
+
+.script-summary {
+  margin: 0;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.script-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-16);
+  padding-top: var(--space-8);
+}
+
+.script-field {
+  display: flex;
+  min-width: 0;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.script-field-label {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.script-tone-note {
+  margin: 0;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.script-scenes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  margin: 0;
+  padding: var(--space-8) var(--space-24) var(--space-36);
+  list-style: none;
+}
+
+.script-scene {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  border-radius: var(--radius-surface);
+}
+
+.script-scene[data-highlighted='true'] {
+  outline: var(--focus-width) solid var(--emphasis);
+  outline-offset: var(--focus-offset);
+}
+
+.script-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-radius: var(--radius-surface);
+  background: var(--muted);
+}
+
+.script-card-head {
+  display: flex;
+  min-height: var(--size-control);
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.script-card-number {
+  color: var(--foreground);
+  font-weight: var(--font-weight-bold);
+}
+
+.script-working {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--progress);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.script-spinner {
+  color: var(--emphasis);
+}
+
+.script-changed {
+  display: inline-flex;
+  align-items: center;
+}
+
+.script-tools {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
+.script-grip {
+  display: inline-flex;
+  width: var(--part-grip);
+  height: var(--part-grip);
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--sub);
+  cursor: grab;
+}
+
+.script-grip:hover {
+  background: var(--state-hover-gray);
+  color: var(--foreground);
+}
+
+.script-grip:active {
+  cursor: grabbing;
+}
+
+.script-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.script-line {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.script-line-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+}
+
+.script-line-input {
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--size-control);
+  padding: var(--space-8) var(--space-12);
+  border: 0;
+  border-radius: var(--radius-content);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  white-space: pre;
+  overflow-x: auto;
+  overflow-y: hidden;
+  resize: none;
+  scrollbar-width: none;
+}
+
+.script-line-input::-webkit-scrollbar {
+  display: none;
+}
+
+.script-line-input::placeholder {
+  color: var(--sub);
+}
+
+.script-line-input:disabled {
+  color: var(--foreground);
+  cursor: default;
+}
+
+.script-line-error {
+  margin: 0;
+  padding-inline: var(--space-12);
+  color: var(--destructive);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.script-seconds {
+  flex: none;
+  padding-top: var(--space-12);
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.script-card-foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.script-rewrite {
+  min-width: calc(var(--size-control) * 3);
+}
+
+.script-review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-12);
+  border-radius: var(--radius-content);
+  background: var(--card);
+}
+
+.script-review h3 {
+  margin: 0;
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-weight: var(--font-weight-bold);
+}
+
+.script-review-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  color: var(--sub);
+  list-style: none;
+}
+
+.script-review-lines li {
+  min-height: var(--line-height-body);
+  overflow-wrap: anywhere;
+}
+
+.script-review-new {
+  color: var(--foreground);
+}
+
+.script-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+.script-tone {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.script-tone th,
+.script-tone td {
+  padding: var(--space-4) var(--space-8);
+  text-align: start;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+.script-tone th {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  font-weight: var(--font-weight-regular);
+}
+
+.script-tone td:first-child {
+  color: var(--sub);
+}
+
+.script-tone td:last-child {
+  color: var(--foreground);
+}
+
+/* The working card carries a band that travels around its edge. */
+@property --script-band {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.script-card[data-working='true']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: var(--focus-width);
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--script-band),
+    transparent 0deg 300deg,
+    var(--progress) 340deg,
+    transparent 360deg
+  );
+  pointer-events: none;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: script-band calc(var(--motion-panel-duration) * 7) linear infinite;
+}
+
+@keyframes script-band {
+  to {
+    --script-band: 360deg;
+  }
+}
+
+.script-footer {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-24);
+  background: var(--card);
+}
+
+.script-footer-note {
+  min-width: 0;
+  margin: 0 auto 0 0;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .script-card[data-working='true']::before {
+    animation: none;
+  }
+}
