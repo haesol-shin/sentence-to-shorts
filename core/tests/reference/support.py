@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
-import stat
 import subprocess
 import sys
 import threading
@@ -182,22 +180,13 @@ sys.exit(101 if mode == "ok" else 0)
 
 
 def fake_ytdlp(directory: Path) -> Path:
-    """An executable that stands in for yt-dlp and acts on ``mode=`` in the link.
+    """A Python script that stands in for the yt-dlp file and acts on ``mode=`` in the link.
 
-    Windows cannot start a file by its shebang, so there the script is started
-    through the interpreter by a batch file, and the batch file is the executable.
+    The app starts it as ``<python> <script> ...``, as it starts the real zipimport file.
     """
     directory.mkdir(parents=True, exist_ok=True)
-    body = FAKE_YTDLP.format(python=sys.executable)
-    if os.name == "nt":
-        source = directory / "yt_dlp_fake.py"
-        source.write_text(body, encoding="utf-8")
-        batch = directory / "yt-dlp.cmd"
-        batch.write_text(f'@echo off\r\n"{sys.executable}" "{source}" %*\r\n', encoding="utf-8")
-        return batch
     script = directory / "yt-dlp"
-    script.write_text(body, encoding="utf-8")
-    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    script.write_text(FAKE_YTDLP.format(python=sys.executable), encoding="utf-8")
     return script
 
 

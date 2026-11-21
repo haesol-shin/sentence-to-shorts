@@ -575,9 +575,6 @@ def _build_tree(staging: Path, item: Item, entry: Mapping[str, Any], cancel: Can
     target = wrapped.joinpath(*install.parts, str(entry["file"]))
     target.parent.mkdir(parents=True)
     os.replace(source, target)
-    if os.name != "nt" and target.suffix == "":
-        # A bare file without an extension is a program (yt-dlp); wheels and data keep their mode.
-        target.chmod(target.stat().st_mode | 0o111)
     return wrapped
 
 

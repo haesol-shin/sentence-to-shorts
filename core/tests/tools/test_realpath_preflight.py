@@ -163,10 +163,37 @@ def test_preflight_probes_link_with_download_disabled(synthetic_run, monkeypatch
 
     monkeypatch.setenv("PREFLIGHT_LINK_1", "https://video.invalid/watch?v=synthetic")
     monkeypatch.setattr(preflight, "check_url", lambda url: url)
-    monkeypatch.setattr(preflight, "runtime_executable", lambda _: Path(sys.executable))
+    tool = Path(sys.executable)
+    downloader_type = type(preflight.create_downloader(synthetic_run))
+    monkeypatch.setattr(
+        preflight, "create_downloader", lambda _: downloader_type(tool, deno=tool)
+    )
     monkeypatch.setattr(preflight, "EgressProxy", lambda **_: Proxy())
     monkeypatch.setattr(preflight, "run", simulate)
     assert preflight.main() == 0
     output = capsys.readouterr().out
     assert "PASS link PREFLIGHT_LINK_1: metadata resolved without downloading media\n" in output
     assert "video.invalid" not in output
+
+
+def test_preflight_link_probe_runs_the_file_with_the_app_python_and_the_locked_deno(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    deno = "deno.exe" if sys.platform == "win32" else "deno"
+    for relative in (("yt-dlp", "yt-dlp"), ("deno", deno)):
+        path = app_settings.runtime_dir.joinpath(*relative)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    seen: list[list[str]] = []
+
+    def fake_run(argv, **_kwargs):  # type: ignore[no-untyped-def]
+        seen.append(argv)
+        return SimpleNamespace(timed_out=False, ok=True, stdout="abc", stderr="")
+
+    monkeypatch.setattr(preflight, "run", fake_run)
+    assert preflight._link(app_settings, "https://youtu.be/abc").startswith("metadata resolved")
+    argv = seen[0]
+    deno = app_settings.runtime_dir / "deno" / deno
+    ytdlp = (app_settings.runtime_dir / "yt-dlp" / "yt-dlp").resolve()
+    assert argv[:2] == [sys.executable, str(ytdlp)]
+    assert argv[argv.index("--js-runtimes") + 1] == f"deno:{deno.resolve()}"

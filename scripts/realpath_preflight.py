@@ -28,15 +28,14 @@ from app.ports import AppError, LlmPart, LlmRequest, LlmTask
 from app.settings import RuntimeFile, Settings
 from app.tools.align.adapter import PYTHON_ENV
 from app.tools.downloaders.adapter import RUNTIME_ITEM as DOWNLOADER_ITEM
-from app.tools.downloaders.adapter import runtime_executable
-from app.tools.downloaders.ytdlp.downloader import _argv
+from app.tools.downloaders.adapter import create as create_downloader
 from app.tools.downloaders.ytdlp.egress import EgressProxy
 from app.tools.downloaders.ytdlp.urls import check_url
 from app.tools.process import build_env, run
 from scripts.dev_setup import LOCK, host_arch, host_os
 
 HOSTS = (("linux", "x86_64"), ("linux", "aarch64"), ("windows", "x86_64"))
-NATIVE_EXECUTABLES = frozenset({"deno", "ffmpeg", DOWNLOADER_ITEM})
+NATIVE_EXECUTABLES = frozenset({"deno", "ffmpeg"})
 LINK_ENVS = ("PREFLIGHT_LINK_1", "PREFLIGHT_LINK_2")
 PROBE_SCHEMA = {
     "type": "object",
@@ -100,6 +99,11 @@ def _check_lock(lock: RuntimeFile) -> str:
 def _version_checks(settings: Settings) -> Iterator[tuple[str, Callable[[], str]]]:
     system, arch = host_os(), host_arch()
     for item in settings.runtime.items:
+        if item.id == DOWNLOADER_ITEM:
+            # The platform-independent yt-dlp file is run by the app's Python.
+            path = (settings.runtime_dir / item.install_path / item.files[0].file).resolve()
+            yield f"version {item.id}", lambda path=path: _version(path, DOWNLOADER_ITEM)
+            continue
         # Native lock entries are executables today; Deno's file is its archive.
         for entry in item.files:
             if (entry.os, entry.arch) != (system, arch):
@@ -114,11 +118,14 @@ def _version_checks(settings: Settings) -> Iterator[tuple[str, Callable[[], str]
 def _version(path: Path, item_id: str) -> str:
     if not path.is_file():
         raise CheckFailed("not installed under APP_RUNTIME_DIR")
-    if not os.access(path, os.X_OK):
+    command = [str(path)]
+    if item_id == DOWNLOADER_ITEM:
+        command.insert(0, sys.executable)
+    elif not os.access(path, os.X_OK):
         raise CheckFailed("not executable")
     # FFmpeg uses -version, not --version.
     flag = "-version" if item_id == "ffmpeg" else "--version"
-    result = subprocess.run([str(path), flag], capture_output=True, timeout=3, check=False)
+    result = subprocess.run([*command, flag], capture_output=True, timeout=3, check=False)
     if result.returncode or not (result.stdout or result.stderr).strip():
         raise CheckFailed("version command failed")
     return "version command responded"
@@ -200,8 +207,8 @@ def _link(settings: Settings, url: str) -> str:
     if settings.deployment == "hosted":
         raise CheckFailed("link downloads are disabled in hosted mode")
     checked = check_url(url)
-    executable = runtime_executable(settings)
-    if executable is None or not executable.is_file():
+    downloader = create_downloader(settings)
+    if not downloader.available():
         raise CheckFailed("bundled downloader not installed")
     budget = 8 * 1024 * 1024
     with tempfile.TemporaryDirectory(prefix="preflight-") as directory:
@@ -209,8 +216,10 @@ def _link(settings: Settings, url: str) -> str:
         env = build_env({"PATH": str(root), "HOME": str(root), "USERPROFILE": str(root),
                          "TMPDIR": str(root), "TMP": str(root), "TEMP": str(root)})
         with EgressProxy(max_bytes=budget) as proxy:
-            argv = _argv(executable, proxy=proxy.url, out_dir=root, scratch=root, name="check",
-                         max_bytes=settings.app.uploads.reference_max_bytes, url=checked)
+            argv = downloader.command(
+                proxy=proxy.url, out_dir=root, scratch=root, name="check",
+                max_bytes=settings.app.uploads.reference_max_bytes, url=checked,
+            )
             argv[-2:-2] = ["--simulate", "--skip-download", "--print", "id"]
             result = run(argv, cwd=root, env=env, timeout_s=10, cancel=CancelFlag(),
                          max_stdout_bytes=4096, max_stderr_bytes=8192)
