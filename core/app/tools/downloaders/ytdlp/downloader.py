@@ -26,6 +26,8 @@ from app.tools.downloaders.ytdlp.urls import check_url
 from app.tools.process import ProcessResult, build_env, run
 
 VIDEO_SUFFIXES = frozenset({".mp4", ".m4v", ".mov", ".webm", ".mkv"})
+# --max-downloads ends the run with exit code 101 after the one item was handled.
+COMPLETED_EXITS = (0, 101)
 SCRATCH_SUFFIXES = (".part", ".ytdl", ".temp", ".tmp")
 SCAN_EVERY_S = 0.2
 STDERR_BYTES = 64 * 1024
@@ -263,8 +265,7 @@ class YtDlpDownloader:
             path for path in out_dir.glob(f"{name}.*")
             if path.suffix not in SCRATCH_SUFFIXES and path.is_file() and not path.is_symlink()
         ]
-        # --max-downloads ends the run with exit code 101 after the one file arrived.
-        if len(finished) == 1 and result.returncode in (0, 101) and not denied:
+        if len(finished) == 1 and result.returncode in COMPLETED_EXITS and not denied:
             path = finished[0]
             if path.suffix.lower() not in VIDEO_SUFFIXES:
                 self._discard(out_dir, name)

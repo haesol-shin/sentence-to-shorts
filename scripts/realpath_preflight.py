@@ -29,6 +29,7 @@ from app.settings import RuntimeFile, Settings
 from app.tools.align.adapter import PYTHON_ENV
 from app.tools.downloaders.adapter import RUNTIME_ITEM as DOWNLOADER_ITEM
 from app.tools.downloaders.adapter import create as create_downloader
+from app.tools.downloaders.ytdlp.downloader import COMPLETED_EXITS
 from app.tools.downloaders.ytdlp.egress import EgressProxy
 from app.tools.downloaders.ytdlp.urls import check_url
 from app.tools.process import build_env, run
@@ -225,7 +226,7 @@ def _link(settings: Settings, url: str) -> str:
                          max_stdout_bytes=4096, max_stderr_bytes=8192)
             if result.timed_out:
                 raise CheckFailed("metadata probe timed out")
-            if not result.ok or not result.stdout.strip() or proxy.denied or proxy.exceeded:
+            if result.returncode not in COMPLETED_EXITS or not result.stdout.strip() or proxy.denied or proxy.exceeded:
                 raise CheckFailed("bundled downloader could not resolve metadata")
     return "metadata resolved without downloading media"
 
