@@ -17,7 +17,7 @@ import pytest
 from app.ports import AppError, Cancelled, ReferenceOutcome, Usage
 from app.schemas.artifact import ArtifactKind
 from app.schemas.change import SetOp, SetScriptOp, Target
-from app.schemas.common import PERSONAL_OWNER_ID, Origin
+from app.schemas.common import PERSONAL_OWNER_ID, Mood, Origin
 from app.schemas.job import Effort, JobKind, Stage, StageRecord
 from app.schemas.script import Script, ScriptSource
 from app.schemas.settings import LockKey, LockState
@@ -444,20 +444,21 @@ def test_4_1_draft_stale_base_leaves_its_plan_proposed(harness: Harness) -> None
     assert harness.projects.get_change(plan.id).status.value == "stale"
 
 
-@pytest.mark.parametrize("protection", ["user_origin", "lock"])
-def test_26_draft_never_overwrites_user_or_locked_values(
+@pytest.mark.parametrize("protection", ["user_origin", "reference_origin", "preset_origin", "lock"])
+def test_26_draft_keeps_protected_values_and_applies_the_rest(
     harness: Harness, protection: str
 ) -> None:
     video = _draft_video_without_script(harness)
     settings = video.settings.model_copy(deep=True)
-    if protection == "user_origin":
-        settings.origins["/format/humor"] = Origin.user
-    else:
+    if protection == "lock":
         settings.locks[LockKey.humor] = LockState.locked
+    else:
+        settings.origins["/format/humor"] = Origin(protection.removesuffix("_origin"))
     video = harness.revise(video, settings=settings)
     harness.story.draft_ops = [
         SetOp(op="set", path="/topic", value="합성 주제", origin=Origin.llm),
         SetOp(op="set", path="/settings/format/humor", value="light", origin=Origin.llm),
+        SetOp(op="set", path="/settings/format/register", value="casual", origin=Origin.llm),
     ]
 
     result, _ = _run(
@@ -468,12 +469,61 @@ def test_26_draft_never_overwrites_user_or_locked_values(
     )
 
     head = harness.projects.get_video(video.id)
-    assert result["status"] == "proposed"
-    assert result["applied_revision"] is None
-    assert head.revision == video.revision
+    assert result["status"] == "applied"
+    assert head.revision == video.revision + 1
+    assert head.topic == "합성 주제"
+    assert head.settings.format.register_value.value == "casual"
     assert head.settings.format.humor.value == "none"
-    reason = "user_value_overwrite" if protection == "user_origin" else "lock_change"
-    assert reason in result["confirmation_reasons"]
+    assert head.settings.origins.get("/format/humor") == video.settings.origins.get(
+        "/format/humor"
+    )
+    plan = harness.projects.get_change(result["change_id"])
+    assert plan.confirmation_reasons == []
+    assert plan.effects.overwrites_user_values == []
+    assert plan.effects.locked_keys == []
+    assert [getattr(op, "path", None) for op in plan.ops] == [
+        "/topic",
+        "/settings/format/register",
+    ]
+
+
+def test_26_draft_keeps_the_preset_bgm_of_a_video_made_from_a_preset(
+    harness: Harness,
+) -> None:
+    video = _draft_video_without_script(harness)
+    preset_bgm = video.settings.audio.bgm.model_copy(update={"mood": Mood.calm})
+    settings = video.settings.model_copy(deep=True)
+    settings.audio.bgm = preset_bgm
+    settings.origins["/audio/bgm"] = Origin.preset
+    video = harness.revise(video, settings=settings)
+    harness.story.draft_ops = [
+        SetOp(op="set", path="/topic", value="합성 주제", origin=Origin.llm),
+        SetOp(
+            op="set",
+            path="/settings/audio/bgm",
+            value={
+                "enabled": True,
+                "mood": "energetic",
+                "entry": None,
+                "gain_db_x10": -100,
+                "ducking": True,
+            },
+            origin=Origin.llm,
+        ),
+    ]
+
+    result, _ = _run(
+        harness,
+        JobKind.draft,
+        video=video,
+        input={"base_revision": video.revision, "message": "합성 요청", "card_id": None},
+    )
+
+    head = harness.projects.get_video(video.id)
+    assert result["status"] == "applied"
+    assert head.topic == "합성 주제"
+    assert head.settings.audio.bgm == preset_bgm
+    assert head.settings.origins["/audio/bgm"] is Origin.preset
 
 
 def test_4_1_script_rewrite_waits_for_confirmation_and_never_renders(

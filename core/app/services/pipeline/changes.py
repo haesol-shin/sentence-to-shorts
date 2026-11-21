@@ -36,7 +36,7 @@ from app.schemas.video import CreatedBy, Video
 from app.services.pipeline.dependencies import plan_change
 from app.services.pipeline.run_state import check_alive
 from app.services.pipeline.types import Services
-from app.services.project import revision
+from app.services.project import revision, state
 
 SCENE_PREFIX = "/scenes/"
 
@@ -194,8 +194,8 @@ def load_change_video(job: Job, services: Services) -> Video:
 def _draft(
     video: Video, request: DraftRequest, ctx: JobContext, services: Services
 ) -> dict[str, object]:
-    ops = services.story.draft(
-        video, request.message, request.card_id, ctx=ctx
+    ops = _keep_protected(
+        video, services.story.draft(video, request.message, request.card_id, ctx=ctx)
     )
     return _plan_result(
         video,
@@ -208,6 +208,24 @@ def _draft(
         override_confirmation=True,
         mark_stale=False,
     )
+
+
+def _keep_protected(video: Video, ops: list[Op]) -> list[Op]:
+    """Drop the settings ops a draft may not apply, so the rest still applies.
+
+    A draft value ranks below a user, reference or preset value and below a lock
+    (user > reference > preset > card > llm), so the stored value stays. One such
+    op must not turn the whole draft into a plan that waits for a confirmation
+    the draft never asks for.
+    """
+    kept: list[Op] = []
+    for op in ops:
+        if isinstance(op, SetOp) and op.path.startswith(state.SETTINGS + "/"):
+            guarded = state.apply(video, [op], Origin.user)
+            if guarded.overwrites_user_values or guarded.locked_keys:
+                continue
+        kept.append(op)
+    return kept
 
 
 def _script(video: Video, ctx: JobContext, services: Services) -> dict[str, object]:
