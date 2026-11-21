@@ -100,3 +100,11 @@ class LiveApi(Api):
             current["kind"], current["state"], (current["error"] or {}).get("code")
         )
         return current
+
+
+def numeric_detail(detail: dict[str, Any]) -> dict[str, int]:
+    """Only the measured numbers of an error detail; text from a provider or program is dropped."""
+    return {
+        key: value for key, value in detail.items()
+        if isinstance(value, int) and not isinstance(value, bool)
+    }

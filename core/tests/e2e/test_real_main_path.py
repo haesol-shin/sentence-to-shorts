@@ -170,8 +170,10 @@ def _revision_digests(run: LiveRun, video: dict[str, Any]) -> dict[str, str]:
     return found
 
 
-def _render(run: LiveRun, video: dict[str, Any], name: str) -> tuple[dict[str, Any], str]:
-    assert video["settings"]["visual"]["art_style"]["id"] == "pixel"
+def _render(
+    run: LiveRun, video: dict[str, Any], name: str, art_style_id: str = "pixel",
+) -> tuple[dict[str, Any], str]:
+    assert video["settings"]["visual"]["art_style"]["id"] == art_style_id
     blocked = run.api.post(f"/videos/{video['id']}/previews",
                            {"base_revision": video["revision"]}, expect=409)
     assert blocked["code"] == "script_not_confirmed"
