@@ -416,7 +416,8 @@ export async function attachConceptExtras(attachments: readonly Attachment[]): P
 /**
  * Reads the video again after a job outside this screen changed it. The
  * revision and the stored materials follow the server; settings the user has
- * edited since are kept, and the rest follow the server too.
+ * edited since are kept, and the rest follow the server too. A failed read
+ * keeps the session as it is and shows the error instead of throwing.
  */
 export async function reloadConcept(videoId: string): Promise<void> {
   const session = sessions.get(videoId);
@@ -424,7 +425,18 @@ export async function reloadConcept(videoId: string): Promise<void> {
     return;
   }
   const generation = session.editGeneration;
-  const loaded = await api.load(videoId);
+  let loaded: ConceptDocument;
+  try {
+    loaded = await api.load(videoId);
+  } catch (error) {
+    // The materials the user added stay in the session and the caller goes on
+    // with the files and links it held back; the screen says the read failed.
+    if (sessions.get(videoId) === session) {
+      setError(session, sendError(error, ERROR_JOB));
+      emit();
+    }
+    return;
+  }
   if (sessions.get(videoId) !== session) {
     return;
   }

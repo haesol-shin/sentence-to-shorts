@@ -1,10 +1,11 @@
 import { cleanup, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 
-import { createMockConceptApi, type MockConceptApi } from '@/features/concept/api';
+import { ConceptApiError, createMockConceptApi, type MockConceptApi } from '@/features/concept/api';
 import { PIXEL_REF } from '@/features/concept/model';
 import {
   analyzeConceptReference,
+  attachConceptExtras,
   applyConceptPlan,
   beginConcept,
   chooseCardTune,
@@ -14,6 +15,7 @@ import {
   createConceptStyle,
   getConceptSnapshot,
   loadConceptDeployment,
+  reloadConcept,
   reloadConceptCatalog,
   resetConcept,
   resetConceptSessions,
@@ -471,4 +473,17 @@ test('test_explicit_chat_values_take_priority_over_attached_reference_suggestion
   await applyConceptPlan();
   expect(current().document.settings.format.story_structure).toBe('hypothetical');
   expect(current().document.settings.origins['/format/story_structure']).toBe('user');
+});
+
+test('test_failed_reread_after_draft_keeps_materials_shows_error_and_still_starts_held_back_files', async () => {
+  await beginConcept({ topic: '재료', attachments: [text('t1', '남는 글')] });
+  const videoId = current().document.id;
+  api.load = () => Promise.reject(new ConceptApiError('internal', 500, 'Read failed'));
+
+  await reloadConcept(videoId);
+  expect(current().error).toBe('concept.error.jobFailed');
+  expect(current().document.attachments.map((attachment) => attachment.id)).toContain('t1');
+
+  await attachConceptExtras([reference()]);
+  expect(api.requests.some((request) => request.method === 'message' && request.kind === 'reference')).toBe(true);
 });

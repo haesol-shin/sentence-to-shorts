@@ -1,21 +1,21 @@
 import { mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 // The fixture model only knows this sentence with the "just three" card, and
 // the script it recorded for it.
 const SENTENCE = '커피 고르는 법';
-const RECORDED_HOOK = '세 가지만 알려 줄게요';
 const SENTENCE_FIELD = '만들고 싶은 영상을 한 문장으로 적어 주세요';
 const SCRIPT_LINES = [
-  RECORDED_HOOK,
+  SENTENCE,
   '첫째, 신선한 원두',
   '둘째, 로스팅 정도',
   '셋째, 분쇄 굵기',
   '신선도, 로스팅, 분쇄',
 ];
 const REWRITTEN_LINE = '핵심만 기억해요';
+const REWRITE_REQUEST = '이 장면을 핵심만 짧게 줄여 줘';
 const SHOTS = process.env.E2E_SHOTS_DIR ?? resolve(process.cwd(), '../.local/shots');
 
 interface Session {
@@ -97,9 +97,7 @@ async function confirmScript(page: Page): Promise<void> {
   await openStage(page, '대본');
   const hook = page.getByRole('textbox', { name: '장면 1 대사 1' });
   await expect(hook).toBeVisible({ timeout: 60_000 });
-  // The screen puts the user's own sentence into the first line; the recorded
-  // model answers only for the script it wrote, so the line is put back.
-  await hook.fill(RECORDED_HOOK);
+  await expect(hook).toHaveValue(SCRIPT_LINES[0]);
   await page.getByRole('button', { name: '이대로 영상 만들기' }).click();
 }
 
@@ -124,21 +122,26 @@ async function waitForJob(page: Page, jobId: string): Promise<{ result: { artifa
   return job as never;
 }
 
-/** Starts generation beside the page; the precheck gate is covered by the fixme test. */
-async function generate(page: Page, session: Session): Promise<string> {
-  const head = await readVideo(page, session.videoId);
-  const response = await page.request.post(`/api/v1/videos/${session.videoId}/generate`, {
-    headers: { 'X-CSRF-Token': session.csrf, 'Idempotency-Key': `e2e${Date.now()}` },
-    data: { base_revision: head.video.revision },
-  });
+/** Presses the export screen's own start button and returns the job it started. */
+async function generate(page: Page): Promise<string> {
+  const start = page.getByRole('button', { name: '영상 만들기', exact: true });
+  await expect(start).toBeEnabled({ timeout: 60_000 });
+  const started = page.waitForResponse((response) => response.url().endsWith('/generate'));
+  await start.click();
+  const response = await started;
   expect(response.status()).toBe(202);
   return ((await response.json()) as { id: string }).id;
+}
+
+/** The finished video, shown in the page or in a dialog depending on the width. */
+function resultView(page: Page): Locator {
+  return page.getByRole('region', { name: '영상 결과' }).or(page.getByRole('dialog', { name: '영상' }));
 }
 
 async function reopenResult(page: Page): Promise<void> {
   await page.getByRole('button', { name: '편집으로' }).click();
   await openStage(page, '내보내기');
-  await expect(page.getByRole('dialog', { name: '영상' })).toBeVisible({ timeout: 30_000 });
+  await expect(resultView(page)).toBeVisible({ timeout: 30_000 });
 }
 
 test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({ page }) => {
@@ -165,16 +168,24 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
 
   let firstFinal = '';
   await test.step('the result plays with the captions the server holds', async () => {
-    const first = await waitForJob(page, await generate(page, session));
+    const first = await waitForJob(page, await generate(page));
     firstFinal = first.result.artifacts.final;
-    await reopenResult(page);
-    const video = page.getByRole('dialog', { name: '영상' }).locator('video');
+    // The button leaves the page on the export screen, which shows the result.
+    await expect(resultView(page)).toBeVisible({ timeout: 60_000 });
+    const video = resultView(page).locator('video');
     const stored = await readVideo(page, session.videoId);
     await expect
       .poll(() => video.evaluate((element: HTMLVideoElement) => element.duration), { timeout: 30_000 })
       .toBeGreaterThan(0);
     const duration = await video.evaluate((element: HTMLVideoElement) => element.duration);
     expect(Math.abs(duration * 1000 - (stored.build.actual_ms ?? -1))).toBeLessThan(300);
+
+    const [movie] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'mp4 저장' }).click(),
+    ]);
+    expect(movie.suggestedFilename()).toMatch(/\.mp4$/);
+    expect(await movie.failure()).toBeNull();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -199,14 +210,13 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
   await test.step('scene 3 is edited, compared and applied, then only it is rebuilt', async () => {
     await page.getByRole('button', { name: '편집으로' }).click();
     await page.getByRole('region', { name: '장면' }).getByRole('button', { name: '두 번째' }).click();
-    const line = page.getByRole('region', { name: '장면 설정' }).getByRole('textbox', { name: '화면 글 1' });
-    await line.fill(REWRITTEN_LINE);
-    const save = page.getByRole('button', { name: '줄 저장' });
-    await save.focus();
-    await page.keyboard.press('Enter');
+    // The request goes through the chat composer, the way a user asks for a rewrite.
+    const request = page.getByRole('textbox', { name: '고칠 점을 적어 주세요' });
+    await request.fill(REWRITE_REQUEST);
+    await page.getByRole('button', { name: '보내기', exact: true }).click();
 
     const review = page.getByRole('dialog', { name: '장면을 바꿀까요?' });
-    await expect(review).toBeVisible();
+    await expect(review).toBeVisible({ timeout: 60_000 });
     await expect(review.getByText('둘째, 로스팅 정도')).toBeVisible();
     await expect(review.getByText(REWRITTEN_LINE)).toBeVisible();
     await shot(page, 'compare');
@@ -217,7 +227,7 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
     expect(applied.video.scenes[target].lines.map((entry) => entry.display_text)).toEqual([REWRITTEN_LINE]);
 
     await confirmScenes(page);
-    const second = await waitForJob(page, await generate(page, session));
+    const second = await waitForJob(page, await generate(page));
     expect(second.result.rebuilt_scene_ids).toEqual([target]);
     expect(second.result.artifacts.final).not.toBe(firstFinal);
   });
@@ -264,28 +274,19 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
     expect(body.preset_id).not.toBeNull();
     await expect(page.getByRole('heading', { name: '컨셉', exact: true })).toBeVisible();
     await expect.poll(() => session.videoId).not.toBe(previous.video.id);
+    // The draft of the next video lands too: the concept shows the topic the model wrote for it.
+    await expect(page.getByText('원두를 고르는 기준')).toBeVisible({ timeout: 60_000 });
     const next = await readVideo(page, session.videoId);
+    expect(next.video.topic).toBe('원두를 고르는 기준');
     expect(next.video.project_id).toBe(previous.video.project_id);
     expect(next.video.material).toEqual([]);
-    expect(next.video.scene_order).toEqual([]);
+    // Its own script, not the first video's scenes.
+    expect(next.video.scene_order).toHaveLength(5);
+    expect(next.video.scene_order.map((id) => next.video.scenes[id].lines[0].display_text)).not.toEqual(SCRIPT_LINES);
+    expect(next.video.scene_order).not.toContain(previous.video.scene_order[0]);
     await shot(page, 'next');
   });
   expect(width).toBeGreaterThan(0);
-});
-
-// The fixture model has no recorded precheck for this script, so the screen's
-// own start button stays disabled and the result cannot be reached by clicking.
-test.fixme('test_1_the_export_screen_starts_generation_after_its_precheck', async ({ page }) => {
-  const session = follow(page);
-  await sendSentence(page);
-  await confirmConcept(page);
-  await confirmScript(page);
-  await confirmScenes(page);
-  await expect(page.getByRole('button', { name: '영상 만들기', exact: true })).toBeEnabled();
-  const started = page.waitForResponse((response) => response.url().endsWith('/generate'));
-  await page.getByRole('button', { name: '영상 만들기', exact: true }).click();
-  expect((await started).status()).toBe(202);
-  expect(session.videoId).not.toBe('');
 });
 
 test('test_7_the_concept_screen_saves_a_text_material_and_a_setting_on_the_backend', async ({ page }) => {
