@@ -67,6 +67,47 @@ jobs:
         working-directory: core
         run: python -m poetry run lint-imports
 
+  # Runs on every pull request but resolves only when a lock, a project file or the
+  # packaging folder changed, so the gate keeps one result per job. A main push always
+  # resolves. The resolve is the one the bundle build does, minus the install.
+  check-bundle-locks:
+    name: "check | bundle locks"
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Find out whether the bundle inputs changed
+        id: scope
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          run=true
+          if [ "$EVENT" = "pull_request" ]; then
+            run=false
+            if git diff --name-only "$PR_BASE...$PR_HEAD" | grep -Eq '^(core/poetry\.lock|core/pyproject\.toml|core/align_runtime/poetry\.lock|core/align_runtime/pyproject\.toml|packaging/)'; then
+              run=true
+            fi
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        if: steps.scope.outputs.run == 'true'
+        with:
+          python-version: "3.11"
+      - name: Install the pinned build tools
+        if: steps.scope.outputs.run == 'true'
+        # packaging/python.lock.json owns the versions, as in the release workflow.
+        run: |
+          set -- $(python -c "import json; t = json.load(open('packaging/python.lock.json'))['tools']; print(t['uv'], t['poetry'], t['poetry-plugin-export'])")
+          python -m pip install --disable-pip-version-check --no-input "uv==$1" "poetry==$2" "poetry-plugin-export==$3"
+      - name: Resolve the locked packages as the bundle build does
+        if: steps.scope.outputs.run == 'true'
+        run: python packaging/build.py check-locks --poetry "python -m poetry"
+
   check-frontend:
     name: "check | frontend"
     runs-on: ubuntu-latest
@@ -318,6 +359,7 @@ jobs:
     needs:
       - check-text
       - check-core
+      - check-bundle-locks
       - check-frontend
       - check-generated
       - test-core

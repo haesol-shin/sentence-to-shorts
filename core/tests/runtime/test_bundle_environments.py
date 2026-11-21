@@ -257,3 +257,19 @@ def test_21_a_marker_for_amd64_also_matches_the_windows_machine_name() -> None:
     assert Marker(marker).evaluate({"platform_machine": "ppc64le"}) is False
     assert fixed.endswith("--hash=sha256:" + "0" * 64 + "\n")
     assert build.accept_windows_machine("pytest==9.0.0\n") == "pytest==9.0.0\n"
+
+
+def test_21_environment_sync_searches_every_index_for_the_locked_hashed_files(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[list[str]] = []
+    monkeypatch.setattr(build.shutil, "which", lambda name: "uv")
+    monkeypatch.setattr(build, "run", lambda argv, **kwargs: calls.append(list(argv)))
+    build.create_environment(Path("python"), tmp_path / "r.txt", tmp_path / "env")
+    sync = calls[-1]
+    assert sync[:3] == ["uv", "pip", "sync"]
+    assert "--require-hashes" in sync
+    assert sync[sync.index("--index-strategy") + 1] == "unsafe-best-match"
+    assert "--dry-run" not in sync
+    build.create_environment(Path("python"), tmp_path / "r.txt", tmp_path / "env", dry_run=True)
+    assert "--dry-run" in calls[-1]
