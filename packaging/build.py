@@ -419,10 +419,13 @@ def check_unused_packages(site: Path, unused: Sequence[str]) -> None:
 
 def check_aligner_import(python: Path, site: Path) -> None:
     """The aligner imports from its own folder alone, with the settings the app gives it."""
-    env = {"PYTHONPATH": str(site), "PYTHONNOUSERSITE": "1"}
-    if os.environ.get("SYSTEMROOT"):
-        env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
-    run([str(python), "-c", "import whisperx.alignment"], env=env)
+    with tempfile.TemporaryDirectory(prefix="nltk-data-") as nltk_data:
+        # nltk reads NLTK_DATA on import and, without it, APPDATA or the home folder,
+        # which a cleared environment on Windows does not have. The app sets NLTK_DATA too.
+        env = {"PYTHONPATH": str(site), "PYTHONNOUSERSITE": "1", "NLTK_DATA": nltk_data}
+        if os.environ.get("SYSTEMROOT"):
+            env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+        run([str(python), "-c", "import whisperx.alignment"], env=env)
 
 
 def locked_version(lock_file: Path, name: str) -> str:

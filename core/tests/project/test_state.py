@@ -5,13 +5,15 @@ from __future__ import annotations
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
+from app.bootstrap import _selected
 from app.plugins.registry import Registry
-from app.ports import AppError, Issue
+from app.ports import AppError, Issue, TtsEngineInfo
 from app.schemas.api import (
     ApiErrorCode,
     CaptionLayout,
@@ -28,10 +30,14 @@ from app.schemas.settings import CaptionPosition, LockKey, LockState, Settings
 from app.schemas.video import Video, VideoStage
 from app.services.project import state
 from app.services.project.service import ProjectService
+from app.services.project.service import create as project_create
 from app.storage.paths import Layout
 from app.storage.projects import SqliteProjectStore
 from app.storage.sqlite import Database
 from tests.conftest import FIXTURES, load_json
+
+ENGINE_ID = "qwen3-tts-0.6b"
+"""The engine the dev and release profiles bind (`providers.adapters.tts`)."""
 
 PLUGIN_ROOT = Path(__file__).resolve().parents[2] / "app" / "plugins"
 CATALOG_ROOT = PLUGIN_ROOT.parent / "catalog"
@@ -99,6 +105,33 @@ def test_4_defaults_make_a_valid_video_without_format_cards(tmp_path: Path) -> N
             update={"settings": settings, "scenes": {}, "scene_order": [], "script": None}
         )
         assert state.validate(video, without_cards) == []
+
+
+@pytest.mark.parametrize("profile", ["fixture", "dev", "release"])
+@pytest.mark.parametrize("language", list(Language))
+def test_4_default_voice_is_speakable_by_the_engine_each_profile_binds(
+    app_settings: Any, catalog: Registry, profile: str, language: Language
+) -> None:
+    app_settings.profile = profile
+    engine = _selected("tts", app_settings)
+    assert engine in (ENGINE_ID, "fixed_wav")
+    settings = state.default_settings(language, catalog, engine)
+    voice = catalog.get("voice", settings.audio.voice.id)
+    assert voice.engine_id == engine
+    assert language.value in [value.value for value in voice.languages]
+
+
+def test_4_service_defaults_follow_the_engine_of_the_tts_adapter(
+    service: ProjectService, catalog: Registry
+) -> None:
+    deps = SimpleNamespace(
+        project_store=service.projects,
+        catalog=catalog,
+        tts=SimpleNamespace(info=lambda: TtsEngineInfo(ENGINE_ID, "0" * 64, 24000, ("ko", "en"))),
+    )
+    bound = project_create(None, deps)  # type: ignore[arg-type]
+    project = bound.create_project(CreateProjectRequest(title=None, language=Language.ko))
+    assert project.defaults.audio.voice.id == "sohee_ko"
 
 
 def test_4_new_video_copies_project_defaults(service: ProjectService) -> None:

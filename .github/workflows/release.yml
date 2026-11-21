@@ -167,7 +167,8 @@ jobs:
             voice="--voice"
           fi
           python packaging/smoke.py --artifact "$artifact" --os "${{ matrix.label }}" $voice \
-            --profile "${{ matrix.profile }}" --output "out/smoke-${{ matrix.label }}-${{ matrix.profile }}.json"
+            --profile "${{ matrix.profile }}" --output "out/smoke-${{ matrix.label }}-${{ matrix.profile }}.json" \
+            --logs "out/smoke-logs-${{ matrix.label }}-${{ matrix.profile }}"
       - name: Publish the smoke summary
         if: always()
         shell: bash
@@ -201,7 +202,9 @@ jobs:
         if: always()
         with:
           name: smoke-${{ matrix.label }}-${{ matrix.profile }}
-          path: out/smoke-*.json
+          path: |
+            out/smoke-*.json
+            out/smoke-logs-*
           if-no-files-found: ignore
           retention-days: 30
 
