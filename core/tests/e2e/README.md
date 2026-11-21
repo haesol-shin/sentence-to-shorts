@@ -57,3 +57,16 @@ evidence/I2a/
 각 job 종료와 artifact 다운로드 직후 증거를 갱신한다. `events.jsonl`에는 job 상태·attempt·usage·단계 시작과 끝, artifact SHA-256과 bytes, 시나리오 상태가 있다. `summary.md`는 이 기록의 읽기용 요약이다. 한도·인증·실행 실패가 나도 이미 기록한 성공 단계와 digest를 보존하고 실패를 명시한다. 초기 설정 실패는 출력 파일 없이 사유만 남길 수 있다.
 
 prompt, 대본, 재료, 참고 URL, 전사, 원본 프레임, 키, 쿠키, 원본 공급자 오류는 증거 기록에 넣지 않는다. mp4와 증거는 비공개 수락 자료이며 공개 저장소나 PR에 첨부하지 않는다. 공개 결과에는 실제로 실행한 검사와 미검증 범위만 기록한다.
+
+## 생성 스타일, template, 코드 BGM 수락
+
+`test_real_generated_code.py`는 같은 `live_run`과 증거 폴더를 쓴다. `APP_PROFILE=dev`와 `APP_LLM_BASE_URL`이 없으면 이유를 남기고 건너뛴다. 증거는 `E2E_EVIDENCE_DIR` 옆의 `<폴더 이름>-generated-code` 폴더에 쓴다. 이 폴더도 아직 없어야 하며, 주 경로 시험과 함께 선택해도 폴더가 겹치지 않는다.
+
+```sh
+APP_PROFILE=dev poetry run pytest tests/e2e -m realllm -k "style or template or bgm" -q
+```
+
+- 시각 차이는 `visual_difference` 이벤트(그룹별 IoU와 얼굴 변경 픽셀 수)에, 실행 안전은 `execution_safety`, `style_reuse`, `bgm_cache`, `bgm_swap` 이벤트에 따로 남는다. 코드와 prompt는 남기지 않는다.
+- 형태 기준에 걸린 스타일은 한 번 더 시도하고, 두 번 넘지 못하면 기준을 낮추지 않고 실패로 기록한다.
+- 코드 BGM 교체 시험은 clip 재생성 0과 sandbox 호출 0을, 저장 스타일 재사용 시험은 style job 0과 `style_code` 호출 0을 확인한다.
+- 참고 파일 기반 스타일 시험은 분석 결과가 요약에 스타일을 담지 않아 `xfail(strict=True)`로 둔다. 앱이 그 연결을 갖추면 이 표시를 지운다.

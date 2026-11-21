@@ -10,7 +10,7 @@ from typing import Any
 import pytest
 
 from app.schemas.job import Stage
-from tests.e2e.real_support import Evidence
+from tests.e2e.real_support import Evidence, numeric_detail
 
 
 def _job() -> dict[str, Any]:
@@ -66,3 +66,11 @@ def test_1_later_failure_preserves_completed_artifact_and_digest(tmp_path: Path)
         json.loads(line) for line in (evidence.root / "events.jsonl").read_text().splitlines()
     ]
     assert events[-1] == {"kind": "case", "name": "second-video", "state": "failed"}
+
+
+def test_numeric_detail_keeps_measured_numbers_only() -> None:
+    detail = {
+        "reason": "color_only", "head_iou_x1000": 912, "flag": True,
+        "message": "Traceback with private text", "threshold_iou_x1000": 800,
+    }
+    assert numeric_detail(detail) == {"head_iou_x1000": 912, "threshold_iou_x1000": 800}
