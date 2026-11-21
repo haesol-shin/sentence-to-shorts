@@ -42,6 +42,7 @@
 - `Settings.origins`는 JSON Pointer별 출처를 기록한다.
 - 채우는 우선순위는 user, reference, preset, card, llm, default 순서다.
 - 낮은 순위의 출처는 높은 순위 값을 덮지 않는다. 덮어야 하면 `ChangePlan`이 `user_value_overwrite`로 확인을 요구한다.
+- 초안 요청은 사용자의 시작이라 확인 없이 적용한다. 대신 높은 순위 값이나 lock 항목을 바꾸는 초안의 설정 op는 버리고 그 값을 그대로 두며, 나머지 op는 적용한다.
 - 대화로 바꾼 값의 출처는 user다.
 - `Settings.locks`의 locked 항목은 같은 프로젝트의 다음 영상에서 그대로 복사한다.
 - varied 항목은 다음 영상 생성 때 앱이 다른 후보를 고른다. 기술 선택: 후보 선택은 seed가 있는 결정적 함수로 하고 최근 2편의 값을 피한다. 이유: 시험이 재현되고 LLM 호출이 없다.
