@@ -348,7 +348,9 @@ def test_corresponding_source_download_keeps_no_partial_file_on_short_read(
         module.urllib.request, "urlopen", lambda request, timeout: Response(b"short")
     )
     with pytest.raises(module.SourceError):
-        module.download_artifact("https://download.invalid/short", target, 10, "0" * 64)
+        module.download_artifact(
+            "https://download.invalid/short", target, {"bytes": 10, "sha256": "0" * 64}
+        )
     assert not target.exists()
     assert not target.with_name(target.name + ".part").exists()
 
@@ -377,3 +379,96 @@ def test_corresponding_source_rejects_a_pinned_login_page_as_a_source_archive(
         module.stage_sources("linux-x86_64", target, work)
     assert not target.exists()
     assert not list(work.rglob("*.part"))
+
+
+def tree_archive(files: dict[str, bytes], *, mtime: int, level: int) -> bytes:
+    stream = io.BytesIO()
+    with tarfile.open(fileobj=stream, mode="w") as archive:
+        for name, data in files.items():
+            member = tarfile.TarInfo(name)
+            member.size = len(data)
+            member.mtime = mtime
+            member.mode = 0o644
+            archive.addfile(member, io.BytesIO(data))
+    return gzip.compress(stream.getvalue(), compresslevel=level, mtime=mtime)
+
+
+def tree_manifest(tmp_path: Path, files: dict[str, bytes]) -> tuple[Path, str]:
+    """A manifest whose only source is a tree-pinned gitiles archive."""
+    reference = tmp_path / "reference.tar.gz"
+    reference.write_bytes(tree_archive(files, mtime=1, level=1))
+    tree, total = module._tree_content(reference, reference.name)
+    url = "https://source.invalid/project/+archive/" + "a" * 40 + ".tar.gz"
+    data = {
+        "schema_version": 1,
+        "builds": {
+            "linux-x86_64": {
+                "revision": "1" * 40,
+                "binary": {"file": "ffmpeg-linux", "bytes": 4, "sha256": digest(b"exe!")},
+                "sources": ["project"],
+            }
+        },
+        "artifacts": {
+            "project": {
+                "url": url,
+                "verify": "tree",
+                "bytes": total,
+                "sha256": tree,
+                "filename": "project.tar.gz",
+                "component": "project",
+                "revision": "a" * 40,
+            }
+        },
+    }
+    path = tmp_path / "ffmpeg-sources.lock.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    return path, url
+
+
+def test_corresponding_source_accepts_two_archives_of_one_tree_with_different_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = {"README": b"one", "src/main.c": b"int main(void);"}
+    path, url = tree_manifest(tmp_path, files)
+    monkeypatch.setattr(module, "MANIFEST", path)
+    first = tree_archive(files, mtime=100, level=9)
+    second = tree_archive(files, mtime=200, level=6)
+    assert first != second
+    for index, blob in enumerate((first, second)):
+        serve(monkeypatch, {url: blob})
+        target = tmp_path / f"asset{index}"
+        module.stage_sources("linux-x86_64", target, tmp_path / f"work{index}")
+        assert (target / "project.tar.gz").read_bytes() == blob
+
+
+def test_corresponding_source_rejects_a_changed_file_in_a_tree_pinned_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    files = {"README": b"one", "src/main.c": b"int main(void);"}
+    path, url = tree_manifest(tmp_path, files)
+    monkeypatch.setattr(module, "MANIFEST", path)
+    serve(monkeypatch, {url: tree_archive({**files, "README": b"two"}, mtime=1, level=6)})
+    with pytest.raises(module.SourceError, match="pinned tree SHA-256"):
+        module.stage_sources("linux-x86_64", tmp_path / "asset", tmp_path / "work")
+    assert not (tmp_path / "asset").exists()
+
+
+def test_corresponding_source_rejects_a_login_page_for_a_tree_pinned_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path, url = tree_manifest(tmp_path, {"README": b"one"})
+    monkeypatch.setattr(module, "MANIFEST", path)
+    serve(monkeypatch, {url: b"<html><title>Sign in</title></html>"})
+    with pytest.raises(module.SourceError, match="not a gzip archive"):
+        module.stage_sources("linux-x86_64", tmp_path / "asset", tmp_path / "work")
+
+
+def test_corresponding_source_requires_a_tree_pin_for_every_gitiles_archive(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path, _ = tree_manifest(tmp_path, {"README": b"one"})
+    data = json.loads(path.read_text(encoding="utf-8"))
+    del data["artifacts"]["project"]["verify"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(module.SourceError, match="gitiles archive"):
+        module.load_manifest(path)

@@ -979,7 +979,14 @@ def smoke(args: argparse.Namespace) -> Result:
     return result
 
 
+def use_utf8_output() -> None:
+    """Print UTF-8 whatever the console code page is: details carry non-ASCII paths."""
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    use_utf8_output()
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--artifact", type=Path, required=True)
     parser.add_argument("--os", choices=("linux", "windows"), required=True)

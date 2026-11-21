@@ -2,8 +2,9 @@
 
 The manifest beside this module pins, for every shipped platform, the executable
 that the runtime installs and the source archives and build materials that produced
-it.  ``stage_sources`` downloads every source, checks its byte count and SHA-256,
-and writes the verified files plus the manifest and ``SOURCE-README`` into one
+it.  ``stage_sources`` downloads every source, checks its byte count and SHA-256
+(for a gitiles ``+archive``, which is rebuilt per request, the digest of the extracted
+tree), and writes the verified files plus the manifest and ``SOURCE-README`` into one
 directory that the caller packs as a Release asset.  The README explains how the
 sources map to the executable and how to rebuild it.  ``notice_lines`` returns the
 matching Markdown section for the distribution notices, and ``asset_name`` gives
@@ -20,9 +21,11 @@ import hashlib
 import json
 import re
 import shutil
+import tarfile
 import time
 import urllib.error
 import urllib.request
+import zlib
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -130,6 +133,16 @@ def _checked_artifact(artifact: Mapping[str, Any], where: str) -> None:
             raise SourceError(f"{where} has no HTTPS source URL")
     if size <= 0:
         raise SourceError(f"{where} has no positive byte count")
+    verify = artifact.get("verify")
+    if verify not in (None, "tree"):
+        raise SourceError(f"{where} has an unknown verification mode")
+    url = artifact.get("url")
+    if isinstance(url, str) and "/+archive/" in url:
+        # Gitiles builds these archives per request, so their bytes are not stable.
+        if verify != "tree":
+            raise SourceError(f"{where} is a gitiles archive and must pin its tree digest")
+        if revision not in url:
+            raise SourceError(f"{where} URL does not name its revision")
 
 
 def _checked_build(label: str, build: Mapping[str, Any], artifacts: Mapping[str, Any]) -> None:
@@ -200,11 +213,76 @@ def _check_archive(path: Path, name: str) -> None:
                 raise SourceError(f"{name} is not a gzip archive")
 
 
-def download_artifact(url: str, target: Path, size: int, sha256: str) -> None:
-    """Download one archive and refuse it unless bytes and SHA-256 match.
+def _tree_content(path: Path, name: str) -> tuple[str, int]:
+    """The tree digest and total file bytes of a tar.gz, independent of how it is packed.
 
-    The temporary file is removed on any mismatch, so a failed attempt cannot be
-    mistaken for a verified archive on the next run.
+    The digest covers sorted member paths, modes and file bytes (link targets for
+    symlinks), not timestamps, ownership or compression, so two downloads of the
+    same revision agree even when the server builds the archive on every request.
+    """
+    entries: dict[str, dict[str, Any]] = {}
+    total = 0
+    try:
+        with tarfile.open(path, mode="r:gz") as archive:
+            for member in archive:
+                relative = member.name[2:] if member.name.startswith("./") else member.name
+                relative = relative.rstrip("/")
+                if member.isdir():
+                    continue
+                if not _safe_relative(relative):
+                    raise SourceError(f"{name} has an unsafe member path")
+                if member.issym():
+                    entries[relative] = {"mode": "120000", "link": member.linkname}
+                elif member.isreg():
+                    stream = archive.extractfile(member)
+                    if stream is None:
+                        raise SourceError(f"{name} has an unreadable member")
+                    digest = hashlib.sha256()
+                    with stream:
+                        for block in iter(lambda: stream.read(CHUNK), b""):
+                            digest.update(block)
+                    entries[relative] = {
+                        "mode": format(member.mode & 0o777, "o"),
+                        "bytes": member.size,
+                        "sha256": digest.hexdigest(),
+                    }
+                    total += member.size
+                else:
+                    raise SourceError(f"{name} has a member that is not a file or a link")
+    except (tarfile.TarError, EOFError, OSError, zlib.error) as error:
+        raise SourceError(f"cannot read {name} as a source archive: {error}") from error
+    return _tree_digest(entries), total
+
+
+def _check_archive_content(path: Path, name: str, artifact: Mapping[str, Any]) -> None:
+    """Refuse an archive unless its bytes (or, for a tree-pinned one, its content) match."""
+    if artifact.get("verify") == "tree":
+        _check_archive(path, name)
+        digest, total = _tree_content(path, name)
+        if digest != artifact["sha256"] or total != artifact["bytes"]:
+            raise SourceError(f"{name} does not match its pinned tree SHA-256")
+        return
+    if path.stat().st_size != artifact["bytes"] or _sha256_file(path) != artifact["sha256"]:
+        raise SourceError(f"{name} does not match its pinned bytes and SHA-256")
+    _check_archive(path, name)
+
+
+def _archive_matches(path: Path, artifact: Mapping[str, Any]) -> bool:
+    if not path.is_file():
+        return False
+    try:
+        _check_archive_content(path, path.name, artifact)
+    except SourceError:
+        return False
+    return True
+
+
+def download_artifact(url: str, target: Path, artifact: Mapping[str, Any]) -> None:
+    """Download one archive and refuse it unless it matches its pin.
+
+    The pin is the byte count and SHA-256, or for ``"verify": "tree"`` the digest of
+    the extracted tree.  The temporary file is removed on any mismatch, so a failed
+    attempt cannot be mistaken for a verified archive on the next run.
     """
     request = urllib.request.Request(url, headers={"User-Agent": "corresponding-source"})
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -226,9 +304,7 @@ def download_artifact(url: str, target: Path, size: int, sha256: str) -> None:
                 if attempt == 2:
                     raise SourceError(f"cannot download {target.name}: {error}") from error
                 time.sleep(1 + attempt)
-        if temporary.stat().st_size != size or _sha256_file(temporary) != sha256:
-            raise SourceError(f"{target.name} does not match its pinned bytes and SHA-256")
-        _check_archive(temporary, target.name)
+        _check_archive_content(temporary, target.name, artifact)
         temporary.replace(target)
     finally:
         temporary.unlink(missing_ok=True)
@@ -318,7 +394,7 @@ def _stage_file_export(artifact: Mapping[str, Any], root: Path) -> None:
         if target.is_file() and target.stat().st_size == count and _sha256_file(target) == digest:
             continue
         target.unlink(missing_ok=True)
-        download_artifact(base + path, target, count, digest)
+        download_artifact(base + path, target, {"bytes": count, "sha256": digest})
 
 
 def _copy_verified(source: Path, target: Path, count: int, digest: str) -> None:
@@ -351,18 +427,11 @@ def stage_sources(label: str, dest: Path, work: Path) -> None:
             _stage_file_export(artifact, path)
             verified.append((artifact, path))
             continue
-        if (
-            path.is_file()
-            and path.stat().st_size == artifact["bytes"]
-            and _sha256_file(path) == artifact["sha256"]
-        ):
-            _check_archive(path, path.name)
+        if _archive_matches(path, artifact):
             verified.append((artifact, path))
             continue
         path.unlink(missing_ok=True)
-        download_artifact(
-            _artifact_url(artifact), path, int(artifact["bytes"]), str(artifact["sha256"])
-        )
+        download_artifact(_artifact_url(artifact), path, artifact)
         verified.append((artifact, path))
     output = Path(dest)
     output.mkdir(parents=True, exist_ok=True)
@@ -378,7 +447,12 @@ def stage_sources(label: str, dest: Path, work: Path) -> None:
                     str(meta["sha256"]),
                 )
             continue
-        _copy_verified(path, destination, int(artifact["bytes"]), str(artifact["sha256"]))
+        if _archive_matches(destination, artifact):
+            continue
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        temporary = destination.with_name(destination.name + ".part")
+        shutil.copy(path, temporary)
+        temporary.replace(destination)
     shutil.copyfile(MANIFEST, output / MANIFEST.name)
     (output / README_NAME).write_text(_stage_instructions(build, selected, label), encoding="utf-8")
 
