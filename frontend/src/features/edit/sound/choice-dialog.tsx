@@ -106,7 +106,7 @@ export function ChoiceDialog({
           {t(problem.kind === 'unavailable' ? 'audio.preview.unavailable' : 'audio.preview.failed')}
         </Notice>
       )}
-      <ScrollPane label={listLabel} className="max-h-72 min-h-0">
+      <ScrollPane label={listLabel} jumpLabel={t('shell.scroll.jump')} className="max-h-72 min-h-0">
         <ul className="flex flex-col gap-1" data-slot="choice-list">
           {items.length === 0 ? (
             <li className="px-3 py-2 text-[15px] text-[var(--text-muted)]">{emptyText}</li>

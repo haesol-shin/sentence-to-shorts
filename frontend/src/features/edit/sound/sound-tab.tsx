@@ -16,7 +16,7 @@ export function SoundTab({ edit }: { edit: EditValue }) {
   const preview = useAudioPreview();
 
   return (
-    <ScrollPane label={t('audio.sound.label')} className="min-h-0 flex-1">
+    <ScrollPane label={t('audio.sound.label')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
       <div data-slot="sound-tab" className="flex flex-col gap-5 pb-16">
         <div className="flex justify-end">
           <Button variant="ghost" disabled={!edit.canUndo || edit.settingsBusy} onClick={edit.undo}>

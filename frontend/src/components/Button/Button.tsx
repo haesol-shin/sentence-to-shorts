@@ -14,17 +14,20 @@ export type ButtonSize = 'md' | 'sm';
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
   size?: ButtonSize;
-  /** A job this control started is running; it becomes the stop control in place. */
-  running?: boolean;
-  /** The label of the stop control while running, for example "멈추기". */
-  stopLabel?: string;
   /** Called when the running control is pressed. What stopping does stays with the caller. */
   onStop?: () => void;
   iconStart?: ReactNode;
   iconEnd?: ReactNode;
   /** Forces a visual state for the gallery. Never used in a real screen. */
   forceState?: ForceState;
-};
+} & (
+  | { running?: false; stopLabel?: string }
+  /**
+   * A job this control started is running; it becomes the stop control in
+   * place, named by the caller.
+   */
+  | { running: boolean; stopLabel: string }
+);
 
 /**
  * One button for every screen. It forwards its ref so Base UI triggers can
@@ -40,7 +43,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
     variant = 'primary',
     size = 'md',
     running = false,
-    stopLabel = '멈추기',
+    stopLabel,
     onStop,
     iconStart,
     iconEnd,

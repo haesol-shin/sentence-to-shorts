@@ -53,6 +53,7 @@
   "nextActionShort.export": "내려받기",
   "notice.dismiss": "알림 닫기",
   "placeholder.empty": "여기에 들어갈 내용을 아직 만들지 않았어요.",
+  "scroll.jump": "아래로 넘기기",
   "session.connecting": "연결하는 중이에요.",
   "session.missing": "컴퓨터 화면에 보이는 연결 코드로 다시 열어 주세요.",
   "stage.composerPlaceholder": "고칠 점을 적어 주세요",

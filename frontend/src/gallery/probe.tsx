@@ -6,7 +6,7 @@ import { Button } from '@/components/Button/Button';
 import { Card } from '@/components/Card/Card';
 import { Composer } from '@/components/Composer/Composer';
 import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
-import { MenuButton } from '@/components/MenuButton/MenuButton';
+import { MenuButton, type MenuItemSpec } from '@/components/MenuButton/MenuButton';
 import { PlaybackControls } from '@/components/PlaybackControls/PlaybackControls';
 import { RadioGroup } from '@/components/RadioGroup/RadioGroup';
 import { ReorderList, type ReorderItem } from '@/components/ReorderList/ReorderList';
@@ -26,10 +26,12 @@ const SOON = (
   </Tag>
 );
 
-const MENU_ITEMS = [
+const SOON_NOTE = '곧 지원 항목은 다음 단계에서 열려요.';
+
+const MENU_ITEMS: readonly MenuItemSpec[] = [
   { value: 'upload', label: '참고 영상 올리기' },
   { value: 'link', label: '영상 링크 붙여넣기' },
-  { value: 'image', label: '이미지 올리기', unavailable: true, tag: SOON },
+  { value: 'image', label: '이미지 올리기', unavailable: true, unavailableName: '이미지 올리기 곧 지원', tag: SOON },
 ];
 
 const VOICES = [
@@ -44,6 +46,12 @@ const STAGES = [
   { value: 'edit', label: '편집' },
   { value: 'export', label: '내보내기' },
 ];
+
+const REORDER_LABELS = {
+  grip: (item: string) => `순서 바꾸기: ${item}`,
+  up: (item: string) => `위로 이동: ${item}`,
+  down: (item: string) => `아래로 이동: ${item}`,
+};
 
 const REORDER_START: readonly ReorderItem[] = [
   { id: 'scene-1', label: '첫 장면' },
@@ -83,6 +91,7 @@ export function ProbePage() {
           }
           label="파일 넣기"
           items={MENU_ITEMS}
+          note={SOON_NOTE}
           onSelect={(value) => setLog(`menu:${value}`)}
         />
       </section>
@@ -156,6 +165,7 @@ export function ProbePage() {
               }
               label="파일 넣기"
               items={MENU_ITEMS}
+              note={SOON_NOTE}
               onSelect={(value) => setLog(`nested-menu:${value}`)}
             />
             <ValueField
@@ -173,6 +183,7 @@ export function ProbePage() {
       <section className="probe__section" data-probe="sheet">
         <h2>아래 판</h2>
         <BottomSheet
+          closeLabel="닫기"
           title="목소리 고르기"
           description="이 영상에서 쓸 목소리를 골라요."
           trigger={<Button variant="secondary">목소리</Button>}
@@ -191,6 +202,7 @@ export function ProbePage() {
         <h2>입력창</h2>
         <Composer
           label="메시지 입력"
+          sendLabel="보내기"
           stopLabel="멈추기"
           attachLabel="파일 넣기"
           placeholder="어떤 영상을 만들까요?"
@@ -269,6 +281,7 @@ export function ProbePage() {
         <h2>순서 바꾸는 목록</h2>
         <ReorderList
           label="장면 순서"
+          labels={REORDER_LABELS}
           items={order}
           onReorder={(next) => {
             setOrder(next);

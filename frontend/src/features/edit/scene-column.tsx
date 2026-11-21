@@ -61,6 +61,7 @@ function SceneCard({
         duration={t('edit.scene.estimated', { seconds: estimatedSeconds(scene) })}
         selected={selected}
         busy={edit.phase === 'stills'}
+        busyLabel={t('edit.scene.busy')}
         onClick={() => edit.selectScene(scene.id)}
         className={compact ? 'w-24' : undefined}
       />
@@ -99,7 +100,7 @@ export function SceneColumn({ edit }: { edit: EditValue }) {
       <h2 className="px-1 text-[15px] font-bold text-[var(--text-strong)]">
         {t('edit.scene.list')}
       </h2>
-      <ScrollPane label={t('edit.scene.list')} className="min-h-0 flex-1">
+      <ScrollPane label={t('edit.scene.list')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
         <div className="flex flex-col items-center gap-3 pb-12">
           {edit.scenes.length === 0 ? (
             <p className="px-1 text-[15px] text-[var(--text-muted)]">{t('edit.scene.empty')}</p>

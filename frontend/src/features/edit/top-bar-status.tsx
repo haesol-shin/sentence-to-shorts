@@ -88,7 +88,7 @@ export function EditTopBarStatus() {
                 label={t('edit.status.progressLabel')}
                 valueText={`${done} / ${edit.progress.total}`}
               />
-              <ScrollPane label={t('edit.status.progressLabel')} className="max-h-80">
+              <ScrollPane label={t('edit.status.progressLabel')} jumpLabel={t('shell.scroll.jump')} className="max-h-80">
                 <ul className="flex flex-col gap-1">
                 {edit.progress.scenes.map((scene, index) => (
                   <li

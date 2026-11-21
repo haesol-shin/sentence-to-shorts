@@ -1,14 +1,20 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
 
-import { ValueField } from './ValueField';
+import { ValueField, type ValueFieldItem } from './ValueField';
 
 afterEach(cleanup);
 
-const ITEMS = [
+const ITEMS: readonly ValueFieldItem[] = [
   { value: 'bright', label: '밝은 목소리' },
   { value: 'calm', label: '차분한 목소리' },
-  { value: 'robot', label: '로봇 목소리', unavailable: true, tag: <span>곧 지원</span> },
+  {
+    value: 'robot',
+    label: '로봇 목소리',
+    unavailable: true as const,
+    unavailableName: 'Robot voice, coming soon',
+    tag: <span>곧 지원</span>,
+  },
 ];
 
 describe('ValueField', () => {
@@ -24,14 +30,14 @@ describe('ValueField', () => {
   });
 
   test('test_10a_value_field_unavailable_option_is_described_by_the_note', () => {
-    render(<ValueField label="목소리" items={ITEMS} defaultOpen />);
+    render(<ValueField label="목소리" items={ITEMS} note="Opens in a later step." defaultOpen />);
 
-    const option = screen.getByRole('option', { name: '로봇 목소리 곧 지원' });
+    const option = screen.getByRole('option', { name: 'Robot voice, coming soon' });
     const describedBy = option.getAttribute('aria-describedby');
     expect(option.getAttribute('aria-disabled')).toBe('true');
     expect(describedBy).not.toBeNull();
     expect(document.getElementById(describedBy ?? '')?.textContent).toContain(
-      '곧 지원 항목은 다음 단계에서 열려요.',
+      'Opens in a later step.',
     );
   });
 

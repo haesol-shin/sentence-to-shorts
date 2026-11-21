@@ -21,7 +21,7 @@ export type BottomSheetProps = {
   onOpenChange?: (open: boolean) => void;
   label?: string;
   /** The name of the close control. A picking panel keeps its x. */
-  closeLabel?: string;
+  closeLabel: string;
   className?: string;
 };
 
@@ -41,7 +41,7 @@ export function BottomSheet({
   defaultOpen,
   onOpenChange,
   label,
-  closeLabel = '닫기',
+  closeLabel,
   className,
 }: BottomSheetProps) {
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);

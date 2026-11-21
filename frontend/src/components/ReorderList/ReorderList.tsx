@@ -17,6 +17,12 @@ export type ReorderListProps = {
   /** The accessible name of the list. */
   label: string;
   items: readonly ReorderItem[];
+  /** Accessible names of the visual-only controls; each gets the row label. */
+  labels: {
+    grip: (item: string) => string;
+    up: (item: string) => string;
+    down: (item: string) => string;
+  };
   onReorder?: (items: readonly ReorderItem[]) => void;
   /** Forces a row state for the gallery. */
   forceState?: ForceState;
@@ -34,6 +40,7 @@ export type ReorderListProps = {
 export function ReorderList({
   label,
   items,
+  labels,
   onReorder,
   forceState,
   forceItem,
@@ -73,7 +80,7 @@ export function ReorderList({
           <button
             type="button"
             className="reorder-row__grip hit-area focus-ring"
-            aria-label={`순서 바꾸기: ${item.label}`}
+            aria-label={labels.grip(item.label)}
             draggable
             data-force-state={
               forceItem === undefined || forceItem === item.id ? forcedAttr : undefined
@@ -94,7 +101,7 @@ export function ReorderList({
             <button
               type="button"
               className="reorder-row__move hit-area focus-ring"
-              aria-label={`위로 이동: ${item.label}`}
+              aria-label={labels.up(item.label)}
               disabled={index === 0}
               onClick={() => move(index, index - 1)}
             >
@@ -103,7 +110,7 @@ export function ReorderList({
             <button
               type="button"
               className="reorder-row__move hit-area focus-ring"
-              aria-label={`아래로 이동: ${item.label}`}
+              aria-label={labels.down(item.label)}
               disabled={index === items.length - 1}
               onClick={() => move(index, index + 1)}
             >

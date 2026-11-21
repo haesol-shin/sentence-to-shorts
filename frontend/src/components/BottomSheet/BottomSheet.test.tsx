@@ -11,6 +11,7 @@ describe('BottomSheet', () => {
     render(
       <BottomSheet
         title="목소리 고르기"
+        closeLabel="Close"
         description="이 영상에서 쓸 목소리를 골라요."
         trigger={<Button variant="secondary">목소리</Button>}
         actions={<Button>적용</Button>}
@@ -22,7 +23,7 @@ describe('BottomSheet', () => {
 
     expect(await screen.findByRole('dialog', { name: '목소리 고르기' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: '목소리 고르기' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '닫기' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
 
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
