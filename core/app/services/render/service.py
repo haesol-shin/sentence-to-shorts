@@ -417,6 +417,7 @@ class RenderService:
             sizes=res.font.sizes(pixel * 4, pixel * 2),
             where=f"element:{element.id}",
             code=code,
+            clip=not code,
         )
         text_w = max(1, max(line.width for line in block.lines))
         box_w = text_w + 2 * ELEMENT_PAD + (ELEMENT_OUTLINE if code else 0)
@@ -525,6 +526,7 @@ class RenderService:
             max_lines=1,
             sizes=res.font.sizes(pixel * 3, pixel * 2),
             where="progress",
+            clip=True,
         )
         draw_block(
             draw, res.font, block, inner,
@@ -549,6 +551,7 @@ class RenderService:
             max_lines=2,
             sizes=res.font.sizes(pixel * 5, pixel * 2),
             where="title",
+            clip=True,
         )
         draw_block(
             draw, res.font, block, inner,

@@ -17,6 +17,7 @@ from app.schemas.artifact import Timing
 from app.schemas.common import Box
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
+from app.services.render.text import ELLIPSIS, fit, open_font
 from tests.render.conftest import Studio, load
 
 GRID = [
@@ -323,6 +324,44 @@ def test_29_caption_that_cannot_fit_fails_instead_of_clipping(studio: Studio) ->
     with pytest.raises(AppError) as error:
         studio.compose(video, scene["id"])
     assert error.value.code == "text_overflow"
+
+
+LONG_LABELS = ["가나다라마바사아자차" * 4, "Keeping plants from overheating now", "W" * 40]
+
+
+@pytest.mark.parametrize("label", LONG_LABELS)
+@pytest.mark.parametrize("layout", ["fixed_stage", "full_stage", "dialog_stage"])
+@pytest.mark.parametrize("font", ["galmuri11", "galmuri14"])
+def test_29_schema_valid_beat_label_renders_in_the_progress_box(
+    studio: Studio, layout: str, label: str, font: str
+) -> None:
+    scene = load("scene_text_edge.json")
+    scene["beat_label"] = label
+    assert len(label) <= 40
+    video = studio.video(scene, layout=layout, font=font)
+    assert video.settings.format.progress_mode.value == "numbered"
+    _, record = studio.compose(video, scene["id"])
+    assert record is not None
+    path = studio.still(video, scene["id"])
+    assert path.exists()
+
+
+def test_29_long_beat_label_is_cut_with_an_ellipsis_inside_the_box(studio: Studio) -> None:
+    face = open_font(studio.registry, studio.registry.pin("font", "galmuri11"))
+    label = "Keeping plants from overheating now"
+    block = fit(
+        face, label, None, width=236, height=56, max_lines=1,
+        sizes=face.sizes(33, 22), where="progress", clip=True,
+    )
+    drawn = block.lines[0].text
+    assert drawn.endswith(ELLIPSIS) and label.startswith(drawn[:-1])
+    assert block.size == 22 and block.lines[0].width <= 236
+    with pytest.raises(AppError) as caught:
+        fit(
+            face, label, None, width=236, height=56, max_lines=1,
+            sizes=face.sizes(33, 22), where="progress",
+        )
+    assert caught.value.code == "text_overflow"
 
 
 def test_29_missing_glyph_fails_without_font_fallback(studio: Studio) -> None:
