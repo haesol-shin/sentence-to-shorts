@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import threading
 import time
 from pathlib import Path
@@ -10,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from app.ports import AppError, Cancelled
-from app.tools.downloaders.adapter import create, create_skeleton
+from app.tools.downloaders.adapter import _platform, create, create_skeleton
 from app.tools.downloaders.ytdlp.downloader import YtDlpDownloader
 from tests.reference.support import Cancel, fake_ytdlp, last_call
 
@@ -21,9 +22,16 @@ MAX_BYTES = 4000
 MAX_MS = 20_000
 
 
+def _deno(tmp_path: Path) -> Path:
+    path = tmp_path / "rt" / "deno" / "deno"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    return path.resolve()
+
+
 @pytest.fixture
 def downloader(tmp_path: Path) -> YtDlpDownloader:
-    return YtDlpDownloader(fake_ytdlp(tmp_path / "tool").resolve())
+    return YtDlpDownloader(fake_ytdlp(tmp_path / "tool").resolve(), deno=_deno(tmp_path))
 
 
 def _fetch(
@@ -66,16 +74,18 @@ def test_20_download_runs_a_fixed_command_line(
     for flag in (
         "--ignore-config", "--no-config-locations", "--no-plugin-dirs", "--no-exec",
         "--no-cookies", "--no-cookies-from-browser", "--no-playlist", "--no-write-subs",
-        "--no-write-auto-subs", "--no-write-thumbnail", "--no-js-runtimes",
+        "--no-write-auto-subs", "--no-write-thumbnail",
         "--no-remote-components", "--no-update", "--no-batch-file",
     ):
         assert flag in argv
+    assert "--no-js-runtimes" not in argv
+    assert argv[argv.index("--js-runtimes") + 1] == f"deno:{_deno(tmp_path)}"
     forbidden = {"--exec", "--cookies", "--downloader", "--plugin-dirs", "--config-locations"}
     assert not forbidden & set(argv)
     assert argv[-2:] == ["--", LINK + "ok"]
     assert argv[argv.index("--max-filesize") + 1] == str(MAX_BYTES)
     assert argv[argv.index("--proxy") + 1].startswith("http://127.0.0.1:")
-    assert argv[argv.index("-o") + 1].startswith("ref_") and "abc" not in argv[argv.index("-o") + 1]
+    assert re.fullmatch(r"ref_[0-9a-f]{16}\.%\(ext\)s", argv[argv.index("-o") + 1])
 
 
 def test_20_download_process_sees_no_path_and_a_private_home(
@@ -184,7 +194,9 @@ def test_20_download_cancel_stops_the_process_and_leaves_nothing(
 
 
 def test_20_download_is_off_in_a_hosted_deployment(tmp_path: Path) -> None:
-    hosted = YtDlpDownloader(fake_ytdlp(tmp_path / "tool").resolve(), link_enabled=False)
+    hosted = YtDlpDownloader(
+        fake_ytdlp(tmp_path / "tool").resolve(), deno=_deno(tmp_path), link_enabled=False
+    )
     with pytest.raises(AppError) as caught:
         _fetch(hosted, tmp_path)
     assert caught.value.code == "link_disabled"
@@ -198,11 +210,27 @@ def test_20_download_without_a_locked_executable_fails_cleanly(tmp_path: Path) -
     assert caught.value.detail["reason"] == "downloader_unavailable"
 
 
+def test_20_download_without_the_locked_deno_fails_cleanly(tmp_path: Path) -> None:
+    tool = fake_ytdlp(tmp_path / "tool").resolve()
+    for deno in (None, (tmp_path / "missing" / "deno").resolve()):
+        with pytest.raises(AppError) as caught:
+            _fetch(YtDlpDownloader(tool, deno=deno), tmp_path)
+        assert caught.value.code == "download_failed"
+        assert caught.value.detail["reason"] == "downloader_unavailable"
+    assert not (tmp_path / "tool" / "argv.json").exists()
+
+
 def test_20_download_adapter_follows_the_deployment_and_the_runtime_lock(
     app_settings,  # type: ignore[no-untyped-def]
 ) -> None:
     local = create(app_settings)
-    assert local.link_enabled and local.executable is None
+    assert local.link_enabled
+    system, arch = _platform()
+    yt_dlp = next(item for item in app_settings.runtime.items if item.id == "yt-dlp")
+    file = next(e.file for e in yt_dlp.files if (e.os, e.arch) == (system, arch))
+    assert local.executable == (app_settings.runtime_dir / "yt-dlp" / file).resolve()
+    deno = "deno.exe" if system == "windows" else "deno"
+    assert local.deno == (app_settings.runtime_dir / "deno" / deno).resolve()
     app_settings.deployment = "hosted"
     assert not create(app_settings).link_enabled
     with pytest.raises(NotImplementedError):

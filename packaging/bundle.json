@@ -1,4 +1,4 @@
 {
   "schema_version": 1,
-  "bundled_runtime_items": ["deno", "pyodide-core", "pyodide-pillow", "ffmpeg"]
+  "bundled_runtime_items": ["deno", "yt-dlp", "pyodide-core", "pyodide-pillow", "ffmpeg"]
 }

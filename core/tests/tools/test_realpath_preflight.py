@@ -28,14 +28,9 @@ finally:
     sys.path[:] = paths
 
 
-# The link downloader's lock entry arrives in a separate change. This equality fails
-# when it does, so the allowance is removed with it and no other gap can hide.
-KNOWN_LOCK_GAPS = ["yt-dlp: missing from lock"]
-
-
 def test_runtime_lock_covers_all_app_item_constants() -> None:
     lock = RuntimeFile.model_validate_json(preflight.LOCK.read_bytes())
-    assert preflight.lock_issues(ROOT / "core" / "app", lock) == KNOWN_LOCK_GAPS
+    assert preflight.lock_issues(ROOT / "core" / "app", lock) == []
 
 
 def test_runtime_lock_detects_new_item_and_missing_host(tmp_path: Path) -> None:

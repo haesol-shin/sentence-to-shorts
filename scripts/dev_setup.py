@@ -161,8 +161,14 @@ def extract_item(item: dict, entry: dict, archive: Path, root: Path) -> None:
         shutil.copy2(archive, installed / entry["file"])
     elif item["id"] == "deno":
         extract(archive, installed)
-    else:
+    elif entry["file"].endswith((".zip", ".tar.bz2", ".tar.gz")):
         extract(archive, root)
+    else:
+        installed.mkdir(parents=True, exist_ok=True)
+        binary = installed / entry["file"]
+        shutil.copy2(archive, binary)
+        if entry["os"] != "windows":
+            binary.chmod(binary.stat().st_mode | 0o111)
 
 
 def make_executable(root: Path) -> None:
