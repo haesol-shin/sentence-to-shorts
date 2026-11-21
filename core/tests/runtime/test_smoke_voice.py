@@ -541,7 +541,7 @@ def test_result_check_prints_a_non_ascii_detail_when_the_console_is_cp1252(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     raw = io.BytesIO()
-    console = io.TextIOWrapper(raw, encoding="cp1252", write_through=True)
+    console = io.TextIOWrapper(raw, encoding="cp1252", newline="\n", write_through=True)
     monkeypatch.setattr(sys, "stdout", console)
     monkeypatch.setattr(sys, "stderr", console)
     smoke.use_utf8_output()
