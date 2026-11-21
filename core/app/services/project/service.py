@@ -83,7 +83,7 @@ class ProjectService:
         if issues:
             codes = {issue.code for issue in issues}
             code = "unknown_catalog_id" if "unknown_catalog_id" in codes else "invalid_combination"
-            raise AppError(code)
+            raise AppError(code, errors=issues)
         return self.projects.append_revision(video)
 
     def view(self, video_id: str) -> Video:
@@ -125,13 +125,14 @@ class ProjectService:
         # A generated script or scene starts without translations. Keep the
         # layer and let the user fill them; validate() still reports the gap and
         # rendering rejects the line until it has its text.
-        if state.new_issues(
+        issues = state.new_issues(
             head,
             applied.video,
             self.catalog,
             ignore=("caption_text_missing",),
-        ):
-            raise AppError("invalid_combination")
+        )
+        if issues:
+            raise AppError("invalid_combination", errors=issues)
         video = self._append(applied.video, head, CreatedBy.change, plan.id)
         return self._mark_applied(plan, video.revision)
 

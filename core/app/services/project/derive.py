@@ -266,9 +266,11 @@ def pick_varied(
     if result is None:
         # A missing registry id is reported as such, not as a combination failure.
         probe = _snapshot(project, base, project.id)
-        codes = {issue.code for issue in state.validate(probe, catalog)}
+        issues = state.validate(probe, catalog)
+        codes = {issue.code for issue in issues}
         raise AppError(
-            "unknown_catalog_id" if "unknown_catalog_id" in codes else "invalid_combination"
+            "unknown_catalog_id" if "unknown_catalog_id" in codes else "invalid_combination",
+            errors=issues,
         )
     return result
 

@@ -79,6 +79,8 @@ STATUS_BY_CODE: dict[str, int] = {
     "not_implemented": 501,
     "internal": 500,
 }
+# Problem.errors holds at most this many items (schema maxItems).
+MAX_ERRORS = 100
 RETRYABLE = frozenset({"rate_limited", "job_running", "internal"})
 CONTEXT_FIELDS = ("current_revision", "job_id", "found", "supported")
 
@@ -281,6 +283,10 @@ def create_app(
             code,
             f"Adapter failed with {code.value}.",
             extra=exc.detail,
+            errors=[
+                ErrorItem(pointer=item.pointer, code=item.code)
+                for item in exc.errors[:MAX_ERRORS]
+            ],
         )
 
     @app.exception_handler(Exception)

@@ -88,10 +88,17 @@ def canonical_digest(value: Any) -> str:
 class AppError(Exception):
     """External failure translated by an adapter into an app or job error code."""
 
-    def __init__(self, code: str, *, detail: Mapping[str, Any] | None = None) -> None:
+    def __init__(
+        self,
+        code: str,
+        *,
+        detail: Mapping[str, Any] | None = None,
+        errors: Iterable[Issue] = (),
+    ) -> None:
         super().__init__(code)
         self.code = code
         self.detail = dict(detail or {})
+        self.errors = tuple(errors)
 
 
 class AppSettings(Protocol):

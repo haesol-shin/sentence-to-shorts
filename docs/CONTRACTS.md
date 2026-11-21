@@ -119,7 +119,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 표준 멤버는 `type`, `title`, `status`, `detail`, `instance`다. `status`는 HTTP 응답 코드와 같은 정수이고 `instance`는 요청 경로다. `title`은 code별 고정 요약이고 `detail`은 그 발생을 설명하는 문자열이다.
 - `type`은 `https://app.invalid/problems/<code>`다. `.invalid`는 [RFC 2606](https://www.rfc-editor.org/rfc/rfc2606)이 예약한 이름이라 이 주소에 실제 문서를 두지 않는다.
 - 확장 멤버는 `code`, `message_key`, `retryable`, `errors`다. `code`는 앱 오류 코드이고 `message_key`는 화면 문구 key이며 `retryable`은 같은 요청을 다시 보낼 수 있는지다. 화면 문구는 `message_key`로 frontend locale에서 찾는다.
-- `errors`는 의미 검사 실패 목록이고 각 item의 `code`는 [1.3절](#13-의미-검사)의 코드다.
+- `errors`는 의미 검사 실패 목록이다. 영상 저장이나 변경 적용이 의미 검사에서 `invalid_combination`이나 `unknown_catalog_id`로 실패하면 실패한 항목을 검사 순서대로 최대 100개 담고, 변경 적용은 그 변경이 새로 만든 항목만 담는다. 각 item의 `pointer`는 영상 안 JSON Pointer이고 `code`는 [1.3절](#13-의미-검사)의 코드다. 그 밖의 오류는 빈 목록이다.
 - 문맥 값은 확장 멤버로 돌려준다: `current_revision`(409 `revision_conflict`), `job_id`(409 `job_running`), `found`와 `supported`(422 `unsupported_version`).
 
 ## 4. HTTP API 목록
