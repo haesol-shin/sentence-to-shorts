@@ -11,8 +11,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.plugins.registry import Registry
-from app.ports import AppError
-from app.schemas.api import CaptionLayout, CreateProjectRequest, CreateVideoRequest
+from app.ports import AppError, Issue
+from app.schemas.api import (
+    ApiErrorCode,
+    CaptionLayout,
+    CreateProjectRequest,
+    CreateVideoRequest,
+    Problem,
+    SemanticCode,
+)
 from app.schemas.change import ChangeSource, ReorderOp, SetOp, SetScriptOp
 from app.schemas.common import Language, Origin
 from app.schemas.scene import Element, ElementKind, Scene
@@ -641,3 +648,103 @@ def test_4_leaving_typewriter_requires_clearing_the_typing_sound(
     ).video
     assert cleared.settings.caption.typing_sound is None
     assert state.validate(cleared, catalog) == []
+
+
+def extra_op(catalog: Registry, **layer: Any) -> dict[str, Any]:
+    """Replace the extra caption layers with one layer built from ``layer``."""
+    return set_op(
+        "/settings/caption/extra",
+        [extra_layer(catalog, **layer)],
+        Origin.user,
+    ).model_dump(mode="json")
+
+
+def post_caption_change(
+    client: TestClient, video: Video, ops: list[dict[str, Any]]
+) -> Any:
+    plan = client.post(
+        f"/api/v1/videos/{video.id}/changes",
+        json={
+            "base_revision": video.revision,
+            "source": "direct",
+            "target": {"scene_id": None, "pointer": None},
+            "ops": ops,
+        },
+    )
+    assert plan.status_code == 200, plan.text
+    body = plan.json()
+    if body["status"] != "proposed":
+        return plan
+    return client.post(
+        f"/api/v1/changes/{body['id']}/apply", json={"base_revision": video.revision}
+    )
+
+
+def test_30_overlapping_caption_layers_list_the_failing_lines(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(client, catalog)
+    response = post_caption_change(
+        client,
+        video,
+        [
+            set_op("/settings/caption/position", "top", Origin.user).model_dump(mode="json"),
+            set_op(
+                "/settings/caption/font_id",
+                catalog.pin("font", "galmuri14").model_dump(),
+                Origin.user,
+            ).model_dump(mode="json"),
+        ],
+    )
+    assert response.status_code == 422, response.text
+    body = Problem.model_validate(response.json())
+    assert body.code is ApiErrorCode.invalid_combination
+    assert {item.code for item in body.errors} == {SemanticCode.caption_overlap}
+    assert {item.pointer for item in body.errors} == {
+        f"/scenes/{scene_id}/lines/{index}"
+        for scene_id, scene in video.scenes.items()
+        for index in range(len(scene.lines))
+    }
+
+
+def test_30_second_layer_mode_other_than_sentence_is_listed(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(client, catalog)
+    response = post_caption_change(
+        client,
+        video,
+        [extra_op(catalog, mode="phrase")],
+    )
+    assert response.status_code == 422, response.text
+    body = Problem.model_validate(response.json())
+    assert [(item.pointer, item.code) for item in body.errors] == [
+        ("/settings/caption/extra/0/mode", SemanticCode.caption_mode_language)
+    ]
+
+
+def test_30_unknown_catalog_id_is_listed(client: TestClient, catalog: Registry) -> None:
+    video = store_caption_video(client, catalog)
+    response = post_caption_change(
+        client, video, [extra_op(catalog, language="no_such_language")]
+    )
+    assert response.status_code in (404, 422), response.text
+    body = Problem.model_validate(response.json())
+    assert (
+        "/settings/caption/extra/0/language",
+        SemanticCode.unknown_catalog_id,
+    ) in [(item.pointer, item.code) for item in body.errors]
+
+
+def test_30_problem_errors_are_capped_at_the_schema_limit(client: TestClient) -> None:
+    issues = [Issue(f"/scenes/s/lines/{index}", "caption_overlap") for index in range(150)]
+    runtime = client.app.state.runtime  # type: ignore[attr-defined]
+
+    def fail(*_args: Any, **_kwargs: Any) -> Any:
+        raise AppError("invalid_combination", errors=issues)
+
+    runtime.services.project.create_project = fail
+    response = client.post("/api/v1/projects", json={"title": None, "language": "ko"})
+    assert response.status_code == 422, response.text
+    body = Problem.model_validate(response.json())
+    assert [item.pointer for item in body.errors] == [issue.pointer for issue in issues[:100]]
