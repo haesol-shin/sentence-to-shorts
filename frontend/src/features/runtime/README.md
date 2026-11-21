@@ -8,6 +8,7 @@
 - The percent is bytes done over bytes total of the needed groups. It stops at 99 until every group is ready.
 - Every make-video button uses the hook: the edit step's top bar action and the output check's start button. Before the press the label stays as it is. After the press the job waits in the queue and the stop control reads 「준비 중 N%」 in place of 「만들기 멈추기」.
 - `retrying` freezes the percent and `PrepareNotice` shows the sentence and the time of the next try. `failed` shows one sentence chosen by `error_code` and a retry that calls `POST /runtime/prepare`.
+- When that retry request itself fails, the hook keeps the problem's message key as `retryError` and the notice shows that `errors` sentence in place of the stop reason, still as the one red sentence. It clears on the next retry, and on a read that no longer shows the needed groups as failed. A read that still shows them failed keeps it.
 
 ## Mock run
 

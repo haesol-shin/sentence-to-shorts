@@ -10,12 +10,27 @@ function group(id: PrepareGroup['id'], state: PrepareGroup['state'], done: numbe
   return { id, state, done, total: 100, error_code: null, retry_at: null };
 }
 
+function problem(code: string) {
+  return {
+    type: `https://app.invalid/problems/${code}`,
+    title: code,
+    status: 503,
+    detail: 'the server could not queue the preparation',
+    instance: '/api/v1/runtime/prepare',
+    code,
+    message_key: `error.${code}`,
+    retryable: true,
+    errors: [],
+  };
+}
+
 function Probe({ language }: { language: Language | null }) {
-  const { view, retry } = usePrepare(language);
+  const { view, retry, retryError } = usePrepare(language);
   return (
-    <button onClick={retry}>
-      {view.state}
-    </button>
+    <>
+      <button onClick={retry}>{view.state}</button>
+      <output>{retryError ?? 'none'}</output>
+    </>
   );
 }
 
@@ -164,4 +179,85 @@ test('test_21_retry_queues_the_failed_groups_again_and_reads_at_once', async () 
 
   expect(api.count('POST', '/api/v1/runtime/prepare')).toBe(1);
   expect(screen.getByRole('button').textContent).toBe('waiting');
+});
+
+test('test_21_a_failed_retry_request_is_kept_while_the_group_stays_failed', async () => {
+  groups = [{ ...group('voice', 'failed', 0), error_code: 'disk_full' }];
+  let down = true;
+  api = stubApi({
+    'GET /api/v1/session/csrf': () => ({ status: 200, body: { csrf_token: 'c'.repeat(40) } }),
+    'GET /api/v1/runtime': () => ({ status: 200, body: { prepare: { groups } } }),
+    'POST /api/v1/runtime/prepare': () => {
+      if (down) return { status: 503, body: problem('internal') };
+      groups = groups.map((item) => ({ ...item, state: 'queued' }));
+      return { status: 202, body: {} };
+    },
+  });
+  render(<Probe language="ko" />);
+  await advance(0);
+  await act(async () => {
+    await refreshSession();
+  });
+
+  fireEvent.click(screen.getByRole('button'));
+  await advance(0);
+  expect(screen.getByRole('status').textContent).toBe('error.internal');
+
+  // The reads that follow still show the failed group, so the sentence stays.
+  await advance(3000);
+  expect(screen.getByRole('button').textContent).toBe('failed');
+  expect(screen.getByRole('status').textContent).toBe('error.internal');
+
+  down = false;
+  fireEvent.click(screen.getByRole('button'));
+  await advance(0);
+  expect(screen.getByRole('status').textContent).toBe('none');
+});
+
+test('test_21_a_retry_request_that_never_reached_the_server_names_the_connection', async () => {
+  groups = [{ ...group('voice', 'failed', 0), error_code: 'download_failed' }];
+  api = stubApi({
+    'GET /api/v1/session/csrf': () => ({ status: 200, body: { csrf_token: 'c'.repeat(40) } }),
+    'GET /api/v1/runtime': () => ({ status: 200, body: { prepare: { groups } } }),
+  });
+  const real = globalThis.fetch;
+  render(<Probe language="ko" />);
+  await advance(0);
+  await act(async () => {
+    await refreshSession();
+  });
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === 'POST') throw new TypeError('offline');
+    return real(input, init);
+  });
+
+  fireEvent.click(screen.getByRole('button'));
+  await advance(0);
+
+  expect(screen.getByRole('status').textContent).toBe('error.network');
+});
+
+test('test_21_a_read_that_shows_the_groups_moving_clears_the_failed_retry', async () => {
+  groups = [{ ...group('voice', 'failed', 0), error_code: 'disk_full' }];
+  const down = true;
+  api = stubApi({
+    'GET /api/v1/session/csrf': () => ({ status: 200, body: { csrf_token: 'c'.repeat(40) } }),
+    'GET /api/v1/runtime': () => ({ status: 200, body: { prepare: { groups } } }),
+    'POST /api/v1/runtime/prepare': () => (down ? { status: 503, body: problem('internal') } : { status: 202, body: {} }),
+  });
+  render(<Probe language="ko" />);
+  await advance(0);
+  await act(async () => {
+    await refreshSession();
+  });
+  fireEvent.click(screen.getByRole('button'));
+  await advance(0);
+  expect(screen.getByRole('status').textContent).toBe('error.internal');
+
+  // The server moved on by itself, for example another tab pressed retry.
+  groups = [group('voice', 'downloading', 20)];
+  await advance(1000);
+
+  expect(screen.getByRole('button').textContent).toBe('waiting');
+  expect(screen.getByRole('status').textContent).toBe('none');
 });
