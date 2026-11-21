@@ -45,13 +45,15 @@ BLOCKED = re.compile(
 
 
 def _argv(executable: Path, *, proxy: str, out_dir: Path, scratch: Path, name: str,
-          max_bytes: int, url: str) -> list[str]:
+          max_bytes: int, url: str, deno: Path | None = None) -> list[str]:
+    # YouTube needs a JS runtime to solve its challenges: only the locked Deno, never PATH.
+    js_runtimes = ["--js-runtimes", f"deno:{deno}"] if deno else ["--no-js-runtimes"]
     return [
         str(executable),
         "--ignore-config",
         "--no-config-locations",
         "--no-plugin-dirs",
-        "--no-js-runtimes",
+        *js_runtimes,
         "--no-remote-components",
         "--no-update",
         "--no-exec",
@@ -152,10 +154,14 @@ class _Watch:
 class YtDlpDownloader:
     """``DownloaderPort`` over the bundled yt-dlp. Hosted deployments keep it off."""
 
-    def __init__(self, executable: Path | None, *, link_enabled: bool = True) -> None:
-        if executable is not None and not executable.is_absolute():
-            raise ValueError("the yt-dlp path must be absolute")
+    def __init__(
+        self, executable: Path | None, *, deno: Path | None = None, link_enabled: bool = True
+    ) -> None:
+        for path in (executable, deno):
+            if path is not None and not path.is_absolute():
+                raise ValueError("the yt-dlp and deno paths must be absolute")
         self.executable = executable
+        self.deno = deno
         self.link_enabled = link_enabled
 
     def fetch(
@@ -173,7 +179,12 @@ class YtDlpDownloader:
             raise AppError("link_disabled")
         checked = check_url(url)
         cancel.raise_if_set()
-        if self.executable is None or not self.executable.is_file():
+        if (
+            self.executable is None
+            or not self.executable.is_file()
+            or self.deno is None
+            or not self.deno.is_file()
+        ):
             raise AppError("download_failed", detail={"reason": "downloader_unavailable"})
         out_dir.mkdir(parents=True, exist_ok=True)
         name = f"ref_{secrets.token_hex(8)}"
@@ -209,7 +220,7 @@ class YtDlpDownloader:
             watch = _Watch(cancel, proxy, out_dir, max_bytes)
             result = run(
                 _argv(self.executable, proxy=proxy.url, out_dir=out_dir, scratch=scratch,
-                      name=name, max_bytes=max_bytes, url=url),
+                      name=name, max_bytes=max_bytes, url=url, deno=self.deno),
                 cwd=home,
                 env=env,
                 timeout_s=max_ms / 1000,

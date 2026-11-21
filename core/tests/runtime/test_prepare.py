@@ -104,6 +104,24 @@ def test_prepare_keeps_the_executable_bit_of_archive_members(tmp_path: Path) -> 
     assert os.access(settings.runtime_dir / "deno" / "deno", os.X_OK)
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX mode bits")
+def test_prepare_installs_a_single_file_program_executable_below_its_install_path(
+    tmp_path: Path,
+) -> None:
+    blob = noise(5_000, "tool")
+    program = lock_item(
+        "yt-dlp", "yt-dlp", "yt-dlp_linux", blob, os_name="linux", arch="x86_64"
+    )
+    items = [program, *pyodide_items()]
+    settings = make_settings(tmp_path, items)
+    run_prepare(settings, items, serve({url_of(program): blob}))
+    installed = settings.runtime_dir / "yt-dlp" / "yt-dlp_linux"
+    assert installed.read_bytes() == blob
+    assert os.access(installed, os.X_OK)
+    assert is_ready(settings, program, TARGET)
+    assert not os.access(settings.runtime_dir / "pyodide" / "pillow.whl", os.X_OK)
+
+
 def test_prepare_rejects_a_hash_mismatch_and_installs_nothing(tmp_path: Path) -> None:
     item = lock_item("deno", "deno", "deno-linux.zip", DENO_BLOB, os_name="linux",
                      arch="x86_64", sha256="0" * 64)

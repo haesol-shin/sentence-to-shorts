@@ -14,6 +14,7 @@ from app.ports import AppSettings, CancelToken
 from app.tools.downloaders.ytdlp.downloader import YtDlpDownloader
 
 RUNTIME_ITEM = "yt-dlp"
+JS_RUNTIME_ITEM = "deno"
 
 DownloaderAdapter = YtDlpDownloader
 
@@ -39,10 +40,23 @@ def runtime_executable(settings: AppSettings) -> Path | None:
     return None
 
 
+def runtime_deno(settings: AppSettings) -> Path | None:
+    """Absolute path of the locked Deno that solves YouTube challenges, or None when not locked."""
+    lock = getattr(settings, "runtime", None)
+    system, _arch = _platform()
+    for item in getattr(lock, "items", None) or []:
+        if item.id == JS_RUNTIME_ITEM:
+            name = "deno.exe" if system == "windows" else "deno"
+            return (settings.runtime_dir / item.install_path / name).resolve()
+    return None
+
+
 def create(settings: AppSettings) -> DownloaderAdapter:
-    """Without a locked yt-dlp for this platform every fetch fails with download_failed."""
+    """Without a locked yt-dlp and Deno for this platform every fetch fails with download_failed."""
     return YtDlpDownloader(
-        runtime_executable(settings), link_enabled=settings.deployment != "hosted"
+        runtime_executable(settings),
+        deno=runtime_deno(settings),
+        link_enabled=settings.deployment != "hosted",
     )
 
 

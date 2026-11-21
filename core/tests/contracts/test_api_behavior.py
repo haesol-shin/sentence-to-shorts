@@ -30,6 +30,7 @@ def test_runtime_reports_brand_and_items(client: TestClient) -> None:
     assert body["llm_auth"] == {"adapter": "fixture", "state": "ok"}
     assert {item["id"] for item in body["items"]} == {
         "deno",
+        "yt-dlp",
         "ffmpeg",
         "pyodide-core",
         "pyodide-pillow",
