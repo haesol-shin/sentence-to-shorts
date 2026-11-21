@@ -205,8 +205,12 @@ def test_packages_to_remove_keeps_the_main_group_and_wheel() -> None:
         "pyannote-audio",
         "torchvision",
         "triton",
+        "networkx",
+        "hf_xet",
     }
     removed = setup.packages_to_remove(installed, align)
+    assert "networkx" in removed
+    assert "hf_xet" in removed
     assert "pyannote-audio" in removed
     assert "torchvision" in removed
     assert "triton" in removed

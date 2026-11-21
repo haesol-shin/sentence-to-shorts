@@ -352,6 +352,14 @@ def install_wheel(env_python: Path, wheel: Path) -> None:
     run([uv, "pip", "install", "--no-deps", "--no-index", "--python", str(env_python), str(wheel)])
 
 
+def uninstall_packages(env_python: Path, names: Sequence[str]) -> None:
+    """Remove packages the environment's lock installs but the aligner never imports."""
+    uv = shutil.which("uv")
+    if uv is None:
+        raise BuildError("uv is not on PATH")
+    run([uv, "pip", "uninstall", "--python", str(env_python), *names])
+
+
 def copy_site(env_python: Path, target: Path) -> Path:
     purelib = run(
         [str(env_python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"]
@@ -460,7 +468,9 @@ def build_aligner(python: Path, poetry: str, work: Path, bundle: Path) -> Path:
     if not installer.verified(wheel, pin):
         raise BuildError(f"{wheel.name} does not match its size and SHA-256 in the lock")
     install_wheel(env_python, wheel)
+    uninstall_packages(env_python, installer.PRUNED)
     site = copy_site(env_python, bundle / "align-site")
+    installer.remove_model_file(site)
     check_no_pth(site, "align-site")
     check_unused_packages(site, installer.UNUSED)
     check_torch_version(site, project / "poetry.lock", "align")

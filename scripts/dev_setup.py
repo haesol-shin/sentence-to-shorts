@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -351,9 +352,22 @@ def installed_packages(python: Path) -> set[str]:
     return {name.lower() for name in json.loads(completed.stdout)}
 
 
+def aligner_installer(project: Path):  # type: ignore[no-untyped-def]
+    """The aligner's install script, the one source of the packages it prunes."""
+    spec = importlib.util.spec_from_file_location(
+        "align_install_whisperx", project / "install_whisperx.py"
+    )
+    if spec is None or spec.loader is None:
+        raise SystemExit(f"{project.name}/install_whisperx.py cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def packages_to_remove(installed: set[str], project: Path) -> list[str]:
-    """Installed packages the aligner's main group does not select."""
-    keep = locked_packages(project, "main") | {
+    """Installed packages the aligner's main group does not select, and the pruned ones."""
+    pruned = {distribution_name(name) for name in aligner_installer(project).PRUNED}
+    keep = (locked_packages(project, "main") - pruned) | {
         distribution_name(name) for name in ("pip", "setuptools", "wheel", "whisperx")
     }
     return sorted(name for name in installed if distribution_name(name) not in keep)
