@@ -28,6 +28,34 @@
           "bytes": 42917472
         }
       ],
+      "prepare": {
+        "groups": [
+          {
+            "id": "voice",
+            "state": "downloading",
+            "done": 1884735787,
+            "total": 3769471574,
+            "error_code": null,
+            "retry_at": null
+          },
+          {
+            "id": "transcribe",
+            "state": "queued",
+            "done": 0,
+            "total": 486212372,
+            "error_code": null,
+            "retry_at": null
+          },
+          {
+            "id": "align_en",
+            "state": "queued",
+            "done": 0,
+            "total": 377664473,
+            "error_code": null,
+            "retry_at": null
+          }
+        ]
+      },
       "llm_auth": {
         "adapter": "fixture",
         "state": "ok"

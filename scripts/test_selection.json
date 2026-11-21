@@ -16,7 +16,8 @@
       "tests/templates"
     ],
     "core/app/llm/": [
-      "tests/llm"
+      "tests/llm",
+      "tests/runtime"
     ],
     "core/app/plugins/art_styles/": [
       "tests/plugins",
@@ -47,7 +48,9 @@
     ],
     "core/app/runtime/": [
       "tests/e2e",
-      "tests/runtime"
+      "tests/jobs",
+      "tests/runtime",
+      "tests/tools"
     ],
     "core/app/services/assemble/": [
       "tests/assemble",

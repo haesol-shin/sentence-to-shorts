@@ -160,3 +160,33 @@ class FakeTransport:
     @property
     def count(self) -> int:
         return len(self.opens)
+
+
+def model_item(
+    identifier: str,
+    install_path: str,
+    files: dict[str, bytes],
+    *,
+    base: str = "https://download.invalid",
+) -> dict[str, Any]:
+    return {
+        "id": identifier,
+        "version": "1",
+        "revision": "b" * 40,
+        "install_path": install_path,
+        "files": [
+            {
+                "os": "any",
+                "arch": "wasm32",
+                "file": name,
+                "url": f"{base}/{name}",
+                "bytes": len(blob),
+                "sha256": hashlib.sha256(blob).hexdigest(),
+            }
+            for name, blob in files.items()
+        ],
+    }
+
+
+def served(item: dict[str, Any], blobs: dict[str, bytes]) -> dict[str, bytes]:
+    return {entry["url"]: blobs[entry["file"]] for entry in item["files"]}

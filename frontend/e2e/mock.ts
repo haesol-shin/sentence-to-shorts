@@ -11,6 +11,7 @@ const runtime: RuntimeStatus = {
     display_name_en: 'Example Studio',
   },
   items: [],
+  prepare: { groups: [] },
   llm_auth: { adapter: 'fixture', state: 'unknown' },
   capabilities: {
     open_edit_play: true,

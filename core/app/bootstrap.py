@@ -50,9 +50,10 @@ from app.ports import (
 )
 from app.runtime import RuntimeSetup
 from app.runtime import create as create_runtime_setup
+from app.runtime.models import ALIGN_EN, VOICE
 from app.schemas.api import PrecheckReport
 from app.schemas.change import Op, SetOp, Target
-from app.schemas.common import PERSONAL_OWNER_ID, Mood, Origin
+from app.schemas.common import PERSONAL_OWNER_ID, Language, Mood, Origin
 from app.schemas.job import Job, JobKind, JobState, Progress, WaitingOn
 from app.schemas.video import STAGE_ORDER, Video, VideoStage
 from app.services.assemble import service as assemble_service
@@ -130,8 +131,6 @@ STAGE_GATES: dict[JobKind, tuple[VideoStage, str]] = {
     JobKind.precheck: (VideoStage.scenes_confirmed, "scenes_not_confirmed"),
     JobKind.generate: (VideoStage.scenes_confirmed, "scenes_not_confirmed"),
 }
-UNAVAILABLE_JOB_KINDS = frozenset({JobKind.runtime_prepare})
-"""Kinds whose services are still contracts only: a request fails with 501 up front."""
 BGM_MOOD_PATH = "/settings/audio/bgm/mood"
 BGM_ENTRY_PATH = "/settings/audio/bgm/entry"
 
@@ -218,6 +217,7 @@ class LocalJobs:
         db: _StateDatabase,
         max_attempts: Mapping[str, int],
         wake: Callable[[], None],
+        prepare: Callable[[Job], None] = lambda job: None,
     ) -> None:
         self._store = store
         self._inputs = inputs
@@ -227,6 +227,7 @@ class LocalJobs:
         self._db = db
         self._max_attempts = max_attempts
         self._wake = wake
+        self._prepare = prepare
         self._lock = threading.Lock()
 
     def submit(
@@ -241,8 +242,6 @@ class LocalJobs:
         input: Mapping[str, Any],
         idempotency_key: str | None,
     ) -> SubmitResult:
-        if kind in UNAVAILABLE_JOB_KINDS:
-            raise NotImplementedError(kind.value)
         with self._lock:
             if project_id is not None:
                 self._projects.get_project(project_id)
@@ -258,6 +257,8 @@ class LocalJobs:
             )
             self._inputs.save(job.id, input)
             created = self._store.create(job)
+        # Outside the lock: queueing a model download takes its own lock and reads projects.
+        self._prepare(created)
         self._wake()
         return SubmitResult(job=created, status=202)
 
@@ -274,6 +275,7 @@ class LocalJobs:
             if active is not None and active.id != job_id:
                 raise AppError("job_running", detail={"job_id": active.id})
             queued = self._store.requeue(job_id)
+        self._prepare(queued)
         self._wake()
         return queued
 
@@ -505,7 +507,25 @@ class AppRuntime:
         with self._start_lock:
             if not self._started:
                 self.runner.start()
+                self._prepare_at_start()
                 self._started = True
+
+    def _prepare_at_start(self) -> None:
+        """Queue the voice models, and the English aligner when an English project exists.
+
+        Nothing is queued when everything is ready. The fixture profile and a hosted
+        deployment download nothing, and `ensure` returns at once for them.
+        """
+        if not self.runtime_setup.enabled:
+            return
+        groups = [VOICE]
+        owner = PERSONAL_OWNER_ID
+        if any(
+            project.defaults.language is Language.en
+            for project in self.project_store.list_projects(owner)
+        ):
+            groups.append(ALIGN_EN)
+        self.runtime_setup.ensure(groups, owner_id=owner)
 
     def close(self) -> None:
         try:
@@ -520,6 +540,37 @@ class AppRuntime:
                     _close_aligner(self.aligner)
                 finally:
                     self.state_db.close()
+
+
+def _prepares_models(settings: Settings) -> bool:
+    """Only a local app that runs real adapters downloads models; fixtures and hosted do not."""
+    return settings.deployment == "local" and settings.profile != "fixture"
+
+
+def held_for_models(runtime_setup: RuntimeSetup) -> Callable[[Job], bool]:
+    """The runner's `blocked` check: hold a job until its model groups are ready or failed.
+
+    A held job always has a prepare job: one that was cancelled or ended on its own is
+    replaced here, so a job never waits for a download nobody runs. A failed group does
+    not hold the job; `refuse_failed_models` fails it with the group's error.
+    """
+
+    def blocked(job: Job) -> bool:
+        groups = runtime_setup.needs(job)
+        if not groups or runtime_setup.groups_ready(groups) or runtime_setup.groups_failed(groups):
+            return False
+        runtime_setup.ensure(groups)
+        return True
+
+    return blocked
+
+
+def refuse_failed_models(runtime_setup: RuntimeSetup, job: Job) -> None:
+    """Fail a job at its start with the error of a model group that stopped."""
+    failed = runtime_setup.groups_failed(runtime_setup.needs(job))
+    if failed:
+        group, code = next(iter(failed.items()))
+        raise AppError(code or "internal", detail={"group": group})
 
 
 def _selected(name: str, settings: Settings) -> str | None:
@@ -597,6 +648,19 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
     downloader = _build_adapter("downloader", resolved)
     staging = resolved.data_dir / "staging" / "bgm"
 
+    def language_of(job: Job) -> str | None:
+        if job.video_id is None:
+            return None
+        return project_store.get_video(job.video_id).settings.language.value
+
+    runtime_setup = create_runtime_setup(
+        resolved,
+        downloader,
+        job_store,
+        inputs=job_inputs,
+        enabled=_prepares_models(resolved),
+        language_of=language_of,
+    )
     submitter = LocalJobs(
         store=job_store,
         inputs=job_inputs,
@@ -606,6 +670,7 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         db=state_db,
         max_attempts=resolved.app.jobs.max_attempts,
         wake=lambda: runner.notify(),
+        prepare=lambda job: runtime_setup.ensure(runtime_setup.needs(job)),
     )
     deps = ServiceDeps(
         project_store=project_store,
@@ -623,11 +688,13 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         bgm_staging_dir=resolved.data_dir / "staging" / "bgm",
     )
     services = _build_services(resolved, deps)
-    runtime_setup = create_runtime_setup(resolved, downloader, job_store)
+
+    blocked = held_for_models(runtime_setup)
 
     def run_job(job: Job, ctx: LocalJobContext) -> Mapping[str, Any]:
         if job.kind is JobKind.runtime_prepare:
             return runtime_setup.run_job(job, ctx)
+        refuse_failed_models(runtime_setup, job)
         return run_pipeline(job, ctx, services)
 
     runner = JobRunner(
@@ -638,6 +705,7 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         cache_dir=resolved.cache_dir,
         bgm_staging_dir=staging,
         price_version=prices.version,
+        blocked=blocked,
     )
     access = create_access(resolved)
     return AppRuntime(

@@ -460,6 +460,57 @@ def test_launcher_rejects_a_distribution_file_with_a_malformed_adapter_table(
         read_distribution(tmp_path)
 
 
+def write_aligner_dist(root: Path, **fields: object) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "dist.json").write_text(
+        json.dumps({"profile": "release"} | fields), encoding="utf-8"
+    )
+
+
+def test_21_a_distribution_names_the_packages_its_workers_load(tmp_path: Path) -> None:
+    write_aligner_dist(
+        tmp_path, align_python="align-python/bin/python", align_site="align-site"
+    )
+    env: dict[str, str] = {}
+    apply_distribution(tmp_path, read_distribution(tmp_path), env)
+    assert env["APP_MAIN_SITE"] == str(tmp_path / "site-packages")
+    assert env["APP_ALIGN_PYTHON"] == str(tmp_path / "align-python/bin/python")
+    assert env["APP_ALIGN_SITE"] == str(tmp_path / "align-site")
+
+    kept = {"APP_ALIGN_SITE": "/elsewhere", "APP_MAIN_SITE": "/main"}
+    apply_distribution(tmp_path, read_distribution(tmp_path), kept)
+    assert kept["APP_ALIGN_SITE"] == "/elsewhere" and kept["APP_MAIN_SITE"] == "/main"
+
+
+def test_21_a_distribution_without_an_aligner_sets_no_aligner_variables(tmp_path: Path) -> None:
+    write_aligner_dist(tmp_path)
+    env: dict[str, str] = {}
+    apply_distribution(tmp_path, read_distribution(tmp_path), env)
+    assert "APP_MAIN_SITE" in env
+    assert not [key for key in env if key.startswith("APP_ALIGN")]
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"align_python": "align-python/bin/python"},
+        {"align_site": "align-site"},
+        {"align_python": "../out/python", "align_site": "align-site"},
+        {"align_python": "/abs/python", "align_site": "align-site"},
+        {"align_python": "C:\\python.exe", "align_site": "align-site"},
+        {"align_python": "align-python/bin/python", "align_site": ""},
+        {"align_python": 3, "align_site": "align-site"},
+    ],
+    ids=["python-only", "site-only", "parent", "absolute", "windows", "empty", "not-text"],
+)
+def test_21_a_distribution_with_a_half_or_escaping_aligner_is_refused(
+    tmp_path: Path, fields: dict[str, object]
+) -> None:
+    write_aligner_dist(tmp_path, **fields)
+    with pytest.raises(ValueError):
+        read_distribution(tmp_path)
+
+
 def wait_for(path: Path, timeout: float = 90.0) -> dict[str, Any]:
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:

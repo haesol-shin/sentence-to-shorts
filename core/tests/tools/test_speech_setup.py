@@ -1,4 +1,4 @@
-"""Verified model preparation and the demo-free official inference package."""
+"""Model preparation through the app's preparer and the demo-free inference package."""
 
 from __future__ import annotations
 
@@ -16,122 +16,145 @@ from pathlib import Path
 
 import pytest
 
+from app.runtime import download, journal
+from tests.runtime.support import FakeTransport
+
 ROOT = Path(__file__).resolve().parents[3]
 SPEC = importlib.util.spec_from_file_location("dev_setup", ROOT / "scripts" / "dev_setup.py")
 assert SPEC is not None and SPEC.loader is not None
 setup = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(setup)
 
+# Serves a `file:` URL through the downloader's transport interface, so a subprocess can
+# install a synthetic wheel without a network. The product transport accepts https only.
+FILE_TRANSPORT = """
+import app.runtime.download as download
+from pathlib import Path
+from urllib.parse import urlsplit
+from urllib.request import url2pathname
+class Response:
+    def __init__(self, body, status, headers):
+        self.status, self.headers, self._body, self._at = status, headers, body, 0
+    def read(self, size):
+        chunk = self._body[self._at:self._at + size]
+        self._at += len(chunk)
+        return chunk
+    def close(self):
+        pass
+class Transport:
+    def open(self, url, *, start, timeout):
+        body = Path(url2pathname(urlsplit(url).path)).read_bytes()
+        if start:
+            headers = {"Content-Range": f"bytes {start}-{len(body) - 1}/{len(body)}"}
+            return Response(body[start:], 206, headers)
+        return Response(body, 200, {})
+download.HttpsTransport = Transport
+"""
 
-def model_lock(source: Path) -> dict:
-    content = source.read_bytes()
+
+def model_lock(blob: bytes, *, install_path: str = "synthetic", name: str = "codec/weights.bin"):
     return {
         "items": [{
             "id": "model-synthetic",
             "version": "1",
             "revision": "a" * 40,
-            "install_path": "synthetic",
+            "install_path": install_path,
             "files": [{
-                "file": "codec/weights.bin",
-                "url": source.as_uri(),
-                "bytes": len(content),
-                "sha256": hashlib.sha256(content).hexdigest(),
+                "os": "any",
+                "arch": "wasm32",
+                "file": name,
+                "url": f"https://download.invalid/{name}",
+                "bytes": len(blob),
+                "sha256": hashlib.sha256(blob).hexdigest(),
             }],
         }],
     }
 
 
-def archive_lock(source: Path) -> dict:
-    content = source.read_bytes()
-    return {
-        "items": [{
-            "id": "model-nltk-punkt-tab",
-            "version": "1",
-            "revision": "b" * 40,
-            "install_path": "nltk_data/tokenizers",
-            "files": [{
-                "file": "punkt_tab.zip",
-                "url": source.as_uri(),
-                "bytes": len(content),
-                "sha256": hashlib.sha256(content).hexdigest(),
-            }],
-        }],
-    }
-
-
-def test_model_prepare_reuses_verified_files_and_repairs_corruption(tmp_path, capsys) -> None:
-    source = tmp_path / "source.bin"
-    source.write_bytes(b"synthetic model")
-    lock = model_lock(source)
-    root = tmp_path / "models"
-    setup.install_models(lock, root, force=False)
-    assert "model downloads: 1" in capsys.readouterr().out
-    installed = root / "synthetic" / "codec" / "weights.bin"
-    assert installed.read_bytes() == source.read_bytes()
-    journal = json.loads((root / "installed.json").read_text())
-    assert journal["model-synthetic"]["files"]["codec/weights.bin"]["sha256"] == (
-        hashlib.sha256(source.read_bytes()).hexdigest()
+def serve(monkeypatch: pytest.MonkeyPatch, lock: dict, blobs: dict[str, bytes]) -> FakeTransport:
+    """Make the app preparer's downloader answer from memory."""
+    transport = FakeTransport(
+        {entry["url"]: blobs[entry["file"]] for item in lock["items"] for entry in item["files"]}
     )
-    source.rename(tmp_path / "offline.bin")
-    setup.install_models(lock, root, force=False)
-    assert "model downloads: 0" in capsys.readouterr().out
-    (tmp_path / "offline.bin").rename(source)
-    installed.write_bytes(b"x" * len(source.read_bytes()))
-    setup.install_models(lock, root, force=False)
-    assert "model downloads: 1" in capsys.readouterr().out
-    assert installed.read_bytes() == source.read_bytes()
+    monkeypatch.setattr(download, "HttpsTransport", lambda: transport)
+    return transport
 
 
-@pytest.mark.parametrize("corruption", [b"short", b"x" * len(b"synthetic model")])
-def test_model_prepare_rejects_bad_download_without_replacing_file(tmp_path, corruption) -> None:
-    source = tmp_path / "source.bin"
-    source.write_bytes(b"synthetic model")
-    lock = model_lock(source)
+def test_21_dev_setup_installs_models_with_the_app_preparer(tmp_path, monkeypatch) -> None:
+    blob = b"synthetic model"
+    lock = model_lock(blob)
     root = tmp_path / "models"
-    setup.install_models(lock, root, force=False)
-    source.write_bytes(corruption)
-    with pytest.raises(SystemExit, match="bytes or sha256 mismatch"):
-        setup.install_models(lock, root, force=True)
-    assert (root / "synthetic" / "codec" / "weights.bin").read_bytes() == b"synthetic model"
+    transport = serve(monkeypatch, lock, {"codec/weights.bin": blob})
+    assert setup.install_models(lock, root) == ["model-synthetic"]
+    installed = root / "synthetic" / "codec" / "weights.bin"
+    assert installed.read_bytes() == blob
+    record = journal.read(root)["model-synthetic"]
+    assert record["files"]["codec/weights.bin"]["sha256"] == hashlib.sha256(blob).hexdigest()
+    assert transport.count == 1
+
+    setup.install_models(lock, root)
+    assert transport.count == 1
+    installed.write_bytes(b"x" * len(blob))
+    (root / "installed.json").unlink()
+    setup.install_models(lock, root)
+    assert installed.read_bytes() == blob
+    assert transport.count == 2
+
+
+def test_21_dev_setup_keeps_the_file_in_place_when_a_download_is_refused(
+    tmp_path, monkeypatch
+) -> None:
+    blob = b"synthetic model"
+    lock = model_lock(blob)
+    root = tmp_path / "models"
+    serve(monkeypatch, lock, {"codec/weights.bin": blob})
+    setup.install_models(lock, root)
+    changed = model_lock(b"another model", install_path="synthetic")
+    changed["items"][0]["revision"] = "b" * 40
+    serve(monkeypatch, changed, {"codec/weights.bin": b"corrupt bytes!"})
+    with pytest.raises(SystemExit, match="model_hash_mismatch"):
+        setup.install_models(changed, root)
+    assert (root / "synthetic" / "codec" / "weights.bin").read_bytes() == blob
     assert len(list((root / "synthetic" / "codec").iterdir())) == 1
 
 
 @pytest.mark.parametrize("location", ["install_path", "file"])
-def test_model_prepare_rejects_escaping_paths(tmp_path, location) -> None:
-    source = tmp_path / "source.bin"
-    source.write_bytes(b"synthetic model")
-    lock = model_lock(source)
+def test_21_dev_setup_refuses_paths_that_leave_the_model_folder(
+    tmp_path, monkeypatch, location
+) -> None:
+    lock = model_lock(b"synthetic model")
     if location == "install_path":
         lock["items"][0][location] = "../escaped"
     else:
         lock["items"][0]["files"][0][location] = "../../escaped.bin"
-    with pytest.raises(SystemExit, match="escapes installation directory"):
-        setup.install_models(lock, tmp_path / "models", force=False)
+    serve(monkeypatch, lock, {entry["file"]: b"x" for entry in lock["items"][0]["files"]})
+    with pytest.raises(SystemExit):
+        setup.install_models(lock, tmp_path / "models")
     assert not (tmp_path / "escaped").exists()
     assert not (tmp_path / "escaped.bin").exists()
 
 
-def test_model_prepare_extracts_a_zip_and_repairs_a_missing_member(tmp_path, capsys) -> None:
+def test_21_dev_setup_extracts_a_zip_and_repairs_a_missing_member(
+    tmp_path, monkeypatch
+) -> None:
     source = tmp_path / "punkt_tab.zip"
     with zipfile.ZipFile(source, "w") as bundle:
         bundle.writestr("punkt_tab/english/collocations.tab", b"collocations")
         bundle.writestr("punkt_tab/english/sent_starters.txt", b"starters")
-    lock = archive_lock(source)
+    blob = source.read_bytes()
+    lock = model_lock(blob, install_path="nltk_data/tokenizers", name="punkt_tab.zip")
+    lock["items"][0]["id"] = "model-nltk-punkt-tab"
     root = tmp_path / "models"
-    setup.install_models(lock, root, force=False)
-    assert "model downloads: 1" in capsys.readouterr().out
+    transport = serve(monkeypatch, lock, {"punkt_tab.zip": blob})
+    setup.install_models(lock, root)
     english = root / "nltk_data" / "tokenizers" / "punkt_tab" / "english"
     assert (english / "collocations.tab").read_bytes() == b"collocations"
     if os.name != "nt":
         assert (root / "nltk_data").stat().st_mode & 0o077 == 0
-    source.rename(tmp_path / "offline.zip")
-    setup.install_models(lock, root, force=False)
-    assert "model downloads: 0" in capsys.readouterr().out
     (english / "collocations.tab").unlink()
-    setup.install_models(lock, root, force=False)
-    assert "model downloads: 0" in capsys.readouterr().out
+    setup.install_models(lock, root)
+    assert transport.count == 1
     assert (english / "collocations.tab").read_bytes() == b"collocations"
-    (tmp_path / "offline.zip").rename(source)
 
 
 def test_environment_specs_read_the_align_runtime_lock() -> None:
@@ -227,22 +250,25 @@ def test_environment_install_keeps_each_project_in_its_own_env(tmp_path, monkeyp
     assert active not in paths[1].parents
 
 
-def test_model_prepare_is_discoverable_by_the_existing_transcriber(tmp_path) -> None:
+def test_21_dev_setup_models_are_found_by_the_existing_transcriber(
+    tmp_path, monkeypatch
+) -> None:
     from app.tools.asr.faster_whisper.adapter import find_model
 
     lock = json.loads(setup.LOCK.read_text(encoding="utf-8"))
     item = next(item for item in lock["items"] if item["id"] == "model-asr-small")
-    source_dir = tmp_path / "sources"
-    source_dir.mkdir()
+    blobs = {}
     for entry in item["files"]:
-        source = source_dir / entry["file"]
         content = b"synthetic " + entry["file"].encode()
-        source.write_bytes(content)
+        blobs[entry["file"]] = content
         entry.update(
-            url=source.as_uri(), bytes=len(content), sha256=hashlib.sha256(content).hexdigest()
+            url=f"https://download.invalid/{entry['file']}",
+            bytes=len(content),
+            sha256=hashlib.sha256(content).hexdigest(),
         )
     root = tmp_path / "models"
-    setup.install_models({"items": [item]}, root, force=False)
+    serve(monkeypatch, {"items": [item]}, blobs)
+    setup.install_models({"items": [item]}, root)
     prepared = find_model(root)
     assert prepared == root / "faster-whisper-small" / item["revision"]
     assert (prepared / "model.bin").read_bytes() == b"synthetic model.bin"
@@ -287,17 +313,24 @@ def test_tts_package_journal_records_only_successful_isolated_installs(tmp_path)
     root.mkdir()
     runtime_journal = root / "installed.json"
     runtime_journal.write_text('{"deno": {"version": "synthetic"}}', encoding="utf-8")
-    env = os.environ | {"APP_RUNTIME_DIR": str(root)}
-    env.pop("PYTHONPATH", None)
+    # The script imports the app's preparer, so the app's packages must be importable; the
+    # wheel still goes into the isolated environment, the interpreter that runs pip.
+    env = os.environ | {
+        "APP_RUNTIME_DIR": str(root),
+        "PYTHONPATH": os.pathsep.join(site.getsitepackages()),
+    }
     command = [
         str(python), "-c",
         "import importlib.util,sys; from pathlib import Path; "
+        "sys.path.insert(0, sys.argv[3]); exec(sys.argv[4]); "
         "spec=importlib.util.spec_from_file_location('setup',sys.argv[1]); "
         "setup=importlib.util.module_from_spec(spec); spec.loader.exec_module(setup); "
         "setup.LOCK=Path(sys.argv[2]); setup.main(['--tts-package'])",
-        str(ROOT / "scripts" / "dev_setup.py"), str(manifest),
+        str(ROOT / "scripts" / "dev_setup.py"), str(manifest), str(ROOT / "core"),
+        FILE_TRANSPORT,
     ]
-    subprocess.run(command, env=env, check=True, capture_output=True, text=True, timeout=60)
+    installed = subprocess.run(command, env=env, capture_output=True, text=True, timeout=60)
+    assert installed.returncode == 0, installed.stderr[-2000:]
     journal_path = root / "packages.installed.json"
     journal = json.loads(journal_path.read_text(encoding="utf-8"))
     record = journal["package-qwen-tts"]
@@ -332,8 +365,10 @@ def test_tts_inference_import_does_not_import_gradio(tmp_path) -> None:
     environment = tmp_path / "inference"
     venv.EnvBuilder(with_pip=True).create(environment)
     python = environment / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-    env = os.environ | {"APP_RUNTIME_DIR": str(tmp_path / "runtime")}
-    env.pop("PYTHONPATH", None)
+    env = os.environ | {
+        "APP_RUNTIME_DIR": str(tmp_path / "runtime"),
+        "PYTHONPATH": os.pathsep.join(site.getsitepackages()),
+    }
     subprocess.run(
         [str(python), str(ROOT / "scripts" / "dev_setup.py"), "--tts-package"],
         env=env, check=True, capture_output=True, text=True, timeout=180,

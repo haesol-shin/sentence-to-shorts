@@ -1,8 +1,9 @@
 """Runtime preparation and the local launcher.
 
-`prepare` downloads, verifies and installs the pinned Deno and Pyodide files and any
-model files of the runtime lock. `RuntimeSetup` is the service behind `GET /runtime`
-and the `runtime_prepare` job. The launcher starts the server and opens the browser.
+`prepare` downloads, verifies and installs the pinned Deno and Pyodide files of the
+runtime lock, and `prepare_models` (in `app.runtime.models`) does the same for the model
+files, in the groups a user needs them. `RuntimeSetup` is the service behind `GET /runtime`
+and the `runtime_prepare` jobs. The launcher starts the server and opens the browser.
 """
 
 from __future__ import annotations

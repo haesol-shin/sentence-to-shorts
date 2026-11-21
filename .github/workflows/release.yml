@@ -95,7 +95,7 @@ jobs:
     name: Build ${{ matrix.label }} ${{ matrix.profile }}
     needs: verify
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 60
+    timeout-minutes: ${{ matrix.profile == 'release' && 150 || 60 }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
@@ -155,12 +155,18 @@ jobs:
           python packaging/build.py archive --os "${{ matrix.label }}" --bundle "$bundle" --out out
           cp "$bundle/build-info.json" "out/$(basename "$bundle").build-info.json"
           ls -l out
+          # The installed copy and the models need the disk the bundle folder used.
+          rm -rf dist
       - name: Install as a new user and start it
         shell: bash
         run: |
           set -euo pipefail
           artifact=$(find out -maxdepth 1 \( -name '*.tar.gz' -o -name '*-setup.exe' \) | head -n 1)
-          python packaging/smoke.py --artifact "$artifact" --os "${{ matrix.label }}" \
+          voice=""
+          if [ "${{ matrix.profile }}" = "release" ]; then
+            voice="--voice"
+          fi
+          python packaging/smoke.py --artifact "$artifact" --os "${{ matrix.label }}" $voice \
             --profile "${{ matrix.profile }}" --output "out/smoke-${{ matrix.label }}-${{ matrix.profile }}.json"
       - name: Publish the smoke summary
         if: always()

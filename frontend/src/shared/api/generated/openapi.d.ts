@@ -1760,6 +1760,37 @@ export interface components {
             /** Y */
             y: number;
         };
+        /**
+         * PrepareErrorCode
+         * @description Why a group is retrying or failed. `failed` with no code is an unexpected error.
+         * @enum {string}
+         */
+        PrepareErrorCode: "download_failed" | "disk_full" | "model_hash_mismatch" | "download_blocked" | "download_too_large" | "model_missing";
+        /**
+         * PrepareGroup
+         * @description Progress of one model group. `done` and `total` count bytes of the group's files.
+         */
+        PrepareGroup: {
+            /** Done */
+            done: number;
+            error_code: components["schemas"]["PrepareErrorCode"] | null;
+            id: components["schemas"]["PrepareGroupId"];
+            retry_at: components["schemas"]["Timestamp"] | null;
+            state: components["schemas"]["PrepareGroupState"];
+            /** Total */
+            total: number;
+        };
+        /**
+         * PrepareGroupId
+         * @description A set of model files the app downloads together, in the order a user needs them.
+         * @enum {string}
+         */
+        PrepareGroupId: "voice" | "transcribe" | "align_en";
+        /**
+         * PrepareGroupState
+         * @enum {string}
+         */
+        PrepareGroupState: "ready" | "queued" | "downloading" | "retrying" | "failed";
         /** Preset */
         Preset: {
             created_at: components["schemas"]["Timestamp"];
@@ -2052,6 +2083,11 @@ export interface components {
          * @enum {string}
          */
         RuntimeItemState: "ready" | "missing" | "corrupt" | "downloading";
+        /** RuntimePrepare */
+        RuntimePrepare: {
+            /** Groups */
+            groups: components["schemas"]["PrepareGroup"][];
+        };
         /** RuntimeStatus */
         RuntimeStatus: {
             /** App Version */
@@ -2066,6 +2102,7 @@ export interface components {
             /** Items */
             items: components["schemas"]["RuntimeItem"][];
             llm_auth: components["schemas"]["LlmAuth"];
+            prepare: components["schemas"]["RuntimePrepare"];
             /**
              * Profile
              * @enum {string}

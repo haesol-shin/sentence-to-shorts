@@ -161,7 +161,9 @@ def test_packaging_build_info_digest_matches_the_app_digest() -> None:
 def write_generated_dist(root: Path, profile: str) -> None:
     """Write the distribution file the builder produces for one default profile."""
     (root / "dist.json").write_text(
-        json.dumps(build.distribution_settings(profile), indent=2) + "\n", encoding="utf-8"
+        json.dumps(build.distribution_settings(profile, "python/bin/python3.11"), indent=2)
+        + "\n",
+        encoding="utf-8",
     )
 
 

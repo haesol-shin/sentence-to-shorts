@@ -5,8 +5,11 @@ the artifact store arrive as injected objects; this module never imports storage
 
 State changes follow the transition table of CONTRACTS 5.1. Every write is one
 short transaction that checks the expected state and attempt, so a late result of
-a cancelled or older attempt changes nothing. The light and heavy queues each run
-one job at a time. `run_job` is injected; it is the pipeline in the app and a fake
+a cancelled or older attempt changes nothing. The light, heavy and prepare queues
+each run one job at a time. The prepare queue downloads models, so it never takes
+the heavy slot. A `blocked` check holds queued jobs back until the files they need
+are ready; a held job keeps its place and its deadline starts only when it runs.
+`run_job` is injected; it is the pipeline in the app and a fake
 in tests. Child processes stop through the cancel token: the process tool kills the
 whole tree when the token is set and returns only after the tree is gone.
 """
@@ -60,6 +63,8 @@ from app.schemas.usage import UsageEvent
 
 LIGHT = "light"
 HEAVY = "heavy"
+PREPARE = "prepare"
+QUEUES = (LIGHT, HEAVY, PREPARE)
 QUEUE_BY_KIND: dict[JobKind, str] = {
     JobKind.draft: LIGHT,
     JobKind.script: LIGHT,
@@ -72,8 +77,27 @@ QUEUE_BY_KIND: dict[JobKind, str] = {
     JobKind.style: HEAVY,
     JobKind.template: HEAVY,
     JobKind.bgm_code: HEAVY,
-    JobKind.runtime_prepare: HEAVY,
+    JobKind.runtime_prepare: PREPARE,
 }
+
+
+def _stored_queue(kind: JobKind) -> str:
+    """The `queue` column of a new row. The table allows only light and heavy, so the
+    prepare queue is kept in the heavy value and told apart by kind (see `_in_queue`)."""
+    return LIGHT if QUEUE_BY_KIND[kind] == LIGHT else HEAVY
+
+
+def _in_queue(queue: str) -> str:
+    """The SQL condition that selects the rows of one queue; it holds constants only."""
+    if queue == LIGHT:
+        return "queue = 'light'"
+    if queue == HEAVY:
+        return "(queue = 'heavy' AND kind <> 'runtime_prepare')"
+    if queue == PREPARE:
+        return "kind = 'runtime_prepare'"
+    raise ValueError(f"unknown queue: {queue!r}")
+
+
 RESUMABLE_KINDS = frozenset(
     {JobKind.preview, JobKind.generate, JobKind.runtime_prepare, JobKind.reference}
 )
@@ -497,7 +521,7 @@ class SqliteJobStore:
                     job.id,
                     job.owner_id,
                     job.kind.value,
-                    QUEUE_BY_KIND[job.kind],
+                    _stored_queue(job.kind),
                     job.state.value,
                     job.attempt,
                     job.video_id,
@@ -511,26 +535,40 @@ class SqliteJobStore:
         with self._db.read() as conn:
             return _load(conn, job_id)
 
-    def claim(self, queue: str) -> Job | None:
-        """Atomic queued -> running of the oldest job, only while the queue is idle."""
-        if queue not in (LIGHT, HEAVY):
-            raise ValueError(f"unknown queue: {queue!r}")
+    def queued(self, queue: str) -> list[Job]:
+        """The queued jobs of a queue, oldest first."""
+        with self._db.read() as conn:
+            rows = conn.execute(
+                f"SELECT doc FROM jobs WHERE {_in_queue(queue)} AND state = 'queued' "
+                "ORDER BY created_at, id"
+            ).fetchall()
+        return [Job.model_validate_json(row[0]) for row in rows]
+
+    def claim(self, queue: str, only: frozenset[str] | None = None) -> Job | None:
+        """Atomic queued -> running of the oldest job, only while the queue is idle.
+
+        With `only`, the oldest queued job among those ids is claimed. A job queued after
+        the caller chose `only` is therefore never claimed unchecked.
+        """
+        where = _in_queue(queue)
         with self._db.write() as conn:
             busy = conn.execute(
-                "SELECT 1 FROM jobs WHERE queue = ? AND state IN ('running', 'cancelling') "
-                "LIMIT 1",
-                (queue,),
+                f"SELECT 1 FROM jobs WHERE {where} AND state IN ('running', 'cancelling') "
+                "LIMIT 1"
             ).fetchone()
             if busy is not None:
                 return None
-            row = conn.execute(
-                "SELECT doc FROM jobs WHERE queue = ? AND state = 'queued' "
-                "ORDER BY created_at, id LIMIT 1",
-                (queue,),
-            ).fetchone()
-            if row is None:
+            job = None
+            for (doc,) in conn.execute(
+                f"SELECT doc FROM jobs WHERE {where} AND state = 'queued' "
+                "ORDER BY created_at, id"
+            ):
+                candidate = Job.model_validate_json(doc)
+                if only is None or candidate.id in only:
+                    job = candidate
+                    break
+            if job is None:
                 return None
-            job = Job.model_validate_json(row[0])
             now = self._clock()
             limit = self._deadlines[job.kind]
             running = job.model_copy(
@@ -875,6 +913,7 @@ class JobRunner:
         price_version: str | None = None,
         poll_s: float = 0.5,
         watch_s: float = 0.1,
+        blocked: Callable[[Job], bool] | None = None,
     ) -> None:
         self._store = store
         self._artifacts = artifacts
@@ -885,10 +924,11 @@ class JobRunner:
         self._price_version = price_version
         self._poll_s = poll_s
         self._watch_s = watch_s
+        self._blocked = blocked
         self._active: dict[str, _Active] = {}
         self._lock = threading.Lock()
         self._stopping = threading.Event()
-        self._wake = {LIGHT: threading.Event(), HEAVY: threading.Event()}
+        self._wake = {queue: threading.Event() for queue in QUEUES}
         self._threads: list[threading.Thread] = []
 
     # lifecycle
@@ -899,7 +939,7 @@ class JobRunner:
         self._stopping.clear()
         self._threads = [
             threading.Thread(target=self._work, args=(queue,), name=f"jobs-{queue}", daemon=True)
-            for queue in (LIGHT, HEAVY)
+            for queue in QUEUES
         ]
         self._threads.append(
             threading.Thread(target=self._watch, name="jobs-watch", daemon=True)
@@ -1125,9 +1165,28 @@ class JobRunner:
 
     # execution
 
+    def _runnable(self, queue: str) -> frozenset[str] | None:
+        """The queued jobs the `blocked` check lets run; None when there is no check.
+
+        A check that raises holds its job until the next poll, so one broken check can
+        neither stop the queue worker nor let the job run unchecked.
+        """
+        if self._blocked is None:
+            return None
+        runnable: set[str] = set()
+        for job in self._store.queued(queue):
+            try:
+                held = self._blocked(job)
+            except Exception:  # noqa: BLE001 - see the docstring
+                log.exception("blocked check failed", extra=_job_fields(job, event="job_check"))
+                held = True
+            if not held:
+                runnable.add(job.id)
+        return frozenset(runnable)
+
     def run_once(self, queue: str) -> Job | None:
         """Claim and run one job of the queue in this thread. None when nothing ran."""
-        job = self._store.claim(queue)
+        job = self._store.claim(queue, self._runnable(queue))
         if job is None:
             return None
         self._execute(job)
@@ -1202,6 +1261,9 @@ class JobRunner:
                 self.discard_reference_upload(claimed.id)
             if claimed.kind is JobKind.bgm_upload:
                 self.discard_bgm_upload(claimed.id)
+            if claimed.kind is JobKind.runtime_prepare:
+                # A group may be ready now: let the held jobs of the other queues look again.
+                self.notify()
 
     def _run(self, job: Job, active: _Active, started: float, *, has_checkpoints: bool) -> None:
         store = self._store
@@ -1373,6 +1435,8 @@ __all__ = [
     "HEAVY",
     "LIGHT",
     "LOG_FIELDS",
+    "PREPARE",
+    "QUEUES",
     "QUEUE_BY_KIND",
     "RESUMABLE_KINDS",
     "CancelFlag",

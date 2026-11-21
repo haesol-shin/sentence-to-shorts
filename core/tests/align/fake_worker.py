@@ -101,7 +101,14 @@ def main() -> int:
         requests.put(None)
 
     threading.Thread(target=read, daemon=True).start()
-    log("start", mode=args.mode, threads=args.threads, nltk=os.environ.get("NLTK_DATA"))
+    log(
+        "start",
+        mode=args.mode,
+        threads=args.threads,
+        nltk=os.environ.get("NLTK_DATA"),
+        pythonpath=os.environ.get("PYTHONPATH"),
+        nousersite=os.environ.get("PYTHONNOUSERSITE"),
+    )
     if args.mode == "start_error":
         send({"type": "error", "code": "model_load"})
         return 1

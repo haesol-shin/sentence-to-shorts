@@ -18,11 +18,12 @@ committed install, and stops when the journal and the backup disagree.
 from __future__ import annotations
 
 import contextlib
+import importlib.metadata
 import json
 import os
 import sys
 import threading
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
@@ -31,6 +32,7 @@ from typing import Any
 from app.ports import AppError, AppSettings, Cancelled, CancelToken
 from app.runtime import archive, download, fsutil, journal
 from app.runtime.lock import (
+    MODEL_PREFIX,
     Item,
     Target,
     all_lock_items,
@@ -54,6 +56,8 @@ STAGING_DIR = ".tmp"
 ROLLBACK_NAME = ".rollback.json"
 ROLLBACK_VERSION = 1
 PACKAGE_JOURNAL_NAME = "packages.installed.json"
+# `python` of a package record that an installer build wrote; see `_package_state`.
+BUNDLE_PYTHON = "bundle"
 # Archives that fail these checks are bad input for the lock, so their staging is dropped.
 DISCARD_CODES = frozenset({"download_blocked", "download_too_large", "model_hash_mismatch"})
 
@@ -112,13 +116,13 @@ def is_ready(settings: AppSettings, item: Item, target: Target | None = None) ->
     return _record_ready(root, item, entry, journal.read(root).get(str(item["id"])))
 
 
-def _model_state(
-    settings: AppSettings, item: Item, entries: Sequence[Mapping[str, Any]], record: Any
+def model_state(
+    model_dir: Path, item: Item, entries: Sequence[Mapping[str, Any]], record: Any
 ) -> RuntimeItemState:
     """Readiness of a `model-` item from the model journal and the files on disk."""
     if not isinstance(record, dict) or record.get("revision") != item["revision"]:
         return RuntimeItemState.missing
-    base = settings.model_dir.joinpath(*relative_install_path(item).parts)
+    base = model_dir.joinpath(*relative_install_path(item).parts)
     for entry in entries:
         path = base.joinpath(*PurePosixPath(str(entry["file"])).parts)
         # Size only: a locked model file can be gigabytes, so this request never hashes it.
@@ -131,27 +135,94 @@ def _model_state(
     return RuntimeItemState.ready
 
 
-def _package_state(entry: Mapping[str, Any], record: Any) -> RuntimeItemState:
-    """Readiness of a `package-` item from the wheel journal of this interpreter."""
+def _package_state(item: Item, entry: Mapping[str, Any], record: Any) -> RuntimeItemState:
+    """Readiness of a `package-` item from the wheel journal.
+
+    A record made by `scripts/dev_setup.py` names the interpreter it installed into. An
+    installer build writes `bundle` instead, because the folder can move after the build,
+    so the installed distribution is compared by version through its metadata.
+    """
     if not isinstance(record, dict):
         return RuntimeItemState.missing
-    if record.get("sha256") == entry["sha256"] and record.get("python") == sys.executable:
+    if record.get("sha256") != entry["sha256"]:
+        return RuntimeItemState.corrupt
+    python = record.get("python")
+    if python == sys.executable:
+        return RuntimeItemState.ready
+    if python == BUNDLE_PYTHON and _installed_version(item) == item["version"]:
         return RuntimeItemState.ready
     return RuntimeItemState.corrupt
+
+
+def _installed_version(item: Item) -> str | None:
+    """The version of the distribution a `package-<name>` item installs, if present."""
+    try:
+        return importlib.metadata.version(str(item["id"]).removeprefix("package-"))
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def write_package_record(
+    runtime_root: Path, item: Item, entry: Mapping[str, Any], *, python: str = sys.executable
+) -> None:
+    """Record that a `package-` wheel is installed, next to the runtime journal.
+
+    `python` is the interpreter that holds it, or `BUNDLE_PYTHON` for an installer build.
+    The record is written after the install, so a missing record means "not installed".
+    """
+    path = runtime_root / PACKAGE_JOURNAL_NAME
+    records = journal.read_path(path)
+    records[str(item["id"])] = {
+        "version": item["version"],
+        "revision": item["revision"],
+        "file": entry["file"],
+        "sha256": entry["sha256"],
+        "bytes": entry["bytes"],
+        "install_path": item["install_path"],
+        "python": python,
+    }
+    runtime_root.mkdir(parents=True, exist_ok=True)
+    scratch = path.with_name(path.name + ".tmp")
+    try:
+        with scratch.open("w", encoding="utf-8") as handle:
+            handle.write(json.dumps(records, indent=2, sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(scratch, path)
+    except OSError as error:
+        scratch.unlink(missing_ok=True)
+        fsutil.raise_disk_full(error)
+        raise
+    fsutil.fsync_dir(runtime_root)
+
+
+@contextlib.contextmanager
+def active(root: Path, identifier: str) -> Iterator[None]:
+    """Mark one item of the folder `root` as being downloaded while the block runs."""
+    key = (str(root), identifier)
+    with _active_lock:
+        _active.add(key)
+    try:
+        yield
+    finally:
+        with _active_lock:
+            _active.discard(key)
 
 
 def status(settings: AppSettings, target: Target | None = None) -> list[RuntimeItem]:
     """One `RuntimeItem` per lock item, for `GET /runtime` and the prepare job.
 
-    Items this preparer installs are read from the runtime journal. `model-` and
-    `package-` items are installed by `scripts/dev_setup.py`, so their state comes from
-    the two journals that script writes; they are never `downloading`.
+    Items this preparer installs are read from the runtime journal. `model-` items come
+    from the model journal that `app.runtime.models` writes (and `scripts/dev_setup.py`
+    through it), and `package-` items from the wheel journal. Only an item being
+    downloaded right now reports `downloading`.
     """
     target = target or host_platform()
     root = settings.runtime_dir
     records = journal.read(root)
     with _active_lock:
-        active = {name for base, name in _active if base == str(root)}
+        running = {name for base, name in _active if base == str(root)}
+        loading = {name for base, name in _active if base == str(settings.model_dir)}
     model_records: dict[str, dict[str, Any]] | None = None
     package_records: dict[str, dict[str, Any]] | None = None
     result = []
@@ -161,16 +232,20 @@ def status(settings: AppSettings, target: Target | None = None) -> list[RuntimeI
         size = sum(int(entry["bytes"]) for entry in entries)
         if not entries:
             state = RuntimeItemState.missing
-        elif not runtime_owned(item):
-            if identifier.startswith("model-"):
+        elif identifier.startswith(MODEL_PREFIX):
+            if identifier in loading:
+                state = RuntimeItemState.downloading
+            else:
                 if model_records is None:
                     model_records = journal.read(settings.model_dir)
-                state = _model_state(settings, item, entries, model_records.get(identifier))
-            else:
-                if package_records is None:
-                    package_records = journal.read_path(root / PACKAGE_JOURNAL_NAME)
-                state = _package_state(entries[0], package_records.get(identifier))
-        elif identifier in active:
+                state = model_state(
+                    settings.model_dir, item, entries, model_records.get(identifier)
+                )
+        elif not runtime_owned(item):
+            if package_records is None:
+                package_records = journal.read_path(root / PACKAGE_JOURNAL_NAME)
+            state = _package_state(item, entries[0], package_records.get(identifier))
+        elif identifier in running:
             state = RuntimeItemState.downloading
         elif _record_ready(root, item, entries[0], records.get(identifier)):
             state = RuntimeItemState.ready
@@ -728,19 +803,14 @@ def prepare(
     try:
         for item, entry in plan:
             cancel.raise_if_set()
-            key = (str(root), str(item["id"]))
-            with _active_lock:
-                _active.add(key)
             try:
-                _install_item(
-                    settings, item, entry, all_items, transport, cancel, hooks, base, total
-                )
+                with active(root, str(item["id"])):
+                    _install_item(
+                        settings, item, entry, all_items, transport, cancel, hooks, base, total
+                    )
             except BaseException as error:
                 _cleanup_after(error, _staging(root, item, entry))
                 raise
-            finally:
-                with _active_lock:
-                    _active.discard(key)
             base += int(entry["bytes"])
     finally:
         staging_root = root / STAGING_DIR
@@ -751,10 +821,14 @@ def prepare(
 
 
 __all__ = [
+    "BUNDLE_PYTHON",
     "Hooks",
+    "active",
     "installed_path",
     "is_ready",
     "lock_items",
+    "model_state",
     "prepare",
     "status",
+    "write_package_record",
 ]

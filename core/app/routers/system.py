@@ -19,6 +19,7 @@ from app.schemas.api import (
     LlmAuth,
     PairRequest,
     PairResponse,
+    RuntimePrepare,
     RuntimeStatus,
     SpeechDevice,
     SpeechDevices,
@@ -44,6 +45,7 @@ def get_runtime(request: Request) -> RuntimeStatus:
     settings = app.settings
     llm_state = app.llm.auth_state(PERSONAL_OWNER_ID)
     tts_ready = not app.tts.ready()
+    items = app.runtime_setup.status()
     return RuntimeStatus(
         app_version=settings.app_version,
         profile=settings.profile,
@@ -52,7 +54,8 @@ def get_runtime(request: Request) -> RuntimeStatus:
             display_name_ko=settings.brand.display_name_ko,
             display_name_en=settings.brand.display_name_en,
         ),
-        items=app.runtime_setup.status(),
+        items=items,
+        prepare=RuntimePrepare(groups=app.runtime_setup.groups(items)),
         llm_auth=LlmAuth(
             adapter=LlmAdapter(app.llm_adapter),
             state=llm_state,

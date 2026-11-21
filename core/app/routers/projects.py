@@ -48,7 +48,10 @@ def create_project(
     body: CreateProjectRequest,
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
 ) -> Project:
-    return runtime(request).services.project.create_project(body)
+    app = runtime(request)
+    project = app.services.project.create_project(body)
+    app.runtime_setup.ensure_language(body.language.value)
+    return project
 
 
 @router.get("/projects", operation_id="listProjects", response_model=ProjectList)

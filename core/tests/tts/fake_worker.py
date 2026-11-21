@@ -96,7 +96,14 @@ def main() -> int:
         requests.put(None)
 
     threading.Thread(target=read, daemon=True).start()
-    log("start", mode=args.mode, threads=args.threads, device=args.device)
+    log(
+        "start",
+        mode=args.mode,
+        threads=args.threads,
+        device=args.device,
+        pythonpath=os.environ.get("PYTHONPATH"),
+        nousersite=os.environ.get("PYTHONNOUSERSITE"),
+    )
     if args.mode == "crash_on_cuda" and args.device == "cuda":
         os._exit(3)
     if args.mode == "no_package":

@@ -15,6 +15,9 @@ import os
 import sys
 from pathlib import Path
 
+PACKAGE_ID = "package-qwen-tts"
+PACKAGE_NAME = "qwen-tts"
+
 
 class NeverCancelled:
     def is_set(self) -> bool:
@@ -25,6 +28,29 @@ class NeverCancelled:
 
     def wait(self, seconds: float) -> bool:
         return False
+
+
+def record_package(bundle: Path, settings: object) -> str:
+    """Journal the wheel the build installed into the environment; nothing is downloaded."""
+    from importlib import metadata
+
+    from app.runtime.lock import all_lock_items, host_platform, select_file
+    from app.runtime.prepare import write_package_record
+
+    item = next(i for i in all_lock_items(settings) if i["id"] == PACKAGE_ID)  # type: ignore[arg-type]
+    entry = select_file(item, host_platform())
+    if entry is None:
+        raise SystemExit(f"runtime lock has no file of {PACKAGE_ID} for this host")
+    try:
+        installed = metadata.version(PACKAGE_NAME)
+    except metadata.PackageNotFoundError:
+        raise SystemExit(f"{PACKAGE_NAME} is not installed in the bundled environment") from None
+    if installed != item["version"]:
+        raise SystemExit(
+            f"{PACKAGE_NAME} {installed} is installed but the runtime lock pins {item['version']}"
+        )
+    write_package_record(bundle / "rt", item, entry, python="bundle")
+    return PACKAGE_ID
 
 
 def main(argv: list[str]) -> int:
@@ -43,7 +69,8 @@ def main(argv: list[str]) -> int:
         print(f"runtime lock has no item: {', '.join(missing)}", file=sys.stderr)
         return 1
     ready = prepare(settings, items, cancel=NeverCancelled())
-    print(json.dumps({"prepared": ready}))
+    package = record_package(bundle, settings)
+    print(json.dumps({"prepared": ready, "package": package}))
     return 0
 
 

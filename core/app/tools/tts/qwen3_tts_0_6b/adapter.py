@@ -81,8 +81,19 @@ POLL_S = 0.05
 WORKER_PATH = Path(__file__).with_name("worker.py")
 CUDA_ENV = ("CUDA_VISIBLE_DEVICES", "CUDA_DEVICE_ORDER")
 """Host GPU assignment of this process. The worker must see the same devices."""
+SITE_ENV = "APP_MAIN_SITE"
 
 logger = logging.getLogger(__name__)
+
+
+def _site_env() -> dict[str, str]:
+    """`PYTHONPATH` of the app's packages, when an installed build names them.
+
+    The app finds its packages through `sys.path`, which the worker, a new process of the
+    same interpreter, does not inherit. User site packages stay out of it.
+    """
+    site = os.environ.get(SITE_ENV)
+    return {"PYTHONPATH": site, "PYTHONNOUSERSITE": "1"} if site else {}
 
 
 def expected_ms(text: str, language: str) -> int:
@@ -513,6 +524,7 @@ class Qwen3TtsAdapter:
         ]
         threads = str(self._threads)
         env = build_env()
+        env.update(_site_env())
         env.update(
             OMP_NUM_THREADS=threads,
             MKL_NUM_THREADS=threads,
