@@ -196,6 +196,27 @@ def wrap_code(font: ImageFont.FreeTypeFont, text: str, max_width: int) -> list[T
     return [TextLine(tuple(line), _width(font, line)) for line in lines]
 
 
+ELLIPSIS = "\u2026"
+
+
+def _clipped(
+    font: CaptionFont, items: list[Unit], *, width: int, height: int, max_lines: int, size: int
+) -> TextBlock | None:
+    """The longest prefix of ``items`` plus an ellipsis that fits at ``size``."""
+    mark = ELLIPSIS if ord(ELLIPSIS) in font.cmap else "..."
+    face = font.at(size)
+    for count in range(len(items) - 1, 0, -1):
+        kept = items[:count]
+        while kept and kept[-1].space:
+            kept.pop()
+        lines = wrap(face, [*kept, *units(mark)], width)
+        block = TextBlock(size=size, line_height=size * 5 // 4, lines=tuple(lines))
+        if len(lines) <= max_lines and block.height <= height:
+            if all(line.width <= width for line in lines):
+                return block
+    return None
+
+
 def fit(
     font: CaptionFont,
     text: str,
@@ -207,10 +228,13 @@ def fit(
     sizes: list[int],
     where: str,
     code: bool = False,
+    clip: bool = False,
 ) -> TextBlock:
     """The largest size whose wrapped lines fit the box; ``text_overflow`` otherwise.
 
     ``code`` keeps the text's own line breaks and spaces instead of reflowing words.
+    ``clip`` cuts the text at the smallest size and ends it with an ellipsis instead of
+    failing; it is for labels, never for spoken or code text.
     """
     font.check(text, where)
     items = units(text, highlight)
@@ -222,6 +246,11 @@ def fit(
         block = TextBlock(size=size, line_height=size * 5 // 4, lines=tuple(lines))
         too_wide = any(line.width > width for line in lines)
         if len(lines) <= max_lines and block.height <= height and not too_wide:
+            return block
+    if clip and sizes and not code:
+        block = _clipped(font, items, width=width, height=height, max_lines=max_lines,
+                         size=sizes[-1])
+        if block is not None:
             return block
     raise AppError("text_overflow", detail={"where": where, "font": font.id})
 

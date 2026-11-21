@@ -116,6 +116,8 @@ PERMANENT_ERRORS = frozenset(
         JobErrorCode.unsupported_version,
     }
 )
+# Render errors that show a public render_failed and that the same input repeats.
+DETERMINISTIC_RENDER_ERRORS = frozenset({"text_overflow"})
 JOB_ID = re.compile(r"^j_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _ENTITY_ID = re.compile(r"^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _CHUNK = 1 << 20
@@ -851,8 +853,12 @@ def _job_error(job: Job, error: BaseException, stage: Stage | None) -> JobError:
     detail: dict[str, Any] = {}
     if isinstance(error, OSError) and error.errno == errno.ENOSPC:
         code = JobErrorCode.disk_full
-    elif isinstance(error, AppError) and error.code in JobErrorCode.__members__:
-        code = JobErrorCode(error.code)
+    elif isinstance(error, AppError) and (
+        error.code in JobErrorCode.__members__ or error.code in DETERMINISTIC_RENDER_ERRORS
+    ):
+        code = JobErrorCode.render_failed
+        if error.code in JobErrorCode.__members__:
+            code = JobErrorCode(error.code)
         detail = {
             key: value
             for key, value in list(error.detail.items())[:8]
@@ -861,7 +867,9 @@ def _job_error(job: Job, error: BaseException, stage: Stage | None) -> JobError:
     scene_id = detail.get("scene_id")
     return JobError(
         code=code,
-        retryable=code not in PERMANENT_ERRORS and job.attempt < job.max_attempts,
+        retryable=code not in PERMANENT_ERRORS
+        and not (isinstance(error, AppError) and error.code in DETERMINISTIC_RENDER_ERRORS)
+        and job.attempt < job.max_attempts,
         stage=stage,
         scene_id=scene_id if isinstance(scene_id, str) and _ENTITY_ID.fullmatch(scene_id) else None,
         detail=detail,

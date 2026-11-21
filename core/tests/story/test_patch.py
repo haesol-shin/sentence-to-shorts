@@ -366,3 +366,10 @@ def test_owned_routes_have_style_notes_and_review_inputs() -> None:
             system = load_prompt(route, fixture["data"])
             assert "# Style notes" in system
             assert "말투 예시" in system or "Tone example" in system
+
+
+@pytest.mark.parametrize("route", ["split", "scene/scene_rewrite"])
+def test_beat_label_prompts_state_the_short_screen_limit(route: str) -> None:
+    text = (PROMPT_ROOT / route / "prompt.md").read_text(encoding="utf-8")
+    assert "한국어는 8자, 영어는 18자 안팎" in text
+    assert "40자를 넘기지 않는다" in text
