@@ -1,4 +1,15 @@
-import { API_BASE, setTransport, type ApiRequest, type ApiResponse, type Job, type Preset, type Video, type VideoView } from '../client';
+import {
+  API_BASE,
+  setTransport,
+  type ApiRequest,
+  type ApiResponse,
+  type Job,
+  type PrepareGroup,
+  type Preset,
+  type RuntimeStatus,
+  type Video,
+  type VideoView,
+} from '../client';
 import { editedVideoSettings } from './video-settings';
 
 interface Fixture {
@@ -65,19 +76,58 @@ function settled({ job, queuedAt, revision }: QueuedDraft): Job {
   return { ...job, state: 'succeeded', result: { status: 'applied', revision } };
 }
 
+/**
+ * How far the voice models are. The recorded runtime answer is mid-download, so
+ * a screen would show a preparing button in every mock run; the default is a
+ * ready install, and a run opts in with `?mock_prepare=downloading`, `retrying`
+ * or `failed` in the address.
+ */
+export type MockPrepare = 'ready' | 'downloading' | 'retrying' | 'failed';
+
+const MOCK_PREPARE: readonly MockPrepare[] = ['ready', 'downloading', 'retrying', 'failed'];
+
+function mockPrepareFromAddress(): MockPrepare {
+  const asked = new URLSearchParams(window.location.search).get('mock_prepare');
+  return MOCK_PREPARE.find((state) => state === asked) ?? 'ready';
+}
+
+function prepareGroups(recorded: readonly PrepareGroup[], mode: MockPrepare): PrepareGroup[] {
+  if (mode === 'downloading') return recorded.map((group) => ({ ...group }));
+  return recorded.map((group) => {
+    if (mode === 'ready') return { ...group, state: 'ready', done: group.total };
+    if (group.id !== 'voice') return { ...group };
+    return mode === 'retrying'
+      ? { ...group, state: 'retrying', retry_at: new Date(Date.now() + 15_000).toISOString() }
+      : { ...group, state: 'failed', error_code: 'download_failed' };
+  });
+}
+
 /** Uses recorded answers for static resources and isolates each video started in the app. */
-export function installMockApi(): void {
+export function installMockApi(prepare: MockPrepare = mockPrepareFromAddress()): void {
   const videos = new Map<string, { created: Video; draftMessage: string | null }>();
   const draftJobs = new Map<string, QueuedDraft>();
   const presets = new Map<string, Preset>();
   let sequence = 0;
   editedVideoSettings.clear();
   const nextId = (prefix: string) => `${prefix}_${(++sequence).toString(32).padStart(25, '0')}`;
+  let groups: PrepareGroup[] | null = null;
 
   setTransport(async (request) => {
     const fixture = mockResponse(request);
     const [, area, id, resource] = request.path.split('/');
     if (fixture.status >= 400) return fixture;
+    if (request.method === 'GET' && area === 'runtime' && id === undefined) {
+      const recorded = fixture.body as RuntimeStatus;
+      groups ??= prepareGroups(recorded.prepare.groups, prepare);
+      return { ...fixture, body: { ...recorded, prepare: { groups } } satisfies RuntimeStatus };
+    }
+    if (request.method === 'POST' && area === 'runtime' && id === 'prepare') {
+      // A failed group is queued again and moves on as a download.
+      groups = groups?.map((group) =>
+        group.state === 'failed' ? { ...group, state: 'downloading', error_code: null } : group,
+      ) ?? null;
+      return fixture;
+    }
     if (request.method === 'POST' && area === 'projects' && id !== undefined && resource === 'videos') {
       const { preset_id: presetId } = request.body as { preset_id: string | null };
       const preset = presetId === null ? null : presets.get(presetId);

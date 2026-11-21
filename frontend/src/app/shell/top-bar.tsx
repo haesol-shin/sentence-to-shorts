@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react';
 
+import { useEditOptional } from '@/features/edit/edit-context';
 import { EditNextAction } from '@/features/edit/next-action';
 import { EditTopBarStatus } from '@/features/edit/top-bar-status';
 import { ExportNextAction } from '@/features/export/next-action';
+import { waitingPercent } from '@/features/runtime/prepare';
+import { PrepareNotice } from '@/features/runtime/prepare-notice';
+import { usePrepare } from '@/features/runtime/use-prepare';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/components/Button/Button';
@@ -13,6 +17,25 @@ import { StageIndicator, StageMenu } from './stage-nav';
 import { VideoSettings } from './video-settings';
 
 /**
+ * The edit stage's make-video button with what the voice models are doing. The
+ * sentence for a download that cannot move floats under the top bar, so the
+ * bar keeps its layout.
+ */
+function EditAction() {
+  const edit = useEditOptional();
+  const prepare = usePrepare(edit?.video?.settings.language ?? null);
+  return (
+    <>
+      <EditNextAction preparePercent={waitingPercent(prepare.view)} />
+      <PrepareNotice
+        status={prepare}
+        className="absolute top-full right-4 z-[var(--z-panel)] mt-2 w-[360px] max-w-[calc(100vw-32px)] rounded-[var(--radius-surface)] bg-[var(--popover)] p-2 shadow-[var(--shadow-float)]"
+      />
+    </>
+  );
+}
+
+/**
  * The right-hand action the shell keeps a seat for (SPEC 10a.2). Each stage
  * names its own action, and until that stage can carry it the seat stays shut
  * with the reason in a tooltip. The phone gets a shorter word so the seat, the
@@ -20,7 +43,7 @@ import { VideoSettings } from './video-settings';
  */
 function NextAction({ stage, videoId }: { stage: Stage; videoId: string | null }) {
   const { t } = useLocale();
-  if (stage === 'edit') return <EditNextAction />;
+  if (stage === 'edit') return <EditAction />;
   if (stage === 'export') return <ExportNextAction videoId={videoId} />;
   const label = t(`shell.nextAction.${stage}`);
   return (

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { Button } from '@/components/Button/Button';
 import { Notice } from '@/components/Notice/Notice';
 import type { VideoView } from '@/shared/api/client';
@@ -32,6 +34,8 @@ export function PrecheckPanel({
   report,
   starting,
   startFailed,
+  preparePercent,
+  prepareNotice,
   onRetry,
   onStart,
   onEdit,
@@ -41,6 +45,10 @@ export function PrecheckPanel({
   report: PrecheckReport | null;
   starting: boolean;
   startFailed: boolean;
+  /** The percent the voice models are at while the start waits for them. */
+  preparePercent: number | null;
+  /** The sentence for models that cannot move, with its retry. */
+  prepareNotice: ReactNode;
   onRetry: () => void;
   onStart: () => void;
   onEdit: () => void;
@@ -64,11 +72,14 @@ export function PrecheckPanel({
           </Button>
           {confirmed ? (
             <Button data-slot="export-start" disabled={report === null || starting} onClick={onStart}>
-              {t('export.start.make')}
+              {starting && preparePercent !== null
+                ? t('shell.prepare.label', { percent: preparePercent })
+                : t('export.start.make')}
             </Button>
           ) : null}
         </div>
       </div>
+      {confirmed ? prepareNotice : null}
       {!confirmed ? <Notice>{t('export.start.blocked')}</Notice> : null}
       {confirmed && status === 'running' ? (
         <p role="status" className="export-muted">
