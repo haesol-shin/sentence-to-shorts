@@ -47,7 +47,7 @@ Windows는 시작 메뉴의 앱 이름을 누릅니다. Linux는 푼 폴더에�
 
 이미 실행 중이면 새로 띄우지 않고 실행 중인 앱을 브라우저로 엽니다. 탭을 닫았어도 같은 브라우저에 유효한 세션 cookie가 남아 있으면 같은 주소로 다시 접속할 수 있으며, 앱을 재시작할 필요가 없습니다.
 
-Deno, yt-dlp, Pyodide, ffmpeg는 설치 파일에 들어 있어서 첫 실행에 내려받지 않습니다. 앱은 PATH의 Python이나 ffmpeg를 쓰지 않고 설치 폴더의 파일만 씁니다. 링크 입력은 설치 폴더의 yt-dlp와 Deno만 씁니다. ffmpeg는 GPL-3.0-or-later 빌드이고 라이선스 문구는 설치 폴더의 `licenses`와 `THIRD_PARTY_NOTICES.md`에 있습니다. 같은 릴리스에 `ffmpeg-corresponding-source-<플랫폼>.tar` 자산이 함께 올라가며, 그 안에 FFmpeg 판, 켜 둔 외부 라이브러리의 원본, 빌드 스크립트와 패치, 다시 빌드하는 방법이 들어 있습니다. 설치 파일에 없는 runtime 항목은 첫 실행에 runtime manifest의 SHA-256으로 확인하며 받고, 중간에 끊겨도 이어 받습니다. 두 번째 실행부터는 내려받지 않습니다.
+Deno, yt-dlp, Pyodide, ffmpeg는 설치 파일에 들어 있어서 첫 실행에 내려받지 않습니다. 앱은 PATH의 Python이나 ffmpeg를 쓰지 않고 설치 폴더의 파일만 씁니다. 링크 입력은 설치 폴더의 yt-dlp와 Deno만 씁니다. yt-dlp는 Python 한 파일(zipimport)이라 앱이 쓰는 Python이 실행하며 별도 실행 파일을 싣지 않습니다. ffmpeg는 GPL-3.0-or-later 빌드이고 라이선스 문구는 설치 폴더의 `licenses`와 `THIRD_PARTY_NOTICES.md`에 있습니다. 같은 릴리스에 `ffmpeg-corresponding-source-<플랫폼>.tar` 자산이 함께 올라가며, 그 안에 FFmpeg 판, 켜 둔 외부 라이브러리의 원본, 빌드 스크립트와 패치, 다시 빌드하는 방법이 들어 있습니다. 설치 파일에 없는 runtime 항목은 첫 실행에 runtime manifest의 SHA-256으로 확인하며 받고, 중간에 끊겨도 이어 받습니다. 두 번째 실행부터는 내려받지 않습니다.
 
 휴대폰으로 같은 와이파이에서 접속하려면 `APP_LAN=1`로 시작합니다. 평문 LAN은 합성 자료 시험에만 쓰세요. 접속 코드는 컴퓨터 화면에 보입니다.
 

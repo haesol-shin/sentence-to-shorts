@@ -9,7 +9,7 @@ These files are prepared from the runtime manifest and checked against its SHA-2
 | Item | Version | License | Source |
 | --- | --- | --- | --- |
 | deno | 2.9.8 | MIT | https://github.com/denoland/deno |
-| yt-dlp | 2026.10.26 | Unlicense | https://github.com/yt-dlp/yt-dlp/tree/2026.10.26 |
+| yt-dlp | 2026.10.26 | Unlicense AND ISC AND MIT | https://github.com/yt-dlp/yt-dlp/tree/2026.10.26 |
 | pyodide-core | 314.0.7 | MPL-2.0 | https://github.com/pyodide/pyodide |
 | pyodide-pillow | 12.2.0 | MIT-CMU | https://github.com/python-pillow/Pillow |
 | package-qwen-tts | 0.1.1 | Apache-2.0 | https://pypi.org/project/qwen-tts/0.1.1/ |

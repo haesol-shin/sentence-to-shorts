@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import threading
 import time
 from pathlib import Path
@@ -86,6 +87,19 @@ def test_20_download_runs_a_fixed_command_line(
     assert argv[argv.index("--max-filesize") + 1] == str(MAX_BYTES)
     assert argv[argv.index("--proxy") + 1].startswith("http://127.0.0.1:")
     assert re.fullmatch(r"ref_[0-9a-f]{16}\.%\(ext\)s", argv[argv.index("-o") + 1])
+
+
+def test_20_download_runs_the_file_with_the_app_python(
+    downloader: YtDlpDownloader, tmp_path: Path
+) -> None:
+    command = downloader.command(
+        proxy="http://127.0.0.1:1", out_dir=tmp_path, scratch=tmp_path, name="n",
+        max_bytes=1, url="https://youtu.be/abc",
+    )
+    assert command[:2] == [sys.executable, str(downloader.executable)]
+    assert command[command.index("--js-runtimes") + 1] == f"deno:{_deno(tmp_path)}"
+    _fetch(downloader, tmp_path)
+    assert last_call(tmp_path / "tool")["argv"][0] == "--ignore-config"
 
 
 def test_20_download_process_sees_no_path_and_a_private_home(
@@ -227,8 +241,9 @@ def test_20_download_adapter_follows_the_deployment_and_the_runtime_lock(
     assert local.link_enabled
     system, arch = _platform()
     yt_dlp = next(item for item in app_settings.runtime.items if item.id == "yt-dlp")
-    file = next(e.file for e in yt_dlp.files if (e.os, e.arch) == (system, arch))
-    assert local.executable == (app_settings.runtime_dir / "yt-dlp" / file).resolve()
+    assert [(e.os, e.file) for e in yt_dlp.files] == [("any", "yt-dlp")]
+    assert local.executable == (app_settings.runtime_dir / "yt-dlp" / "yt-dlp").resolve()
+    assert local.python == Path(sys.executable)
     deno = "deno.exe" if system == "windows" else "deno"
     assert local.deno == (app_settings.runtime_dir / "deno" / deno).resolve()
     app_settings.deployment = "hosted"
@@ -237,3 +252,13 @@ def test_20_download_adapter_follows_the_deployment_and_the_runtime_lock(
         create_skeleton(app_settings).fetch(
             LINK, out_dir=Path("."), max_bytes=1, max_ms=1, cancel=Cancel()
         )
+
+
+def test_20_download_without_the_app_python_fails_cleanly(tmp_path: Path) -> None:
+    tool = fake_ytdlp(tmp_path / "tool").resolve()
+    missing = (tmp_path / "missing" / "python").resolve()
+    with pytest.raises(AppError) as caught:
+        _fetch(YtDlpDownloader(tool, deno=_deno(tmp_path), python=missing), tmp_path)
+    assert caught.value.code == "download_failed"
+    assert caught.value.detail["reason"] == "downloader_unavailable"
+    assert not (tmp_path / "tool" / "argv.json").exists()

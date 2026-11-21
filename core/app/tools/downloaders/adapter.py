@@ -1,7 +1,7 @@
 """Link download adapter: the bundled yt-dlp behind ``DownloaderPort``.
 
-The executable path comes from the runtime lock under the runtime folder; PATH is
-never searched. A hosted deployment gets an adapter that refuses every link.
+The yt-dlp file path comes from the runtime lock under the runtime folder and the app's own
+Python runs it; PATH is never searched. A hosted deployment gets an adapter that refuses every link.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ def _platform() -> tuple[str, str]:
 
 
 def runtime_executable(settings: AppSettings) -> Path | None:
-    """Absolute yt-dlp path from the runtime lock entry, or None when not locked."""
+    """Absolute path of the yt-dlp file from the runtime lock entry, or None when not locked."""
     lock = getattr(settings, "runtime", None)
     items = getattr(lock, "items", None) or []
     system, arch = _platform()
@@ -35,7 +35,7 @@ def runtime_executable(settings: AppSettings) -> Path | None:
         if item.id != RUNTIME_ITEM:
             continue
         for entry in item.files:
-            if entry.os == system and entry.arch == arch:
+            if entry.os in (system, "any") and entry.arch in (arch, "wasm32"):
                 return (settings.runtime_dir / item.install_path / entry.file).resolve()
     return None
 

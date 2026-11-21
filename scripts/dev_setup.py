@@ -167,8 +167,6 @@ def extract_item(item: dict, entry: dict, archive: Path, root: Path) -> None:
         installed.mkdir(parents=True, exist_ok=True)
         binary = installed / entry["file"]
         shutil.copy2(archive, binary)
-        if entry["os"] != "windows":
-            binary.chmod(binary.stat().st_mode | 0o111)
 
 
 def make_executable(root: Path) -> None:

@@ -1,4 +1,4 @@
-"""Link download with the bundled yt-dlp executable.
+"""Link download with the bundled yt-dlp zipimport file, run by the app's Python.
 
 The command line is a fixed argument array. Nothing from the link reaches an
 option: the checked URL is the last argument after ``--``, the file name is
@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import secrets
 import shutil
+import sys
 import tempfile
 import time
 from pathlib import Path
@@ -44,11 +45,12 @@ BLOCKED = re.compile(
 )
 
 
-def _argv(executable: Path, *, proxy: str, out_dir: Path, scratch: Path, name: str,
+def _argv(python: Path, executable: Path, *, proxy: str, out_dir: Path, scratch: Path, name: str,
           max_bytes: int, url: str, deno: Path | None = None) -> list[str]:
     # YouTube needs a JS runtime to solve its challenges: only the locked Deno, never PATH.
     js_runtimes = ["--js-runtimes", f"deno:{deno}"] if deno else ["--no-js-runtimes"]
     return [
+        str(python),
         str(executable),
         "--ignore-config",
         "--no-config-locations",
@@ -155,14 +157,35 @@ class YtDlpDownloader:
     """``DownloaderPort`` over the bundled yt-dlp. Hosted deployments keep it off."""
 
     def __init__(
-        self, executable: Path | None, *, deno: Path | None = None, link_enabled: bool = True
+        self,
+        executable: Path | None,
+        *,
+        deno: Path | None = None,
+        python: Path | None = None,
+        link_enabled: bool = True,
     ) -> None:
-        for path in (executable, deno):
+        # The interpreter that runs the app runs yt-dlp; a virtual environment's Python
+        # may be a symlink, so it is not resolved.
+        python = Path(sys.executable) if python is None else python
+        for path in (executable, deno, python):
             if path is not None and not path.is_absolute():
-                raise ValueError("the yt-dlp and deno paths must be absolute")
+                raise ValueError("the yt-dlp, deno and python paths must be absolute")
         self.executable = executable
         self.deno = deno
+        self.python = python
         self.link_enabled = link_enabled
+
+    def available(self) -> bool:
+        """Whether the yt-dlp file, the locked Deno and the interpreter all exist."""
+        paths = (self.executable, self.deno, self.python)
+        return all(path is not None and path.is_file() for path in paths)
+
+    def command(self, *, proxy: str, out_dir: Path, scratch: Path, name: str, max_bytes: int,
+                url: str) -> list[str]:
+        """The one command line every yt-dlp run of the app and the preflight uses."""
+        assert self.executable is not None
+        return _argv(self.python, self.executable, proxy=proxy, out_dir=out_dir, scratch=scratch,
+                     name=name, max_bytes=max_bytes, url=url, deno=self.deno)
 
     def fetch(
         self,
@@ -179,12 +202,7 @@ class YtDlpDownloader:
             raise AppError("link_disabled")
         checked = check_url(url)
         cancel.raise_if_set()
-        if (
-            self.executable is None
-            or not self.executable.is_file()
-            or self.deno is None
-            or not self.deno.is_file()
-        ):
+        if not self.available():
             raise AppError("download_failed", detail={"reason": "downloader_unavailable"})
         out_dir.mkdir(parents=True, exist_ok=True)
         name = f"ref_{secrets.token_hex(8)}"
@@ -199,7 +217,6 @@ class YtDlpDownloader:
 
     def _run(self, url: str, root: Path, out_dir: Path, name: str, max_bytes: int, max_ms: int,
              cancel: CancelToken) -> Path:
-        assert self.executable is not None
         home = root / "home"
         scratch = root / "scratch"
         empty = root / "bin"
@@ -219,8 +236,8 @@ class YtDlpDownloader:
         with EgressProxy(max_bytes=max_bytes) as proxy:
             watch = _Watch(cancel, proxy, out_dir, max_bytes)
             result = run(
-                _argv(self.executable, proxy=proxy.url, out_dir=out_dir, scratch=scratch,
-                      name=name, max_bytes=max_bytes, url=url, deno=self.deno),
+                self.command(proxy=proxy.url, out_dir=out_dir, scratch=scratch, name=name,
+                             max_bytes=max_bytes, url=url),
                 cwd=home,
                 env=env,
                 timeout_s=max_ms / 1000,
