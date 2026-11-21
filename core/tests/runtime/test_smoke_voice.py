@@ -490,3 +490,47 @@ def test_21_probe_cli_writes_the_report_file_and_exits_by_it(
     monkeypatch.setattr(probe, "run", lambda root: {"tts": probe.part(False, "no")})
     assert probe.main(["--root", str(tmp_path), "--out", str(out)]) == 1
     assert os.path.exists(out)
+
+
+class ScenesApi:
+    """The routes `drive_to_scenes` calls; the caption mode starts as the app starts it."""
+
+    def __init__(self, *, proposed: bool = False) -> None:
+        self.mode = "sentence"
+        self.revision = 1
+        self.proposed = proposed
+        self.changes: list[dict[str, Any]] = []
+
+    def post(self, path: str, body: Any = None, *, expect: int = 200) -> Any:
+        if path == "/projects":
+            return {"id": "p1"}
+        if path == "/projects/p1/videos":
+            return {"id": "v1", "revision": self.revision}
+        if path == "/videos/v1/draft" or path == "/videos/v1/previews":
+            return {"id": "j", "state": "succeeded"}
+        if path == "/videos/v1/changes":
+            self.changes.append(body)
+            if not self.proposed:
+                self.mode = body["ops"][0]["value"]
+            self.revision += 1
+            return {"id": "c1", "status": "proposed" if self.proposed else "applied"}
+        if path == "/changes/c1/apply":
+            self.mode = self.changes[-1]["ops"][0]["value"]
+            self.revision += 1
+            return {}
+        return {"id": "v1", "revision": self.revision}
+
+    def get(self, path: str, params: Any = None) -> Any:
+        assert path == "/videos/v1"
+        return {"video": {"revision": self.revision, "settings": {"caption": {"mode": self.mode}}}}
+
+
+@pytest.mark.parametrize("proposed", [False, True])
+def test_21_the_scenes_are_driven_with_phrase_captions(proposed: bool) -> None:
+    # The app starts in sentence captions, whose timing never carries phrases.
+    api = ScenesApi(proposed=proposed)
+    smoke.drive_to_scenes(api)  # type: ignore[arg-type]
+    assert api.mode == "phrase"
+    assert api.changes[0]["ops"] == [
+        {"op": "set", "path": "/settings/caption/mode", "value": "phrase", "origin": "user"}
+    ]

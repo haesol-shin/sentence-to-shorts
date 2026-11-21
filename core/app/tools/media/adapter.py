@@ -12,6 +12,7 @@ import json
 import platform
 import re
 import sys
+import sysconfig
 import tempfile
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -383,9 +384,18 @@ class MediaAdapter:
         return MediaInfo(path=src, **found)
 
 
+def _machine() -> str:
+    """The CPU name without `PROCESSOR_ARCHITECTURE`, which a bare Windows environment lacks."""
+    if sys.platform == "win32":
+        tagged = {"win-amd64": "amd64", "win-arm64": "arm64"}.get(sysconfig.get_platform())
+        if tagged is not None:
+            return tagged
+    return platform.machine().lower()
+
+
 def _platform() -> tuple[str, str]:
     system = "windows" if sys.platform == "win32" else "linux"
-    machine = platform.machine().lower()
+    machine = _machine()
     arch = {"amd64": "x86_64", "x64": "x86_64", "arm64": "aarch64"}.get(machine, machine)
     return system, arch
 

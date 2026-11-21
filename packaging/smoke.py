@@ -328,10 +328,11 @@ def check_runtime_ready(result: Result, python: Path, root: Path, env: dict[str,
     code = (
         "import json, sys; sys.path[:0] = [sys.argv[1] + '/core', sys.argv[1] + '/site-packages'];"
         "from app.runtime import status; from app.settings import Settings;"
+        "from app.runtime.lock import host_platform;"
         "from app.tools.media.adapter import runtime_executable;"
         "s = Settings(); exe = runtime_executable(s);"
         "print(json.dumps({'states': {i.id: i.state.value for i in status(s)},"
-        " 'ffmpeg': str(exe) if exe else None}))"
+        " 'host': list(host_platform()), 'ffmpeg': str(exe) if exe else None}))"
     )
     done = subprocess.run(
         [str(python), "-c", code, str(root)], env={**env, "APP_RUNTIME_DIR": str(root / "rt")},
@@ -340,6 +341,8 @@ def check_runtime_ready(result: Result, python: Path, root: Path, env: dict[str,
     report = json.loads(done.stdout) if done.returncode == 0 and done.stdout.strip() else {}
     states = report.get("states", {})
     ready, detail = runtime_verdict(states) if states else (False, "")
+    if states and not ready:
+        detail += f"; states {states}; host {report.get('host')}"
     result.check(
         "the installer's runtime items are ready and the models are still to download",
         ready,
@@ -364,6 +367,14 @@ def check_runtime_ready(result: Result, python: Path, root: Path, env: dict[str,
     )
 
 
+def launcher_log_tail(data_dir: Path) -> str:
+    """The end of the launcher's own log, which says what the start did when no record came."""
+    try:
+        return (data_dir / "log" / "launcher.log").read_text(encoding="utf-8")[-300:].strip()
+    except OSError:
+        return "none"
+
+
 def exercise(
     result: Result, label: str, root: Path, args: argparse.Namespace, env: dict[str, str],
     data_dir: Path, work: Path, *, gating: bool,
@@ -385,6 +396,8 @@ def exercise(
             result.check(f"[{label}] the server runs the bundled interpreter", bundled,
                          record["python"][-40:], gating=gating)
     finally:
+        exit_code = process.poll()
+        still_running = exit_code is None
         stopper_code, code = stop_launcher(root, args.os, env, process, output)
     result.check(f"[{label}] the stop command reaches the running launcher",
                  stopper_code == 0 or record is None, gating=gating)
@@ -393,7 +406,12 @@ def exercise(
                      gating=gating)
     if record is None:
         tail = (work / f"{label}.log").read_bytes()[-400:].decode("utf-8", "replace")
-        result.check(f"[{label}] why it did not start", False, tail.strip()[-300:], gating=False)
+        why = (
+            f"no launcher.json under {data_dir}; the launcher "
+            + ("was still running" if still_running else f"exited with {exit_code}")
+            + f"; its log: {launcher_log_tail(data_dir)!r}; its output: {tail.strip()[-300:]!r}"
+        )
+        result.check(f"[{label}] why it did not start", False, why, gating=False)
 
 
 # --- the voice phase ---------------------------------------------------------------------
@@ -609,6 +627,23 @@ def drive_to_scenes(api: Api) -> dict[str, Any]:
     )
     wait_job(api, job)
     current = head()
+    # The app starts in sentence captions; the smoke proves word timing, so it asks for phrases
+    # the way the caption setting does.
+    plan = api.post(
+        f"/videos/{video['id']}/changes",
+        {
+            "base_revision": current["revision"], "source": "direct",
+            "target": {"scene_id": None, "pointer": None},
+            "ops": [{"op": "set", "path": "/settings/caption/mode", "value": "phrase",
+                     "origin": "user"}],
+        },
+    )
+    if plan["status"] == "proposed":
+        api.post(f"/changes/{plan['id']}/apply", {"base_revision": current["revision"]})
+    current = head()
+    mode = current["settings"]["caption"]["mode"]
+    if mode != "phrase":
+        raise SmokeError(f"the caption mode is {mode}, not phrase")
     for step in ("concept/confirm", "script/confirm"):
         current = api.post(f"/videos/{video['id']}/{step}", {"base_revision": current["revision"]})
     job = api.post(

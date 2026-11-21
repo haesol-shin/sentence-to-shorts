@@ -397,6 +397,8 @@ def run(
         _say(f"The settings could not be read: {type(error).__name__}: {error}")
         return 1
     if args.print_config:
+        # ASCII-only JSON: a pipe on Windows uses the locale code page, which cannot
+        # encode a Korean folder name and would end the command before any output.
         print(
             json.dumps(
                 {
@@ -405,7 +407,6 @@ def run(
                     "runtime_dir": str(base.runtime_dir),
                     "data_dir": str(base.data_dir),
                 },
-                ensure_ascii=False,
             )
         )
         return 0
