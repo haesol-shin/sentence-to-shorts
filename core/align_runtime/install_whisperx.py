@@ -8,9 +8,10 @@ Run inside the aligner environment:
 WhisperX 3.8.6 declares pyannote-audio, torchvision, torchcodec and triton.
 Its alignment module imports none of them, so this script verifies the wheel
 against ``whisperx.lock.json`` and the ``poetry.lock`` hash and installs it with
-``pip --no-deps``. The Poetry main group carries the packages the alignment
-module imports; the optional ``audit`` group keeps WhisperX's declared packages
-in the lock for dependency review without installing them.
+``pip --no-deps``, then deletes the VAD model file the wheel ships. The Poetry
+main group carries the packages the alignment module imports; the optional
+``audit`` group keeps WhisperX's declared packages in the lock for dependency
+review without installing them.
 """
 
 from __future__ import annotations
@@ -32,6 +33,13 @@ PIN = Path(__file__).resolve().with_name("whisperx.lock.json")
 LOCK = Path(__file__).resolve().with_name("poetry.lock")
 NAME = "whisperx"
 UNUSED = ("pyannote", "torchcodec", "torchvision", "triton")
+# Locked packages the alignment path never imports: torch's optional graph
+# helper and Hugging Face's optional transfer client. The dev setup and the
+# bundle build remove them from the aligner environment after the lock installs.
+PRUNED = ("hf-xet", "networkx")
+# The wheel ships a VAD model. Alignment models come through the model
+# download, so this file is never read.
+MODEL_FILE = Path("whisperx") / "assets" / "pytorch_model.bin"
 
 
 def sha256(path: Path) -> str:
@@ -93,6 +101,25 @@ def unused_packages() -> list[str]:
     return [name for name in UNUSED if util.find_spec(name) is not None]
 
 
+def remove_model_file(site: Path) -> None:
+    """Delete the VAD model the wheel ships from the folder that holds ``whisperx``."""
+    (site / MODEL_FILE).unlink(missing_ok=True)
+
+
+def installed_site() -> Path | None:
+    """The folder that holds the installed ``whisperx`` package."""
+    spec = util.find_spec("whisperx")
+    if spec is None or spec.origin is None:
+        return None
+    return Path(spec.origin).parent.parent
+
+
+def drop_model_file() -> None:
+    site = installed_site()
+    if site is not None:
+        remove_model_file(site)
+
+
 def download(url: str, destination: Path) -> None:
     print(f"download {url}")
     with urllib.request.urlopen(url, timeout=120) as response, destination.open("wb") as out:
@@ -120,6 +147,7 @@ def main(argv: list[str] | None = None) -> int:
     if installed_version() == pin["version"]:
         error = alignment_import_error()
         if error is None:
+            drop_model_file()
             print(f"verified {pin['name']} {pin['version']}")
             return 0
         print(
@@ -139,6 +167,7 @@ def main(argv: list[str] | None = None) -> int:
             ],
             check=True,
         )
+    drop_model_file()
     error = alignment_import_error()
     if installed_version() != pin["version"] or error is not None:
         if error is not None:

@@ -72,3 +72,19 @@ def test_align_runtime_lock_installs_only_the_alignment_path() -> None:
     audit = {name for name, names in groups.items() if "audit" in names}
     assert "whisperx" in audit
     assert installer.pinned()["name"] == "whisperx"
+
+
+def test_install_whisperx_deletes_the_unused_vad_model(tmp_path) -> None:
+    model = tmp_path / installer.MODEL_FILE
+    model.parent.mkdir(parents=True)
+    model.write_bytes(b"synthetic model")
+    keep = model.parent / "mel_filters.npz"
+    keep.write_bytes(b"synthetic")
+    installer.remove_model_file(tmp_path)
+    assert not model.exists()
+    assert keep.exists()
+    installer.remove_model_file(tmp_path)
+
+
+def test_install_whisperx_prunes_the_packages_alignment_never_imports() -> None:
+    assert set(installer.PRUNED) == {"hf-xet", "networkx"}
