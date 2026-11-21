@@ -253,3 +253,45 @@ test('test_21_the_output_check_shows_the_retry_sentence_while_the_connection_is_
   });
   expect(notice.textContent).toContain('인터넷 연결을 확인하세요, 다시 시도하는 중');
 });
+
+test('test_21_a_failed_retry_replaces_the_stop_reason_with_one_sentence_until_the_next_try', async () => {
+  groups = [group('voice', 'failed', 0, { error_code: 'disk_full' })];
+  let down = true;
+  stubApi({
+    'GET /api/v1/session/csrf': () => ({ status: 200, body: { csrf_token: 'c'.repeat(40) } }),
+    'GET /api/v1/runtime': () => ({ status: 200, body: { prepare: { groups } } }),
+    'POST /api/v1/runtime/prepare': () => {
+      if (down) {
+        return {
+          status: 503,
+          body: {
+            type: 'https://app.invalid/problems/internal',
+            title: 'internal',
+            status: 503,
+            detail: 'the server could not queue the preparation',
+            instance: '/api/v1/runtime/prepare',
+            code: 'internal',
+            message_key: 'error.internal',
+            retryable: true,
+            errors: [],
+          },
+        };
+      }
+      groups = groups.map((item) => ({ ...item, state: 'queued' }));
+      return { status: 202, body: {} };
+    },
+  });
+  await refreshSession();
+  renderCheck();
+  expect((await screen.findByRole('alert')).textContent).toContain('디스크 공간이 모자라');
+
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+
+  await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('서버에서 문제가 생겼어요.'));
+  expect(screen.getAllByRole('alert')).toHaveLength(1);
+  expect((screen.getByRole('button', { name: '다시 시도' }) as HTMLButtonElement).disabled).toBe(false);
+
+  down = false;
+  fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+});

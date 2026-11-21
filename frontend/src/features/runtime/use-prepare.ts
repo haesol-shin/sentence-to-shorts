@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   getJson,
+  messageKeyOf,
   retryRuntimePrepare,
   type Language,
   type PrepareGroup,
@@ -20,6 +21,8 @@ export interface PrepareStatus {
   retry: () => void;
   /** The retry request is in flight. */
   retrying: boolean;
+  /** The `errors` message key of the last retry request that failed; `null` when none stands. */
+  retryError: string | null;
 }
 
 /**
@@ -28,11 +31,13 @@ export interface PrepareStatus {
  * every second (every five while the tab is hidden) only while a needed group
  * is not ready. A read that never answered counts as ready: the server holds a
  * job until its models are there, so the button never blocks on this reading.
- * `null` reads nothing.
+ * `null` reads nothing. A retry request that fails is kept as `retryError` until
+ * the next retry or until a read shows the needed groups are no longer failed.
  */
 export function usePrepare(language: Language | null): PrepareStatus {
   const [groups, setGroups] = useState<readonly PrepareGroup[] | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const kick = useRef<() => void>(() => undefined);
 
   useEffect(() => {
@@ -59,7 +64,10 @@ export function usePrepare(language: Language | null): PrepareStatus {
         const runtime = await getJson<RuntimeStatus>('/runtime', controller.signal);
         if (controller.signal.aborted) return;
         answered = true;
-        preparing = isPreparing(prepareOf(runtime.prepare.groups, needs));
+        const view = prepareOf(runtime.prepare.groups, needs);
+        preparing = isPreparing(view);
+        // A read that still shows the failure keeps the retry sentence: the retry did not move it.
+        if (view.state !== 'failed') setRetryError(null);
         const next = runtime.prepare.groups;
         // Keep the old array when nothing changed, so a steady poll does not redraw the button.
         setGroups((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
@@ -96,13 +104,14 @@ export function usePrepare(language: Language | null): PrepareStatus {
 
   const retry = useCallback(() => {
     setRetrying(true);
+    setRetryError(null);
     retryRuntimePrepare()
-      .catch(() => undefined)
+      .catch((error: unknown) => setRetryError(messageKeyOf(error)))
       .finally(() => {
         setRetrying(false);
         kick.current();
       });
   }, []);
 
-  return { view, retry, retrying };
+  return { view, retry, retrying, retryError };
 }

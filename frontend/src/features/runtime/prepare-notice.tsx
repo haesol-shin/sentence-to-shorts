@@ -10,7 +10,8 @@ import type { PrepareStatus } from './use-prepare';
  * The one sentence a make-video button owes the user when the models cannot
  * move: the connection is down and the download retries (with the time of the
  * next try), or it stopped for a reason named by the server code and the user
- * can start it again. Nothing shows while the models download or are ready.
+ * can start it again. When that retry request itself fails, its own failure
+ * sentence replaces the stop reason. Nothing shows while the models download or are ready.
  */
 export function PrepareNotice({ status, className }: { status: PrepareStatus; className?: string }) {
   const { t, language } = useLocale();
@@ -31,7 +32,11 @@ export function PrepareNotice({ status, className }: { status: PrepareStatus; cl
 
   return (
     <div className={cn('flex flex-col items-end gap-2', className)} data-slot="prepare-notice" data-state="failed">
-      <Notice tone="error">{t(`shell.prepare.error.${view.errorCode ?? 'unknown'}`)}</Notice>
+      <Notice tone="error">
+        {status.retryError === null
+          ? t(`shell.prepare.error.${view.errorCode ?? 'unknown'}`)
+          : t(`errors.${status.retryError}`)}
+      </Notice>
       <Button variant="secondary" size="sm" disabled={status.retrying} onClick={status.retry}>
         {t('shell.prepare.retry')}
       </Button>
