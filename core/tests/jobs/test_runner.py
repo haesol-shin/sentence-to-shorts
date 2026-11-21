@@ -159,6 +159,19 @@ def test_runner_text_overflow_reports_render_failed_without_retry(env: Env) -> N
     assert failed.error.detail == {"where": "caption:l_1", "font": "galmuri11"}
 
 
+def test_runner_invalid_render_input_reports_render_failed_without_retry(env: Env) -> None:
+    env.jobs.create(new_job(JobKind.generate))
+
+    def run_job(current: Job, ctx: LocalJobContext) -> dict[str, Any]:
+        raise AppError("render_input_invalid", detail={"input": "skin", "reason": "missing"})
+
+    failed = env.runner(run_job).run_once(HEAVY)
+    assert failed is not None and failed.error is not None
+    assert failed.error.code is JobErrorCode.render_failed
+    assert failed.error.retryable is False
+    assert failed.error.detail == {"input": "skin", "reason": "missing"}
+
+
 def test_runner_unexpected_exception_is_internal_without_text(env: Env) -> None:
     env.jobs.create(new_job(JobKind.chat))
 

@@ -40,6 +40,16 @@ def test_17_saved_style_is_reused_without_llm_or_sandbox(harness: Harness) -> No
     scenarios.saved_style_is_reused_without_calls(harness)
 
 
+def test_17_saved_style_theme_parts_match_the_stored_skin(harness: Harness) -> None:
+    scenarios.saved_style_theme_parts_match_the_stored_skin(harness)
+
+
+def test_17_saved_style_without_a_stored_skin_fails_with_a_render_code(
+    harness: Harness,
+) -> None:
+    scenarios.saved_style_without_a_stored_skin_fails_with_a_render_code(harness)
+
+
 def test_17_saved_style_renders_a_still(harness: Harness) -> None:
     scenarios.saved_style_renders_a_still(harness)
 
