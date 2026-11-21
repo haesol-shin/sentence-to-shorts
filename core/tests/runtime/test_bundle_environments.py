@@ -274,3 +274,65 @@ def test_21_environment_sync_searches_every_index_for_the_locked_hashed_files(
     assert "--dry-run" not in sync
     build.create_environment(Path("python"), tmp_path / "r.txt", tmp_path / "env", dry_run=True)
     assert "--dry-run" in calls[-1]
+
+
+PRUNE_HASH = " \\\n    --hash=sha256:" + "0" * 64 + "\n"
+
+
+def test_22_requirements_filter_drops_exactly_the_listed_packages_with_their_hashes() -> None:
+    second = " \\\n    --hash=sha256:" + "1" * 64 + "\n"
+    text = (
+        'numpy==2.2.6 ; python_version >= "3.11" \\\n    --hash=sha256:' + "0" * 64 + second
+        + 'scikit_learn==1.9.1 ; python_version >= "3.11"' + PRUNE_HASH
+        + "threadpoolctl==3.8.0" + PRUNE_HASH
+        + 'scikit-learn-extra==1.0 ; python_version >= "3.11"' + PRUNE_HASH
+    )
+    kept = build.prune_requirements(text, ["scikit-learn", "Threadpoolctl"])
+    assert [line.split("==")[0] for line in kept.splitlines() if "==" in line] == [
+        "numpy",
+        "scikit-learn-extra",
+    ]
+    assert kept.count("--hash=sha256:") == 3
+    assert "1" * 64 in kept
+
+
+def test_22_requirements_filter_fails_on_a_package_the_list_does_not_hold() -> None:
+    with pytest.raises(build.BuildError, match="threadpoolctl"):
+        build.prune_requirements("numpy==2.2.6" + PRUNE_HASH, ["threadpoolctl"])
+
+
+def test_22_prune_deletes_listed_paths_and_keeps_the_rest(tmp_path: Path) -> None:
+    (tmp_path / "torch" / "include" / "ATen").mkdir(parents=True)
+    (tmp_path / "torch" / "bin").mkdir()
+    for name in ("protoc", "protoc-3.13.0.0", "test_api", "torch_shm_manager"):
+        (tmp_path / "torch" / "bin" / name).write_text("x", encoding="utf-8")
+    (tmp_path / "torch" / "__init__.py").write_text("", encoding="utf-8")
+    build.prune_site(tmp_path, ["torch/include", "torch/bin/protoc*", "torch/bin/test_*"])
+    left = sorted(p.relative_to(tmp_path).as_posix() for p in tmp_path.rglob("*") if p.is_file())
+    assert left == ["torch/__init__.py", "torch/bin/torch_shm_manager"]
+    assert not (tmp_path / "torch" / "include").exists()
+
+
+def test_22_prune_fails_on_a_glob_that_matches_nothing(tmp_path: Path) -> None:
+    (tmp_path / "torch").mkdir()
+    with pytest.raises(build.BuildError, match="torch/test"):
+        build.prune_site(tmp_path, ["torch/test"])
+
+
+def test_22_prune_file_gives_every_entry_a_reason_and_keeps_paths_inside_site(
+    tmp_path: Path,
+) -> None:
+    data = build.load_prune()
+    assert data["packages"] == []
+    assert build.prune_globs("windows", data) == []
+    assert "torch/include" in build.prune_globs("linux", data)
+    bad = tmp_path / "prune.json"
+    bad.write_text(
+        json.dumps({"packages": [], "paths": {"linux": [{"glob": "../x", "reason": "r"}]}}),
+        encoding="utf-8",
+    )
+    with pytest.raises(build.BuildError, match="leaves site-packages"):
+        build.load_prune(bad)
+    bad.write_text(json.dumps({"packages": [{"name": "a"}], "paths": {}}), encoding="utf-8")
+    with pytest.raises(build.BuildError, match="reason"):
+        build.load_prune(bad)

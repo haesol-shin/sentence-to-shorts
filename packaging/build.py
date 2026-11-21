@@ -13,9 +13,9 @@ Names come from `core/config/brand.yaml`. Python is the pinned python-build-stan
 archive (`python.lock.json`), checked against its SHA-256 before it is unpacked. The
 Python packages come from `poetry export` with hashes and are installed with
 `uv pip sync --require-hashes` (wheels only, `sox` from its hashed source archive) into an
-environment of the bundled interpreter; only the package files are shipped. Deno and Pyodide
-are installed into `rt/` by the app's own `prepare`, so the bundle and a first run share one
-journal.
+environment of the bundled interpreter; only the package files are shipped, minus the
+entries of `prune.json`. Deno and Pyodide are installed into `rt/` by the app's own
+`prepare`, so the bundle and a first run share one journal.
 
 Only the standard library is imported here, so this file runs before any dependency.
 """
@@ -49,6 +49,7 @@ BRAND_FILE = CORE / "config" / "brand.yaml"
 RUNTIME_LOCK = CORE / "config" / "runtime.lock.json"
 NOTICES_FILE = ROOT / "THIRD_PARTY_NOTICES.md"
 PROFILE_ADAPTERS_FILE = PACKAGING / "profile-adapters.json"
+PRUNE_FILE = PACKAGING / "prune.json"
 CHUNK = 1 << 20
 PLACEHOLDER = re.compile(r"@[A-Z_]+@")
 QWEN_TTS_ITEM = "package-qwen-tts"
@@ -314,6 +315,73 @@ SYNC_FLAGS = (
     "--require-hashes", "--only-binary", ":all:", "--no-binary", "sox",
     "--index-strategy", "unsafe-best-match",
 )
+
+
+def load_prune(path: Path = PRUNE_FILE) -> dict[str, object]:
+    """The prune list; every entry names its reason."""
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entries = [*data["packages"], *(e for group in data["paths"].values() for e in group)]
+    if not all(entry.get("reason") for entry in entries):
+        raise BuildError(f"every entry in {path.name} needs a reason")
+    for group in data["paths"].values():
+        for entry in group:
+            parts = Path(entry["glob"]).parts
+            if Path(entry["glob"]).is_absolute() or ".." in parts or not parts:
+                raise BuildError(f"{path.name} glob leaves site-packages: {entry['glob']}")
+    return data
+
+
+def prune_globs(os_name: str, data: Mapping[str, object] | None = None) -> list[str]:
+    data = data if data is not None else load_prune()
+    return [entry["glob"] for entry in data["paths"].get(os_name, [])]  # type: ignore[attr-defined]
+
+
+def prune_requirements(text: str, names: Sequence[str]) -> str:
+    """Drop the listed packages, with their hash lines, from an exported requirements list.
+
+    A listed package that the list does not hold fails the build, so a stale entry shows up.
+    """
+    drop = {normalized(name) for name in names}
+    kept: list[str] = []
+    seen: set[str] = set()
+    entry: list[str] = []
+    for line in text.splitlines(keepends=True):
+        entry.append(line)
+        if line.rstrip("\r\n").endswith("\\"):
+            continue
+        match = re.match(r"\s*([A-Za-z0-9][A-Za-z0-9._-]*)", entry[0])
+        name = normalized(match.group(1)) if match else None
+        if name in drop:
+            seen.add(name)
+        else:
+            kept.extend(entry)
+        entry = []
+    kept.extend(entry)
+    missing = sorted(drop - seen)
+    if missing:
+        raise BuildError(f"the requirements hold no {', '.join(missing)} to prune")
+    return "".join(kept)
+
+
+def prune_requirements_file(requirements: Path, out: Path) -> Path:
+    names = [entry["name"] for entry in load_prune()["packages"]]  # type: ignore[attr-defined]
+    out.write_text(
+        prune_requirements(requirements.read_text(encoding="utf-8"), names), encoding="utf-8"
+    )
+    return out
+
+
+def prune_site(site: Path, globs: Sequence[str]) -> None:
+    """Delete the files no app path loads. A glob that matches nothing fails the build."""
+    for pattern in globs:
+        found = sorted(site.glob(pattern))
+        if not found:
+            raise BuildError(f"prune glob matches nothing in {site.name}: {pattern}")
+        for path in found:
+            if path.is_dir() and not path.is_symlink():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
 
 
 def create_environment(
@@ -587,10 +655,12 @@ def build_bundle(args: argparse.Namespace) -> Path:
         python = bundle / interpreter
         runtime_lock = json.loads(RUNTIME_LOCK.read_text(encoding="utf-8"))
         requirements = args.requirements or export_requirements(args.poetry, work / "requirements.txt")
+        requirements = prune_requirements_file(requirements, work / "requirements-pruned.txt")
         env_python = create_environment(python, requirements, work / "env")
         wheel = package_wheel(runtime_lock, QWEN_TTS_ITEM, os_name, work)
         install_wheel(env_python, wheel)
         site = copy_site(env_python, bundle / "site-packages")
+        prune_site(site, prune_globs(os_name))
         check_torch_version(site, CORE / "poetry.lock", "main")
         align_site = build_aligner(python, args.poetry, work, bundle)
         copy_core(bundle)
