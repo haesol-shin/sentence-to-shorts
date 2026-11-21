@@ -152,6 +152,10 @@ def stored_asset(root: Path, manifest: StyleManifest, asset_id: str) -> bytes | 
     return data
 
 
+def _skin_invalid(reason: str) -> AppError:
+    return AppError("render_input_invalid", detail={"input": "skin", "reason": reason})
+
+
 class GeneratedPartsBuilder:
     """``PartsBuilder`` for styles whose renderer kind is ``sandbox``."""
 
@@ -220,6 +224,24 @@ class GeneratedPartsBuilder:
                 "sandbox_output_invalid", detail={"reason": f"program did not draw {missing[0]}"}
             )
         return {name: output.files[asset_id] for name, asset_id in layers.items()}
+
+    def theme_parts(self, style: PinnedRef, theme_id: str) -> dict[str, bytes]:
+        """The theme's box skin at one pixel per grid cell, as the ``skin`` part."""
+        manifest, root = self._open(style)
+        theme = next((item for item in manifest.themes if item.id == theme_id), None)
+        if theme is None:
+            raise AppError("unknown_catalog_id", detail={"kind": "theme", "id": theme_id})
+        asset = next((item for item in manifest.assets if item.id == theme.skin_id), None)
+        if asset is None or asset.kind is not AssetKind.skin:
+            raise _skin_invalid("missing")
+        data = stored_asset(root, manifest, asset.id)
+        if data is None:
+            raise _skin_invalid("not_a_stored_grid")
+        try:
+            grid = sprites.rasterize(data, cell=1)
+        except AppError as error:
+            raise _skin_invalid("unreadable") from error
+        return {"skin": encode_png(grid)}
 
 
 class GeneratedLayerDrawer:

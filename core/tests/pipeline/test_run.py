@@ -28,7 +28,9 @@ from app.services.pipeline.dependencies import build_view, plan_change
 from app.services.pipeline.run import run
 from app.services.pipeline.run_state import check_context
 from app.services.pipeline.types import KeyRuntime
-from tests.pipeline.support import FakeVoice, Harness, build_harness
+from tests.pipeline.support import FakeTemplates, FakeVoice, Harness, build_harness
+from tests.templates import conftest as templates_conftest
+from tests.templates import scenarios as template_scenarios
 
 
 @pytest.fixture
@@ -104,6 +106,39 @@ def test_2_preview_fills_scene_data_then_reuses_cached_stills(harness: Harness) 
         second["artifacts"]["still"][scene_id] == first["artifacts"]["still"][scene_id]
         for scene_id in head.scene_order
     )
+
+
+class _GeneratedStyleTemplates(FakeTemplates):
+    """Fake template work except that parts come from the real generated-style builder."""
+
+    def __init__(self, catalog, service) -> None:
+        super().__init__(catalog)
+        self.service = service
+
+    def parts_builder(self, style):
+        return self.service.parts_builder(style)
+
+
+def test_17_preview_with_a_generated_style_builds_the_skin_from_its_stored_grid(
+    harness: Harness, tmp_path: Path
+) -> None:
+    styles = templates_conftest.build_harness(
+        tmp_path / "styles", templates_conftest.HostLauncher()
+    )
+    ref = template_scenarios.new_style(styles)
+    calls = styles.launcher.calls
+    templates = _GeneratedStyleTemplates(styles.catalog, styles.service)
+    harness.services = replace(harness.services, catalog=styles.catalog, templates=templates)
+    visual = harness.video.settings.visual.model_copy(update={"art_style": ref})
+    video = harness.revise(
+        harness.video, settings=harness.video.settings.model_copy(update={"visual": visual})
+    )
+
+    result, _ = _run(harness, JobKind.preview, video=video)
+
+    assert set(result["artifacts"]["still"]) == set(video.scene_order)
+    assert harness.render.still_calls
+    assert styles.launcher.calls == calls
 
 
 def test_5_preview_reports_progress_once_per_scene(harness: Harness) -> None:

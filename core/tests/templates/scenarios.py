@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+from typing import Any
 
 import pytest
 from PIL import Image
@@ -16,6 +17,7 @@ from app.schemas.style_manifest import StyleManifest
 from app.schemas.template_manifest import TemplateManifest
 from app.services.render import BuiltinLayerDrawer, PixelPartsBuilder, RenderService
 from app.services.templates import sprites
+from app.services.templates.builders import GeneratedPartsBuilder
 from tests.templates.conftest import (
     Harness,
     bgm_answer,
@@ -129,6 +131,63 @@ def saved_style_is_reused_without_calls(harness: Harness) -> None:
     stored = (folder / "sprites" / f"{character.slots.face}.json").read_bytes()
     assert Image.open(io.BytesIO(parts["face"])).tobytes() == sprites.rasterize(stored).tobytes()
     assert set(parts) >= {"body", "face", "expression", "pose"}
+
+
+def saved_style_theme_parts_match_the_stored_skin(harness: Harness) -> None:
+    ref = new_style(harness)
+    video = harness.video(ref)
+    theme_id = video.settings.visual.theme_id
+    manifest = harness.catalog.get("art_style", ref.id, ref.revision)
+    assert isinstance(manifest, StyleManifest)
+    theme = next(item for item in manifest.themes if item.id == theme_id)
+    folder = harness.catalog.package_dir("art_style", ref)
+    stored = (folder / "sprites" / f"{theme.skin_id}.json").read_bytes()
+    with no_new_calls(harness):
+        skin = harness.service.parts_builder(ref).theme_parts(ref, theme_id)  # type: ignore[attr-defined]
+    assert set(skin) == {"skin"}
+    assert Image.open(io.BytesIO(skin["skin"])).tobytes() == sprites.rasterize(
+        stored, cell=1
+    ).tobytes()
+    assert skin == PixelPartsBuilder(harness.catalog).theme_parts(ref, theme_id)
+
+
+class _EditedCatalog:
+    """Serves one style manifest edited after it was accepted, over the same package."""
+
+    def __init__(self, catalog: Any, manifest: StyleManifest) -> None:
+        self.catalog = catalog
+        self.manifest = manifest
+
+    def get(self, kind: str, item_id: str, revision: str) -> StyleManifest:
+        return self.manifest
+
+    def package_dir(self, kind: str, ref: PinnedRef) -> Any:
+        return self.catalog.package_dir(kind, ref)
+
+
+def saved_style_without_a_stored_skin_fails_with_a_render_code(harness: Harness) -> None:
+    ref = new_style(harness)
+    theme_id = harness.video(ref).settings.visual.theme_id
+    manifest = harness.catalog.get("art_style", ref.id, ref.revision)
+    assert isinstance(manifest, StyleManifest)
+    theme = next(item for item in manifest.themes if item.id == theme_id)
+    others = [item for item in manifest.assets if item.id != theme.skin_id]
+    skin = next(item for item in manifest.assets if item.id == theme.skin_id)
+    edits = {
+        "missing": others,
+        "not_a_stored_grid": [*others, skin.model_copy(update={"file": "sprites/skin.png"})],
+    }
+    for reason, assets in edits.items():
+        edited = _EditedCatalog(harness.catalog, manifest.model_copy(update={"assets": assets}))
+        builder = GeneratedPartsBuilder(edited, None)  # type: ignore[arg-type]
+        with pytest.raises(AppError) as failure:
+            builder.theme_parts(ref, theme_id)
+        assert failure.value.code == "render_input_invalid"
+        assert failure.value.detail == {"input": "skin", "reason": reason}
+    builder = GeneratedPartsBuilder(harness.catalog, None)  # type: ignore[arg-type]
+    with pytest.raises(AppError) as unknown:
+        builder.theme_parts(ref, "no_such_theme")
+    assert unknown.value.code == "unknown_catalog_id"
 
 
 def saved_style_renders_a_still(harness: Harness) -> None:

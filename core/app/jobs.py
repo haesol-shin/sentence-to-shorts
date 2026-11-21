@@ -117,7 +117,7 @@ PERMANENT_ERRORS = frozenset(
     }
 )
 # Render errors that show a public render_failed and that the same input repeats.
-DETERMINISTIC_RENDER_ERRORS = frozenset({"text_overflow"})
+DETERMINISTIC_RENDER_ERRORS = frozenset({"text_overflow", "render_input_invalid"})
 JOB_ID = re.compile(r"^j_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _ENTITY_ID = re.compile(r"^[a-z]{1,2}_[0-7][0-9a-hjkmnp-tv-z]{25}$")
 _CHUNK = 1 << 20
