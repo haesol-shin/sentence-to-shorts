@@ -336,6 +336,30 @@ def test_21_blocked_network_points_every_proxy_name_at_a_closed_port() -> None:
         client.connect(("127.0.0.1", port))
 
 
+def test_21_dev_gate_names_an_endpoint_and_the_other_profiles_do_not() -> None:
+    env = {"HOME": "/h"}
+    dev = smoke.gate_environment("dev", env)
+    assert dev["HOME"] == "/h" and dev["APP_LLM_BASE_URL"].startswith("http://127.0.0.1:")
+    assert smoke.gate_environment("release", env) == env
+
+
+def test_21_failed_run_keeps_launcher_output_and_data_folder_logs(tmp_path: Path) -> None:
+    work = tmp_path / "work"
+    (work / "home" / "data" / "log").mkdir(parents=True)
+    (work / "voice-data" / "log").mkdir(parents=True)
+    (work / "dev.log").write_text("stdout", encoding="utf-8")
+    (work / "home" / "data" / "log" / "launcher.log").write_text("cause", encoding="utf-8")
+    (work / "voice-data" / "log" / "launcher.log.1").write_text("old", encoding="utf-8")
+    (work / "voice-data" / "models.bin").write_text("skip", encoding="utf-8")
+    kept = tmp_path / "kept"
+    smoke.keep_logs(work, kept)
+    assert {path.name: path.read_text(encoding="utf-8") for path in kept.iterdir()} == {
+        "dev.log": "stdout",
+        "home__data__log__launcher.log": "cause",
+        "voice-data__log__launcher.log.1": "old",
+    }
+
+
 def test_21_size_and_snapshot_bookkeeping(tmp_path: Path) -> None:
     (tmp_path / "a").mkdir()
     (tmp_path / "a" / "one.bin").write_bytes(b"1" * 10)

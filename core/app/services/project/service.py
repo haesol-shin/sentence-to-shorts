@@ -32,9 +32,12 @@ def _reached(video: Video, stage: VideoStage) -> bool:
 
 
 class ProjectService:
-    def __init__(self, projects: ProjectStore, catalog: CatalogPort) -> None:
+    def __init__(
+        self, projects: ProjectStore, catalog: CatalogPort, tts_engine: str | None = None
+    ) -> None:
         self.projects = projects
         self.catalog = catalog
+        self.tts_engine = tts_engine
 
     def create_project(self, req: CreateProjectRequest) -> Project:
         created = revision.now()
@@ -45,7 +48,7 @@ class ProjectService:
             title=req.title or DEFAULT_TITLE[req.language.value],
             created_at=created,
             updated_at=created,
-            defaults=state.default_settings(req.language, self.catalog),
+            defaults=state.default_settings(req.language, self.catalog, self.tts_engine),
             video_ids=[],
         )
         self.projects.put_project(project)
@@ -245,7 +248,7 @@ class ProjectService:
 
 
 def create(settings: AppSettings, deps: ServiceDeps) -> ProjectService:
-    return ProjectService(deps.project_store, deps.catalog)
+    return ProjectService(deps.project_store, deps.catalog, deps.tts.info().engine_id)
 
 
 __all__ = ["ProjectService", "create"]

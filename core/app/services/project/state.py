@@ -121,9 +121,11 @@ PREFERRED = {
     "story_structure": "numbered_three",
     "template": "fixed_stage",
     "art_style": "pixel",
-    "voice": "fixed_wav",
 }
-"""First choice of each default. Any registered item is used when it is missing."""
+"""First choice of each default. Any registered item is used when it is missing.
+
+A voice has no preferred id: the engine bound to the profile and the language decide.
+"""
 
 
 def language_script(catalog: CatalogPort, language: Language) -> FontScript:
@@ -163,10 +165,14 @@ def _choose(catalog: CatalogPort, kind: str, accept: Any = None) -> str:
     raise AppError("unknown_catalog_id", detail={"kind": kind})
 
 
-def default_settings(language: Language, catalog: CatalogPort) -> Settings:
+def default_settings(
+    language: Language, catalog: CatalogPort, tts_engine: str | None = None
+) -> Settings:
     """Settings that make a video without any format card.
 
-    Every value has origin default except the language, which the user picked.
+    Every value has origin default except the language, which the user picked. The
+    default voice speaks ``language`` with ``tts_engine``, the engine the profile binds;
+    without an engine any voice that speaks ``language`` is taken.
     """
     style_ref = catalog.pin("art_style", _choose(catalog, "art_style"))
     style: Any = catalog.get("art_style", style_ref.id, style_ref.revision)
@@ -182,7 +188,10 @@ def default_settings(language: Language, catalog: CatalogPort) -> Settings:
     if font_id is None:
         raise AppError("unknown_catalog_id", detail={"kind": "font"})
     voice_id = _choose(
-        catalog, "voice", lambda voice: language in [lang.value for lang in voice.languages]
+        catalog,
+        "voice",
+        lambda voice: language in [lang.value for lang in voice.languages]
+        and tts_engine in (None, voice.engine_id),
     )
     role = (
         CharacterRole.presenter

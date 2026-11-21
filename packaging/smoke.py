@@ -124,6 +124,35 @@ def blocked_network(env: Mapping[str, str]) -> dict[str, str]:
     return blocked
 
 
+def gate_environment(profile: str, env: Mapping[str, str]) -> dict[str, str]:
+    """The environment of the gate start: the shipped distribution plus what a user must give.
+
+    The dev profile talks to an OpenAI-compatible endpoint the user names with
+    `APP_LLM_BASE_URL`; without it the app refuses to start. The gate names a closed port:
+    the start is checked, no request is sent.
+    """
+    gate = dict(env)
+    if profile == "dev":
+        gate["APP_LLM_BASE_URL"] = f"http://127.0.0.1:{closed_port()}/v1"
+    return gate
+
+
+def keep_logs(work: Path, target: Path) -> None:
+    """Copy the launcher output and the data folders' logs of this run to `target`.
+
+    A failed start shows its cause only there. Names are the path inside `work`.
+    """
+    found = [path for path in work.glob("*.log") if path.is_file()]
+    found += [
+        path for path in work.rglob("*") if path.is_file() and ".log" in path.name
+        and path.parent.name == "log"
+    ]
+    target.mkdir(parents=True, exist_ok=True)
+    for path in found:
+        name = "__".join(path.relative_to(work).parts)
+        shutil.copyfile(path, target / name)
+
+
 def tree_bytes(folder: Path) -> int:
     """Sum of file sizes below `folder`; 0 when it does not exist."""
     total = 0
@@ -892,7 +921,8 @@ def smoke(args: argparse.Namespace) -> Result:
         # The gate: the distribution exactly as shipped, with no profile override. The
         # app queues the model download itself; a closed proxy keeps these starts cheap.
         offline = blocked_network(env)
-        exercise(result, args.profile, root, args, offline, data_dir, work, gating=True)
+        exercise(result, args.profile, root, args, gate_environment(args.profile, offline),
+                 data_dir, work, gating=True)
         # Auxiliary: the same files with the fixture profile, to tell a packaging fault
         # from an application that cannot start yet. It never makes the run pass.
         exercise(result, "fixture", root, args, {**offline, "APP_PROFILE": "fixture"}, data_dir,
@@ -905,6 +935,8 @@ def smoke(args: argparse.Namespace) -> Result:
                 skip(result, tuple(n for n in VOICE_CHECKS if n not in done),
                      f"{type(error).__name__}: {str(error)[:200]}")
     finally:
+        if args.logs is not None and result.failed:
+            keep_logs(work, args.logs)
         if args.keep:
             print(f"kept {work}")
         else:
@@ -919,6 +951,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--profile", choices=("release", "dev"), required=True)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--keep", action="store_true")
+    parser.add_argument(
+        "--logs", type=Path, help="copy the launcher and data folder logs here when a gate fails"
+    )
     parser.add_argument("--voice", action="store_true", help="run the voice phase")
     args = parser.parse_args(argv)
     result = smoke(args)

@@ -113,6 +113,7 @@ def test_21_aligner_import_runs_with_a_cleared_environment(
     assert isinstance(env, dict)
     assert env["PYTHONPATH"] == str(tmp_path) and env["PYTHONNOUSERSITE"] == "1"
     assert not {"PATH", "PYTHONHOME", "VIRTUAL_ENV"} & set(env)
+    assert env["NLTK_DATA"]
 
 
 def test_21_wheel_that_does_not_match_the_lock_fails_the_build(tmp_path: Path) -> None:
