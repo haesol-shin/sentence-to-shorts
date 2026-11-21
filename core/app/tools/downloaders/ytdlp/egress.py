@@ -2,7 +2,8 @@
 
 The downloader cannot be told which redirects to follow, so the connection
 itself is checked. The proxy resolves each target name once, refuses the
-tunnel unless every answer is a public address, and dials that address, so a
+tunnel unless every answer is a public address, and dials only those answers in
+the resolver's order until one connects, so a
 redirect to a private host and a DNS answer that changes between check and use
 both fail. Only HTTPS tunnels to port 443 are served. The bytes that come back
 are counted across all tunnels, and the budget stops them when it runs out.
@@ -52,7 +53,8 @@ def resolve_host(host: str) -> list[str]:
     else:
         return [host]
     found = socket.getaddrinfo(host, 443, type=socket.SOCK_STREAM)
-    return sorted({str(item[4][0]) for item in found})
+    # Keep the resolver's order: it already ranks the families for this host.
+    return list(dict.fromkeys(str(item[4][0]) for item in found))
 
 
 def connect_address(address: str, port: int) -> socket.socket:
@@ -161,8 +163,8 @@ class EgressProxy:
         head, _, rest = data.partition(b"\r\n\r\n")
         return head, rest
 
-    def _target(self, head: bytes) -> tuple[str, str] | None:
-        """The checked host and the address to dial, or None after a denial."""
+    def _target(self, head: bytes) -> list[str] | None:
+        """The checked addresses to dial in order, or None after a denial."""
         words = head.split(b"\r\n", 1)[0].decode("latin-1").split(" ")
         if len(words) != 3 or words[0] != "CONNECT":
             self._deny("not_tunnel")
@@ -183,7 +185,7 @@ class EgressProxy:
         if not addresses or not all(is_public(address) for address in addresses):
             self._deny("private_address")
             return None
-        return host, addresses[0]
+        return addresses
 
     def _serve(self, client: socket.socket) -> None:
         client.settimeout(IO_TIMEOUT_S)
@@ -199,9 +201,8 @@ class EgressProxy:
             if target is None:
                 self._reply(client, "403 Forbidden")
                 return
-            try:
-                upstream = self._connect(target[1], 443)
-            except OSError:
+            upstream = self._dial(target)
+            if upstream is None:
                 self._reply(client, "502 Bad Gateway")
                 return
             upstream.settimeout(IO_TIMEOUT_S)
@@ -217,6 +218,15 @@ class EgressProxy:
                     self._shut(item)
                     with self._lock:
                         self._sockets.discard(item)
+
+    def _dial(self, addresses: list[str]) -> socket.socket | None:
+        """Connect to the first checked address that answers; no other address is tried."""
+        for address in addresses:
+            try:
+                return self._connect(address, 443)
+            except OSError:
+                continue
+        return None
 
     def _pump(self, client: socket.socket, upstream: socket.socket, early: bytes) -> None:
         def forward() -> None:

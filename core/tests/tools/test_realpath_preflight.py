@@ -159,7 +159,7 @@ def test_preflight_probes_link_with_download_disabled(synthetic_run, monkeypatch
         )
         assert argv[delimiter + 1:] == ["https://video.invalid/watch?v=synthetic"]
         assert kwargs["env"]["PATH"] == str(kwargs["cwd"])
-        return SimpleNamespace(ok=True, stdout=b"synthetic", timed_out=False)
+        return SimpleNamespace(returncode=0, stdout=b"synthetic", timed_out=False)
 
     monkeypatch.setenv("PREFLIGHT_LINK_1", "https://video.invalid/watch?v=synthetic")
     monkeypatch.setattr(preflight, "check_url", lambda url: url)
@@ -188,7 +188,7 @@ def test_preflight_link_probe_runs_the_file_with_the_app_python_and_the_locked_d
 
     def fake_run(argv, **_kwargs):  # type: ignore[no-untyped-def]
         seen.append(argv)
-        return SimpleNamespace(timed_out=False, ok=True, stdout="abc", stderr="")
+        return SimpleNamespace(timed_out=False, returncode=0, stdout="abc", stderr="")
 
     monkeypatch.setattr(preflight, "run", fake_run)
     assert preflight._link(app_settings, "https://youtu.be/abc").startswith("metadata resolved")
@@ -197,3 +197,31 @@ def test_preflight_link_probe_runs_the_file_with_the_app_python_and_the_locked_d
     ytdlp = (app_settings.runtime_dir / "yt-dlp" / "yt-dlp").resolve()
     assert argv[:2] == [sys.executable, str(ytdlp)]
     assert argv[argv.index("--js-runtimes") + 1] == f"deno:{deno.resolve()}"
+
+
+@pytest.mark.parametrize(("code", "stdout", "passes"), [
+    (101, b"abc", True),
+    (0, b"abc", True),
+    (101, b"", False),
+    (1, b"abc", False),
+])
+def test_preflight_link_probe_accepts_the_max_downloads_exit_only_with_an_id(
+    app_settings: Settings, monkeypatch: pytest.MonkeyPatch, code: int, stdout: bytes, passes: bool
+) -> None:
+    deno = "deno.exe" if sys.platform == "win32" else "deno"
+    for relative in (("yt-dlp", "yt-dlp"), ("deno", deno)):
+        path = app_settings.runtime_dir.joinpath(*relative)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.touch()
+    monkeypatch.setattr(
+        preflight,
+        "run",
+        lambda argv, **_kwargs: SimpleNamespace(
+            timed_out=False, returncode=code, stdout=stdout, stderr=b""
+        ),
+    )
+    if passes:
+        assert preflight._link(app_settings, "https://youtu.be/abc").startswith("metadata")
+    else:
+        with pytest.raises(preflight.CheckFailed):
+            preflight._link(app_settings, "https://youtu.be/abc")

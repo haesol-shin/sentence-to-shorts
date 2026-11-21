@@ -8,7 +8,7 @@ import threading
 import pytest
 
 from app.ports import AppError
-from app.tools.downloaders.ytdlp.egress import EgressProxy, is_public
+from app.tools.downloaders.ytdlp.egress import EgressProxy, is_public, resolve_host
 from app.tools.downloaders.ytdlp.urls import check_url
 
 GOOD = [
@@ -224,3 +224,63 @@ def test_20_proxy_stops_a_tunnel_that_passes_the_byte_budget() -> None:
             assert proxy.exceeded
     finally:
         upstream.close()
+
+
+def test_20_proxy_dials_the_next_checked_address_when_the_first_is_unreachable() -> None:
+    upstream = Upstream(b"y" * 10)
+    dialled: list[str] = []
+
+    def connect(address: str, port: int) -> socket.socket:
+        dialled.append(address)
+        if address == "2001:4860:4860::8888":
+            raise OSError(101, "Network is unreachable")
+        return socket.create_connection(("127.0.0.1", upstream.port), timeout=5)
+
+    try:
+        with EgressProxy(
+            max_bytes=1000,
+            resolve=lambda host: ["2001:4860:4860::8888", "8.8.8.8"],
+            connect=connect,
+        ) as proxy:
+            status, sock = _connect_request(proxy, "media.example.invalid:443")
+            data = b""
+            while chunk := sock.recv(4096):
+                data += chunk
+            sock.close()
+    finally:
+        upstream.close()
+    assert status.startswith("HTTP/1.1 200")
+    assert data == b"y" * 10
+    assert dialled == ["2001:4860:4860::8888", "8.8.8.8"]
+
+
+def test_20_proxy_replies_502_after_every_checked_address_fails() -> None:
+    dialled: list[str] = []
+
+    def connect(address: str, port: int) -> socket.socket:
+        dialled.append(address)
+        raise OSError(101, "Network is unreachable")
+
+    with EgressProxy(
+        max_bytes=1000,
+        resolve=lambda host: ["2001:4860:4860::8888", "8.8.8.8"],
+        connect=connect,
+    ) as proxy:
+        status, sock = _connect_request(proxy, "media.example.invalid:443")
+        sock.close()
+    assert status.startswith("HTTP/1.1 502")
+    assert dialled == ["2001:4860:4860::8888", "8.8.8.8"]
+
+
+def test_20_resolve_host_keeps_the_resolver_order(monkeypatch: pytest.MonkeyPatch) -> None:
+    answers = [
+        ("2400:12:0:53::1e", 0, 0, 0),
+        ("59.18.44.30", 0, 0, 0),
+        ("2400:12:0:53::1e", 0, 0, 0),
+    ]
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *_args, **_kwargs: [(0, 0, 0, "", item) for item in answers],
+    )
+    assert resolve_host("media.example.invalid") == ["2400:12:0:53::1e", "59.18.44.30"]
