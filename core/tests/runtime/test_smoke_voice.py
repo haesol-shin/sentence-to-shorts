@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 import json
 import os
 import subprocess
@@ -534,3 +535,15 @@ def test_21_the_scenes_are_driven_with_phrase_captions(proposed: bool) -> None:
     assert api.changes[0]["ops"] == [
         {"op": "set", "path": "/settings/caption/mode", "value": "phrase", "origin": "user"}
     ]
+
+
+def test_result_check_prints_a_non_ascii_detail_when_the_console_is_cp1252(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = io.BytesIO()
+    console = io.TextIOWrapper(raw, encoding="cp1252", newline="\n", write_through=True)
+    monkeypatch.setattr(sys, "stdout", console)
+    monkeypatch.setattr(sys, "stderr", console)
+    smoke.use_utf8_output()
+    smoke.Result().check("install", True, "C:\\Users\\사용자\\앱")
+    assert raw.getvalue().decode("utf-8") == "ok   install C:\\Users\\사용자\\앱\n"

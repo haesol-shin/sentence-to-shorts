@@ -23,6 +23,11 @@ on:
 permissions:
   contents: read
 
+env:
+  # Windows runners default to the console code page; every script writes UTF-8.
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: utf-8
+
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
