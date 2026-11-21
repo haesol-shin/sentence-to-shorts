@@ -37,6 +37,7 @@ from app.runtime.dev_cli import CliStatus, check_claude_cli
 from app.runtime.web import StaticSite
 
 DIST_NAME = "dist.json"
+MAIN_SITE_NAME = "site-packages"
 HEALTH_PATH = "/api/v1/health"
 LOOPBACK = "127.0.0.1"
 START_TIMEOUT_S = 120.0
@@ -73,6 +74,15 @@ class Distribution:
     deployment: str
     web_dir: str
     profile_adapters: Mapping[str, Mapping[str, str]]
+    align_python: str | None = None
+    align_site: str | None = None
+
+
+def _inside(value: object) -> bool:
+    """True for a relative path of forward-slash parts that stays below the root."""
+    if not isinstance(value, str) or not value or "\\" in value or ":" in value:
+        return False
+    return all(part not in ("", ".", "..") for part in value.split("/"))
 
 
 def read_distribution(root: Path) -> Distribution | None:
@@ -85,22 +95,29 @@ def read_distribution(root: Path) -> Distribution | None:
     deployment = payload.get("deployment", "local")
     web_dir = payload.get("web_dir", "web")
     profile_adapters = payload.get("profile_adapters", {})
+    align_python = payload.get("align_python")
+    align_site = payload.get("align_site")
     valid = isinstance(profile_adapters, dict) and all(
         name in (*PROFILES, "fixture")
         and isinstance(table, dict)
         and all(isinstance(key, str) and isinstance(value, str) for key, value in table.items())
         for name, table in profile_adapters.items()
     )
+    # The aligner environment is named by both fields or by neither.
+    aligner = (align_python is None) == (align_site is None) and all(
+        value is None or _inside(value) for value in (align_python, align_site)
+    )
     if (
         profile not in PROFILES
         or deployment not in DEPLOYMENTS
         or not isinstance(web_dir, str)
         or not valid
+        or not aligner
     ):
         raise ValueError(f"{DIST_NAME} is not a valid distribution file")
     return Distribution(
         profile=profile, deployment=deployment, web_dir=web_dir,
-        profile_adapters=profile_adapters,
+        profile_adapters=profile_adapters, align_python=align_python, align_site=align_site,
     )
 
 
@@ -127,10 +144,19 @@ def adapter_choices(
 def apply_distribution(
     root: Path, dist: Distribution | None, environ: MutableMapping[str, str]
 ) -> None:
-    """Fill the environment defaults. Anything the user already set stays."""
+    """Fill the environment defaults. Anything the user already set stays.
+
+    A distribution also names its packages: the app's own `site-packages` and, when it
+    ships one, the aligner interpreter and the aligner's packages. The workers that run
+    in other processes read them from these variables.
+    """
     if dist is not None:
         environ.setdefault("APP_PROFILE", dist.profile)
         environ.setdefault("APP_DEPLOYMENT", dist.deployment)
+        environ.setdefault("APP_MAIN_SITE", str(root / MAIN_SITE_NAME))
+        if dist.align_python is not None and dist.align_site is not None:
+            environ.setdefault("APP_ALIGN_PYTHON", str(root / dist.align_python))
+            environ.setdefault("APP_ALIGN_SITE", str(root / dist.align_site))
     environ.setdefault("APP_RUNTIME_DIR", str(root / "rt"))
 
 

@@ -179,6 +179,48 @@ class RuntimeItem(ContractModel):
     bytes: Annotated[int, Field(ge=0)]
 
 
+class PrepareGroupId(StrEnum):
+    """A set of model files the app downloads together, in the order a user needs them."""
+
+    voice = "voice"
+    transcribe = "transcribe"
+    align_en = "align_en"
+
+
+class PrepareGroupState(StrEnum):
+    ready = "ready"
+    queued = "queued"
+    downloading = "downloading"
+    retrying = "retrying"
+    failed = "failed"
+
+
+class PrepareErrorCode(StrEnum):
+    """Why a group is retrying or failed. `failed` with no code is an unexpected error."""
+
+    download_failed = "download_failed"
+    disk_full = "disk_full"
+    model_hash_mismatch = "model_hash_mismatch"
+    download_blocked = "download_blocked"
+    download_too_large = "download_too_large"
+    model_missing = "model_missing"
+
+
+class PrepareGroup(ContractModel):
+    """Progress of one model group. `done` and `total` count bytes of the group's files."""
+
+    id: PrepareGroupId
+    state: PrepareGroupState
+    done: Annotated[int, Field(ge=0)]
+    total: Annotated[int, Field(ge=0)]
+    error_code: PrepareErrorCode | None
+    retry_at: Timestamp | None
+
+
+class RuntimePrepare(ContractModel):
+    groups: list[PrepareGroup]
+
+
 class LlmAuthState(StrEnum):
     ok = "ok"
     missing = "missing"
@@ -226,6 +268,7 @@ class RuntimeStatus(ContractModel):
     deployment: Literal["local", "hosted"]
     brand: Brand
     items: list[RuntimeItem]
+    prepare: RuntimePrepare
     llm_auth: LlmAuth
     capabilities: Capabilities
     speech: SpeechDevices

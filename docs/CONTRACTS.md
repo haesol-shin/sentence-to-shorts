@@ -131,8 +131,8 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | GET `/health` | 없음 | 200 `{version, profile, deployment}` | 없음 | 아니오 |
 | POST `/session/pair` | `PairRequest` | 200 `PairResponse`와 세션 cookie | 401 `pair_invalid`, 429 `rate_limited` | 아니오 |
 | GET `/session/csrf` | 없음 | 200 `CsrfResponse` | 401 `unauthenticated`, 403 `forbidden_origin` | 아니오 |
-| GET `/runtime` | 없음 | 200 `RuntimeStatus`(`brand` 필드에 표시 이름, `speech` 필드에 TTS·ASR device와 이유 포함) | 없음 | 아니오 |
-| POST `/runtime/prepare` | 없음 | 202 Job `runtime_prepare` | 409 `job_running` | 예 |
+| GET `/runtime` | 없음 | 200 `RuntimeStatus`(`brand` 필드에 표시 이름, `speech` 필드에 TTS·ASR device와 이유, `prepare` 필드에 모델 그룹별 준비 상태 포함) | 없음 | 아니오 |
+| POST `/runtime/prepare` | 없음 | 202 Job `runtime_prepare`(대기 중인 다시 시도를 끊고 `failed` 그룹을 다시 줄 세움) | 409 `job_running` | 예 |
 | PUT `/credentials/llm` | `ApiKeyRequest` | 204 | 403 `loopback_only`, 400 `validation_failed` | 아니오 |
 | GET `/credentials/llm` | 없음 | 200 `{configured}` | 없음 | 아니오 |
 | DELETE `/credentials/llm` | 없음 | 204 | 403 `loopback_only` | 아니오 |
@@ -926,10 +926,15 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 | style, template | heavy | 900초 | 2 |
 | bgm_code | heavy | 300초 | 2 |
 | bgm_upload | light | 120초 | 1 |
-| runtime_prepare | heavy | 없음 | 3 |
+| runtime_prepare | prepare | 없음 | 3 |
 
-- 기술 선택: light queue와 heavy queue가 각각 한 번에 job 하나를 실행한다. 이유: 노트북 메모리에서 무거운 모델을 동시에 올리지 않는다.
+- 기술 선택: light, heavy, prepare queue가 각각 한 번에 job 하나를 실행한다. 이유: 노트북 메모리에서 무거운 모델을 동시에 올리지 않고, 모델 내려받기가 heavy 슬롯을 잡아 LLM 단계를 막지 않게 한다.
 - TTS, 정렬, 전사 worker는 heavy queue 안에서 한 번에 하나만 살아 있다.
+- 모델 준비는 그룹 단위다. `voice`(TTS 모델, 한국어 정렬 모델, 구두점 자료)는 앱 시작 때, `transcribe`(전사 모델)는 첫 참고 영상 제출 때, `align_en`(영어 정렬 모델)은 첫 영어 프로젝트 생성 때 줄을 선다. 그룹 하나가 `runtime_prepare` job 하나이고 입력은 `{"groups": [id]}`다. 이미 준비된 그룹은 job을 만들지 않는다.
+- 그룹이 필요한 job은 queued로 남고 준비가 끝나면 저절로 실행된다. generate는 `voice`를, 영어 영상이면 `align_en`도 기다리고 reference는 `transcribe`를 기다린다. 기다리는 동안 deadline은 시작하지 않고 `tts_not_ready`로 실패하지 않는다. preview와 그 밖의 kind는 기다리지 않는다.
+- `GET /runtime`의 `prepare.groups`는 그룹마다 `id`, `state`(`ready`, `queued`, `downloading`, `retrying`, `failed`), `done`과 `total`(바이트), `error_code`, `retry_at`을 낸다. 연결이 끊기면 job은 실패하지 않고 5초, 15초, 45초, 그다음 120초 간격으로 이어 받으며 그동안 `retrying`이다.
+- `disk_full`, `model_hash_mismatch`, `download_blocked`, `download_too_large`, `model_missing`은 다시 해도 소용없으므로 그룹을 `failed`로 하고 기다리던 job을 같은 코드로 실패시킨다. 다음 앱 시작이나 `POST /runtime/prepare`가 그 그룹을 다시 줄 세운다.
+- fixture profile과 hosted 배포는 모델을 내려받지 않고 job도 기다리지 않는다.
 
 ### 5.3 재시작 복구
 

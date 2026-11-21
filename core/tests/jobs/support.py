@@ -8,6 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from app.jobs import JobRunner, RunJob, SqliteJobStore
 from app.schemas.artifact import Artifact, ArtifactKind
@@ -31,7 +32,7 @@ class Env:
     artifacts: FileArtifactStore
     inputs: LocalJobInputStore
 
-    def runner(self, run_job: RunJob) -> JobRunner:
+    def runner(self, run_job: RunJob, **options: Any) -> JobRunner:
         return JobRunner(
             self.jobs,
             self.artifacts,
@@ -39,8 +40,7 @@ class Env:
             run_job,
             cache_dir=self.layout.cache,
             bgm_staging_dir=self.layout.data / "staging" / "bgm",
-            poll_s=0.02,
-            watch_s=0.02,
+            **{"poll_s": 0.02, "watch_s": 0.02, **options},
         )
 
     def close(self) -> None:

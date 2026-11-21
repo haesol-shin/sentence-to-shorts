@@ -7,12 +7,14 @@
 
 Runtime files go to APP_RUNTIME_DIR (default: <repo>/.local/rt); model files go
 to APP_MODEL_DIR (default: <repo>/.local/models). Model item IDs start with
-``model-`` and their files are installed verbatim, never extracted, except a
-model file that is a ``.zip``: the archive stays in place and its members are
-also extracted beside it, so NLTK reads its data directory. The application's
-runtime preparer skips ``model-`` and ``package-`` items, so this script is the
-only place that installs them. core/config/runtime.lock.json is the only source
-of versions and hashes.
+``model-``. The models are prepared by the application's own function
+``app.runtime.models.prepare_models``, the one the installed app runs in the
+background, so an item has one way to be installed: Hugging Face files through
+the official client, other files through the resumable downloader, each checked
+against the locked size and SHA-256. A model file that is a ``.zip`` stays in
+place and its members are extracted beside it, so NLTK reads its data
+directory. core/config/runtime.lock.json is the only source of versions and
+hashes.
 
 ``--models`` also installs both Poetry environments (``core`` and
 ``core/align_runtime``), the pinned WhisperX wheel into the aligner
@@ -26,7 +28,10 @@ Run --models or --tts-package with the application's Python environment: the
 verified Qwen wheel is installed there with pip --no-deps, without its demo UI.
 Its manifest revision is the SHA-1 of the wheel, not an upstream Git revision.
 Successful wheel installs are recorded separately in packages.installed.json
-under APP_RUNTIME_DIR, including the Python environment used for installation.
+under APP_RUNTIME_DIR by ``app.runtime.prepare.write_package_record``, including
+the Python environment used for installation. ``--force`` downloads the runtime
+files and the inference wheel again; a model file is replaced when it fails its
+size or hash, so delete one to fetch it again.
 """
 
 from __future__ import annotations
@@ -139,30 +144,6 @@ def extract(archive: Path, target: Path) -> None:
         shutil.copy2(archive, target / archive.name)
 
 
-def private_data_tree(root: Path) -> None:
-    """Remove group and other write bits; NLTK refuses a data path they can write."""
-    for path in [root, *root.rglob("*")]:
-        path.chmod(0o700 if path.is_dir() else 0o644)
-
-
-def archive_ready(archive: Path, target: Path) -> bool:
-    """True when every member of the zip is already extracted at its recorded size."""
-    try:
-        with zipfile.ZipFile(archive) as bundle:
-            for info in bundle.infolist():
-                if info.is_dir():
-                    continue
-                parts = Path(info.filename).parts
-                if Path(info.filename).is_absolute() or ".." in parts:
-                    return False
-                member = target.joinpath(*parts)
-                if not member.is_file() or member.stat().st_size != info.file_size:
-                    return False
-    except (zipfile.BadZipFile, OSError):
-        return False
-    return True
-
-
 def extract_item(item: dict, entry: dict, archive: Path, root: Path) -> None:
     installed = root / item["install_path"]
     if item["id"] == "ffmpeg":
@@ -238,48 +219,22 @@ def install(lock: dict, root: Path, *, force: bool) -> list[str]:
     return prepared
 
 
-def model_path(root: Path, relative: str) -> Path:
-    path = root / relative
-    if Path(relative).is_absolute() or not path.resolve().is_relative_to(root.resolve()):
-        raise SystemExit(f"model path escapes installation directory: {relative}")
-    return path
-
-
-def verified_file(path: Path, entry: dict) -> bool:
-    return (
-        path.is_file()
-        and path.stat().st_size == entry["bytes"]
-        and sha256(path) == entry["sha256"]
-    )
-
-
-def prepare_file(entry: dict, destination: Path, *, force: bool) -> bool:
-    if not force and verified_file(destination, entry):
-        return False
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=destination.parent) as temporary:
-        scratch = Path(temporary) / "download"
-        download(entry["url"], scratch)
-        if not verified_file(scratch, entry):
-            raise SystemExit(f"bytes or sha256 mismatch for {entry['file']}")
-        scratch.replace(destination)
-    return True
-
-
-def _write_journal(path: Path, journal: dict) -> None:
-    with tempfile.TemporaryDirectory(dir=path.parent) as temporary:
-        scratch = Path(temporary) / "journal.json"
-        scratch.write_text(json.dumps(journal, indent=2) + "\n", encoding="utf-8")
-        scratch.replace(path)
-
-
 def install_tts_package(lock: dict, root: Path, *, force: bool) -> list[str]:
+    app_error, models, prepare = app_modules()
     item = next(item for item in lock["items"] if item["id"] == "package-qwen-tts")
     entry = select_file(item, host_os(), host_arch())
-    wheel = model_path(model_path(root, item["install_path"]), entry["file"])
-    prepare_file(entry, wheel, force=force)
-    journal_path = root / "packages.installed.json"
-    journal = json.loads(journal_path.read_text()) if journal_path.is_file() else {}
+    from app.runtime import archive
+    from app.runtime.lock import relative_install_path
+
+    wheel = root.joinpath(*relative_install_path(item).parts, *archive.safe_parts(entry["file"]))
+    if force:
+        wheel.unlink(missing_ok=True)
+    try:
+        models.fetch_locked_file(
+            entry, wheel, staging=root / ".tmp", cancel=NeverCancelled()
+        )
+    except app_error as error:
+        raise SystemExit(f"wheel download failed: {error.code} {error.detail}") from error
     subprocess.run(
         [
             sys.executable, "-m", "pip", "install", "--no-deps", "--no-index",
@@ -287,16 +242,7 @@ def install_tts_package(lock: dict, root: Path, *, force: bool) -> list[str]:
         ],
         check=True,
     )
-    journal[item["id"]] = {
-        "version": item["version"],
-        "revision": item["revision"],
-        "file": entry["file"],
-        "sha256": entry["sha256"],
-        "bytes": entry["bytes"],
-        "install_path": item["install_path"],
-        "python": sys.executable,
-    }
-    _write_journal(journal_path, journal)
+    prepare.write_package_record(root, item, entry)
     return [item["id"]]
 
 
@@ -481,38 +427,56 @@ def install_environments() -> list[str]:
     return prepared
 
 
-def install_models(lock: dict, root: Path, *, force: bool) -> list[str]:
-    root.mkdir(parents=True, exist_ok=True)
-    journal_path = root / "installed.json"
-    journal = json.loads(journal_path.read_text()) if journal_path.is_file() else {}
-    prepared: list[str] = []
-    downloads = 0
-    for item in lock["items"]:
-        if not item["id"].startswith("model-"):
-            continue
-        installed = model_path(root, item["install_path"])
-        for entry in item["files"]:
-            destination = model_path(installed, entry["file"])
-            changed = prepare_file(entry, destination, force=force)
-            downloads += changed
-            if entry["file"].endswith(".zip"):
-                if changed or not archive_ready(destination, installed):
-                    extract(destination, installed)
-                if installed.parent != root:
-                    private_data_tree(installed.parent)
-        journal[item["id"]] = {
-            "version": item["version"],
-            "revision": item["revision"],
-            "install_path": item["install_path"],
-            "files": {
-                entry["file"]: {"bytes": entry["bytes"], "sha256": entry["sha256"]}
-                for entry in item["files"]
-            },
-        }
-        _write_journal(journal_path, journal)
-        prepared.append(item["id"])
-        print(f"verified {item['id']} {item['version']} at {installed}")
-    print(f"model downloads: {downloads}")
+class NeverCancelled:
+    """The cancel token of a script nobody can cancel from outside."""
+
+    def is_set(self) -> bool:
+        return False
+
+    def raise_if_set(self) -> None:
+        return None
+
+    def wait(self, seconds: float) -> bool:
+        return False
+
+
+def app_modules():  # type: ignore[no-untyped-def]
+    """The application's runtime modules. This script runs in the application's environment."""
+    core = str(ROOT / "core")
+    if core not in sys.path:
+        sys.path.insert(0, core)
+    import importlib
+
+    from app.ports import AppError
+
+    # `app.runtime` re-exports a function named `prepare`, so the module is imported by name.
+    return (
+        AppError,
+        importlib.import_module("app.runtime.models"),
+        importlib.import_module("app.runtime.prepare"),
+    )
+
+
+def install_models(lock: dict, root: Path) -> list[str]:
+    """Prepare every model item with the function the installed app uses."""
+    app_error, models, prepare = app_modules()
+    items = [item for item in lock["items"] if item["id"].startswith("model-")]
+    shown = [-1]
+
+    def progress(done: int, total: int) -> None:
+        percent = done * 100 // total if total else 100
+        if percent // 10 != shown[0]:
+            shown[0] = percent // 10
+            print(f"models {percent}% ({done >> 20} of {total >> 20} MiB)", flush=True)
+
+    try:
+        prepared = models.prepare_models(
+            root, items, cancel=NeverCancelled(), hooks=prepare.Hooks(progress=progress)
+        )
+    except app_error as error:
+        raise SystemExit(f"model preparation failed: {error.code} {error.detail}") from error
+    for name in prepared:
+        print(f"verified {name} at {root}")
     return prepared
 
 
@@ -527,7 +491,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--tts-package", action="store_true", help="install the inference wheel only"
     )
-    parser.add_argument("--force", action="store_true", help="download again even when verified")
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="download the runtime files and the inference wheel again even when verified",
+    )
     args = parser.parse_args(argv)
     if not (args.runtime or args.models or args.tts_package):
         parser.error("pass --runtime, --models or --tts-package")
@@ -539,7 +507,7 @@ def main(argv: list[str] | None = None) -> int:
         prepared.extend(install_tts_package(lock, runtime_root(), force=args.force))
     if args.models:
         prepared.extend(install_environments())
-        prepared.extend(install_models(lock, model_root(), force=args.force))
+        prepared.extend(install_models(lock, model_root()))
     print("prepared: " + ", ".join(prepared))
     return 0
 

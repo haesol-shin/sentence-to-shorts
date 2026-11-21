@@ -145,3 +145,19 @@ def test_runtime_api_reads_the_speech_status_as_one_snapshot(
     monkeypatch.setattr(runtime, "tts", _SteppingSpeech())
     body = client.get("/api/v1/runtime").json()
     assert body["speech"]["tts"] == {"device": "cpu", "reason": "load_failed"}
+
+
+def test_21_runtime_status_adds_the_prepare_groups_and_keeps_the_old_fields(
+    client: TestClient,
+) -> None:
+    body = client.get("/api/v1/runtime").json()
+    assert {row["id"] for row in body["items"]} >= {"ffmpeg", "model-tts-qwen3-0.6b"}
+    groups = body["prepare"]["groups"]
+    assert [group["id"] for group in groups] == ["voice", "transcribe", "align_en"]
+    assert sum(group["total"] for group in groups) == 4_633_348_419
+    assert {group["state"] for group in groups} <= {
+        "queued", "downloading", "retrying", "ready", "failed"
+    }
+    for group in groups:
+        assert 0 <= group["done"] <= group["total"]
+        assert (group["state"] == "retrying") == (group.get("retry_at") is not None)

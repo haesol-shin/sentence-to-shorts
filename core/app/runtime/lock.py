@@ -32,18 +32,20 @@ def host_platform() -> Target:
     return name, _ARCH.get(machine, machine)
 
 
-EXTERNAL_PREFIXES = ("model-", "package-")
+MODEL_PREFIX = "model-"
+EXTERNAL_PREFIXES = ("package-",)
 
 
 def runtime_owned(item: Item) -> bool:
     """True for items this preparer installs below the runtime root.
 
-    `model-` items live below `APP_MODEL_DIR` and `package-` items are Python wheels
-    installed with pip. Both are prepared by `scripts/dev_setup.py`, which skips the
-    other items for the same reason, so the preparer never plans or downloads them.
-    The status still reports them from the journals that script writes.
+    `model-` items live below `APP_MODEL_DIR` and are prepared by `app.runtime.models`,
+    and `package-` items are Python wheels that the installer build (or
+    `scripts/dev_setup.py`) puts into the Python environment. The runtime preparer never
+    plans or downloads either kind. The status still reports both from their journals.
     """
-    return not str(item["id"]).startswith(EXTERNAL_PREFIXES)
+    identifier = str(item["id"])
+    return not identifier.startswith((MODEL_PREFIX, *EXTERNAL_PREFIXES))
 
 
 def all_lock_items(settings: AppSettings) -> list[dict[str, Any]]:
@@ -59,6 +61,13 @@ def all_lock_items(settings: AppSettings) -> list[dict[str, Any]]:
 def lock_items(settings: AppSettings) -> list[dict[str, Any]]:
     """The runtime lock items of the settings that the preparer installs, as dictionaries."""
     return [item for item in all_lock_items(settings) if runtime_owned(item)]
+
+
+def model_items(settings: AppSettings) -> list[dict[str, Any]]:
+    """The `model-` lock items of the settings, in lock order, as dictionaries."""
+    return [
+        item for item in all_lock_items(settings) if str(item["id"]).startswith(MODEL_PREFIX)
+    ]
 
 
 _ARCHIVE_SUFFIXES = (".zip", ".whl", ".tar.gz", ".tgz", ".tar.bz2", ".tar.xz")

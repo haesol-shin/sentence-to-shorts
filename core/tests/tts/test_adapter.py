@@ -280,3 +280,24 @@ def test_27_closed_adapter_never_starts_a_new_worker(tmp_path: Path) -> None:
         synth(adapter, tmp_path)
     assert (raised.value.code, raised.value.detail["reason"]) == ("tts_failed", "closed")
     assert len([event for event in events(tmp_path) if event["event"] == "start"]) == 1
+
+
+@pytest.mark.parametrize("named", [True, False])
+def test_21_the_worker_loads_the_app_packages_only_when_the_build_names_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, named: bool
+) -> None:
+    if named:
+        monkeypatch.setenv("APP_MAIN_SITE", str(tmp_path / "site-packages"))
+    else:
+        monkeypatch.delenv("APP_MAIN_SITE", raising=False)
+    adapter = make_adapter(tmp_path)
+    try:
+        synth(adapter, tmp_path)
+    finally:
+        adapter.close()
+    start = [event for event in events(tmp_path) if event["event"] == "start"][0]
+    if named:
+        assert start["pythonpath"] == str(tmp_path / "site-packages")
+        assert start["nousersite"] == "1"
+    else:
+        assert start["pythonpath"] is None and start["nousersite"] is None

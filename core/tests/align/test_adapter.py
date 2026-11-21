@@ -306,3 +306,46 @@ def test_15_the_worker_runs_under_app_align_python(
         adapter.close()
     assert result.failure is None
     assert "--model-ko" in log.read_text(encoding="utf-8")
+
+
+def test_21_the_worker_loads_only_the_aligner_packages_the_build_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    site = tmp_path / "align-site"
+    monkeypatch.setenv("APP_ALIGN_SITE", str(site))
+    adapter = make_adapter(tmp_path, "ok")
+    try:
+        assert align(adapter, tmp_path, K4_DISPLAY, K4_SPEECH).failure is None
+    finally:
+        adapter.close()
+    start = events(tmp_path)[0]
+    assert start["pythonpath"] == str(site)
+    assert start["nousersite"] == "1"
+
+
+def test_21_a_source_checkout_leaves_the_worker_search_path_alone(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("APP_ALIGN_SITE", raising=False)
+    adapter = make_adapter(tmp_path, "ok")
+    try:
+        assert align(adapter, tmp_path, K4_DISPLAY, K4_SPEECH).failure is None
+    finally:
+        adapter.close()
+    start = events(tmp_path)[0]
+    assert start["pythonpath"] is None and start["nousersite"] is None
+
+
+def test_21_a_korean_line_aligns_without_the_english_model(tmp_path: Path) -> None:
+    adapter = make_adapter(tmp_path, "ok")
+    (tmp_path / "en" / "model.pth").unlink()
+    try:
+        assert adapter.missing("ko") == []
+        assert adapter.missing("en") == ["model-align-en"]
+        assert adapter.missing() == ["model-align-en"]
+        korean = align(adapter, tmp_path, K4_DISPLAY, K4_SPEECH, "ko")
+        english = align(adapter, tmp_path, K4_DISPLAY, K4_SPEECH, "en")
+    finally:
+        adapter.close()
+    assert korean.failure is None
+    assert (english.phrases, english.failure) == (None, "align_unavailable")

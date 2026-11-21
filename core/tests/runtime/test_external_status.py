@@ -1,8 +1,9 @@
-"""`status` reports the model and package items that the development setup installs."""
+"""`status` reports the model and package items that the app, the build or a script install."""
 
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import sys
 from pathlib import Path, PurePosixPath
@@ -11,6 +12,7 @@ from typing import Any
 import pytest
 
 from app.runtime import status
+from app.runtime.prepare import BUNDLE_PYTHON, write_package_record
 from app.schemas.api import RuntimeItemState
 from tests.runtime.support import TARGET, lock_item, make_settings
 
@@ -206,3 +208,45 @@ def test_external_status_counts_an_unreadable_journal_as_missing(tmp_path: Path)
 
     assert states(settings)[MODEL_ID][0] is RuntimeItemState.missing
     assert states(settings)[PACKAGE_ID][0] is RuntimeItemState.missing
+
+
+def bundled(tmp_path: Path, *, version: str | None = None, distribution: str = "pytest"):
+    """A package item of an installed distribution, whose record names `bundle`."""
+    installed = importlib.metadata.version("pytest")
+    item = package_item()
+    item["id"] = f"package-{distribution}"
+    item["version"] = version or installed
+    settings = make_settings(tmp_path, [item])
+    write_package_record(
+        settings.runtime_dir, item, item["files"][0], python=BUNDLE_PYTHON
+    )
+    return settings, item
+
+
+def test_21_a_bundle_record_is_ready_when_the_installed_version_matches(tmp_path: Path) -> None:
+    settings, item = bundled(tmp_path)
+    assert states(settings)[item["id"]][0] is RuntimeItemState.ready
+
+
+@pytest.mark.parametrize(
+    ("version", "distribution"),
+    [("0.0.1", "pytest"), (None, "not-installed-anywhere")],
+    ids=["other-version", "not-installed"],
+)
+def test_21_a_bundle_record_is_corrupt_when_the_installed_package_differs(
+    tmp_path: Path, version: str | None, distribution: str
+) -> None:
+    settings, item = bundled(tmp_path, version=version, distribution=distribution)
+    assert states(settings)[item["id"]][0] is RuntimeItemState.corrupt
+
+
+def test_21_a_package_record_keeps_the_records_beside_it(tmp_path: Path) -> None:
+    settings, item = bundled(tmp_path)
+    other = package_item()
+    other["id"] = "package-other"
+    write_package_record(settings.runtime_dir, other, other["files"][0])
+    records = json.loads((settings.runtime_dir / "packages.installed.json").read_text())
+    assert set(records) == {item["id"], "package-other"}
+    assert records[item["id"]]["python"] == BUNDLE_PYTHON
+    assert records["package-other"]["python"] == sys.executable
+    assert records["package-other"]["sha256"] == other["files"][0]["sha256"]

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.util
 import json
 import os
 import platform
@@ -37,6 +38,7 @@ import urllib.request
 from collections.abc import Mapping, Sequence
 from importlib import metadata
 from pathlib import Path
+from types import ModuleType
 
 ROOT = Path(__file__).resolve().parent.parent
 PACKAGING = ROOT / "packaging"
@@ -47,6 +49,7 @@ NOTICES_FILE = ROOT / "THIRD_PARTY_NOTICES.md"
 PROFILE_ADAPTERS_FILE = PACKAGING / "profile-adapters.json"
 CHUNK = 1 << 20
 PLACEHOLDER = re.compile(r"@[A-Z_]+@")
+QWEN_TTS_ITEM = "package-qwen-tts"
 
 # The sibling module holds the FFmpeg source pins, so it is imported from its folder.
 if str(PACKAGING) not in sys.path:
@@ -88,13 +91,16 @@ def read_brand(path: Path = BRAND_FILE) -> dict[str, str]:
     return values
 
 
-def distribution_settings(profile: str) -> dict[str, object]:
-    """The shipped `dist.json`: the default profile input plus the shared provider table."""
+def distribution_settings(profile: str, interpreter: str) -> dict[str, object]:
+    """The shipped `dist.json`: the default profile input, the shared provider table and the
+    aligner location (the bundled interpreter and its own site folder, relative to the bundle)."""
     source = PACKAGING / "profiles" / f"{profile}.json"
     payload = json.loads(source.read_text(encoding="utf-8"))
     if "profile_adapters" in payload:
         raise BuildError(f"{source.name} must not repeat the shared provider table")
     payload["profile_adapters"] = json.loads(PROFILE_ADAPTERS_FILE.read_text(encoding="utf-8"))
+    payload["align_python"] = interpreter
+    payload["align_site"] = "align-site"
     return payload
 
 
@@ -140,7 +146,11 @@ def run(argv: Sequence[str], **kwargs: object) -> subprocess.CompletedProcess[st
 # --- notices, build info, sums ------------------------------------------------------
 
 
-def render_notices(lock: Mapping[str, object], packages: Sequence[tuple[str, str, str]] = ()) -> str:
+def render_notices(
+    lock: Mapping[str, object],
+    packages: Sequence[tuple[str, str, str]] = (),
+    aligner_packages: Sequence[tuple[str, str, str]] = (),
+) -> str:
     """Markdown notices from the runtime manifest, plus the Python packages when given."""
     lines = [
         "# Third-party notices",
@@ -180,6 +190,21 @@ def render_notices(lock: Mapping[str, object], packages: Sequence[tuple[str, str
             "The list of installed packages with their licenses is written into this file "
             "inside each distribution."
         )
+    if aligner_packages:
+        lines += [
+            "",
+            "## Aligner packages",
+            "",
+            "The aligner runs from its own folder with its own torch. These packages are "
+            "not part of the list above.",
+            "",
+            "| Package | Version | License |",
+            "| --- | --- | --- |",
+        ]
+        lines += [
+            f"| {name} | {version} | {license_text} |"
+            for name, version, license_text in aligner_packages
+        ]
     lines.append("")
     return "\n".join(lines)
 
@@ -215,6 +240,7 @@ def render_build_info(
         "app_version": core_version(),
         "commit": commit,
         "lock_hash": sha256_file(CORE / "poetry.lock"),
+        "align_lock_hash": sha256_file(CORE / "align_runtime" / "poetry.lock"),
         "runtime_manifest_digest": canonical_digest(lock),
         "profile": profile,
         "os": os_name,
@@ -248,33 +274,166 @@ def unpack_python(archive: Path, bundle: Path) -> None:
         tar.extractall(bundle, filter="data")
 
 
-def export_requirements(poetry: str, out: Path) -> Path:
+def export_requirements(poetry: str, out: Path, project: Path = CORE) -> Path:
     run(
         [*shlex.split(poetry), "export", "--only", "main", "--format", "requirements.txt",
          "--output", str(out)],
-        cwd=CORE,
+        cwd=project,
     )
     text = out.read_text(encoding="utf-8")
     if "--hash=sha256:" not in text:
         raise BuildError("poetry export wrote no hashes")
+    out.write_text(accept_windows_machine(text), encoding="utf-8")
     return out
 
 
-def install_packages(python: Path, requirements: Path, bundle: Path, work: Path) -> Path:
+_AMD64_MARKER = 'platform_machine == "amd64"'
+
+
+def accept_windows_machine(text: str) -> str:
+    """Let a marker written for `amd64` match Windows, whose machine name is `AMD64`.
+
+    Marker strings compare case-sensitively. A package such as `hf-xet` lists only the
+    lower-case name, so a Windows install would drop it and downloads would lose the
+    parallel transfer; the hashes already cover its Windows wheel.
+    """
+    return text.replace(_AMD64_MARKER, f'{_AMD64_MARKER} or platform_machine == "AMD64"')
+
+
+def create_environment(python: Path, requirements: Path, env_dir: Path) -> Path:
+    """A venv of the bundled interpreter holding exactly the hashed requirements."""
     uv = shutil.which("uv")
     if uv is None:
         raise BuildError("uv is not on PATH")
-    env_dir = work / "env"
     run([str(python), "-m", "venv", "--without-pip", str(env_dir)])
     env_python = env_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
     run([uv, "pip", "sync", "--require-hashes", "--no-build", "--python", str(env_python),
          str(requirements)])
+    return env_python
+
+
+def install_wheel(env_python: Path, wheel: Path) -> None:
+    """Install one verified wheel; its dependencies are already in the environment or unwanted."""
+    uv = shutil.which("uv")
+    if uv is None:
+        raise BuildError("uv is not on PATH")
+    run([uv, "pip", "install", "--no-deps", "--no-index", "--python", str(env_python), str(wheel)])
+
+
+def copy_site(env_python: Path, target: Path) -> Path:
     purelib = run(
         [str(env_python), "-c", "import sysconfig; print(sysconfig.get_path('purelib'))"]
     ).stdout.strip()
-    target = bundle / "site-packages"
     shutil.copytree(purelib, target)
     return target
+
+
+def package_wheel(lock: Mapping[str, object], item_id: str, os_name: str, work: Path) -> Path:
+    """Download the wheel the runtime lock pins for the item and verify size and SHA-256."""
+    item = next((i for i in lock["items"] if i["id"] == item_id), None)  # type: ignore[index]
+    entry = None if item is None else next(
+        (f for f in item["files"] if f["os"] in (os_name, "any")), None
+    )
+    if entry is None:
+        raise BuildError(f"the runtime lock has no wheel for {item_id}")
+    target = work / entry["file"]
+    request = urllib.request.Request(entry["url"], headers={"User-Agent": "packaging"})
+    with urllib.request.urlopen(request, timeout=600) as response, target.open("wb") as out:  # noqa: S310
+        shutil.copyfileobj(response, out, CHUNK)
+    verify_wheel(target, entry)
+    return target
+
+
+def verify_wheel(path: Path, entry: Mapping[str, object]) -> None:
+    if path.stat().st_size != entry["bytes"] or sha256_file(path) != entry["sha256"]:
+        raise BuildError(f"{path.name} does not match its size and SHA-256 in the lock")
+
+
+def normalized(name: str) -> str:
+    return re.sub(r"[-_.]+", "_", name).lower()
+
+
+def check_no_pth(site: Path, label: str) -> None:
+    """A .pth file could pull another environment onto this one's import path."""
+    found = sorted(path.name for path in site.glob("*.pth"))
+    if found:
+        raise BuildError(f"{label} holds .pth files: {', '.join(found)}")
+
+
+def check_unused_packages(site: Path, unused: Sequence[str]) -> None:
+    """The alignment path imports none of these, so they must not ride along."""
+    prefixes = tuple(normalized(name) for name in unused)
+    found = set()
+    for entry in site.iterdir():
+        if entry.name.endswith(".dist-info"):
+            stem = entry.name.removesuffix(".dist-info").rsplit("-", 1)[0]
+        elif entry.is_dir():
+            stem = entry.name
+        else:
+            continue
+        if normalized(stem).startswith(prefixes):
+            found.add(entry.name)
+    if found:
+        raise BuildError(f"align-site holds unused packages: {', '.join(sorted(found))}")
+
+
+def check_aligner_import(python: Path, site: Path) -> None:
+    """The aligner imports from its own folder alone, with the settings the app gives it."""
+    env = {"PYTHONPATH": str(site), "PYTHONNOUSERSITE": "1"}
+    if os.environ.get("SYSTEMROOT"):
+        env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+    run([str(python), "-c", "import whisperx.alignment"], env=env)
+
+
+def locked_version(lock_file: Path, name: str) -> str:
+    data = tomllib.loads(lock_file.read_text(encoding="utf-8"))
+    for package in data["package"]:
+        if package["name"] == name:
+            return str(package["version"])
+    raise BuildError(f"{lock_file.parent.name}/{lock_file.name} has no {name}")
+
+
+def check_torch_version(site: Path, lock_file: Path, label: str) -> str:
+    """The installed torch is the one the environment's own lock pins."""
+    wanted = locked_version(lock_file, "torch")
+    dists = [d for d in metadata.distributions(path=[str(site)]) if d.metadata["Name"] == "torch"]
+    if len(dists) != 1 or dists[0].version != wanted:
+        raise BuildError(f"{label} torch is not {wanted}")
+    return wanted
+
+
+def aligner_installer() -> ModuleType:
+    spec = importlib.util.spec_from_file_location(
+        "align_install_whisperx", CORE / "align_runtime" / "install_whisperx.py"
+    )
+    if spec is None or spec.loader is None:
+        raise BuildError("core/align_runtime/install_whisperx.py cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def build_aligner(python: Path, poetry: str, work: Path, bundle: Path) -> Path:
+    """The aligner environment: its own torch, the pinned WhisperX wheel without dependencies."""
+    project = CORE / "align_runtime"
+    requirements = export_requirements(poetry, work / "align-requirements.txt", project)
+    env_python = create_environment(python, requirements, work / "align-env")
+    installer = aligner_installer()
+    try:
+        pin = installer.pinned()
+    except SystemExit as error:
+        raise BuildError(str(error)) from error
+    wheel = work / pin["url"].rsplit("/", 1)[-1]
+    installer.download(pin["url"], wheel)
+    if not installer.verified(wheel, pin):
+        raise BuildError(f"{wheel.name} does not match its size and SHA-256 in the lock")
+    install_wheel(env_python, wheel)
+    site = copy_site(env_python, bundle / "align-site")
+    check_no_pth(site, "align-site")
+    check_unused_packages(site, installer.UNUSED)
+    check_torch_version(site, project / "poetry.lock", "align")
+    check_aligner_import(python.resolve(), site)
+    return site
 
 
 def copy_core(bundle: Path) -> None:
@@ -381,8 +540,14 @@ def build_bundle(args: argparse.Namespace) -> Path:
         else:
             unpack_python(download_python(lock, label, work), bundle)
         python = bundle / interpreter
+        runtime_lock = json.loads(RUNTIME_LOCK.read_text(encoding="utf-8"))
         requirements = args.requirements or export_requirements(args.poetry, work / "requirements.txt")
-        site = install_packages(python, requirements, bundle, work)
+        env_python = create_environment(python, requirements, work / "env")
+        wheel = package_wheel(runtime_lock, QWEN_TTS_ITEM, os_name, work)
+        install_wheel(env_python, wheel)
+        site = copy_site(env_python, bundle / "site-packages")
+        check_torch_version(site, CORE / "poetry.lock", "main")
+        align_site = build_aligner(python, args.poetry, work, bundle)
         copy_core(bundle)
         bundled_lock = bundle / "core" / "config" / "runtime.lock.json"
         bundled_lock.write_text(
@@ -406,7 +571,7 @@ def build_bundle(args: argparse.Namespace) -> Path:
         python_version = run(
             [str(python), "-c", "import platform; print(platform.python_version())"]
         ).stdout.strip()
-        finish_bundle(bundle, args, os_name, arch, python_version, site)
+        finish_bundle(bundle, args, os_name, arch, python_version, site, align_site, interpreter)
     return bundle
 
 
@@ -414,10 +579,11 @@ def compile_python(python: Path, bundle: Path) -> None:
     mode = ["-q", "--invalidation-mode", "unchecked-hash"]
     run([str(python), "-m", "compileall", *mode, str(bundle / "core")])
     # A third-party package may ship a file for another Python version; that is not fatal.
-    subprocess.run(  # noqa: S603
-        [str(python), "-m", "compileall", *mode, str(bundle / "site-packages")],
-        capture_output=True, check=False,
-    )
+    for folder in ("site-packages", "align-site"):
+        subprocess.run(  # noqa: S603
+            [str(python), "-m", "compileall", *mode, str(bundle / folder)],
+            capture_output=True, check=False,
+        )
 
 
 def finish_bundle(
@@ -427,6 +593,8 @@ def finish_bundle(
     arch: str,
     python_version: str,
     site: Path,
+    align_site: Path,
+    interpreter: str,
 ) -> None:
     shutil.copy2(PACKAGING / "launch.py", bundle / "launch.py")
     if os_name == "linux":
@@ -434,12 +602,14 @@ def finish_bundle(
         shutil.copy2(PACKAGING / "start.sh", start)
         start.chmod(0o755)
     (bundle / "dist.json").write_text(
-        json.dumps(distribution_settings(args.profile), indent=2) + "\n", encoding="utf-8"
+        json.dumps(distribution_settings(args.profile, interpreter), indent=2) + "\n",
+        encoding="utf-8",
     )
     shutil.copy2(ROOT / "LICENSE", bundle / "LICENSE")
     lock = json.loads((bundle / "core" / "config" / "runtime.lock.json").read_text("utf-8"))
     (bundle / "THIRD_PARTY_NOTICES.md").write_text(
-        render_notices(lock, installed_packages(site)), encoding="utf-8"
+        render_notices(lock, installed_packages(site), installed_packages(align_site)),
+        encoding="utf-8",
     )
     commit = args.commit or os.environ.get("GITHUB_SHA") or git_commit()
     info = render_build_info(

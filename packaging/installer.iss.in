@@ -33,5 +33,6 @@ Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; Working
 Type: filesandordirs; Name: "{app}\rt"
 Type: filesandordirs; Name: "{app}\core"
 Type: filesandordirs; Name: "{app}\site-packages"
+Type: filesandordirs; Name: "{app}\align-site"
 Type: filesandordirs; Name: "{app}\python"
 Type: filesandordirs; Name: "{app}\web"

@@ -124,8 +124,6 @@ class Engine:
     def _check_data(self) -> None:
         if not self._model_ko.is_dir():
             raise ModelLoadError("the Korean align model directory is missing")
-        if not (self._model_en / self._model_en_file).is_file():
-            raise ModelLoadError("the English align model file is missing")
         splitter = self._nltk_data / "tokenizers" / "punkt_tab" / "english"
         if not splitter.is_dir():
             raise ModelLoadError("the punkt_tab data is missing")
@@ -166,6 +164,10 @@ class Engine:
                 model_cache_only=True,
             )
         elif language == "en":
+            # Checked here, not at start: a Korean video needs no English model, and a
+            # missing file would make the loader download one.
+            if not (self._model_en / self._model_en_file).is_file():
+                raise ModelLoadError("the English align model file is missing")
             model, metadata = self._whisperx.load_align_model(
                 language_code="en",
                 device="cpu",

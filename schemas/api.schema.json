@@ -2174,6 +2174,92 @@
       "title": "PrecheckReport",
       "type": "object"
     },
+    "PrepareErrorCode": {
+      "description": "Why a group is retrying or failed. `failed` with no code is an unexpected error.",
+      "enum": [
+        "download_failed",
+        "disk_full",
+        "model_hash_mismatch",
+        "download_blocked",
+        "download_too_large",
+        "model_missing"
+      ],
+      "title": "PrepareErrorCode",
+      "type": "string"
+    },
+    "PrepareGroup": {
+      "additionalProperties": false,
+      "description": "Progress of one model group. `done` and `total` count bytes of the group's files.",
+      "properties": {
+        "done": {
+          "minimum": 0,
+          "title": "Done",
+          "type": "integer"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PrepareErrorCode"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/PrepareGroupId"
+        },
+        "retry_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "state": {
+          "$ref": "#/$defs/PrepareGroupState"
+        },
+        "total": {
+          "minimum": 0,
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "state",
+        "done",
+        "total",
+        "error_code",
+        "retry_at"
+      ],
+      "title": "PrepareGroup",
+      "type": "object"
+    },
+    "PrepareGroupId": {
+      "description": "A set of model files the app downloads together, in the order a user needs them.",
+      "enum": [
+        "voice",
+        "transcribe",
+        "align_en"
+      ],
+      "title": "PrepareGroupId",
+      "type": "string"
+    },
+    "PrepareGroupState": {
+      "enum": [
+        "ready",
+        "queued",
+        "downloading",
+        "retrying",
+        "failed"
+      ],
+      "title": "PrepareGroupState",
+      "type": "string"
+    },
     "Preset": {
       "additionalProperties": false,
       "properties": {
@@ -2874,6 +2960,23 @@
       "title": "RuntimeItemState",
       "type": "string"
     },
+    "RuntimePrepare": {
+      "additionalProperties": false,
+      "properties": {
+        "groups": {
+          "items": {
+            "$ref": "#/$defs/PrepareGroup"
+          },
+          "title": "Groups",
+          "type": "array"
+        }
+      },
+      "required": [
+        "groups"
+      ],
+      "title": "RuntimePrepare",
+      "type": "object"
+    },
     "RuntimeStatus": {
       "additionalProperties": false,
       "properties": {
@@ -2906,6 +3009,9 @@
         "llm_auth": {
           "$ref": "#/$defs/LlmAuth"
         },
+        "prepare": {
+          "$ref": "#/$defs/RuntimePrepare"
+        },
         "profile": {
           "enum": [
             "fixture",
@@ -2925,6 +3031,7 @@
         "deployment",
         "brand",
         "items",
+        "prepare",
         "llm_auth",
         "capabilities",
         "speech"

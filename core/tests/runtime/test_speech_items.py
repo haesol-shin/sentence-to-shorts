@@ -1,4 +1,4 @@
-"""The runtime preparer leaves speech models and wheels to the development setup script."""
+"""The runtime preparer plans no speech model or wheel: models go through `prepare_models`."""
 
 from __future__ import annotations
 

@@ -5,8 +5,9 @@ app.yaml selects the aligner through `providers.adapters.aligner`. The value
 `align_unavailable` and the voice service turns the line into a sentence caption.
 The value `whisperx` runs a WhisperX worker in the second environment named by
 `APP_ALIGN_PYTHON`, because the Qwen TTS environment pins torch 2.7 and WhisperX
-needs torch 2.8. Without that environment, or without the prepared model files,
-the line also reports `align_unavailable`.
+needs torch 2.8. An installed build ships that environment as a folder of packages
+named by `APP_ALIGN_SITE`. Without that environment, or without the prepared model
+files of the line's language, the line also reports `align_unavailable`.
 
 The worker keeps one language model in memory and answers one line per request.
 A line has its own timeout, the larger of ``TIMEOUT_FLOOR_S`` and
@@ -50,6 +51,7 @@ MODEL_EN_ITEM = "model-align-en"
 NLTK_ITEM = "model-nltk-punkt-tab"
 
 LANGUAGES = ("ko", "en")
+MODEL_BY_LANGUAGE = {"ko": MODEL_KO_ITEM, "en": MODEL_EN_ITEM}
 PRECISION = "float32"
 DEVICE = "cpu"
 
@@ -59,6 +61,7 @@ WHISPERX = "whisperx"
 """The `providers.adapters.aligner` value that selects this adapter."""
 
 PYTHON_ENV = "APP_ALIGN_PYTHON"
+SITE_ENV = "APP_ALIGN_SITE"
 THREADS_ENV = "APP_ALIGN_THREADS"
 MAX_DEFAULT_THREADS = 4
 
@@ -104,6 +107,17 @@ print(
     )
 )
 """
+
+
+def _site_env() -> dict[str, str]:
+    """`PYTHONPATH` of the aligner's packages, when an installed build names them.
+
+    The worker runs the bundled interpreter, which holds no packages of its own; the
+    second environment is a folder of packages beside it. User site packages stay out,
+    so only that folder can reach the worker.
+    """
+    site = os.environ.get(SITE_ENV)
+    return {"PYTHONPATH": site, "PYTHONNOUSERSITE": "1"} if site else {}
 
 
 def default_threads() -> int:
@@ -321,10 +335,17 @@ class WhisperXAligner(AlignerAdapter):
             self._closed = True
             self._stop_worker()
 
-    def missing(self) -> list[str]:
-        """Prepared model items that are absent; empty when every file is there."""
+    def missing(self, language: str | None = None) -> list[str]:
+        """Prepared items that are absent; empty when every file is there.
+
+        With a language, only the model that language needs counts, so a Korean video
+        does not wait for the English model.
+        """
+        wanted = MODEL_BY_LANGUAGE.get(language) if language is not None else None
         missing: list[str] = []
         for item, root, files in self._model_files:
+            if wanted is not None and item != wanted:
+                continue
             for name, size in files.items():
                 path = root / name
                 if not path.is_file() or path.stat().st_size != size:
@@ -345,7 +366,11 @@ class WhisperXAligner(AlignerAdapter):
         cancel: CancelToken,
     ) -> AlignResult:
         cancel.raise_if_set()
-        if str(language) not in LANGUAGES or not self._command or self.missing():
+        if (
+            str(language) not in LANGUAGES
+            or not self._command
+            or self.missing(str(language))
+        ):
             return AlignResult(phrases=None, failure=mapping.UNAVAILABLE)
         try:
             speech_ms = _wav_ms(wav)
@@ -447,6 +472,7 @@ class WhisperXAligner(AlignerAdapter):
         ]
         threads = str(self._threads)
         env = build_env()
+        env.update(_site_env())
         env.update(
             OMP_NUM_THREADS=threads,
             MKL_NUM_THREADS=threads,
@@ -562,6 +588,7 @@ def _environment(python: Path | None) -> dict[str, Any] | None:
     if python is None:
         return None
     env = build_env()
+    env.update(_site_env())
     env["PYTHONUTF8"] = "1"
     try:
         completed = subprocess.run(

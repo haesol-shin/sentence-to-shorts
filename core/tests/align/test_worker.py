@@ -81,7 +81,7 @@ def align(segment, model, metadata, audio, device):
 
 
 def start(
-    tmp_path: Path, *, idle: float = 120.0, models: bool = True
+    tmp_path: Path, *, idle: float = 120.0, models: bool = True, english: bool = True
 ) -> tuple[subprocess.Popen, Path]:
     libs = tmp_path / "libs"
     (libs / "whisperx").mkdir(parents=True)
@@ -91,7 +91,8 @@ def start(
     en = tmp_path / "en"
     ko.mkdir(exist_ok=True)
     en.mkdir(exist_ok=True)
-    (en / "model.pth").write_bytes(b"x")
+    if english:
+        (en / "model.pth").write_bytes(b"x")
     nltk = tmp_path / "nltk_data"
     (nltk / "tokenizers" / "punkt_tab" / "english").mkdir(parents=True)
     command = [
@@ -259,5 +260,28 @@ def test_15_an_empty_request_text_is_one_error(tmp_path: Path) -> None:
             },
         )
         assert (reply["type"], reply["code"]) == ("error", "empty_text")
+    finally:
+        stop(process)
+
+
+def test_21_the_korean_model_alone_starts_the_worker_and_aligns_korean(tmp_path: Path) -> None:
+    process, log = start(tmp_path, english=False)
+    try:
+        assert read(process) == {"type": "ready"}
+        wav = write_wav(tmp_path / "ko.wav", ms=1000)
+        reply = send(
+            process,
+            {"id": 1, "wav": str(wav), "speech_text": "가격은 만 이천오백 원이고,",
+             "language": "ko", "speech_ms": 1000},
+        )
+        assert reply["type"] == "words"
+        english = send(
+            process,
+            {"id": 2, "wav": str(wav), "speech_text": "The price is twelve dollars.",
+             "language": "en", "speech_ms": 1000},
+        )
+        assert english["type"] == "error" and english["id"] == 2
+        loads = [call["language"] for call in calls(log) if call["event"] == "load"]
+        assert loads == ["ko"]
     finally:
         stop(process)
