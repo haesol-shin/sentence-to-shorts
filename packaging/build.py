@@ -5,15 +5,17 @@
         --web frontend/dist --poetry "poetry"
     python packaging/build.py archive --os linux --bundle dist/<bundle> --out dist
     python packaging/build.py notices [--check]
+    python packaging/build.py check-locks [--poetry "poetry"]
     python packaging/build.py sources --os linux --out dist
     python packaging/build.py sums dist/<file> ... --out dist/SHA256SUMS
 
 Names come from `core/config/brand.yaml`. Python is the pinned python-build-standalone
 archive (`python.lock.json`), checked against its SHA-256 before it is unpacked. The
 Python packages come from `poetry export` with hashes and are installed with
-`uv pip sync --require-hashes --no-build` into an environment of the bundled interpreter;
-only the package files are shipped. Deno and Pyodide are installed into `rt/` by the
-app's own `prepare`, so the bundle and a first run share one journal.
+`uv pip sync --require-hashes` (wheels only, `sox` from its hashed source archive) into an
+environment of the bundled interpreter; only the package files are shipped. Deno and Pyodide
+are installed into `rt/` by the app's own `prepare`, so the bundle and a first run share one
+journal.
 
 Only the standard library is imported here, so this file runs before any dependency.
 """
@@ -300,16 +302,46 @@ def accept_windows_machine(text: str) -> str:
     return text.replace(_AMD64_MARKER, f'{_AMD64_MARKER} or platform_machine == "AMD64"')
 
 
-def create_environment(python: Path, requirements: Path, env_dir: Path) -> Path:
-    """A venv of the bundled interpreter holding exactly the hashed requirements."""
+# The exported list names the explicit PyTorch CPU index next to PyPI. uv's default
+# first-index strategy looks a package up only on the first index that has it, so
+# packages the PyTorch index also carries (certifi, for one) would never reach PyPI at
+# their locked version. `unsafe-best-match` searches every index for the locked version.
+# That is safe here: `--require-hashes` accepts only a file whose SHA-256 is in the
+# lock, so no index can substitute another file for a locked one.
+# Every package installs from a wheel except `sox`, which publishes only a pure-Python
+# source archive; its locked hash covers that archive, and uv builds it into the environment.
+SYNC_FLAGS = (
+    "--require-hashes", "--only-binary", ":all:", "--no-binary", "sox",
+    "--index-strategy", "unsafe-best-match",
+)
+
+
+def create_environment(
+    python: Path, requirements: Path, env_dir: Path, dry_run: bool = False
+) -> Path:
+    """A venv of the bundled interpreter holding exactly the hashed requirements.
+
+    A dry run resolves and downloads nothing into the venv, which stays empty.
+    """
     uv = shutil.which("uv")
     if uv is None:
         raise BuildError("uv is not on PATH")
     run([str(python), "-m", "venv", "--without-pip", str(env_dir)])
     env_python = env_dir / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
-    run([uv, "pip", "sync", "--require-hashes", "--no-build", "--python", str(env_python),
-         str(requirements)])
+    dry = ["--dry-run"] if dry_run else []
+    run([uv, "pip", "sync", *SYNC_FLAGS, *dry, "--python", str(env_python), str(requirements)])
     return env_python
+
+
+def check_locks(poetry: str) -> None:
+    """Resolve the exported core and aligner lists as the bundle build does, installing nothing."""
+    with tempfile.TemporaryDirectory(prefix="locks-") as scratch:
+        work = Path(scratch)
+        python = Path(sys.executable)
+        for label, project in (("core", CORE), ("aligner", CORE / "align_runtime")):
+            requirements = export_requirements(poetry, work / f"{label}.txt", project)
+            create_environment(python, requirements, work / f"{label}-env", dry_run=True)
+            print(f"{label}: the locked packages resolve")
 
 
 def install_wheel(env_python: Path, wheel: Path) -> None:
@@ -701,6 +733,8 @@ def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     archive.add_argument("--out", type=Path, required=True)
     notices = sub.add_parser("notices", help="write or check THIRD_PARTY_NOTICES.md")
     notices.add_argument("--check", action="store_true")
+    locks = sub.add_parser("check-locks", help="resolve the exported lists without installing")
+    locks.add_argument("--poetry", default="poetry", help="command that runs poetry export")
     sources = sub.add_parser("sources", help="corresponding-source archive for one platform")
     sources.add_argument("--os", choices=("linux", "windows"), required=True)
     sources.add_argument("--arch", default="x86_64")
@@ -732,6 +766,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     raise BuildError("THIRD_PARTY_NOTICES.md is out of date; run notices")
             else:
                 NOTICES_FILE.write_text(text, encoding="utf-8")
+        elif args.command == "check-locks":
+            check_locks(args.poetry)
         elif args.command == "sources":
             with tempfile.TemporaryDirectory(prefix="sources-") as scratch:
                 work = args.work or Path(scratch)
