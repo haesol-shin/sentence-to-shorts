@@ -5,6 +5,7 @@ from __future__ import annotations
 import platform
 import re
 import sys
+import sysconfig
 from collections.abc import Mapping, Sequence
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -25,10 +26,24 @@ _ARCH = {
 _DRIVE = re.compile(r"^[A-Za-z]:")
 
 
+def host_machine() -> str:
+    """The CPU name of this host, lower case, without help from environment variables.
+
+    On Windows `platform.machine()` reads `PROCESSOR_ARCHITECTURE`, which an environment
+    without it (a service, a sandbox, a bare user shell) leaves empty. The build tag of the
+    interpreter itself names the CPU the same way on every start.
+    """
+    if sys.platform == "win32":
+        tagged = {"win-amd64": "amd64", "win-arm64": "arm64"}.get(sysconfig.get_platform())
+        if tagged is not None:
+            return tagged
+    return platform.machine().lower()
+
+
 def host_platform() -> Target:
     """Operating system ("windows" or "linux") and CPU ("x86_64" or "aarch64")."""
     name = "windows" if sys.platform == "win32" else "linux"
-    machine = platform.machine().lower()
+    machine = host_machine()
     return name, _ARCH.get(machine, machine)
 
 

@@ -193,6 +193,17 @@ def test_launcher_prints_the_resolved_defaults_without_starting(
     assert not harness.apps
 
 
+def test_launcher_prints_the_resolved_defaults_in_ascii_for_a_korean_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # A Windows pipe encodes with the locale code page; non-ASCII output ended the command.
+    harness = Harness(tmp_path, "dev")
+    assert run(harness.root, harness.parts(), argv=["--print-config"], environ=harness.env) == 0
+    out = capsys.readouterr().out
+    out.encode("ascii")
+    assert json.loads(out)["data_dir"] == str(harness.data)
+
+
 def test_launcher_serves_on_the_preferred_port_and_publishes_its_record(tmp_path: Path) -> None:
     harness = Harness(tmp_path)
     free = socket.socket()
