@@ -1,0 +1,32 @@
+{
+  "packages": [],
+  "paths": {
+    "linux": [
+      {
+        "glob": "torch/include",
+        "reason": "C++ headers for building extensions; the app builds none."
+      },
+      {
+        "glob": "torch/test",
+        "reason": "C++ test executables shipped inside the wheel."
+      },
+      {
+        "glob": "torch/bin/*Test",
+        "reason": "C++ store test executables shipped inside the wheel."
+      },
+      {
+        "glob": "torch/bin/test_*",
+        "reason": "C++ test executables shipped inside the wheel."
+      },
+      {
+        "glob": "torch/bin/tutorial_*",
+        "reason": "C++ tutorial executable shipped inside the wheel."
+      },
+      {
+        "glob": "torch/bin/protoc*",
+        "reason": "Protocol buffer compiler for building extensions; the app never runs it."
+      }
+    ],
+    "windows": []
+  }
+}
