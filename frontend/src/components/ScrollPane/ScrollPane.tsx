@@ -15,12 +15,11 @@ import './ScrollPane.css';
 
 import { IconButton } from '../IconButton/IconButton';
 
-/** Every screen uses the same name for this control. */
-const JUMP_LABEL = '아래로 넘기기';
-
 export type ScrollPaneProps = {
   /** The accessible name of the scrolling region. */
   label: string;
+  /** The accessible name of the floating jump control. */
+  jumpLabel: string;
   children: ReactNode;
   className?: string;
 };
@@ -28,12 +27,12 @@ export type ScrollPaneProps = {
 /**
  * One scrolling column. The scrollbar is never drawn, while the wheel, the
  * trackpad and the keyboard scroll it as usual. When more content waits below,
- * a 44 round 「아래로 넘기기」 control floats at the bottom centre and moves one
+ * a 44 round jump control named by the caller floats at the bottom centre and moves one
  * screen's 80 percent; at the end it disappears and gives focus back to the
  * column. The control takes no layout row, so the content keeps its own height.
  */
 export const ScrollPane = forwardRef<HTMLDivElement, ScrollPaneProps>(
-  function ScrollPane({ label, children, className }, ref) {
+  function ScrollPane({ label, jumpLabel, children, className }, ref) {
     const viewportRef = useRef<HTMLDivElement>(null);
     const jumpRef = useRef<HTMLButtonElement>(null);
     const jumpWrapRef = useRef<HTMLDivElement>(null);
@@ -128,7 +127,7 @@ export const ScrollPane = forwardRef<HTMLDivElement, ScrollPaneProps>(
         </div>
         {more ? (
           <div ref={jumpWrapRef} className="scroll-pane__jump">
-            <IconButton ref={jumpRef} label={JUMP_LABEL} onClick={jump}>
+            <IconButton ref={jumpRef} label={jumpLabel} onClick={jump}>
               <ChevronDown aria-hidden="true" />
             </IconButton>
           </div>

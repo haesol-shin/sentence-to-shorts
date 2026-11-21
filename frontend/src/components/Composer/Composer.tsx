@@ -23,7 +23,7 @@ export type ComposerProps = Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, 'o
   defaultValue?: string;
   onValueChange?: (value: string) => void;
   onSend?: () => void;
-  sendLabel?: string;
+  sendLabel: string;
   stopLabel: string;
   loading?: boolean;
   disabled?: boolean;
@@ -52,7 +52,7 @@ export function Composer({
   defaultValue = '',
   onValueChange,
   onSend,
-  sendLabel = '보내기',
+  sendLabel,
   stopLabel,
   loading = false,
   disabled = false,

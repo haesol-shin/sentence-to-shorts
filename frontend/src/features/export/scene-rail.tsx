@@ -27,6 +27,7 @@ export function SceneRail({
       <p className="px-1 text-[13px] text-[var(--text-muted)]">{t('export.scenes.hint')}</p>
       <ScrollPane
         label={t('export.scenes.list')}
+        jumpLabel={t('shell.scroll.jump')}
         className="max-h-[calc(100dvh-var(--layout-topbar-h)-120px)] min-h-0 flex-1"
       >
         <div className="flex flex-col items-center gap-3 pb-12">

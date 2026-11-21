@@ -16,11 +16,13 @@ export type MenuItemSpec = {
   label: ReactNode;
   disabled?: boolean;
   selected?: boolean;
-  /** Dims the row and keeps the reason reachable through the visible note. */
-  unavailable?: boolean;
   /** A Tag element from the caller. One tag component serves every surface. */
   tag?: ReactNode;
-};
+} & (
+  | { unavailable?: false; unavailableName?: undefined }
+  /** Dims the row and keeps the reason reachable through the visible note. */
+  | { unavailable: true; unavailableName: string }
+);
 
 export type MenuButtonProps = {
   /** A control that forwards its ref and opens this menu. Compose a Button. */
@@ -29,7 +31,7 @@ export type MenuButtonProps = {
   label: string;
   heading?: ReactNode;
   items: readonly MenuItemSpec[];
-  /** A visible reason for unavailable rows. A default notes the next step. */
+  /** The visible reason for unavailable rows. Without it the rows show no reason. */
   note?: ReactNode;
   open?: boolean;
   defaultOpen?: boolean;
@@ -67,8 +69,7 @@ export function MenuButton({
   const fade = useOverflowFade(list, '.menu-item');
   const forced = statesOf(forceItemState);
   const forcedAttr = forced.length > 0 ? forced.join(' ') : undefined;
-  const resolvedNote =
-    note ?? (items.some((item) => item.unavailable) ? '곧 지원 항목은 다음 단계에서 열려요.' : undefined);
+  const resolvedNote = items.some((item) => item.unavailable) ? note : undefined;
 
   const rows = items.map((item) => {
     const forcedItem = item.value === (forceItemValue ?? items[0]?.value);
@@ -80,7 +81,7 @@ export function MenuButton({
         data-selected={item.selected === true ? '' : undefined}
         data-unavailable={item.unavailable === true ? '' : undefined}
         data-force-state={forcedItem ? forcedAttr : undefined}
-        aria-label={item.unavailable === true ? `${String(item.label)} 곧 지원` : undefined}
+        aria-label={item.unavailable === true ? item.unavailableName : undefined}
         aria-describedby={item.unavailable === true && resolvedNote !== undefined ? noteId : undefined}
         onClick={() => onSelect?.(item.value)}
       >

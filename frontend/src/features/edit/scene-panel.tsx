@@ -180,7 +180,7 @@ function SfxPicker({
           />
         }
       />
-      <ScrollPane label={t('edit.sfx.list')} className="max-h-72 min-h-0">
+      <ScrollPane label={t('edit.sfx.list')} jumpLabel={t('shell.scroll.jump')} className="max-h-72 min-h-0">
         <div className="flex flex-col">
           {items.length === 0 ? (
             <p className="px-3 py-2 text-[15px] text-[var(--text-muted)]">{t('edit.sfx.empty')}</p>
@@ -484,6 +484,11 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         </h3>
         <ReorderList
           label={t('edit.scene.order')}
+          labels={{
+            grip: (item) => t('edit.scene.reorderGrip', { label: item }),
+            up: (item) => t('edit.scene.moveUp', { label: item }),
+            down: (item) => t('edit.scene.moveDown', { label: item }),
+          }}
           items={edit.scenes.map((item, index) => ({
             id: item.id,
             label: t('edit.scene.number', { number: index + 1 }),
@@ -594,7 +599,7 @@ export function ScenePanel({ edit }: { edit: EditValue }) {
           {t('edit.scene.chooseBody')}
         </EmptyState>
       ) : (
-        <ScrollPane label={t('edit.scene.form')} className="min-h-0 flex-1">
+        <ScrollPane label={t('edit.scene.form')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
           <div className="pb-16">
             <SceneForm key={edit.selectedScene.id} edit={edit} scene={edit.selectedScene} />
           </div>

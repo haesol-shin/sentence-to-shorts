@@ -210,7 +210,7 @@ export function ScriptScreen({
       className="script-screen"
     >
       <div data-slot="script-document" className="script-document">
-        <ScrollPane label={t('script.document')} className="script-document-pane">
+        <ScrollPane label={t('script.document')} jumpLabel={t('shell.scroll.jump')} className="script-document-pane">
           <header className="script-head" data-slot="script-head">
             <h2>{t('script.title')}</h2>
             <p className="script-topic">{script.topic}</p>

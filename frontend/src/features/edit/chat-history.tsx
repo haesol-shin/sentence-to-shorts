@@ -14,7 +14,7 @@ export function EditChatHistory() {
   const edit = useEdit();
   return (
     <div data-slot="edit-chat" className="flex min-h-0 flex-1 flex-col">
-      <ScrollPane label={t('edit.chat.label')} className="min-h-0 flex-1">
+      <ScrollPane label={t('edit.chat.label')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
         {edit.messages.length === 0 ? (
           <p className="px-1 py-2 text-[15px] text-[var(--text-muted)]">{t('edit.chat.empty')}</p>
         ) : (

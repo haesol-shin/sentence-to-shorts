@@ -64,7 +64,7 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
     <dialog ref={dialog} aria-label={title} className="concept-dialog" onCancel={(event) => {
       event.preventDefault(); onClose();
     }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <ScrollPane label={title} className="concept-dialog__pane">
+      <ScrollPane label={title} jumpLabel={t('shell.scroll.jump')} className="concept-dialog__pane">
         <div className="flex flex-col gap-4 p-6">
           <h2 className="text-[22px] font-bold">{title}</h2>
           {children}
@@ -364,7 +364,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
   );
   return (
     <section data-slot="concept-screen" className="concept-screen" aria-label={t('concept.title')}>
-      <ScrollPane label={t('concept.document')} className="concept-content">
+      <ScrollPane label={t('concept.document')} jumpLabel={t('shell.scroll.jump')} className="concept-content">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div><h1 className="text-[22px] font-bold">{t('concept.title')}</h1>
             <p>{doc.topic}</p><p className="text-[15px]">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>

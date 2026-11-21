@@ -7,6 +7,7 @@
 - `forceState`는 갤러리의 시각 상태 강제에만 쓴다. 실제 상호작용은 `:hover`, `:active`, `:focus-visible`과 Base UI의 열림 속성이 맡는다.
 - 보이는 크기는 결정값 그대로 두고 `.hit-area::after`가 44x44를 채운다. 이 계산은 부품마다 하지 않는다.
 - 다른 부품이 필요한 자리는 호출자가 합성한다(MenuButton의 trigger, Chip의 remove, SettingsRow의 control). 그래야 한 역할에 한 부품만 남는다.
+- 부품은 화면 읽기용 이름과 상태 글을 고정한 한국어로 두지 않는다. 호출자가 prop으로 넘기고, 한국어 문구는 갤러리가 값으로만 준다. 항목마다 이름이 갈리는 조작(ReorderList의 이동 단추)은 항목 이름을 받아 이름을 돌려주는 함수를 받는다.
 - trigger로 쓰는 단추는 `React.forwardRef`로 ref를 DOM까지 넘긴다. React 18에서 이것이 없으면 tooltip과 메뉴 열림 상태가 깨진다.
 - `frontend/src/shared/ui/tokens.css`는 `design/tokens/tokens.json`과 `design/tokens/shell.css`에서 만든 파일이다. 직접 고치지 않는다.
 

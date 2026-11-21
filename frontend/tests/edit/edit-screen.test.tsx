@@ -142,6 +142,24 @@ test('test_23_the_position_change_invalidates_the_still', async () => {
   expect(note.closest('[role="img"]')).toBeNull();
 });
 
+test('test_10a_the_english_edit_screen_names_reorder_and_jump_controls_in_english', async () => {
+  wrap(<EditScreen />, createMockEditApi(view), 'en');
+  await screen.findByRole('heading', { name: 'Scene 1' });
+
+  const names = within(screen.getByRole('list', { name: 'Scene order' }))
+    .getAllByRole('button')
+    .map((button) => button.getAttribute('aria-label'));
+  expect(names.slice(0, 3)).toEqual(['Reorder: Scene 1', 'Move up: Scene 1', 'Move down: Scene 1']);
+  expect(names.some((name) => /[가-힣]/u.test(name ?? ''))).toBe(false);
+
+  const scenes = screen.getByRole('region', { name: 'Scenes' });
+  for (const [name, value] of Object.entries({ scrollHeight: 1000, clientHeight: 400, scrollTop: 0 })) {
+    Object.defineProperty(scenes, name, { configurable: true, value });
+  }
+  fireEvent.scroll(scenes);
+  expect(within(scenes.parentElement as HTMLElement).getByRole('button', { name: 'Scroll down' })).toBeTruthy();
+});
+
 test('test_23_adding_a_scene_asks_for_the_server_rebuild_scope', async () => {
   const api = createMockEditApi(view);
   const first = wrap(<EditScreen />, api);

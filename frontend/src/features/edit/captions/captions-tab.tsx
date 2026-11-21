@@ -190,7 +190,7 @@ export function CaptionsTab({ edit }: { edit: EditValue }) {
       : t('audio.caption.size', { primary: layout.primary_px, extra: layout.extra_px });
 
   return (
-    <ScrollPane label={t('audio.caption.label')} className="min-h-0 flex-1">
+    <ScrollPane label={t('audio.caption.label')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
       <div data-slot="captions-tab" className="flex flex-col gap-5 pb-16">
         <div className="flex justify-end">
           <Button

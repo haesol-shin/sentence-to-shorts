@@ -72,11 +72,13 @@ const RADIO_OPTIONS = [
   { value: 'wide', label: '가로' },
 ];
 
+const SOON_NOTE = '곧 지원 항목은 다음 단계에서 열려요.';
+
 const VOICES: readonly ValueFieldItem[] = [
   { value: 'bright', label: '밝은 목소리' },
   { value: 'calm', label: '차분한 목소리' },
   { value: 'low', label: '낮은 목소리' },
-  { value: 'robot', label: '로봇 목소리', unavailable: true, tag: SOON_TAG },
+  { value: 'robot', label: '로봇 목소리', unavailable: true, unavailableName: '로봇 목소리 곧 지원', tag: SOON_TAG },
 ];
 
 const TIGHT_VOICES: readonly ValueFieldItem[] = [
@@ -91,7 +93,7 @@ const TIGHT_VOICES: readonly ValueFieldItem[] = [
   { value: 'mid', label: '중간 목소리' },
   { value: 'deep', label: '아주 낮은 목소리' },
   { value: 'high', label: '아주 높은 목소리' },
-  { value: 'robot', label: '로봇 목소리', unavailable: true, tag: SOON_TAG },
+  { value: 'robot', label: '로봇 목소리', unavailable: true, unavailableName: '로봇 목소리 곧 지원', tag: SOON_TAG },
 ];
 
 function menuItems(slug: string): readonly MenuItemSpec[] {
@@ -103,7 +105,7 @@ function menuItems(slug: string): readonly MenuItemSpec[] {
         label: `추가 파일 ${index + 1}`,
       })),
       { value: 'text', label: '글 파일 올리기 (.md, .txt)' },
-      { value: 'image', label: '이미지 올리기', unavailable: true, tag: SOON_TAG },
+      { value: 'image', label: '이미지 올리기', unavailable: true, unavailableName: '이미지 올리기 곧 지원', tag: SOON_TAG },
     ];
   }
   const selected = slug === 'open' || slug === 'item-selected';
@@ -111,7 +113,7 @@ function menuItems(slug: string): readonly MenuItemSpec[] {
     { value: 'upload', label: '참고 영상 올리기' },
     { value: 'link', label: '영상 링크 붙여넣기', disabled: slug === 'item-disabled' },
     { value: 'bgm', label: 'BGM 올리기', selected },
-    { value: 'image', label: '이미지 올리기', unavailable: true, tag: SOON_TAG },
+    { value: 'image', label: '이미지 올리기', unavailable: true, unavailableName: '이미지 올리기 곧 지원', tag: SOON_TAG },
     { value: 'text', label: '글 파일 올리기 (.md, .txt)' },
   ];
 }
@@ -260,6 +262,12 @@ const STAGES = [
   { value: 'export', label: '내보내기' },
 ];
 
+const REORDER_LABELS = {
+  grip: (item: string) => `순서 바꾸기: ${item}`,
+  up: (item: string) => `위로 이동: ${item}`,
+  down: (item: string) => `아래로 이동: ${item}`,
+};
+
 const REORDER_ITEMS = [
   { id: 'scene-1', label: '편의점 앞' },
   { id: 'scene-2', label: '재고 세기' },
@@ -334,7 +342,7 @@ function ScrollPaneCase({ atEnd, short }: { atEnd: boolean; short: boolean }) {
   }, [atEnd]);
   const paragraphs = short ? SCROLL_PARAGRAPHS.slice(0, 1) : SCROLL_PARAGRAPHS;
   return (
-    <ScrollPane ref={viewport} label="대본" className="demo-scroll-pane">
+    <ScrollPane ref={viewport} label="대본" jumpLabel="아래로 넘기기" className="demo-scroll-pane">
       {paragraphs.map((paragraph) => (
         <p className="demo-scroll-pane__line" key={paragraph}>
           {paragraph}
@@ -481,6 +489,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           label="파일 넣기"
           heading="올릴 파일"
           items={menuItems(entry.slug)}
+          note={SOON_NOTE}
           defaultOpen={isOpen ? true : undefined}
           forceItemValue={forced?.value}
           forceItemState={forced?.state}
@@ -494,6 +503,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
         <ValueField
           label="목소리"
           items={tight ? TIGHT_VOICES : VOICES}
+          note={SOON_NOTE}
           placeholder="목소리 고르기"
           defaultValue={isOpen || entry.slug === 'hover' || entry.slug === 'focus-visible' || entry.slug === 'disabled' ? 'calm' : undefined}
           forceState={isOpen ? undefined : state}
@@ -524,7 +534,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
             description="이 영상에서 쓸 목소리를 골라요."
             control={
               <div className="demo-control-field">
-                <ValueField label="목소리" items={VOICES} defaultValue="calm" />
+                <ValueField label="목소리" items={VOICES} note={SOON_NOTE} defaultValue="calm" />
               </div>
             }
           />
@@ -560,6 +570,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       return (
         <Composer
           label="메시지 입력"
+          sendLabel="보내기"
           stopLabel="멈추기"
           attachLabel="파일 넣기"
           placeholder={entry.slug === 'drop' ? '여기에 놓으면 올라가요' : '어떤 영상을 만들까요?'}
@@ -722,6 +733,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       return (
         <BottomSheet
           defaultOpen
+          closeLabel="닫기"
           title="목소리 고르기"
           description={
             entry.slug === 'long'
@@ -867,6 +879,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           selected={state === 'selected'}
           disabled={state === 'disabled'}
           busy={busy}
+          busyLabel="고치는 중"
           forceState={state}
         />
       );
@@ -875,6 +888,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       return (
         <ReorderList
           label="장면 순서"
+          labels={REORDER_LABELS}
           items={REORDER_ITEMS}
           forceState={state}
           forceItem="scene-2"

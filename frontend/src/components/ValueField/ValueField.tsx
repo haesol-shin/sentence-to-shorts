@@ -15,16 +15,21 @@ export type ValueFieldItem = {
   value: string;
   label: string;
   disabled?: boolean;
-  unavailable?: boolean;
   /** A Tag element from the caller. */
   tag?: ReactNode;
-};
+} & (
+  | { unavailable?: false; unavailableName?: undefined }
+  /** Dims the row and keeps the reason reachable through the visible note. */
+  | { unavailable: true; unavailableName: string }
+);
 
 export type ValueFieldProps = {
   /** The accessible name of the field. */
   label: string;
   items: readonly ValueFieldItem[];
   placeholder?: string;
+  /** The visible reason for unavailable rows. Without it the rows show no reason. */
+  note?: ReactNode;
   value?: string;
   defaultValue?: string;
   onValueChange?: (value: string) => void;
@@ -47,6 +52,7 @@ export function ValueField({
   label,
   items,
   placeholder,
+  note,
   value,
   defaultValue,
   onValueChange,
@@ -63,9 +69,7 @@ export function ValueField({
   const fade = useOverflowFade(list, '.field-item');
   const forced = statesOf(forceState);
 
-  const resolvedNote = items.some((item) => item.unavailable)
-    ? '곧 지원 항목은 다음 단계에서 열려요.'
-    : undefined;
+  const resolvedNote = items.some((item) => item.unavailable) ? note : undefined;
   const rootItems = items.map((item) => ({ value: item.value, label: item.label }));
 
   return (
@@ -109,7 +113,7 @@ export function ValueField({
                       disabled={item.disabled === true || item.unavailable === true}
                       className="field-item hit-area"
                       data-unavailable={item.unavailable === true ? '' : undefined}
-                      aria-label={item.unavailable === true ? `${item.label} 곧 지원` : item.label}
+                      aria-label={item.unavailable === true ? item.unavailableName : item.label}
                       aria-describedby={
                         item.unavailable === true && resolvedNote !== undefined ? noteId : undefined
                       }

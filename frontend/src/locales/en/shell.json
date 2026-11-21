@@ -53,6 +53,7 @@
   "nextActionShort.export": "Download",
   "notice.dismiss": "Dismiss the notice",
   "placeholder.empty": "This part has not been built yet.",
+  "scroll.jump": "Scroll down",
   "session.connecting": "Connecting.",
   "session.missing": "Open this again with the connection code shown on the computer.",
   "stage.composerPlaceholder": "Write what to change",

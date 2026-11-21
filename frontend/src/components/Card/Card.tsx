@@ -24,15 +24,18 @@ export type CardProps = {
   duration?: string;
   selected?: boolean;
   disabled?: boolean;
-  /** The work on this card is running. A blue spinner and the status text show it. */
-  busy?: boolean;
-  /** The status text while busy. The header keeps its line so the card size holds. */
-  busyLabel?: string;
   onClick?: () => void;
   /** Forces a state for the gallery. */
   forceState?: ForceState;
   className?: string;
-};
+} & (
+  | { busy?: false; busyLabel?: undefined }
+  /**
+   * The work on this card is running. A blue spinner and the caller's status
+   * text show it. The header keeps its line so the card size holds.
+   */
+  | { busy: boolean; busyLabel: string }
+);
 
 /**
  * One selectable card. The format card is wide with a 4:3 picture; the scene
@@ -50,7 +53,7 @@ export function Card({
   selected = false,
   disabled = false,
   busy = false,
-  busyLabel = '고치는 중',
+  busyLabel,
   onClick,
   forceState,
   className,
