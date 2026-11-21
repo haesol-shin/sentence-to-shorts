@@ -4,6 +4,9 @@ import { useEditOptional } from '@/features/edit/edit-context';
 import { ExportScreen } from '@/features/export/export-screen';
 import { inFlight } from '@/features/export/model';
 import { useExportSession } from '@/features/export/store';
+import { waitingPercent } from '@/features/runtime/prepare';
+import { PrepareNotice } from '@/features/runtime/prepare-notice';
+import { usePrepare } from '@/features/runtime/use-prepare';
 import type { Preset } from '@/shared/api/client';
 
 import type { Stage } from '../shell/shell-config';
@@ -15,6 +18,7 @@ export function ExportRoute({ videoId, onStage, onSavePreset }: {
 }) {
   const edit = useEditOptional();
   const current = edit?.view?.video.id === videoId ? edit : null;
+  const prepare = usePrepare(current?.video?.settings.language ?? null);
   const generation = current?.job?.kind === 'generate' ? current.job : null;
   const job = generation !== null && (
     inFlight(generation) || generation.state === 'succeeded' || generation.base_revision === current?.view?.video.revision
@@ -39,6 +43,8 @@ export function ExportRoute({ videoId, onStage, onSavePreset }: {
       onRetryGeneration={(stopped) => current?.retryGeneration(stopped) ?? Promise.resolve(false)}
       onSavePreset={onSavePreset}
       jobReadFailed={current?.jobReadFailed === true}
+      preparePercent={waitingPercent(prepare.view)}
+      prepareNotice={<PrepareNotice status={prepare} className="flex justify-end" />}
     />
   );
 }

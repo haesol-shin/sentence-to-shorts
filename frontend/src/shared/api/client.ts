@@ -11,6 +11,9 @@ export type RuntimeStatus =
 export type Problem = components['schemas']['Problem'];
 export type ApiErrorCode = components['schemas']['ApiErrorCode'];
 export type Job = components['schemas']['Job'];
+export type PrepareGroup = components['schemas']['PrepareGroup'];
+export type PrepareGroupId = components['schemas']['PrepareGroupId'];
+export type PrepareErrorCode = components['schemas']['PrepareErrorCode'];
 export type JobState = components['schemas']['JobState'];
 export type Project = components['schemas']['Project'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
@@ -321,6 +324,11 @@ export function retryJob(jobId: string): Promise<Job> {
     method: 'POST',
     path: `/jobs/${encodeURIComponent(jobId)}/retry`,
   }, { idempotencyKey: newIdempotencyKey() });
+}
+
+/** Queues every failed model group again; the answer is the `runtime_prepare` job. */
+export function retryRuntimePrepare(): Promise<Job> {
+  return send<Job>({ method: 'POST', path: '/runtime/prepare' }, { idempotencyKey: newIdempotencyKey() });
 }
 
 export async function videoJobs(videoId: string): Promise<Job[]> {

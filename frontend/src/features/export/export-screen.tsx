@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { Button } from '@/components/Button/Button';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
@@ -51,6 +51,8 @@ export function ExportScreen({
   onRetryGeneration,
   onSavePreset,
   jobReadFailed,
+  preparePercent = null,
+  prepareNotice = null,
 }: {
   /** Scenes with a change the user has not looked at yet. */
   unseen: readonly string[];
@@ -61,6 +63,10 @@ export function ExportScreen({
   onRetryGeneration: (job: Job) => Promise<boolean>;
   onSavePreset: (preset: Preset) => void;
   jobReadFailed: boolean;
+  /** The percent the voice models are at while the start button waits for them; `null` when it does not wait. */
+  preparePercent?: number | null;
+  /** What the caller says about models that cannot move: a retry sentence or a failure with its retry. */
+  prepareNotice?: ReactNode;
 }) {
   const { t } = useLocale();
   const state = useExportState();
@@ -185,6 +191,8 @@ export function ExportScreen({
           report={state.precheck.report}
           starting={submission === 'starting'}
           startFailed={submission === 'failed'}
+          preparePercent={preparePercent}
+          prepareNotice={prepareNotice}
           onRetry={retryPrecheck}
           onStart={() => void submit(() => onStart(view.video.revision))}
           onEdit={onEdit}

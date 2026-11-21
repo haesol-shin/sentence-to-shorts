@@ -119,6 +119,13 @@ export function shellRoutes(): Record<string, RouteHandler> {
         deployment: 'local',
         brand: { display_name_ko: '테스트 앱', display_name_en: 'Test app' },
         items: [],
+        prepare: {
+          groups: [
+            { id: 'voice', state: 'ready', done: 100, total: 100, error_code: null, retry_at: null },
+            { id: 'transcribe', state: 'ready', done: 50, total: 50, error_code: null, retry_at: null },
+            { id: 'align_en', state: 'ready', done: 20, total: 20, error_code: null, retry_at: null },
+          ],
+        },
         llm_auth: { adapter: 'fixture', state: 'ok' },
         capabilities: {
           open_edit_play: true,
