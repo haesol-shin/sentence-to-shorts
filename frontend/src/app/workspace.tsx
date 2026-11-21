@@ -7,6 +7,8 @@ import {
   submitDraft,
   type Language,
 } from '@/shared/api/client';
+import { attachConceptExtras, beginConcept, reloadConcept } from '@/features/concept/store';
+import type { Attachment } from '@/features/concept/types';
 import { resetRememberedScene } from '@/features/edit/edit-context';
 import { useBrand } from '@/features/runtime/use-brand';
 import { LocaleProvider, useLocale } from '@/shared/lib/i18n/locale';
@@ -92,6 +94,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     language: Language;
   } | null>(null);
   const sessionSeq = useRef(0);
+  const pendingExtras = useRef<Attachment[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [card, setCard] = useState<CardPick | null>(null);
@@ -110,7 +113,10 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
    * One sentence starts a video: a project holds it, the video is the unit the
    * screens read, and the draft job fills the concept from the sentence.
    */
-  const startFromSentence = async () => {
+  const startFromSentence = async (
+    attachments: Attachment[],
+    options: { language: Language; duration: number },
+  ) => {
     const message = draft.trim();
     if (message === '' || submitting) {
       return;
@@ -119,10 +125,21 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     setActionErrorKey(null);
     try {
       const preset = nextPreset.current;
-      const projectId = preset?.projectId ?? (await createProject({ language })).id;
+      const projectId = preset?.projectId ?? (await createProject({ language: options.language })).id;
       const created = await createVideo(projectId, preset?.presetId);
+      // The concept screen opens the video that exists now, with the texts the
+      // draft should read; files and links wait until the draft has been written.
+      const opened = await beginConcept({
+        videoId: created.id,
+        topic: message,
+        cardId: card?.id ?? null,
+        language: options.language,
+        duration: options.duration,
+        attachments: attachments.filter((attachment) => attachment.kind === 'text'),
+      });
+      pendingExtras.current = attachments.filter((attachment) => attachment.kind !== 'text');
       const started = await submitDraft(created.id, {
-        base_revision: created.revision,
+        base_revision: opened?.revision ?? created.revision,
         message,
         card_id: card?.id ?? null,
       });
@@ -134,7 +151,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
         scriptSessionId: `${created.id}#${sessionSeq.current}`,
         topic: message,
         script: message,
-        language,
+        language: options.language,
       });
       setDraft('');
       setCard(null);
@@ -145,6 +162,19 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       setSubmitting(false);
     }
   };
+
+  const draftWritten = draftJob?.state === 'succeeded' ? draftJob.id : null;
+  const openVideoId = video?.id ?? null;
+  // The draft job writes the concept values, so the screen reads the video
+  // again before it starts the files and links held back at the start.
+  useEffect(() => {
+    if (draftWritten === null || openVideoId === null) return;
+    const extras = pendingExtras.current;
+    pendingExtras.current = [];
+    void reloadConcept(openVideoId)
+      .then(() => attachConceptExtras(extras))
+      .catch(() => undefined);
+  }, [draftWritten, openVideoId]);
 
   const openNewVideo = () => {
     setView('first');
@@ -220,7 +250,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
           onDraftChange={setDraft}
           onPickCard={setCard}
           onClearCard={() => setCard(null)}
-          onSubmit={() => void startFromSentence()}
+          onSubmit={(_text, attachments, options) => void startFromSentence(attachments, options)}
         />
       ) : view === 'concept' ? (
         <ConceptRoute />

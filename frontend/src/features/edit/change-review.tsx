@@ -416,8 +416,41 @@ function PendingBody({
   );
 }
 
+/**
+ * The review opens from a control that has no trigger relationship with the
+ * dialog, so the window cannot return focus on its own. This remembers the
+ * last focused control at open and focuses it again once the window is gone.
+ */
+let lastOutsideFocus: HTMLElement | null = null;
+document.addEventListener('focusin', (event) => {
+  const target = event.target;
+  if (target instanceof HTMLElement && target.closest('[role="dialog"]') === null) lastOutsideFocus = target;
+});
+
+function useReturnFocus(): void {
+  // A control that disables itself while it saves has already dropped focus to the page.
+  const [origin] = useState(() =>
+    document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+      ? document.activeElement
+      : lastOutsideFocus,
+  );
+  useEffect(() => () => {
+    // The control stays disabled while the review is open and for a moment after it closes.
+    let tries = 0;
+    const restore = () => {
+      if (document.querySelector('[role="dialog"]') !== null) return;
+      if (origin === null || origin === document.body || !origin.isConnected) return;
+      origin.focus();
+      tries += 1;
+      if (document.activeElement !== origin && tries < 40) window.setTimeout(restore, 50);
+    };
+    window.setTimeout(restore, 0);
+  }, [origin]);
+}
+
 function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
   const { t } = useLocale();
+  useReturnFocus();
   const removed = new Set(plan.ops.flatMap((op) => op.op === 'remove_scene' ? [op.scene_id] : []));
   const renderScenes = plan.effects.scene_ids_render.filter((id) => !removed.has(id));
   const previewNeeded = renderScenes.length > 0;

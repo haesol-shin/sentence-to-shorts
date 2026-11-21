@@ -10,7 +10,7 @@ import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, visibleCardCount } 
 import { cardIdForSettings, originOf, SHORT_OPTIONS } from './model';
 import {
   analyzeConceptReference, applyConceptPlan, chooseCardTune, chooseConcept,
-  confirmConcept, createConceptStyle, ensureConcept, rejectConceptPlan,
+  confirmConcept, conceptApiIsMock, createConceptStyle, ensureConcept, rejectConceptPlan,
   reloadConceptCatalog, resetConcept, toggleConceptLock, undoConcept, useConcept,
 } from './store';
 import type { Attachment, ConceptSnapshot, LockKey, Plan, Settings, Slot } from './types';
@@ -293,7 +293,7 @@ function Entry({ mode, onClose, ComposerComponent }: {
   };
   return (
     <Modal title={title} onClose={onClose}>
-      <p>{t('concept.mockNotice')}</p>
+      {conceptApiIsMock() ? <p>{t('concept.mockNotice')}</p> : null}
       <p>{t('concept.entry.help')}</p>
       {error === null ? null : <p role="alert">{t(error)}</p>}
       <ComposerComponent label={title} placeholder={t('concept.entry.placeholder')}
@@ -373,7 +373,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
             {field('/format/scene_count', [5, 8, 11])}
           </div>
         </header>
-        <p className="text-[15px]">{t('concept.mockNotice')}</p>
+        {conceptApiIsMock() ? <p className="text-[15px]">{t('concept.mockNotice')}</p> : null}
         {snapshot.error === null ? null : <div role="alert" className="concept-review">
           <p>{snapshot.error.startsWith('concept.') ? t(snapshot.error) : snapshot.error}</p>
           <Button variant="ghost" disabled={snapshot.loading} onClick={() => void reloadConceptCatalog()}>{t('concept.retryCatalog')}</Button>

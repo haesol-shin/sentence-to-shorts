@@ -80,6 +80,8 @@ export default defineConfig({
   // Only `*.spec.ts` files run here; the vitest suites keep their `.test.ts` names.
   testMatch: '**/*.spec.ts',
   fullyParallel: true,
+  // The fixture backend renders and encodes on one process, so its specs run one at a time.
+  workers: isFixture ? 1 : undefined,
   forbidOnly: isCI,
   retries: isCI ? 2 : 0,
   reporter: isCI ? 'github' : 'list',

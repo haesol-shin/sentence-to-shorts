@@ -83,7 +83,7 @@ async function post<T>(path: string, body: unknown, keepalive = false): Promise<
         Accept: 'application/json',
         'Content-Type': 'application/json',
         'X-CSRF-Token': token,
-        ...(keepalive ? {} : { 'Idempotency-Key': newIdempotencyKey() }),
+        'Idempotency-Key': newIdempotencyKey(),
       },
       body: JSON.stringify(body),
       credentials: 'same-origin',

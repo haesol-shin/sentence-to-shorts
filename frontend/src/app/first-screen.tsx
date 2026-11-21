@@ -1,7 +1,6 @@
 import { useState } from 'react';
 
 import { listFormatCards, listRecentProjects, type Language } from '@/shared/api/client';
-import { beginConcept } from '@/features/concept/store';
 import type { Attachment } from '@/features/concept/types';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
@@ -33,7 +32,11 @@ export function FirstScreen({
   onPickCard: (card: CardPick) => void;
   onClearCard: () => void;
   /** The start boundary receives the whole material, not only the sentence. */
-  onSubmit: (text: string, attachments: Attachment[]) => void | Promise<void>;
+  onSubmit: (
+    text: string,
+    attachments: Attachment[],
+    options: { language: Language; duration: number },
+  ) => void | Promise<void>;
 }) {
   const { t, language } = useLocale();
   const cards = useLoad(listFormatCards, ready);
@@ -43,14 +46,7 @@ export function FirstScreen({
   const [duration, setDuration] = useState(60);
 
   const start = async (attachments: Attachment[]) => {
-    await beginConcept({
-      topic: draft,
-      cardId: card?.id ?? null,
-      language: chosenLanguage,
-      duration,
-      attachments,
-    });
-    await onSubmit(draft, attachments);
+    await onSubmit(draft, attachments, { language: chosenLanguage, duration });
   };
 
   return (

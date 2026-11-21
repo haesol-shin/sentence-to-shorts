@@ -1,6 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
+import { configureConceptApi } from '@/features/concept/store';
+import { createHttpConceptApi } from '@/features/concept/http-api';
+
 import { App } from './App';
 import './index.css';
 
@@ -15,6 +18,8 @@ async function start(): Promise<void> {
     // Kept out of the real build by this branch: only a mock run loads fixtures.
     const { installMockApi } = await import('@/shared/api/mock');
     installMockApi();
+  } else {
+    configureConceptApi(createHttpConceptApi());
   }
   createRoot(root as HTMLElement).render(
     <StrictMode>
