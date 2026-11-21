@@ -25,6 +25,7 @@ import {
 import {
   ConceptApiError,
   createMockConceptApi,
+  MockConceptApi,
   type ConceptApi,
   type ConceptStartInput,
 } from './api';
@@ -362,41 +363,78 @@ function commitChange(
   emit();
 }
 
-export async function beginConcept(input: ConceptStartInput): Promise<void> {
+export async function beginConcept(input: ConceptStartInput): Promise<ConceptDocument | null> {
   const token = ++startToken;
   const currentEpoch = epoch;
   const created = await api.create(input);
   if (currentEpoch !== epoch) {
-    return;
+    return null;
   }
   const session = createSession(created);
   sessions.set(created.id, session);
   if (token !== startToken) {
-    return;
+    return null;
   }
   activeId = created.id;
   emit();
   void loadCatalog(session).catch(() => undefined);
 
-  const attachments = input.attachments ?? [];
+  await startExtras(session, input.attachments ?? []);
+  return created;
+}
+
+async function startExtras(session: SessionState, attachments: readonly Attachment[]): Promise<void> {
   const extras = attachments.filter((attachment) => attachment.kind !== 'text');
-  if (extras.length > 0) {
-    try {
-      const job = await api.message(created.id, '', extras);
-      void runJob(session, job, session.editGeneration).catch((error: unknown) => {
-        if (sessions.get(session.document.id) === session) {
-          setError(session, sendError(error, ERROR_JOB));
-          emit();
-        }
-      });
-    } catch (error) {
+  if (extras.length === 0) {
+    return;
+  }
+  try {
+    const job = await api.message(session.document.id, '', extras);
+    void runJob(session, job, session.editGeneration).catch((error: unknown) => {
       if (sessions.get(session.document.id) === session) {
         setError(session, sendError(error, ERROR_JOB));
         emit();
       }
-      throw error;
+    });
+  } catch (error) {
+    if (sessions.get(session.document.id) === session) {
+      setError(session, sendError(error, ERROR_JOB));
+      emit();
     }
+    throw error;
   }
+}
+
+/** Starts the files and links the first screen held back until the draft was written. */
+export async function attachConceptExtras(attachments: readonly Attachment[]): Promise<void> {
+  const session = activeSession();
+  if (session !== null) {
+    await startExtras(session, attachments);
+  }
+}
+
+/**
+ * Reads the video again after a job outside this screen changed it. The
+ * revision and the stored materials follow the server; settings the user has
+ * edited since are kept, and the rest follow the server too.
+ */
+export async function reloadConcept(videoId: string): Promise<void> {
+  const session = sessions.get(videoId);
+  if (session === undefined) {
+    return;
+  }
+  const generation = session.editGeneration;
+  const loaded = await api.load(videoId);
+  if (sessions.get(videoId) !== session) {
+    return;
+  }
+  const keep = session.dirty || editedAfter(session, generation);
+  session.document = {
+    ...loaded,
+    settings: keep ? session.document.settings : loaded.settings,
+    attachments: appendAttachments(loaded.attachments, session.document.attachments.filter((entry) => entry.kind !== 'text')),
+  };
+  emit();
 }
 
 /**
@@ -899,6 +937,11 @@ export function resetConceptSessions(): void {
   emit();
 }
 
+/** Whether the screen runs on the mock boundary, which answers from synthetic data. */
+export function conceptApiIsMock(): boolean {
+  return api instanceof MockConceptApi;
+}
+
 export function configureConceptApi(next: ConceptApi): void {
   api = next;
   epoch += 1;
@@ -1046,7 +1089,21 @@ function applyJobResult(
     emit();
     return;
   }
-  if (attachments.length > 0) {
+  if (result.revision !== undefined) {
+    session.document = { ...session.document, revision: result.revision };
+  }
+  if (result.attachments !== undefined) {
+    session.document = {
+      ...session.document,
+      attachments: [
+        ...result.attachments,
+        ...appendAttachments(
+          session.document.attachments.filter((attachment) => attachment.kind !== 'text'),
+          attachments.filter((attachment) => attachment.kind !== 'text'),
+        ),
+      ],
+    };
+  } else if (attachments.length > 0) {
     session.document = {
       ...session.document,
       attachments: appendAttachments(session.document.attachments, attachments),

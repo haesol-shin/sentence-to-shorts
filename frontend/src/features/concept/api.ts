@@ -79,7 +79,7 @@ const FONTS: PinnedRef[] = [
   },
 ];
 
-const ORIGIN_PATHS = [
+export const ORIGIN_PATHS = [
   '/language',
   '/target_duration_s',
   '/format/card_id',
@@ -119,6 +119,8 @@ export class ConceptApiError extends Error {
 }
 
 export interface ConceptStartInput {
+  /** An existing video to open; without it the API starts a new one. */
+  videoId?: string;
   topic: string;
   cardId?: string | null;
   language?: 'ko' | 'en';
@@ -401,7 +403,7 @@ export class MockConceptApi implements ConceptApi {
       settings = applied.settings;
     }
     const attachments = await this.normalizeAttachments(input.attachments ?? []);
-    const id = this.nextId('v');
+    const id = input.videoId ?? this.nextId('v');
     const projectId = this.nextId('p');
     const document: ConceptDocument = {
       id,

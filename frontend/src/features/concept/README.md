@@ -1,6 +1,6 @@
 # Concept screen
 
-The concept screen is a neutral wireframe. Cards, fields and chat edit the same settings snapshot. The API boundary in `api.ts` is a mock implementation, not a network client. Existing shell draft requests remain independent of this mock snapshot.
+The concept screen is a neutral wireframe. Cards, fields and chat edit the same settings snapshot. The API boundary in `api.ts` defines the contract and a mock implementation; `http-api.ts` is the network client the running app uses against the server, and `VITE_API_MODE=mock` keeps the mock. Existing shell draft requests remain independent of this mock snapshot.
 
 ## State and confirmation
 
@@ -20,7 +20,7 @@ The first screen and the conversation rail share `ComposerBox`. Text files retai
 
 ## Integration
 
-Production video IDs, revisions, uploads, downloads and server job polling belong to the application integration layer. Do not connect a second transport from the screen. Supply the production implementation through the existing concept API boundary when that integration is available. Scene-specific editing and script generation belong to their own screens; use the shell stage menu to visit them after confirming the concept.
+The workspace creates the project and video, opens that video here with `beginConcept({ videoId, ... })`, and reads it again once the draft job has written the concept. `HttpConceptApi` sends changed settings as direct change plans against the newest revision, adds a text material to the ones the video already holds, and turns files, links and messages into server jobs whose results carry the revision and materials back. A confirmed concept stays locked by the server stage.
 
 ## Verification
 

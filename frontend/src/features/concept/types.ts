@@ -53,6 +53,10 @@ export interface ConceptResult {
   plan: Plan | null;
   notes: string[];
   unsupported: string[];
+  /** The newest revision the server holds once the job has ended. */
+  revision?: number;
+  /** The materials the server holds once the job has ended. */
+  attachments?: Attachment[];
 }
 
 export interface ConceptJob {
