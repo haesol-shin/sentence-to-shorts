@@ -597,3 +597,23 @@ def test_launcher_runs_the_real_app_with_the_built_web_files(tmp_path: Path) -> 
     if sys.platform != "win32":
         assert process.returncode == 0
         assert not (data / instance.RECORD_NAME).exists()
+
+
+def test_launcher_log_receives_app_records_with_paths_redacted(tmp_path: Path) -> None:
+    import logging
+
+    data = tmp_path / "data"
+    root = tmp_path / "install"
+    settings = SimpleNamespace(data_dir=data)
+    handler = launcher_module.open_log(root, settings)  # type: ignore[arg-type]
+    try:
+        logging.getLogger("app.tools.tts.example").info(
+            "tts load phase warm_up took 1.0s in %s", data
+        )
+    finally:
+        for name in ("launcher", "app", "uvicorn", "uvicorn.error"):
+            logging.getLogger(name).removeHandler(handler)
+        handler.close()
+    text = (data / "log" / "launcher.log").read_text(encoding="utf-8")
+    assert "tts load phase warm_up took 1.0s in <data>" in text
+    assert str(data) not in text

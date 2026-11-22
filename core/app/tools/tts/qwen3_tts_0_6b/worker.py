@@ -4,7 +4,8 @@ The adapter starts this file as a script in its own process group, so it imports
 nothing from `app`. The protocol is one ASCII JSON object per line.
 
 Requests on stdin carry `id`, `text`, `language`, `speaker`, `seed`, `speed` and
-`out`. Replies on the protocol stream are `ready` after the load, then `done` or
+`out`. Replies on the protocol stream are one `phase` per finished load step (`name`
+from `LOAD_PHASES`, `seconds` it took), `ready` after the load, then `done` or
 `error` per request, and `bye` when the worker leaves after its idle time. A closed
 stdin ends the worker at once, so a parent that died never leaves a model running.
 
@@ -22,7 +23,13 @@ import os
 import queue
 import sys
 import threading
+import time
+from collections.abc import Callable
 from typing import Any
+
+LOAD_PHASES = ("import_torch", "import_qwen_tts", "from_pretrained", "warm_up")
+"""The load steps in the order the worker reports them. The adapter logs these fixed
+names and seconds, so a slow or stuck load shows which step it is in."""
 
 
 def _reply_stream() -> Any:
@@ -47,9 +54,17 @@ def _read_requests(requests: queue.Queue[dict[str, Any]]) -> None:
     os._exit(0)
 
 
-def _load(model_dir: str, threads: int, device: str) -> Any:
+def _load(model_dir: str, threads: int, device: str, phase: Callable[[str, float], None]) -> Any:
     os.environ["HF_HUB_OFFLINE"] = "1"
     os.environ["TRANSFORMERS_OFFLINE"] = "1"
+    mark = time.monotonic()
+
+    def done(name: str) -> None:
+        nonlocal mark
+        now = time.monotonic()
+        phase(name, now - mark)
+        mark = now
+
     import torch
 
     torch.set_num_threads(threads)
@@ -57,8 +72,10 @@ def _load(model_dir: str, threads: int, device: str) -> Any:
         torch.set_num_interop_threads(1)
     except RuntimeError:
         pass
+    done("import_torch")
     from qwen_tts import Qwen3TTSModel
 
+    done("import_qwen_tts")
     model = Qwen3TTSModel.from_pretrained(
         model_dir,
         device_map=device,
@@ -66,11 +83,13 @@ def _load(model_dir: str, threads: int, device: str) -> Any:
         trust_remote_code=False,
         local_files_only=True,
     )
+    done("from_pretrained")
     # The first speed change compiles numeric kernels; do it while loading, where the
     # load timeout applies, so the first sentence keeps its own timeout.
     import numpy
 
     _stretch(numpy.zeros(8192, dtype=numpy.float32), 24000, 1.1)
+    done("warm_up")
     return model
 
 
@@ -112,8 +131,12 @@ def serve(model_dir: str, threads: int, idle_s: float, device: str) -> int:
     proto = _reply_stream()
     requests: queue.Queue[dict[str, Any]] = queue.Queue()
     threading.Thread(target=_read_requests, args=(requests,), daemon=True).start()
+
+    def phase(name: str, seconds: float) -> None:
+        _send(proto, {"type": "phase", "name": name, "seconds": round(seconds, 3)})
+
     try:
-        model = _load(model_dir, threads, device)
+        model = _load(model_dir, threads, device, phase)
     except ImportError as error:
         _send(proto, {"type": "error", "code": "package_missing", "name": error.name})
         return 1

@@ -15,6 +15,12 @@ adapter never downloads a file: a missing model file or package is
 A sentence has its own timeout, the larger of ``SENTENCE_TIMEOUT_FLOOR_S`` and
 ``SENTENCE_TIMEOUT_FACTOR`` times the expected speech length. Timeout, worker
 failure and an unusable WAV end the call with ``tts_timeout`` or ``tts_failed``.
+
+The worker reports each load step as a ``phase`` message. A load may take as long
+as ``LOAD_TIMEOUT_S`` in all, but each step has ``PHASE_TIMEOUT_S`` from the previous
+message, so a slow step on a slow disk finishes while a silent worker still times
+out. The adapter logs the fixed step names with their seconds, and a load timeout
+names the last finished step in its detail: the hang is in the step after it.
 Nothing falls back to silence or to another engine. A timeout or a cancel kills
 the worker's whole process tree, so a stuck model never outlives its call.
 """
@@ -53,6 +59,7 @@ from app.tools.device import DeviceSelection
 # Tree kill and the Windows Job Object are the one implementation of the other
 # adapters; they take a process this adapter starts for itself.
 from app.tools.process import KILL_GRACE_S, _JobObject, _kill_tree, build_env
+from app.tools.tts.qwen3_tts_0_6b.worker import LOAD_PHASES
 
 ENGINE_ID = "qwen3-tts-0.6b"
 ENGINE_REVISION = 1
@@ -66,7 +73,10 @@ SAMPLE_RATE = 24000
 LANGUAGES = {"ko": "Korean", "en": "English"}
 
 IDLE_S = 120.0
-LOAD_TIMEOUT_S = 300.0
+PHASE_TIMEOUT_S = 300.0
+"""How long a load step may stay silent: the limit restarts on every phase message."""
+LOAD_TIMEOUT_S = 1200.0
+"""The whole load, first start on a cold disk included, however many steps report."""
 SENTENCE_TIMEOUT_FLOOR_S = 30.0
 SENTENCE_TIMEOUT_FACTOR = 10.0
 
@@ -274,6 +284,7 @@ class Qwen3TtsAdapter:
         worker_command: Sequence[str] | None = None,
         idle_s: float = IDLE_S,
         load_timeout_s: float = LOAD_TIMEOUT_S,
+        phase_timeout_s: float = PHASE_TIMEOUT_S,
         sentence_floor_s: float = SENTENCE_TIMEOUT_FLOOR_S,
         sentence_factor: float = SENTENCE_TIMEOUT_FACTOR,
     ) -> None:
@@ -290,6 +301,7 @@ class Qwen3TtsAdapter:
         self._command = list(worker_command or (sys.executable, str(WORKER_PATH)))
         self._idle_s = idle_s
         self._load_timeout_s = load_timeout_s
+        self._phase_timeout_s = phase_timeout_s
         self._sentence_floor_s = sentence_floor_s
         self._sentence_factor = sentence_factor
         self._worker: _Worker | None = None
@@ -542,10 +554,41 @@ class Qwen3TtsAdapter:
         except OSError as error:
             raise _failed("worker_start") from error
         self._worker = worker
-        reply = self._wait(worker, time.monotonic() + self._load_timeout_s, cancel, "load")
+        reply = self._wait_loaded(worker, cancel)
         if reply is None:
             raise self._worker_gone("load")
         return reply
+
+    def _wait_loaded(self, worker: _Worker, cancel: CancelToken) -> dict[str, Any] | None:
+        """The first reply that is not a phase report, within the phase and total limits."""
+        started = time.monotonic()
+        total_end = started + self._load_timeout_s
+        phase_end = started + self._phase_timeout_s
+        last_phase: str | None = None
+        while True:
+            try:
+                reply = self._wait(worker, min(total_end, phase_end), cancel, "load")
+            except AppError as error:
+                if error.code == "tts_timeout":
+                    limit = "total" if time.monotonic() >= total_end else "phase"
+                    error.detail.update(last_phase=last_phase, limit=limit)
+                    logger.warning(
+                        "tts load timed out (%s limit, %.0fs in); last finished phase: %s",
+                        limit,
+                        time.monotonic() - started,
+                        last_phase or "none",
+                    )
+                raise
+            if reply is None or reply.get("type") != "phase":
+                return reply
+            name, seconds = reply.get("name"), reply.get("seconds")
+            if name not in LOAD_PHASES or isinstance(seconds, bool):
+                continue
+            if not isinstance(seconds, (int, float)) or not math.isfinite(seconds) or seconds < 0:
+                continue
+            last_phase = name
+            phase_end = time.monotonic() + self._phase_timeout_s
+            logger.info("tts load phase %s took %.1fs", name, seconds)
 
     def _step_down(self) -> None:
         """Use the CPU after one failed CUDA load, and move the digest with it."""
@@ -616,11 +659,13 @@ def _runtime_wheels() -> list[list[str]]:
     wheels = []
     for distribution in metadata.distributions():
         record = distribution.read_text("RECORD") or ""
-        wheels.append([
-            distribution.metadata["Name"],
-            distribution.version,
-            hashlib.sha256(record.encode("utf-8")).hexdigest(),
-        ])
+        wheels.append(
+            [
+                distribution.metadata["Name"],
+                distribution.version,
+                hashlib.sha256(record.encode("utf-8")).hexdigest(),
+            ]
+        )
     return sorted(wheels)
 
 

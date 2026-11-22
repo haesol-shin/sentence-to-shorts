@@ -547,3 +547,31 @@ def test_result_check_prints_a_non_ascii_detail_when_the_console_is_cp1252(
     smoke.use_utf8_output()
     smoke.Result().check("install", True, "C:\\Users\\사용자\\앱")
     assert raw.getvalue().decode("utf-8") == "ok   install C:\\Users\\사용자\\앱\n"
+
+
+def test_21_load_phases_of_the_launcher_log_are_printed_and_timed(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    log = tmp_path / "launcher.log"
+    phase = "2026-01-01 00:00:01,000 INFO app.tools.tts.x.adapter tts load phase {} took {}s"
+    log.write_text(
+        "\n".join(
+            [
+                "2026-01-01 00:00:00,000 INFO launcher starting",
+                phase.format("import_torch", "4.2"),
+                phase.format("import_torch", "4.2"),
+                phase.format("from_pretrained", "130.5"),
+                "2026-01-01 00:09:00,000 WARNING app.tools.tts.x.adapter tts load timed out "
+                "(phase limit, 300s in); last finished phase: from_pretrained",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    result = smoke.Result()
+    smoke.report_load_phases(result, log)
+    printed = capsys.readouterr().out.splitlines()
+    assert len(printed) == 3 and "import_torch took 4.2s" in printed[0]
+    assert "last finished phase: from_pretrained" in printed[2]
+    assert result.seconds == {"tts_load_import_torch": 4.2, "tts_load_from_pretrained": 130.5}
+    smoke.report_load_phases(result, tmp_path / "missing.log")
+    assert "no TTS load line" in capsys.readouterr().out
