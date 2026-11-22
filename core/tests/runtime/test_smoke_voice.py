@@ -575,3 +575,70 @@ def test_21_load_phases_of_the_launcher_log_are_printed_and_timed(
     assert result.seconds == {"tts_load_import_torch": 4.2, "tts_load_from_pretrained": 130.5}
     smoke.report_load_phases(result, tmp_path / "missing.log")
     assert "no TTS load line" in capsys.readouterr().out
+
+
+def test_diagnosis_text_names_the_exit_status_stderr_and_import_timing() -> None:
+    report = {
+        "worker": {
+            "ready": False, "timed_out": False, "returncode": 3221225477, "seconds": 4.2,
+            "lines": [{"at": 1.5, "text": '{"type": "phase"}'}], "stderr_tail": "a\nb",
+        },
+        "import_torch": {
+            "returncode": 0, "seconds": 9.1, "total_ms": 8000.0,
+            "slowest": [{"module": "torch._C", "self_us": 5000, "cumulative_us": 6000}],
+        },
+    }
+    lines = smoke.format_diagnosis(report)
+    assert "worker exited 3221225477 before ready after 4.2s" in lines[0]
+    assert any('+1.5s {"type": "phase"}' in line for line in lines)
+    assert lines[lines.index("diagnosis: stderr tail:") + 2] == "diagnosis:   b"
+    assert any("import torch exit 0, 9.1s wall" in line for line in lines)
+    assert any("5.0ms own, 6.0ms with imports  torch._C" in line for line in lines)
+    assert smoke.format_diagnosis({"error": "boom"}) == ["diagnosis: boom"]
+    silent = {"worker": {"timed_out": True, "seconds": 600}, "import_torch": {"timed_out": True}}
+    assert "still running at the limit" in smoke.format_diagnosis(silent)[0]
+
+
+@pytest.mark.parametrize(
+    ("generate", "tts", "expected"),
+    [
+        ("job failed: {'code': 'tts_timeout'}", "AppError: tts_timeout", True),
+        ("job failed: {'code': 'tts_failed'}", "ok-ish", True),
+        ("job failed: {'code': 'render_failed'}", "AppError: other", False),
+    ],
+)
+def test_diagnosis_runs_only_after_a_tts_timeout_or_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, generate: str, tts: str, expected: bool,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch)
+    calls: list[int] = []
+    harness.plan.diagnose = lambda: calls.append(1) or ["diagnosis: worker"]
+    monkeypatch.setattr(
+        smoke, "check_generate", lambda result, plan, run: result.check(
+            smoke.CHECK_GENERATE, False, generate)
+    )
+    harness.report["tts"] = {"ok": False, "detail": tts}
+    harness.run()
+    assert bool(calls) is expected
+
+
+def test_diagnosis_is_not_run_when_the_voice_works(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch)
+    harness.plan.diagnose = lambda: pytest.fail("no TTS failure, no diagnosis")
+    assert not harness.run().failed
+
+
+def test_diagnosis_environment_matches_what_the_launcher_gives_the_app(tmp_path: Path) -> None:
+    from app.runtime.launcher import Distribution, apply_distribution
+
+    dist = Distribution(
+        profile="release", deployment="local", web_dir="web", profile_adapters={"release": {}},
+    )
+    expected: dict[str, str] = {}
+    apply_distribution(tmp_path, dist, expected)
+    given = smoke.diagnosis_environment(tmp_path, {"APP_MAIN_SITE": "kept elsewhere"})
+    assert given["APP_RUNTIME_DIR"] == expected["APP_RUNTIME_DIR"]
+    assert given["APP_MAIN_SITE"] == "kept elsewhere"
+    assert smoke.diagnosis_environment(tmp_path, {})["APP_MAIN_SITE"] == expected["APP_MAIN_SITE"]

@@ -521,8 +521,12 @@ class Qwen3TtsAdapter:
             and error.detail.get("stage") == "load"
         )
 
-    def _spawn(self, cancel: CancelToken) -> dict[str, Any]:
-        """Start a worker on the current device and return its first reply."""
+    def worker_launch(self) -> tuple[list[str], dict[str, str]]:
+        """The argv and environment of a worker on the current device.
+
+        The only place that builds them, so the release smoke can start the same worker
+        by hand and see what the adapter drops: the worker's exit status and stderr.
+        """
         argv = [
             *self._command,
             "--model-dir",
@@ -549,6 +553,11 @@ class Qwen3TtsAdapter:
         for name in CUDA_ENV:
             if name in os.environ:
                 env[name] = os.environ[name]
+        return argv, env
+
+    def _spawn(self, cancel: CancelToken) -> dict[str, Any]:
+        """Start a worker on the current device and return its first reply."""
+        argv, env = self.worker_launch()
         try:
             worker = _Worker(argv, env)
         except OSError as error:

@@ -60,6 +60,11 @@ GENERATE_TIMEOUT_S = 45 * 60.0
 JOB_TIMEOUT_S = 600.0
 """Drafting and previews use no model; they end within this or the run is stuck."""
 PROBE_TIMEOUT_S = 30 * 60.0
+DIAGNOSE_TIMEOUT_S = 25 * 60.0
+"""The diagnosis runs the worker for up to 600s and the torch import for up to 600s."""
+DIAGNOSE_SCRIPT = Path("core") / "app" / "tools" / "tts" / "qwen3_tts_0_6b" / "diagnose.py"
+DIAGNOSE_LOG = "voice-worker-diagnosis.log"
+TTS_FAILURE_CODES = ("tts_timeout", "tts_failed")
 PAIRING_WAIT_S = 30.0
 POLL_S = 2.0
 GROUP_FAILED_GRACE_S = 60.0
@@ -516,6 +521,9 @@ class VoicePlan:
     timings: dict[str, float] = field(default_factory=dict)
     log_file: Path | None = None
     """The launcher log of the app the plan starts; its TTS load lines are printed."""
+    diagnose: Callable[[], list[str]] | None = None
+    """Run the installed worker by hand and return the lines to print; used after a
+    `tts_timeout` or `tts_failed`."""
 
 
 def write_pairing_hook(work: Path, os_name: str) -> tuple[Path, Path]:
@@ -784,6 +792,79 @@ def run_probe(root: Path, os_name: str, env: dict[str, str], work: Path) -> dict
     return {"error": f"the probe exited {done.returncode} without a result: {tail}"}
 
 
+def diagnosis_environment(root: Path, env: Mapping[str, str]) -> dict[str, str]:
+    """`env` plus the variables the launcher sets for the app's workers (`apply_distribution`);
+    a test keeps both in step."""
+    return {"APP_MAIN_SITE": str(root / "site-packages"), "APP_RUNTIME_DIR": str(root / "rt"),
+            **env}
+
+
+def run_diagnosis(root: Path, os_name: str, env: dict[str, str], work: Path) -> list[str]:
+    """Run the worker diagnosis with the bundled interpreter; the full text goes to a log file
+    in `work`, which a failed run keeps with the other logs. Returns the lines to print."""
+    out = work / "voice-worker-diagnosis.json"
+    out.unlink(missing_ok=True)
+    try:
+        done = subprocess.run(
+            [str(bundled_python(root, os_name)), str(root / DIAGNOSE_SCRIPT),
+             "--root", str(root), "--out", str(out)],
+            env=env, capture_output=True, check=False, timeout=DIAGNOSE_TIMEOUT_S,
+            cwd=root.parent,
+        )
+        if out.is_file():
+            report = json.loads(out.read_text(encoding="utf-8"))
+        else:
+            tail = done.stderr[-300:].decode("utf-8", "replace").strip()
+            report = {"error": f"the diagnosis exited {done.returncode} without a result: {tail}"}
+    except subprocess.TimeoutExpired:
+        report = {"error": f"the diagnosis took longer than {DIAGNOSE_TIMEOUT_S:.0f}s"}
+    lines = format_diagnosis(report)
+    (work / DIAGNOSE_LOG).write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return lines
+
+
+def format_diagnosis(report: Mapping[str, Any]) -> list[str]:
+    """The diagnosis as text: worker exit status, protocol lines, stderr tail, import timing."""
+    if "error" in report:
+        return [f"diagnosis: {report['error']}"]
+    worker = report.get("worker") or {}
+    if worker.get("ready"):
+        ending = "reported ready"
+    elif worker.get("timed_out"):
+        ending = "still running at the limit, no ready"
+    else:
+        ending = f"exited {worker.get('returncode')} before ready"
+    lines = [f"diagnosis: worker {ending} after {worker.get('seconds')}s"]
+    protocol = worker.get("lines") or []
+    lines.append(f"diagnosis: {len(protocol)} protocol lines")
+    lines += [f"diagnosis:   +{entry['at']}s {entry['text']}" for entry in protocol]
+    lines.append("diagnosis: stderr tail:")
+    lines += [f"diagnosis:   {text}" for text in (worker.get("stderr_tail") or "").splitlines()]
+    timing = report.get("import_torch") or {}
+    if timing.get("timed_out"):
+        lines.append(f"diagnosis: import torch did not finish in {timing.get('seconds')}s")
+    else:
+        lines.append(
+            f"diagnosis: import torch exit {timing.get('returncode')}, "
+            f"{timing.get('seconds')}s wall, {timing.get('total_ms')}ms of imports"
+        )
+        lines += [
+            f"diagnosis:   {row['self_us'] / 1000:.1f}ms own, "
+            f"{row['cumulative_us'] / 1000:.1f}ms with imports  {row['module']}"
+            for row in timing.get("slowest") or []
+        ]
+    return lines
+
+
+def tts_failure_seen(result: Result) -> bool:
+    """A voice check that ended in `tts_timeout` or `tts_failed`."""
+    return any(
+        not check["ok"] and check["name"] in (CHECK_GENERATE, CHECK_TTS)
+        and any(code in check["detail"] for code in TTS_FAILURE_CODES)
+        for check in result.checks
+    )
+
+
 def probe_checks(result: Result, report: Mapping[str, Any]) -> None:
     names = (("tts", CHECK_TTS), ("align", CHECK_ALIGN), ("torch", CHECK_TORCH))
     for key, name in names:
@@ -905,6 +986,9 @@ def voice_phase(result: Result, plan: VoicePlan) -> None:
     result.seconds.update(plan.timings)
     # The app is stopped first: the probe loads the models again and memory is short.
     probe_checks(result, plan.probe())
+    if plan.diagnose is not None and tts_failure_seen(result):
+        for line in plan.diagnose():
+            print(line, flush=True)
     check_offline(result, plan, jobs_before)
 
 
@@ -944,9 +1028,13 @@ def voice_leg(
             clean = {k: v for k, v in app_env.items() if k != "BROWSER"}
             return run_probe(root, args.os, clean, work)
 
+        def diagnose() -> list[str]:
+            clean = {k: v for k, v in app_env.items() if k != "BROWSER"}
+            return run_diagnosis(root, args.os, diagnosis_environment(root, clean), work)
+
         plan = VoicePlan(
             start, stop_app, probe, data_dir / "models", stub,
-            log_file=data_dir / "log" / "launcher.log",
+            log_file=data_dir / "log" / "launcher.log", diagnose=diagnose,
         )
         voice_phase(result, plan)
     finally:
