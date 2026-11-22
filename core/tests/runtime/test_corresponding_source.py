@@ -7,8 +7,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 import tarfile
+import urllib.error
 from pathlib import Path
 from types import ModuleType
 
@@ -138,7 +140,7 @@ def test_corresponding_source_manifest_maps_every_shipped_binary_to_verified_sou
                 else:
                     assert module._artifact_url(artifact).startswith("https://")
             else:
-                assert artifact["base_url"].startswith("https://")
+                assert (artifact.get("base_url") or artifact["repo"]).startswith("https://")
     ffmpeg = sources["artifacts"]["ffmpeg"]
     assert ffmpeg["revision"] == shipped["revision"]
     builder = sources["artifacts"]["btbn-build"]
@@ -320,12 +322,14 @@ def test_corresponding_source_stages_a_hash_pinned_file_export(
     assert (target / "ffmpeg-sources.lock.json").is_file()
 
 
-def test_corresponding_source_pins_librist_as_a_file_export_at_its_revision() -> None:
-    """GitLab refuses the generated librist archive, so its files are pinned one by one."""
+def test_corresponding_source_pins_librist_as_a_git_commit_with_its_file_digests() -> None:
+    """GitLab refuses the generated archive and raw files, so the commit is fetched with git."""
     data = module.load_manifest()
     artifact = data["artifacts"]["50-librist"]
-    assert "url" not in artifact
-    assert artifact["base_url"].endswith(f"/-/raw/{artifact['revision']}/")
+    assert artifact["kind"] == "git"
+    assert "url" not in artifact and "base_url" not in artifact
+    assert artifact["repo"].startswith("https://")
+    assert module.GIT_COMMIT.fullmatch(artifact["revision"])
     files = artifact["files"]
     assert files
     assert artifact["sha256"] == module._tree_digest(files)
@@ -487,3 +491,201 @@ def test_corresponding_source_requires_a_tree_pin_for_every_gitiles_archive(
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(module.SourceError, match="gitiles archive"):
         module.load_manifest(path)
+
+
+REPO_URL = "https://source.invalid/project.git"
+
+
+def git(cwd: Path, *args: str) -> str:
+    done = subprocess.run(
+        ["git", *args], cwd=cwd, check=True, capture_output=True, text=True
+    )
+    return done.stdout.strip()
+
+
+def git_remote(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tree: dict[str, bytes]) -> str:
+    """A local repository served under REPO_URL; returns its commit id."""
+    work = tmp_path / "upstream"
+    work.mkdir()
+    git(work, "init", "-q")
+    git(work, "config", "user.email", "a@source.invalid")
+    git(work, "config", "user.name", "a")
+    git(work, "config", "uploadpack.allowAnySHA1InWant", "true")
+    for name, data in tree.items():
+        target = work.joinpath(*name.split("/"))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(data)
+    git(work, "add", "-A")
+    git(work, "commit", "-q", "-m", "source")
+    monkeypatch.setenv("GIT_CONFIG_COUNT", "1")
+    monkeypatch.setenv("GIT_CONFIG_KEY_0", f"url.{work.as_uri()}.insteadOf")
+    monkeypatch.setenv("GIT_CONFIG_VALUE_0", REPO_URL)
+    return git(work, "rev-parse", "HEAD")
+
+
+def git_artifact(commit: str, tree: dict[str, bytes], **extra: object) -> dict[str, object]:
+    files = {
+        name: {"bytes": len(data), "sha256": digest(data)} for name, data in sorted(tree.items())
+    }
+    return {
+        "kind": "git",
+        "repo": REPO_URL,
+        "files": files,
+        "bytes": sum(len(data) for data in tree.values()),
+        "sha256": module._tree_digest(files),
+        "filename": "export",
+        "component": "exported component",
+        "revision": commit,
+        **extra,
+    }
+
+
+TREE = {"README": b"first source file", "src/second.c": b"second source file"}
+
+
+def test_corresponding_source_stages_a_git_export_at_its_pinned_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commit = git_remote(tmp_path, monkeypatch, TREE)
+    artifact = git_artifact(commit, TREE)
+    root = tmp_path / "work" / "export"
+    module._stage_git_export(artifact, root)
+    assert (root / "src" / "second.c").read_bytes() == TREE["src/second.c"]
+    # A verified checkout is reused without another fetch.
+    monkeypatch.setattr(module, "_run_git", lambda *args, **kwargs: pytest.fail("fetched"))
+    module._stage_git_export(artifact, root)
+
+
+def test_corresponding_source_refuses_a_git_export_with_an_unlisted_or_changed_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    commit = git_remote(tmp_path, monkeypatch, {**TREE, "extra.txt": b"not pinned"})
+    root = tmp_path / "work" / "export"
+    with pytest.raises(module.SourceError, match="pinned file list"):
+        module._stage_git_export(git_artifact(commit, TREE), root)
+    assert not root.exists()
+    changed = git_artifact(commit, {**TREE, "extra.txt": b"other bytes"})
+    with pytest.raises(module.SourceError, match="pinned bytes and SHA-256"):
+        module._stage_git_export(changed, root)
+    assert not root.exists()
+
+
+def test_corresponding_source_refuses_a_git_commit_other_than_the_pinned_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    git_remote(tmp_path, monkeypatch, TREE)
+    artifact = git_artifact("0" * 40, TREE)
+    with pytest.raises(module.SourceError, match="cannot fetch export from source.invalid"):
+        module._stage_git_export(artifact, tmp_path / "work" / "export")
+
+
+def refused(stderr: str) -> object:
+    calls: list[list[str]] = []
+
+    def run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        code = 0 if args[0] == "init" else 128
+        return subprocess.CompletedProcess(args, code, "", stderr if code else "")
+
+    run.calls = calls  # type: ignore[attr-defined]
+    return run
+
+
+def test_corresponding_source_git_fetch_retries_a_refusal_and_names_the_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = refused("fatal: unable to access 'x': The requested URL returned error: 401\n")
+    delays: list[float] = []
+    monkeypatch.setattr(module, "_run_git", run)
+    monkeypatch.setattr(module.time, "sleep", delays.append)
+    with pytest.raises(module.SourceError) as caught:
+        module._fetch_commit(REPO_URL, "1" * 40, "export", tmp_path / "export")
+    assert str(caught.value) == (
+        "cannot fetch export from source.invalid: "
+        "fatal: unable to access 'x': The requested URL returned error: 401"
+    )
+    assert delays == list(module.RETRY_DELAYS)
+    assert [args[0] for args in run.calls].count("fetch") == len(module.RETRY_DELAYS) + 1
+
+
+def test_corresponding_source_git_fetch_does_not_retry_a_missing_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = refused("fatal: The requested URL returned error: 404")
+    monkeypatch.setattr(module, "_run_git", run)
+    monkeypatch.setattr(module.time, "sleep", lambda seconds: pytest.fail("retried"))
+    with pytest.raises(module.SourceError, match="source.invalid: .*404"):
+        module._fetch_commit(REPO_URL, "1" * 40, "export", tmp_path / "export")
+
+
+def test_corresponding_source_rejects_a_git_export_without_a_full_commit_id(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = manifest(tmp_path)
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["artifacts"]["export"] = git_artifact("main", TREE)
+    data["builds"]["linux-x86_64"]["sources"] = ["export"]
+    path.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(module, "MANIFEST", path)
+    with pytest.raises(module.SourceError, match="full git commit id"):
+        module.load_manifest()
+
+
+def http_error(code: int) -> urllib.error.HTTPError:
+    return urllib.error.HTTPError(
+        "https://source.invalid/a", code, "Refused", {}, io.BytesIO()  # type: ignore[arg-type]
+    )
+
+
+def test_corresponding_source_download_retries_an_anonymous_refusal_then_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data = b"source bytes"
+    answers: list[object] = [http_error(401), http_error(503), Response(data)]
+
+    def open_url(request: object, timeout: int) -> Response:
+        answer = answers.pop(0)
+        if isinstance(answer, Exception):
+            raise answer
+        return answer  # type: ignore[return-value]
+
+    monkeypatch.setattr(module.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(module.time, "sleep", lambda seconds: None)
+    target = tmp_path / "a"
+    module.download_artifact(
+        "https://source.invalid/a", target, {"bytes": len(data), "sha256": digest(data)}
+    )
+    assert target.read_bytes() == data
+
+
+def test_corresponding_source_download_error_names_the_host_and_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def open_url(request: object, timeout: int) -> Response:
+        raise http_error(401)
+
+    monkeypatch.setattr(module.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(module.time, "sleep", lambda seconds: None)
+    with pytest.raises(module.SourceError) as caught:
+        module.download_artifact(
+            "https://source.invalid/a", tmp_path / "AUTHORS", {"bytes": 1, "sha256": "0" * 64}
+        )
+    assert str(caught.value) == "cannot download AUTHORS from source.invalid: HTTP 401 Refused"
+
+
+def test_corresponding_source_download_does_not_retry_a_hash_mismatch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    opened: list[object] = []
+
+    def open_url(request: object, timeout: int) -> Response:
+        opened.append(request)
+        return Response(b"unexpected bytes")
+
+    monkeypatch.setattr(module.urllib.request, "urlopen", open_url)
+    monkeypatch.setattr(module.time, "sleep", lambda seconds: pytest.fail("retried"))
+    with pytest.raises(module.SourceError, match="does not match"):
+        module.download_artifact(
+            "https://source.invalid/a", tmp_path / "a", {"bytes": 1, "sha256": "0" * 64}
+        )
+    assert len(opened) == 1

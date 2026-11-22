@@ -4,7 +4,7 @@ The manifest beside this module pins, for every shipped platform, the executable
 that the runtime installs and the source archives and build materials that produced
 it.  ``stage_sources`` downloads every source, checks its byte count and SHA-256
 (for a gitiles ``+archive``, which is rebuilt per request, the digest of the extracted
-tree; for a file export, every file's own SHA-256 and the digest of the file list),
+tree; for a git export, every file's own SHA-256 and the digest of the file list),
 and writes the verified files plus the manifest and ``SOURCE-README`` into one
 directory that the caller packs as a Release asset.  The README explains how the
 sources map to the executable and how to rebuild it.  ``notice_lines`` returns the
@@ -20,8 +20,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
+import subprocess
+import sys
 import tarfile
 import time
 import urllib.error
@@ -29,6 +32,7 @@ import urllib.request
 import zlib
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.parse import urlparse
 
 HERE = Path(__file__).resolve().parent
 MANIFEST = HERE / "ffmpeg-sources.lock.json"
@@ -38,6 +42,12 @@ SHA256 = re.compile(r"[0-9a-f]{64}")
 LABEL = re.compile(r"[a-z0-9]+-[a-z0-9_]+")
 CRATE = re.compile(r"[a-z0-9_-]+")
 CRATES = "https://static.crates.io/crates"
+GIT_COMMIT = re.compile(r"[0-9a-f]{40}")
+GIT_STATUS = re.compile(r"returned error: (\d{3})")
+# A host may refuse a runner for a while (401, 429, 5xx) or drop the connection.
+RETRY_STATUS = {401, 408, 429}
+RETRY_DELAYS = (5, 15)
+GIT_TIMEOUT = 900
 
 
 def _artifact_url(artifact: Mapping[str, Any]) -> str:
@@ -83,9 +93,20 @@ def _checked_file_export(
     files = artifact.get("files")
     if not isinstance(files, dict) or not files:
         raise SourceError(f"{where} has an empty file export")
-    base = artifact.get("base_url")
-    if not isinstance(base, str) or not base.startswith("https://") or not base.endswith("/"):
-        raise SourceError(f"{where} has no HTTPS base URL")
+    kind = artifact.get("kind")
+    if kind not in (None, "git"):
+        raise SourceError(f"{where} has an unknown file export kind")
+    if kind == "git":
+        repo = artifact.get("repo")
+        secure = isinstance(repo, str) and repo.startswith("https://")
+        if not secure or not urlparse(str(repo)).hostname:
+            raise SourceError(f"{where} has no HTTPS repository URL")
+        if GIT_COMMIT.fullmatch(str(artifact["revision"])) is None:
+            raise SourceError(f"{where} revision is not a full git commit id")
+    else:
+        base = artifact.get("base_url")
+        if not isinstance(base, str) or not base.startswith("https://") or not base.endswith("/"):
+            raise SourceError(f"{where} has no HTTPS base URL")
     total = 0
     for path, meta in files.items():
         if not isinstance(path, str) or not _safe_relative(path):
@@ -278,6 +299,15 @@ def _archive_matches(path: Path, artifact: Mapping[str, Any]) -> bool:
     return True
 
 
+def _retryable(status: int) -> bool:
+    """Whether a host's refusal may pass: rate limit, anonymous refusal or a server error.
+
+    Other client errors (a missing file) will not change, and a wrong hash is never an
+    HTTP status, so a retry cannot hide a real content mismatch.
+    """
+    return status >= 500 or status in RETRY_STATUS
+
+
 def download_artifact(url: str, target: Path, artifact: Mapping[str, Any]) -> None:
     """Download one archive and refuse it unless it matches its pin.
 
@@ -285,26 +315,32 @@ def download_artifact(url: str, target: Path, artifact: Mapping[str, Any]) -> No
     the extracted tree.  The temporary file is removed on any mismatch, so a failed
     attempt cannot be mistaken for a verified archive on the next run.
     """
+    host = urlparse(url).hostname or url
     request = urllib.request.Request(url, headers={"User-Agent": "corresponding-source"})
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
     try:
-        for attempt in range(3):
+        for attempt in range(len(RETRY_DELAYS) + 1):
+            last = attempt == len(RETRY_DELAYS)
             try:
                 with urllib.request.urlopen(request, timeout=900) as response:  # noqa: S310
                     with temporary.open("wb") as out:
                         shutil.copyfileobj(response, out, CHUNK)
                 break
             except urllib.error.HTTPError as error:
-                if error.code < 500 and error.code not in {408, 429}:
-                    raise SourceError(f"cannot download {target.name}: {error}") from error
-                if attempt == 2:
-                    raise SourceError(f"cannot download {target.name}: {error}") from error
-                time.sleep(1 + attempt)
+                error.close()
+                if last or not _retryable(error.code):
+                    raise SourceError(
+                        f"cannot download {target.name} from {host}: "
+                        f"HTTP {error.code} {error.reason}"
+                    ) from error
+                time.sleep(RETRY_DELAYS[attempt])
             except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
-                if attempt == 2:
-                    raise SourceError(f"cannot download {target.name}: {error}") from error
-                time.sleep(1 + attempt)
+                if last:
+                    raise SourceError(
+                        f"cannot download {target.name} from {host}: {error}"
+                    ) from error
+                time.sleep(RETRY_DELAYS[attempt])
         _check_archive_content(temporary, target.name, artifact)
         temporary.replace(target)
     finally:
@@ -365,7 +401,7 @@ def _stage_instructions(
         name = artifact["filename"]
         if artifact.get("files") is not None:
             name = name + "/"
-        upstream = artifact.get("base_url") or _artifact_url(artifact)
+        upstream = artifact.get("base_url") or artifact.get("repo") or _artifact_url(artifact)
         lines.append(
             f"| `{name}` | {artifact['component']} | `{artifact['revision']}` "
             f"| {artifact['bytes']} | `{artifact['sha256']}` | {upstream} |"
@@ -373,10 +409,13 @@ def _stage_instructions(
     if any(artifact.get("files") is not None for artifact in selected):
         lines += [
             "",
-            "An entry whose file name ends with `/` is a folder of files fetched one by "
-            "one at a pinned revision, not a tarball. Its SHA-256 column is a tree digest: "
-            "the SHA-256 of the sorted list of every file's path, byte count and SHA-256, "
-            "and each listed file was checked against its own SHA-256 and byte count.",
+            "An entry whose file name ends with `/` is a folder of files, not a tarball: "
+            "either the files fetched one by one at a pinned revision, or the files of one "
+            "pinned git commit (its Upstream column is the repository and its Revision "
+            "column the commit). Its SHA-256 column is a tree digest: the SHA-256 of the "
+            "sorted list of every file's path, byte count and SHA-256. Each listed file was "
+            "checked against its own SHA-256 and byte count, and a git checkout was refused "
+            "unless it held exactly the listed files.",
         ]
     lines += ["", "## Rebuilding", ""]
     lines += list(build.get("instructions", []))
@@ -392,6 +431,106 @@ def _stage_instructions(
     return "\n".join(lines) + "\n"
 
 
+def _remove_tree(path: Path) -> None:
+    """Delete a folder, including the read-only object files git leaves on Windows."""
+    if not path.exists():
+        return
+
+    def writable(function: Any, target: str, _error: Any) -> None:
+        Path(target).chmod(0o700)
+        function(target)
+
+    if sys.version_info >= (3, 12):
+        shutil.rmtree(path, onexc=writable)
+    else:
+        shutil.rmtree(path, onerror=writable)
+
+
+def _run_git(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(  # noqa: S603
+        ["git", *args],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=GIT_TIMEOUT,
+        env={**os.environ, "GIT_TERMINAL_PROMPT": "0", "LC_ALL": "C"},
+        check=False,
+    )
+
+
+def _git_failure(result: subprocess.CompletedProcess[str]) -> str:
+    lines = [line.strip() for line in result.stderr.splitlines() if line.strip()]
+    return lines[-1] if lines else f"git exited with status {result.returncode}"
+
+
+def _fetch_commit(repo: str, revision: str, name: str, root: Path) -> None:
+    """Fetch exactly one commit into ``root``, retrying only a refusal that may pass."""
+    host = urlparse(repo).hostname or repo
+    for attempt in range(len(RETRY_DELAYS) + 1):
+        last = attempt == len(RETRY_DELAYS)
+        _remove_tree(root)
+        root.mkdir(parents=True)
+        try:
+            result = _run_git(["init", "-q"], root)
+            if result.returncode == 0:
+                result = _run_git(["fetch", "-q", "--depth", "1", repo, revision], root)
+            if result.returncode == 0:
+                return
+            status = GIT_STATUS.search(result.stderr)
+            if last or (status is not None and not _retryable(int(status.group(1)))):
+                raise SourceError(f"cannot fetch {name} from {host}: {_git_failure(result)}")
+        except FileNotFoundError as error:
+            raise SourceError(f"cannot fetch {name} from {host}: git is not installed") from error
+        except subprocess.TimeoutExpired as error:
+            if last:
+                raise SourceError(f"cannot fetch {name} from {host}: git timed out") from error
+        time.sleep(RETRY_DELAYS[attempt])
+
+
+def _git_export_matches(root: Path, files: Mapping[str, Mapping[str, Any]]) -> bool:
+    for path, meta in files.items():
+        target = root.joinpath(*path.split("/"))
+        if not (
+            target.is_file()
+            and not target.is_symlink()
+            and target.stat().st_size == int(meta["bytes"])
+            and _sha256_file(target) == str(meta["sha256"])
+        ):
+            return False
+    return True
+
+
+def _checkout_commit(
+    revision: str, name: str, root: Path, files: Mapping[str, Mapping[str, Any]]
+) -> None:
+    """Check out the fetched commit and refuse it unless it is exactly the pinned file set."""
+    head = _run_git(["rev-parse", "FETCH_HEAD"], root)
+    if head.returncode != 0 or head.stdout.strip() != revision:
+        raise SourceError(f"{name} fetched a commit other than the pinned {revision}")
+    listing = _run_git(["ls-tree", "-r", "-z", "FETCH_HEAD"], root)
+    if listing.returncode != 0:
+        raise SourceError(f"cannot list {name}: {_git_failure(listing)}")
+    tracked: dict[str, str] = {}
+    for entry in filter(None, listing.stdout.split("\0")):
+        info, _, path = entry.partition("\t")
+        tracked[path] = info.split(" ", 1)[0]
+    if set(tracked) != set(files):
+        raise SourceError(f"{name} files do not match the pinned file list")
+    if any(mode not in {"100644", "100755"} for mode in tracked.values()):
+        raise SourceError(f"{name} has an entry that is not a regular file")
+    # No line-ending or filter conversion: the pin is on the committed bytes.
+    attributes = root / ".git" / "info" / "attributes"
+    attributes.parent.mkdir(parents=True, exist_ok=True)
+    attributes.write_text("* -text -filter -ident\n", encoding="utf-8")
+    checkout = _run_git(["checkout", "-q", "--detach", "FETCH_HEAD"], root)
+    if checkout.returncode != 0:
+        raise SourceError(f"cannot check out {name}: {_git_failure(checkout)}")
+    if not _git_export_matches(root, files):
+        raise SourceError(f"{name} does not match its pinned bytes and SHA-256")
+
+
 def _stage_file_export(artifact: Mapping[str, Any], root: Path) -> None:
     """Fetch one versioned file export and verify every file before it is reused."""
     files = artifact["files"]
@@ -404,6 +543,21 @@ def _stage_file_export(artifact: Mapping[str, Any], root: Path) -> None:
             continue
         target.unlink(missing_ok=True)
         download_artifact(base + path, target, {"bytes": count, "sha256": digest})
+
+
+def _stage_git_export(artifact: Mapping[str, Any], root: Path) -> None:
+    """Fetch one pinned commit and verify its checkout before it is reused."""
+    files = artifact["files"]
+    if root.is_dir() and _git_export_matches(root, files):
+        return
+    name = str(artifact["filename"])
+    revision = str(artifact["revision"])
+    try:
+        _fetch_commit(str(artifact["repo"]), revision, name, root)
+        _checkout_commit(revision, name, root, files)
+    except BaseException:
+        _remove_tree(root)
+        raise
 
 
 def _copy_verified(source: Path, target: Path, count: int, digest: str) -> None:
@@ -433,7 +587,10 @@ def stage_sources(label: str, dest: Path, work: Path) -> None:
         path = downloads / str(artifact["filename"])
         files = artifact.get("files")
         if files is not None:
-            _stage_file_export(artifact, path)
+            if artifact.get("kind") == "git":
+                _stage_git_export(artifact, path)
+            else:
+                _stage_file_export(artifact, path)
             verified.append((artifact, path))
             continue
         if _archive_matches(path, artifact):
