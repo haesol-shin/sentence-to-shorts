@@ -68,15 +68,32 @@ def test_11_request_after_a_worker_idle_exit_goes_to_a_new_worker(tmp_path: Path
     assert len({event["pid"] for event in events(tmp_path) if event["event"] == "start"}) == 2
 
 
-def test_27_sentence_timeout_is_the_larger_of_thirty_seconds_and_ten_times_the_length(
+def test_27_sentence_timeout_is_the_larger_of_the_floor_and_ten_times_the_length(
     tmp_path: Path,
 ) -> None:
     adapter = make_adapter(tmp_path)
     short = adapter.sentence_timeout_s("안녕하세요", "ko")
     long = adapter.sentence_timeout_s("가" * 800, "ko")
-    assert short == 30.0
+    assert short == engine.SENTENCE_TIMEOUT_FLOOR_S
     assert long == 10 * engine.expected_ms("가" * 800, "ko") / 1000
-    assert long > 30.0
+    assert long > engine.SENTENCE_TIMEOUT_FLOOR_S
+
+
+def test_27_default_floor_passes_the_slowest_healthy_sentence_with_margin() -> None:
+    slowest_healthy_s = 45.1  # a probe sentence on a slow 4 vCPU runner
+    assert engine.SENTENCE_TIMEOUT_FLOOR_S >= 2 * slowest_healthy_s
+
+
+def test_27_a_slow_worker_that_answers_inside_the_limit_is_not_timed_out(
+    tmp_path: Path,
+) -> None:
+    # The worker takes 1.5s: over a 30s floor scaled to 1s, inside a 120s floor scaled to 4s.
+    adapter = make_adapter(tmp_path, "slow_synth", sentence_floor_s=4.0, sentence_factor=0.0)
+    try:
+        result = synth(adapter, tmp_path)
+    finally:
+        adapter.close()
+    assert result.duration_ms == 500
 
 
 def test_27_expected_length_table_matches_the_voice_service() -> None:

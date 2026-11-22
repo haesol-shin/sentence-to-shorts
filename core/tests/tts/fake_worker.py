@@ -74,6 +74,8 @@ def respond(args: argparse.Namespace, request: dict, served: int, send) -> bool:
     if args.mode == "fail_after_one" and served > 1:
         send({"type": "error", "id": request["id"], "code": "synth_failed"})
         return True
+    if args.mode == "slow_synth":
+        time.sleep(1.5)
     if args.mode == "hang":
         time.sleep(600)
     if args.mode == "grandchild":

@@ -13,7 +13,10 @@ adapter never downloads a file: a missing model file or package is
 ``tts_not_ready``.
 
 A sentence has its own timeout, the larger of ``SENTENCE_TIMEOUT_FLOOR_S`` and
-``SENTENCE_TIMEOUT_FACTOR`` times the expected speech length. Timeout, worker
+``SENTENCE_TIMEOUT_FACTOR`` times the expected speech length. The model call gives no
+progress signal, so the worker cannot show liveness while it synthesizes; the floor is
+instead set well above the slowest healthy sentence seen on a 4 vCPU CI runner (45s), so
+a slow CPU is not mistaken for a stuck worker. Timeout, worker
 failure and an unusable WAV end the call with ``tts_timeout`` or ``tts_failed``. The
 worker answers each request with a ``received`` notice before it synthesizes; a timeout
 detail says whether it arrived, and the sentence log line says how long the answer took.
@@ -79,7 +82,8 @@ PHASE_TIMEOUT_S = 300.0
 """How long a load step may stay silent: the limit restarts on every phase message."""
 LOAD_TIMEOUT_S = 1200.0
 """The whole load, first start on a cold disk included, however many steps report."""
-SENTENCE_TIMEOUT_FLOOR_S = 30.0
+SENTENCE_TIMEOUT_FLOOR_S = 120.0
+"""Over 2.5 times the slowest healthy sentence measured on a slow runner (45.1s)."""
 SENTENCE_TIMEOUT_FACTOR = 10.0
 
 CHARS_PER_SECOND = {"ko": 5.5, "en": 13.0}
