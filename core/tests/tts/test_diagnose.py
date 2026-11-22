@@ -3,6 +3,7 @@ what the adapter drops."""
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -45,7 +46,7 @@ def test_diagnose_a_worker_that_reaches_ready_is_reported_with_its_protocol_line
     tmp_path: Path,
 ) -> None:
     argv = [*worker_command(tmp_path, "phased_load"), "--device", "cpu"]
-    report = diagnose.run_worker(argv, {}, limit_s=60)
+    report = diagnose.run_worker(argv, dict(os.environ), limit_s=60)
     assert report["ready"] and not report["timed_out"]
     texts = [line["text"] for line in report["lines"]]
     assert texts[0].count("import_torch") == 1 and texts[-1] == '{"type": "ready"}'
@@ -55,7 +56,7 @@ def test_diagnose_a_worker_that_exits_before_ready_shows_its_status_and_stderr(
     tmp_path: Path,
 ) -> None:
     code = "import sys; sys.stderr.write('boom ' * 2000); sys.exit(7)"
-    report = diagnose.run_worker([sys.executable, "-c", code], {}, limit_s=60)
+    report = diagnose.run_worker([sys.executable, "-c", code], dict(os.environ), limit_s=60)
     assert (report["ready"], report["timed_out"], report["returncode"]) == (False, False, 7)
     assert report["lines"] == []
     assert report["stderr_tail"].endswith("boom ")
@@ -64,13 +65,13 @@ def test_diagnose_a_worker_that_exits_before_ready_shows_its_status_and_stderr(
 
 def test_diagnose_a_worker_without_any_phase_is_killed_at_the_limit(tmp_path: Path) -> None:
     argv = [*worker_command(tmp_path, "slow_load"), "--device", "cpu"]
-    report = diagnose.run_worker(argv, {}, limit_s=1.0)
+    report = diagnose.run_worker(argv, dict(os.environ), limit_s=1.0)
     assert (report["ready"], report["timed_out"], report["returncode"]) == (False, True, None)
     assert report["lines"] == []
 
 
 def test_diagnose_import_timing_runs_the_given_interpreter() -> None:
-    report = diagnose.time_import_torch(sys.executable, {}, limit_s=120)
+    report = diagnose.time_import_torch(sys.executable, dict(os.environ), limit_s=120)
     assert report["timed_out"] is False
     assert report["total_ms"] > 0 and 0 < len(report["slowest"]) <= diagnose.SLOWEST
 
