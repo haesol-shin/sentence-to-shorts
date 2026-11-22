@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import threading
 import time
@@ -102,6 +103,55 @@ def test_27_load_timeout_is_tts_timeout(tmp_path: Path) -> None:
     with pytest.raises(AppError) as raised:
         synth(adapter, tmp_path)
     assert (raised.value.code, raised.value.detail["stage"]) == ("tts_timeout", "load")
+    (pid,) = {event["pid"] for event in events(tmp_path)}
+    assert gone(pid)
+
+
+def test_27_a_slow_load_that_keeps_reporting_phases_is_not_cut_off(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    # Four steps of 0.7s: 2.8s in all, far over the 1.5s a step may stay silent.
+    adapter = make_adapter(tmp_path, "phased_load", load_timeout_s=30.0, phase_timeout_s=1.5)
+    with caplog.at_level(logging.INFO, logger=engine.logger.name):
+        synth(adapter, tmp_path)
+    adapter.close()
+    logged = [r.getMessage() for r in caplog.records if "load phase" in r.getMessage()]
+    assert [line.split()[3] for line in logged] == [
+        "import_torch",
+        "import_qwen_tts",
+        "from_pretrained",
+        "warm_up",
+    ]
+    assert all(line.endswith("took 0.7s") for line in logged)
+
+
+def test_27_a_worker_that_stops_reporting_times_out_with_its_last_phase(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    adapter = make_adapter(tmp_path, "stall_after_phase", load_timeout_s=30.0, phase_timeout_s=1.0)
+    started = time.monotonic()
+    with caplog.at_level(logging.WARNING, logger=engine.logger.name):
+        with pytest.raises(AppError) as raised:
+            synth(adapter, tmp_path)
+    assert raised.value.code == "tts_timeout"
+    assert raised.value.detail == {
+        "engine": engine.ENGINE_ID,
+        "stage": "load",
+        "last_phase": "import_qwen_tts",
+        "limit": "phase",
+    }
+    assert time.monotonic() - started < 10
+    assert "import_qwen_tts" in caplog.text
+    (pid,) = {event["pid"] for event in events(tmp_path)}
+    assert gone(pid)
+
+
+def test_27_the_total_load_limit_holds_while_phases_keep_arriving(tmp_path: Path) -> None:
+    adapter = make_adapter(tmp_path, "endless_phases", load_timeout_s=2.0, phase_timeout_s=1.5)
+    with pytest.raises(AppError) as raised:
+        synth(adapter, tmp_path)
+    assert raised.value.detail["limit"] == "total"
+    assert raised.value.detail["last_phase"] == "from_pretrained"
     (pid,) = {event["pid"] for event in events(tmp_path)}
     assert gone(pid)
 

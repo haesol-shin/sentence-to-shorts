@@ -514,6 +514,8 @@ class VoicePlan:
     poll_s: float = POLL_S
     settle_s: float = 2.0
     timings: dict[str, float] = field(default_factory=dict)
+    log_file: Path | None = None
+    """The launcher log of the app the plan starts; its TTS load lines are printed."""
 
 
 def write_pairing_hook(work: Path, os_name: str) -> tuple[Path, Path]:
@@ -852,6 +854,31 @@ def check_offline(
     result.check(CHECK_OFFLINE, not problems, detail)
 
 
+LOAD_LINE = re.compile(r"tts load (?:phase (\w+) took ([0-9.]+)s|timed out\b.*)$")
+
+
+def report_load_phases(result: Result, log_file: Path | None) -> None:
+    """Print the TTS load lines of the launcher log, so the run log shows where a load spends
+    its time without the artifacts. Phase seconds also go to the result under `seconds`."""
+    if log_file is None:
+        return
+    try:
+        lines = log_file.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        lines = []
+    seen: set[str] = set()
+    for line in lines:
+        found = LOAD_LINE.search(line)
+        if found is None or line in seen:
+            continue
+        seen.add(line)
+        print(f"load  {line.strip()}", flush=True)
+        if found.group(1):
+            result.seconds[f"tts_load_{found.group(1)}"] = float(found.group(2))
+    if not seen:
+        print("load  no TTS load line in the launcher log", flush=True)
+
+
 def skip(result: Result, names: tuple[str, ...], reason: str) -> None:
     for name in names:
         result.check(name, False, f"not run: {reason}")
@@ -873,6 +900,7 @@ def voice_phase(result: Result, plan: VoicePlan) -> None:
                 jobs_before = None
     finally:
         plan.stop(run)
+    report_load_phases(result, plan.log_file)
     result.sizes["models_bytes"] = tree_bytes(plan.model_dir)
     result.seconds.update(plan.timings)
     # The app is stopped first: the probe loads the models again and memory is short.
@@ -916,7 +944,10 @@ def voice_leg(
             clean = {k: v for k, v in app_env.items() if k != "BROWSER"}
             return run_probe(root, args.os, clean, work)
 
-        plan = VoicePlan(start, stop_app, probe, data_dir / "models", stub)
+        plan = VoicePlan(
+            start, stop_app, probe, data_dir / "models", stub,
+            log_file=data_dir / "log" / "launcher.log",
+        )
         voice_phase(result, plan)
     finally:
         stub.close()

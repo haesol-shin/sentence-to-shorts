@@ -36,6 +36,26 @@ def tone(path: str, ms: int = 500, rate: int = 24000, truncate: bool = False) ->
             raw.truncate(raw.seek(0, 2) // 2)
 
 
+PHASES = ("import_torch", "import_qwen_tts", "from_pretrained", "warm_up")
+PHASE_GAP_S = 0.7
+
+
+def report_phases(mode: str, send) -> None:
+    """The load-phase modes: slow but steady, silent after two phases, never finishing."""
+    if mode == "phased_load":
+        for name in PHASES:
+            time.sleep(PHASE_GAP_S)
+            send({"type": "phase", "name": name, "seconds": PHASE_GAP_S})
+    if mode == "stall_after_phase":
+        send({"type": "phase", "name": "import_torch", "seconds": 0.1})
+        send({"type": "phase", "name": "import_qwen_tts", "seconds": 0.1})
+        time.sleep(600)
+    if mode == "endless_phases":
+        while True:
+            time.sleep(PHASE_GAP_S)
+            send({"type": "phase", "name": "from_pretrained", "seconds": PHASE_GAP_S})
+
+
 def respond(args: argparse.Namespace, request: dict, served: int, send) -> bool:
     """Answer one request by mode; False when the worker leaves instead of answering."""
     if args.mode == "bye_once" and served == 1 and not os.path.exists(args.log + ".done"):
@@ -114,6 +134,7 @@ def main() -> int:
         return 1
     if args.mode == "slow_load":
         time.sleep(600)
+    report_phases(args.mode, send)
     if args.mode == "slow_load_on_cuda" and args.device == "cuda":
         time.sleep(600)
     send({"type": "ready"})

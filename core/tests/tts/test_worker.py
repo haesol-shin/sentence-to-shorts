@@ -8,6 +8,7 @@ the seed, the WAV the worker writes and the speed change are the real ones.
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import wave
 from pathlib import Path
@@ -112,6 +113,45 @@ def test_28_worker_loads_only_the_local_model_with_the_configured_threads(
     assert frames(result.wav_path) == 24000
 
 
+def test_28_worker_reports_each_load_phase_in_order_before_ready(engine, tmp_path: Path) -> None:
+    adapter, _calls = engine
+    argv = [
+        *adapter._command,
+        "--model-dir",
+        str(tmp_path / "model"),
+        "--device",
+        "cpu",
+        "--threads",
+        "1",
+        "--idle-s",
+        "30",
+    ]
+    worker = subprocess.Popen(
+        argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
+    )
+    try:
+        assert worker.stdout is not None
+        messages = []
+        while not messages or messages[-1]["type"] != "ready":
+            line = worker.stdout.readline()
+            assert line, f"the worker ended before ready: {messages}"
+            messages.append(json.loads(line))
+    finally:
+        for pipe in (worker.stdin, worker.stdout):
+            if pipe is not None:
+                pipe.close()
+        worker.wait(timeout=30)
+    phases = messages[:-1]
+    assert [m["type"] for m in phases] == ["phase"] * 4
+    assert [m["name"] for m in phases] == [
+        "import_torch",
+        "import_qwen_tts",
+        "from_pretrained",
+        "warm_up",
+    ]
+    assert all(isinstance(m["seconds"], float) and m["seconds"] >= 0 for m in phases)
+
+
 def test_28_worker_passes_speaker_language_and_seed_to_the_model(engine, tmp_path: Path) -> None:
     adapter, calls = engine
     synth(adapter, tmp_path, "안녕하세요", voice=make_voice(settings={"speed": 1.0, "seed": 42}))
@@ -155,7 +195,7 @@ def test_28_multichannel_output_is_not_flattened_into_mono(engine, tmp_path: Pat
     assert not list((tmp_path / "out").glob("*"))
 
 
-QWEN_TTS_FAILS_ON_CUDA = '''
+QWEN_TTS_FAILS_ON_CUDA = """
 import json
 import numpy
 
@@ -181,7 +221,7 @@ class Qwen3TTSModel:
     def generate_custom_voice(self, text, language, speaker, **kwargs):
         t = numpy.arange(24000) / 24000
         return [(0.3 * numpy.sin(2 * numpy.pi * 220 * t)).astype("float32")], 24000
-'''
+"""
 
 
 def test_device_auto_steps_down_to_the_cpu_once_after_a_failed_cuda_load(
@@ -190,9 +230,7 @@ def test_device_auto_steps_down_to_the_cpu_once_after_a_failed_cuda_load(
     libs = tmp_path / "libs"
     libs.mkdir()
     log = tmp_path / "device_calls.jsonl"
-    (libs / "qwen_tts.py").write_text(
-        QWEN_TTS_FAILS_ON_CUDA.format(log=str(log)), encoding="utf-8"
-    )
+    (libs / "qwen_tts.py").write_text(QWEN_TTS_FAILS_ON_CUDA.format(log=str(log)), encoding="utf-8")
     command = [sys.executable, "-c", RUN_WORKER, str(libs), str(WORKER_PATH)]
     adapter = make_adapter(
         tmp_path,

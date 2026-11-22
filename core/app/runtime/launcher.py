@@ -191,7 +191,7 @@ def open_log(root: Path, settings: LaunchSettings) -> logging.Handler:
             ]
         )
     )
-    for name in ("launcher", "uvicorn", "uvicorn.error"):
+    for name in ("launcher", "app", "uvicorn", "uvicorn.error"):
         logger = logging.getLogger(name)
         logger.addHandler(handler)
         logger.setLevel(logging.INFO)
@@ -466,7 +466,7 @@ def _run_locked(
             record_path.unlink()
         if sock is not None:
             sock.close()
-        for name in ("launcher", "uvicorn", "uvicorn.error"):
+        for name in ("launcher", "app", "uvicorn", "uvicorn.error"):
             logging.getLogger(name).removeHandler(handler)
         handler.close()
 
