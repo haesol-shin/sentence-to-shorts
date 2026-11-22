@@ -6,7 +6,7 @@ imports nothing from `app`. The protocol is one ASCII JSON object per line.
 Requests on stdin carry `id`, `wav`, `speech_text`, `language` and `speech_ms`.
 Replies are `ready` after the imports, then `words` or `error` per request, and
 `bye` when the worker leaves after its idle time. A closed stdin ends the worker
-at once, so a parent that died never leaves a model running.
+once the load is over, so a parent that died never leaves a model running.
 
 Only the model of the requested language stays in memory; a switch to the other
 language releases it before the next load. Models load from the prepared local
@@ -215,7 +215,6 @@ def serve(model_ko: str, model_en: str, model_en_file: str, nltk_data: str, thre
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     proto = _reply_stream()
     requests: queue.Queue[dict[str, Any]] = queue.Queue()
-    threading.Thread(target=_read_requests, args=(requests,), daemon=True).start()
     try:
         engine = Engine(model_ko, model_en, model_en_file, nltk_data)
         engine.configure_threads(threads)
@@ -227,6 +226,10 @@ def serve(model_ko: str, model_en: str, model_en_file: str, nltk_data: str, thre
         _send(proto, {"type": "error", "code": "load_failed", "name": type(error).__name__})
         return 1
     _send(proto, {"type": "ready"})
+    # Only now: on Windows a pending read on stdin, a synchronous pipe, can block the
+    # import of torch in the main thread. A request sent early waits in the pipe, and a
+    # stdin that closed during the load ends the worker as soon as this thread reads it.
+    threading.Thread(target=_read_requests, args=(requests,), daemon=True).start()
     while True:
         try:
             request = requests.get(timeout=idle_s)
