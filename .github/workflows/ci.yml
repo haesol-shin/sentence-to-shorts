@@ -214,6 +214,14 @@ jobs:
       # downloads and real provider calls. `core/pyproject.toml` limits each test
       # to 180 seconds, so a stuck test fails with its name instead of holding
       # the job until the timeout cancels it.
+      # The scheduled model workflow loads a pytest plugin by module path. Collecting
+      # with the same command here fails a broken plugin import before merge.
+      - name: Collect the model workflow tests
+        shell: bash
+        working-directory: core
+        env:
+          GITHUB_STEP_SUMMARY: ${{ runner.temp }}/models-collect-summary.md
+        run: python -m poetry run python -m pytest -m models --collect-only -q -p tests.tts.test_model_timing
       - name: Unit, contract, architecture and runtime tests
         shell: bash
         working-directory: core

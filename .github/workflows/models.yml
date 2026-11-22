@@ -53,4 +53,4 @@ jobs:
         run: |
           APP_TEST_WHISPER_MODEL="$APP_MODEL_DIR/$(jq -er '.items[] | select(.id == "model-asr-small") | .install_path' config/runtime.lock.json)"
           export APP_TEST_WHISPER_MODEL
-          python -m poetry run pytest -m models -q -rs --timeout=900 -p tests.tts.test_model_timing
+          python -m poetry run python -m pytest -m models -q -rs --timeout=900 -p tests.tts.test_model_timing
