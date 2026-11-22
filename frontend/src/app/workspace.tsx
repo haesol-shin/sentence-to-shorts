@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import {
+  ApiProblemError,
   createProject,
   createVideo,
   messageKeyOf,
@@ -10,7 +11,7 @@ import {
 import { attachConceptExtras, beginConcept, reloadConcept } from '@/features/concept/store';
 import type { Attachment } from '@/features/concept/types';
 import { resetRememberedScene } from '@/features/edit/edit-context';
-import { useBrand } from '@/features/runtime/use-brand';
+import { useRuntimeHead } from '@/features/runtime/use-runtime-head';
 import { LocaleProvider, useLocale } from '@/shared/lib/i18n/locale';
 import { useSession, type SessionResult } from '@/shared/lib/session';
 import { useJob } from '@/shared/lib/use-job';
@@ -47,19 +48,6 @@ export function Workspace() {
   );
 }
 
-/**
- * The runtime answers with the display name, and it needs a session, so this
- * reads only after the pairing or the cookie has settled.
- */
-function BrandName() {
-  const { language } = useLocale();
-  const brand = useBrand();
-  if (brand.brand === null) {
-    return null;
-  }
-  return <>{language === 'ko' ? brand.brand.display_name_ko : brand.brand.display_name_en}</>;
-}
-
 /** One notice row above the stage; a dismissible one carries its own close control. */
 function HeaderNotice({
   tone = 'neutral',
@@ -84,6 +72,9 @@ function HeaderNotice({
 
 function WorkspaceBody({ session }: { session: SessionResult }) {
   const { t, language } = useLocale();
+  // The runtime answers with the display name and the key state, and it needs a
+  // session, so this reads only after the pairing or the cookie has settled.
+  const runtimeHead = useRuntimeHead(session.state === 'ready');
   const [view, setView] = useState<View>('first');
   const nextPreset = useRef<{ projectId: string; presetId: string } | null>(null);
   const [video, setVideo] = useState<{
@@ -100,6 +91,8 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const [card, setCard] = useState<CardPick | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionErrorKey, setActionErrorKey] = useState<string | null>(null);
+  // In the release profile an `llm_auth` failure asks for the key again on the first screen; other profiles keep the header notice.
+  const [authFailureKey, setAuthFailureKey] = useState<string | null>(null);
   const job = useJob(jobId);
   const draftJob = job.job?.id === jobId ? job.job : null;
   const serverScriptVideoId = import.meta.env.VITE_API_MODE === 'mock' ? null : video?.id ?? null;
@@ -123,6 +116,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     }
     setSubmitting(true);
     setActionErrorKey(null);
+    setAuthFailureKey(null);
     try {
       const preset = nextPreset.current;
       const projectId = preset?.projectId ?? (await createProject({ language: options.language })).id;
@@ -157,7 +151,15 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       setCard(null);
       setView('concept');
     } catch (error) {
-      setActionErrorKey(messageKeyOf(error));
+      if (
+        runtimeHead.llmKey.release &&
+        error instanceof ApiProblemError &&
+        error.code === 'llm_auth_required'
+      ) {
+        setAuthFailureKey(error.messageKey);
+      } else {
+        setActionErrorKey(messageKeyOf(error));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -176,6 +178,21 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       .catch(() => undefined);
   }, [draftWritten, openVideoId]);
 
+  // The job started with no usable key: back to the first screen with the
+  // sentence the user typed, so the key can be replaced and the sentence sent again.
+  // Only where the key block renders; dev and an unread runtime keep the job banner.
+  const authFailed =
+    runtimeHead.llmKey.release && draftJob?.state === 'failed' && draftJob.error?.code === 'llm_auth';
+  const typedSentence = video?.topic ?? null;
+  useEffect(() => {
+    if (!authFailed || typedSentence === null) return;
+    setView('first');
+    setVideo(null);
+    setJobId(null);
+    setDraft(typedSentence);
+    setAuthFailureKey('error.llm_auth_required');
+  }, [authFailed, typedSentence]);
+
   const openNewVideo = () => {
     setView('first');
     setVideo(null);
@@ -183,6 +200,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     setDraft('');
     setCard(null);
     setActionErrorKey(null);
+    setAuthFailureKey(null);
   };
 
   const openEditAfterScriptConfirm = () => {
@@ -221,7 +239,13 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     <AppShell
       view={view}
       videoId={video?.id ?? null}
-      brand={session.state === 'ready' ? <BrandName /> : null}
+      brand={
+        runtimeHead.brand === null
+          ? null
+          : language === 'ko'
+            ? runtimeHead.brand.display_name_ko
+            : runtimeHead.brand.display_name_en
+      }
       onNewVideo={openNewVideo}
       onStage={setView}
       draftWaiting={draftJob === null ? jobId !== null : (
@@ -247,6 +271,9 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
           card={card}
           submitting={submitting}
           ready={session.state === 'ready'}
+          llmKey={runtimeHead.llmKey}
+          authFailureKey={authFailureKey}
+          onKeySaved={() => setAuthFailureKey(null)}
           onDraftChange={setDraft}
           onPickCard={setCard}
           onClearCard={() => setCard(null)}

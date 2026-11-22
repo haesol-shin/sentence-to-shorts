@@ -1,4 +1,9 @@
 {
+  "apiKey.hint": "The key stays on this computer, in the OS key store.",
+  "apiKey.invalid": "The key does not look right. Paste it again.",
+  "apiKey.label": "API key",
+  "apiKey.loopbackOnly": "The key can be entered only on this computer.",
+  "apiKey.save": "Save",
   "cardTopic.its_like": "Think of stock keeping",
   "cardTopic.just_three": "Three ways to pick coffee",
   "cardTopic.what_if": "What if the internet stopped for a day?",

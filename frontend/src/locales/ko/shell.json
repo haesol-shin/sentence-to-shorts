@@ -1,4 +1,9 @@
 {
+  "apiKey.hint": "키는 이 컴퓨터의 OS 키 저장소에만 보관돼요.",
+  "apiKey.invalid": "키 형식이 맞지 않아요. 다시 붙여 넣어 주세요.",
+  "apiKey.label": "API key",
+  "apiKey.loopbackOnly": "키는 이 컴퓨터에서만 입력할 수 있어요.",
+  "apiKey.save": "저장",
   "cardTopic.its_like": "재고 관리로 치면",
   "cardTopic.just_three": "커피를 고르는 세 가지 기준",
   "cardTopic.what_if": "만약 인터넷이 하루 멈춘다면?",

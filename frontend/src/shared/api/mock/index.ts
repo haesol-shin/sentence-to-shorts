@@ -91,6 +91,14 @@ function mockPrepareFromAddress(): MockPrepare {
   return MOCK_PREPARE.find((state) => state === asked) ?? 'ready';
 }
 
+/**
+ * Open the app with `?mock_llm=missing` for the release first run: the runtime
+ * answers the release profile with no key, and saving one makes it usable.
+ */
+function mockLlmMissingFromAddress(): boolean {
+  return new URLSearchParams(window.location.search).get('mock_llm') === 'missing';
+}
+
 function prepareGroups(recorded: readonly PrepareGroup[], mode: MockPrepare): PrepareGroup[] {
   if (mode === 'downloading') return recorded.map((group) => ({ ...group }));
   return recorded.map((group) => {
@@ -111,6 +119,7 @@ export function installMockApi(prepare: MockPrepare = mockPrepareFromAddress()):
   editedVideoSettings.clear();
   const nextId = (prefix: string) => `${prefix}_${(++sequence).toString(32).padStart(25, '0')}`;
   let groups: PrepareGroup[] | null = null;
+  let llmMissing = mockLlmMissingFromAddress();
 
   setTransport(async (request) => {
     const fixture = mockResponse(request);
@@ -119,7 +128,14 @@ export function installMockApi(prepare: MockPrepare = mockPrepareFromAddress()):
     if (request.method === 'GET' && area === 'runtime' && id === undefined) {
       const recorded = fixture.body as RuntimeStatus;
       groups ??= prepareGroups(recorded.prepare.groups, prepare);
-      return { ...fixture, body: { ...recorded, prepare: { groups } } satisfies RuntimeStatus };
+      const llm: Partial<RuntimeStatus> = llmMissing
+        ? { profile: 'release', llm_auth: { adapter: recorded.llm_auth.adapter, state: 'missing' } }
+        : {};
+      return { ...fixture, body: { ...recorded, ...llm, prepare: { groups } } satisfies RuntimeStatus };
+    }
+    if (request.method === 'PUT' && area === 'credentials' && id === 'llm') {
+      llmMissing = false;
+      return fixture;
     }
     if (request.method === 'POST' && area === 'runtime' && id === 'prepare') {
       // A failed group is queued again and moves on as a download.

@@ -326,6 +326,11 @@ export function retryJob(jobId: string): Promise<Job> {
   }, { idempotencyKey: newIdempotencyKey() });
 }
 
+/** Stores the user's own LLM key in the OS key store; the server never echoes it. */
+export function saveLlmCredential(apiKey: string): Promise<void> {
+  return send<void>({ method: 'PUT', path: '/credentials/llm', body: { api_key: apiKey } });
+}
+
 /** Queues every failed model group again; the answer is the `runtime_prepare` job. */
 export function retryRuntimePrepare(): Promise<Job> {
   return send<Job>({ method: 'POST', path: '/runtime/prepare' }, { idempotencyKey: newIdempotencyKey() });

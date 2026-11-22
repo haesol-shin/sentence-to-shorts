@@ -4,7 +4,9 @@ import { listFormatCards, listRecentProjects, type Language } from '@/shared/api
 import type { Attachment } from '@/features/concept/types';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
+import type { LlmKey } from '@/features/runtime/use-runtime-head';
 import { useLoad } from '@/shared/lib/use-load';
+import { ApiKeyBlock } from './api-key-block';
 import { useDeployment, Composer } from './shell/composer';
 import type { CardPick } from './shell/shell-config';
 
@@ -18,7 +20,10 @@ export function FirstScreen({
   card,
   submitting,
   ready,
+  llmKey,
+  authFailureKey,
   onDraftChange,
+  onKeySaved,
   onPickCard,
   onClearCard,
   onSubmit,
@@ -28,7 +33,13 @@ export function FirstScreen({
   submitting: boolean;
   /** The session is up, so the catalog and the project list may be read. */
   ready: boolean;
+  /** What the runtime says about the user's own LLM key. */
+  llmKey: LlmKey;
+  /** The `errors` key of an `llm_auth` failure that asks for the key again; `null` when none stands. */
+  authFailureKey: string | null;
   onDraftChange: (value: string) => void;
+  /** The key is stored and the server reports it usable. */
+  onKeySaved: () => void;
   onPickCard: (card: CardPick) => void;
   onClearCard: () => void;
   /** The start boundary receives the whole material, not only the sentence. */
@@ -49,6 +60,13 @@ export function FirstScreen({
     await onSubmit(draft, attachments, { language: chosenLanguage, duration });
   };
 
+  // dev and fixture profiles never ask: they use their own adapter.
+  const askKey = llmKey.release && (llmKey.needed || authFailureKey !== null);
+  const saveKey = async (apiKey: string) => {
+    const state = await llmKey.save(apiKey);
+    if (state === 'ok' || state === 'unknown') onKeySaved();
+  };
+
   return (
     // `my-auto` centres the column while it fits and lets it start at the top
     // once a phone keyboard or a short window takes the room away, so nothing
@@ -59,6 +77,7 @@ export function FirstScreen({
         style={{ maxWidth: 'var(--layout-first-w)' }}
       >
         <h1 className="text-[22px] font-bold text-[var(--text-strong)]">{t('shell.first.heading')}</h1>
+        {askKey ? <ApiKeyBlock noticeKey={authFailureKey} onSave={saveKey} /> : null}
         <Composer
           label={t('shell.first.composerLabel')}
           placeholder={t('shell.first.composerLabel')}
