@@ -7350,7 +7350,8 @@
       "component": "xvidcore (SVN r2204)",
       "revision": "r2204",
       "repo": "https://svn.xvid.org/trunk/xvidcore",
-      "base_url": "https://svn.xvid.org/trunk/xvidcore/",
+      "base_url": "https://svn.xvid.org/!svn/rvr/2204/trunk/xvidcore/",
+      "auth": "anonymous-basic",
       "files": {
         "AUTHORS": {
           "bytes": 1233,
