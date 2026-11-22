@@ -18,7 +18,10 @@ has only the installer can make a video with voice: the app starts in an empty d
 and serves its page while the models download, a generate pressed meanwhile waits and then
 succeeds with word timing, a second start without network downloads nothing, and the
 installed TTS and aligner run from the installed files (`voice_probe.py`, with
-`pythonw.exe` on Windows) in two environments that hold different torch.
+`pythonw.exe` on Windows) in two environments that hold different torch. When the TTS leg
+made no wav, the aligner is checked on its own with the installed sample wav of the Korean
+voice and its committed transcript (`fixtures/aligner-sample.txt`), under a check name that
+says so, so one run reports both faults.
 
 The voice phase picks the loopback stub `smoke_llm.py` as the LLM. The release bundle
 carries the adapter table of every profile, so `APP_PROFILE=dev` is legal and the only
@@ -92,6 +95,49 @@ out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encodin
 app builds it, so this stays outside the app tree, where only bootstrap reads settings.
 `SMOKE_DIAGNOSE_LIMIT_S` shortens both limits for a test; the Release smoke leaves it unset."""
 DIAGNOSE_LOG = "voice-worker-diagnosis.log"
+ALIGN_TEXT = Path(__file__).with_name("fixtures") / "aligner-sample.txt"
+"""What the sample wav of the Korean voice says; the aligner needs it as the line to time."""
+ALIGN_WAV = Path("core") / "app" / "plugins" / "voices" / "sohee_ko" / "sample.wav"
+"""The sample wav inside the installed bundle (Apache-2.0, a model-made voice)."""
+ALIGN_TIMEOUT_S = 15 * 60.0
+NO_WAV = "no wav to align"
+"""The start of the probe's align detail when the TTS part made no wav."""
+ALIGN_DRIVER = """
+import json, os, sys, time
+from pathlib import Path
+root, wav, text, out = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3], Path(sys.argv[4])
+for name in ("core", "site-packages"):
+    if (root / name).is_dir():
+        sys.path.insert(0, str(root / name))
+try:
+    from app.runtime.launcher import apply_distribution, read_distribution
+    from app.settings import Settings
+    from app.tools.align.adapter import create
+    class Never:
+        def is_set(self): return False
+        def raise_if_set(self): return None
+        def wait(self, seconds):
+            time.sleep(seconds)
+            return False
+    apply_distribution(root, read_distribution(root), os.environ)
+    started = time.monotonic()
+    aligner = create(Settings())
+    try:
+        found = aligner.align(wav, text, text, "ko", cancel=Never())
+    finally:
+        close = getattr(aligner, "close", None)
+        if close is not None:
+            close()
+    phrases = found.phrases or []
+    ordered = all(a.start_ms <= b.start_ms for a, b in zip(phrases, phrases[1:]))
+    ok = found.failure is None and bool(phrases) and ordered
+    detail = f"{len(phrases)} timed phrases, failure {found.failure}, in {time.monotonic() - started:.0f}s"
+    report = {"ok": ok, "detail": detail}
+except Exception as error:
+    report = {"ok": False, "detail": type(error).__name__ + ": " + str(error)[:300]}
+out.write_text(json.dumps(report, ensure_ascii=False) + "\\n", encoding="utf-8")
+"""
+"""Run by the bundled interpreter like `voice_probe.probe_align`, but on a given wav and line."""
 TTS_FAILURE_CODES = ("tts_timeout", "tts_failed")
 PAIRING_WAIT_S = 30.0
 POLL_S = 2.0
@@ -107,6 +153,7 @@ CHECK_GENERATE = "generate pressed during preparation waits and then succeeds"
 CHECK_OFFLINE = "second start downloads nothing without network"
 CHECK_TTS = "TTS makes a wav from the installed files"
 CHECK_ALIGN = "the installed aligner times the words of that wav"
+CHECK_ALIGN_FIXTURE = "the installed aligner times the words of the sample wav of the Korean voice"
 CHECK_TORCH = "the main and the aligner environments hold different torch"
 VOICE_CHECKS = (CHECK_COLD, CHECK_GENERATE, CHECK_OFFLINE, CHECK_TTS, CHECK_ALIGN, CHECK_TORCH)
 
@@ -549,6 +596,9 @@ class VoicePlan:
     timings: dict[str, float] = field(default_factory=dict)
     log_file: Path | None = None
     """The launcher log of the app the plan starts; its TTS load lines are printed."""
+    align_sample: Callable[[], dict[str, Any]] | None = None
+    """Run the installed aligner on the committed sample wav and its transcript; used when
+    the TTS leg made no wav."""
     diagnose: Callable[[], list[str]] | None = None
     """Run the installed worker by hand and return the lines to print; used after a
     `tts_timeout` or `tts_failed`."""
@@ -820,6 +870,28 @@ def run_probe(root: Path, os_name: str, env: dict[str, str], work: Path) -> dict
     return {"error": f"the probe exited {done.returncode} without a result: {tail}"}
 
 
+def run_align_sample(root: Path, os_name: str, env: dict[str, str], work: Path) -> dict[str, Any]:
+    """The aligner on the installed sample wav and its committed transcript."""
+    out = work / "align-sample.json"
+    out.unlink(missing_ok=True)
+    wav = root / ALIGN_WAV
+    if not wav.is_file():
+        return {"ok": False, "detail": f"the bundle has no {ALIGN_WAV.as_posix()}"}
+    text = ALIGN_TEXT.read_text(encoding="utf-8").strip()
+    try:
+        done = subprocess.run(
+            [str(bundled_python(root, os_name)), "-c", ALIGN_DRIVER, str(root), str(wav), text,
+             str(out)],
+            env=env, capture_output=True, check=False, timeout=ALIGN_TIMEOUT_S, cwd=root.parent,
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "detail": f"the aligner took longer than {ALIGN_TIMEOUT_S:.0f}s"}
+    if out.is_file():
+        return json.loads(out.read_text(encoding="utf-8"))
+    tail = done.stderr[-300:].decode("utf-8", "replace").strip()
+    return {"ok": False, "detail": f"the aligner exited {done.returncode} without a result: {tail}"}
+
+
 def diagnosis_environment(root: Path, env: Mapping[str, str]) -> dict[str, str]:
     """`env` plus the variables the launcher sets for the app's workers (`apply_distribution`);
     a test keeps both in step."""
@@ -924,10 +996,21 @@ def tts_failure_seen(result: Result) -> bool:
     )
 
 
-def probe_checks(result: Result, report: Mapping[str, Any]) -> None:
+def probe_checks(
+    result: Result, report: Mapping[str, Any],
+    align_sample: Callable[[], dict[str, Any]] | None = None,
+) -> None:
+    """The three probe checks. When the TTS part made no wav and `align_sample` is given, the
+    aligner check runs on the sample wav instead, under its own name."""
     names = (("tts", CHECK_TTS), ("align", CHECK_ALIGN), ("torch", CHECK_TORCH))
     for key, name in names:
         entry = report.get(key) or {"ok": False, "detail": str(report.get("error", "no result"))}
+        if key == "align" and align_sample is not None and str(entry["detail"]).startswith(NO_WAV):
+            try:
+                entry = align_sample()
+            except Exception as error:  # noqa: BLE001 - the later checks must still run
+                entry = {"ok": False, "detail": f"{type(error).__name__}: {str(error)[:200]}"}
+            name = CHECK_ALIGN_FIXTURE
         result.check(name, bool(entry["ok"]), str(entry["detail"]))
 
 
@@ -1047,10 +1130,17 @@ def voice_phase(result: Result, plan: VoicePlan) -> None:
     result.sizes["models_bytes"] = tree_bytes(plan.model_dir)
     result.seconds.update(plan.timings)
     # The app is stopped first: the probe loads the models again and memory is short.
-    probe_checks(result, plan.probe())
+    try:
+        report = plan.probe()
+    except Exception as error:  # noqa: BLE001 - the offline check is independent of the probe
+        report = {"error": f"the probe raised {type(error).__name__}: {str(error)[:200]}"}
+    probe_checks(result, report, plan.align_sample)
     if plan.diagnose is not None and tts_failure_seen(result):
-        for line in plan.diagnose():
-            print(line, flush=True)
+        try:
+            for line in plan.diagnose():
+                print(line, flush=True)
+        except Exception as error:  # noqa: BLE001 - the diagnosis is a diagnostic only
+            print(f"diagnosis: raised {type(error).__name__}: {str(error)[:200]}", flush=True)
     check_offline(result, plan, jobs_before)
 
 
@@ -1090,13 +1180,18 @@ def voice_leg(
             clean = {k: v for k, v in app_env.items() if k != "BROWSER"}
             return run_probe(root, args.os, clean, work)
 
+        def align_sample() -> dict[str, Any]:
+            clean = {k: v for k, v in app_env.items() if k != "BROWSER"}
+            return run_align_sample(root, args.os, diagnosis_environment(root, clean), work)
+
         def diagnose() -> list[str]:
             clean = {k: v for k, v in app_env.items() if k != "BROWSER"}
             return run_diagnosis(root, args.os, diagnosis_environment(root, clean), work)
 
         plan = VoicePlan(
             start, stop_app, probe, data_dir / "models", stub,
-            log_file=data_dir / "log" / "launcher.log", diagnose=diagnose,
+            log_file=data_dir / "log" / "launcher.log", align_sample=align_sample,
+            diagnose=diagnose,
         )
         voice_phase(result, plan)
     finally:

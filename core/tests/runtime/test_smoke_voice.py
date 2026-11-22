@@ -703,3 +703,52 @@ def test_diagnosis_driver_always_writes_a_report_file(tmp_path: Path) -> None:
     assert done.returncode == 0, done.stderr.decode()
     report = json.loads(out.read_text(encoding="utf-8"))
     assert "error" in report or set(report) == {"worker", "import_torch", "sentence_limit_s"}
+
+
+def test_aligner_runs_on_the_sample_wav_when_tts_made_no_wav(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch, report={
+        "tts": {"ok": False, "detail": "AppError: tts_timeout"},
+        "align": {"ok": False, "detail": "no wav to align: the TTS part failed"},
+        "torch": {"ok": True, "detail": "main 2.7.1+cpu, aligner 2.8.0+cpu"},
+    })
+    calls: list[int] = []
+    harness.plan.align_sample = lambda: calls.append(1) or {"ok": True, "detail": "2 timed phrases"}
+    result = harness.run()
+    checks = by_name(result)
+    assert calls == [1]
+    assert checks[smoke.CHECK_ALIGN_FIXTURE]["ok"] is True
+    assert smoke.CHECK_ALIGN not in checks
+    assert checks[smoke.CHECK_TTS]["ok"] is False
+    assert smoke.CHECK_OFFLINE in checks, "a failed leg must not skip the later checks"
+
+
+def test_aligner_sample_is_not_used_when_tts_made_a_wav(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch)
+    harness.plan.align_sample = lambda: pytest.fail("the TTS wav is the aligner input")
+    assert smoke.CHECK_ALIGN in by_name(harness.run())
+
+
+def test_aligner_sample_fails_by_name_and_a_raising_probe_still_reaches_the_offline_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch)
+
+    def boom() -> dict[str, Any]:
+        raise RuntimeError("probe crashed")
+
+    harness.plan.probe = boom
+    result = harness.run()
+    checks = by_name(result)
+    tts = checks[smoke.CHECK_TTS]
+    assert not tts["ok"] and "probe crashed" in tts["detail"]
+    assert smoke.CHECK_OFFLINE in checks
+
+
+def test_aligner_sample_needs_the_installed_wav_and_has_a_transcript(tmp_path: Path) -> None:
+    assert smoke.ALIGN_TEXT.read_text(encoding="utf-8").strip()
+    found = smoke.run_align_sample(tmp_path, "linux", {}, tmp_path)
+    assert found["ok"] is False and "sample.wav" in found["detail"]
