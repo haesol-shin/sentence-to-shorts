@@ -56,6 +56,12 @@ def report_phases(mode: str, send) -> None:
             send({"type": "phase", "name": "from_pretrained", "seconds": PHASE_GAP_S})
 
 
+def deaf(args: argparse.Namespace) -> None:
+    """The mode that is ready but never takes a request off the pipe."""
+    if args.mode == "deaf":
+        time.sleep(600)
+
+
 def respond(args: argparse.Namespace, request: dict, served: int, send) -> bool:
     """Answer one request by mode; False when the worker leaves instead of answering."""
     if args.mode == "bye_once" and served == 1 and not os.path.exists(args.log + ".done"):
@@ -138,6 +144,7 @@ def main() -> int:
     if args.mode == "slow_load_on_cuda" and args.device == "cuda":
         time.sleep(600)
     send({"type": "ready"})
+    deaf(args)
     served = 0
     while True:
         try:
@@ -149,6 +156,7 @@ def main() -> int:
         if request is None:
             return 0
         served += 1
+        send({"type": "received", "id": request["id"]})
         log("request", text=request["text"], speaker=request["speaker"], seed=request["seed"])
         if not respond(args, request, served, send):
             return 0

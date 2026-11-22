@@ -91,10 +91,22 @@ def test_27_timeout_kills_the_worker_and_leaves_no_file(tmp_path: Path) -> None:
         synth(adapter, tmp_path)
     assert raised.value.code == "tts_timeout"
     assert raised.value.detail["stage"] == "synthesize"
+    assert raised.value.detail["received"] is True
     assert time.monotonic() - started < 10
     (pid,) = {event["pid"] for event in events(tmp_path)}
     assert gone(pid)
     assert not list((tmp_path / "out").glob("*"))
+    adapter.close()
+
+
+def test_27_timeout_detail_tells_a_request_the_worker_never_received(tmp_path: Path) -> None:
+    adapter = make_adapter(tmp_path, "deaf", sentence_floor_s=0.5, sentence_factor=0.0)
+    with pytest.raises(AppError) as raised:
+        synth(adapter, tmp_path)
+    assert raised.value.code == "tts_timeout"
+    assert raised.value.detail == {
+        "engine": "qwen3-tts-0.6b", "stage": "synthesize", "received": False,
+    }
     adapter.close()
 
 

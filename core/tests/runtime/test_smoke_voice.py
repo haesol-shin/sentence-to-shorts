@@ -563,6 +563,10 @@ def test_21_load_phases_of_the_launcher_log_are_printed_and_timed(
                 phase.format("from_pretrained", "130.5"),
                 "2026-01-01 00:09:00,000 WARNING app.tools.tts.x.adapter tts load timed out "
                 "(phase limit, 300s in); last finished phase: from_pretrained",
+                "2026-01-01 00:10:00,000 INFO app.tools.tts.x.adapter tts sentence done in "
+                "12.0s (limit 47s); the worker took 11.5s",
+                "2026-01-01 00:11:00,000 WARNING app.tools.tts.x.adapter tts sentence timed out "
+                "after 47s (limit 47s); the worker never received the request",
             ]
         ),
         encoding="utf-8",
@@ -570,11 +574,55 @@ def test_21_load_phases_of_the_launcher_log_are_printed_and_timed(
     result = smoke.Result()
     smoke.report_load_phases(result, log)
     printed = capsys.readouterr().out.splitlines()
-    assert len(printed) == 3 and "import_torch took 4.2s" in printed[0]
+    assert len(printed) == 5 and "import_torch took 4.2s" in printed[0]
     assert "last finished phase: from_pretrained" in printed[2]
+    assert "sentence done in 12.0s" in printed[3] and "never received" in printed[4]
     assert result.seconds == {"tts_load_import_torch": 4.2, "tts_load_from_pretrained": 130.5}
     smoke.report_load_phases(result, tmp_path / "missing.log")
     assert "no TTS load line" in capsys.readouterr().out
+
+
+def synth_part(**changes: Any) -> dict[str, Any]:
+    part: dict[str, Any] = {
+        "sent": True, "written_at": 10.0, "first_reply_at": None, "received_at": None,
+        "done_at": None, "answer": None, "answered": False, "timed_out": True,
+        "worker_exited": False,
+    }
+    return {**part, **changes}
+
+
+def synth_text(worker_synth: dict[str, Any], limit: float | None = 47.0) -> str:
+    return "\n".join(smoke.format_synth(worker_synth, limit))
+
+
+def test_diagnosis_synth_text_separates_slow_from_stuck_from_unreached() -> None:
+    slow = synth_part(first_reply_at=10.1, received_at=10.1, done_at=70.5, answered=True,
+                      timed_out=False, answer='{"type":"done"}')
+    assert "synth answered in 60.5s; the adapter allows 47s" in synth_text(slow)
+    stuck = synth_part(first_reply_at=10.1, received_at=10.1)
+    assert "received but not answered: slow or stuck in the model" in synth_text(stuck)
+    deaf = synth_part()
+    assert "no reply at all: the request did not reach the worker" in synth_text(deaf)
+    assert "first reply byte never" in synth_text(deaf)
+    gone = synth_part(worker_exited=True, timed_out=False)
+    assert "worker exited before it answered" in synth_text(gone)
+    assert "not written (BrokenPipeError)" in synth_text(
+        {"sent": False, "write_error": "BrokenPipeError"}
+    )
+
+
+def test_diagnosis_text_includes_the_synth_part_after_the_protocol_lines() -> None:
+    report = {
+        "worker": {"ready": True, "seconds": 9.0, "lines": [], "stderr_tail": "",
+                   "synth": synth_part(first_reply_at=10.1, received_at=10.1, done_at=12.0,
+                                       answered=True, timed_out=False, answer="done")},
+        "import_torch": {"returncode": 0, "seconds": 1.0, "total_ms": 1.0, "slowest": []},
+        "sentence_limit_s": 47.0,
+    }
+    lines = smoke.format_diagnosis(report)
+    assert lines.index("diagnosis: 0 protocol lines") < next(
+        i for i, line in enumerate(lines) if "synth request written +10.0s" in line
+    )
 
 
 def test_diagnosis_text_names_the_exit_status_stderr_and_import_timing() -> None:
@@ -654,4 +702,4 @@ def test_diagnosis_driver_always_writes_a_report_file(tmp_path: Path) -> None:
     )
     assert done.returncode == 0, done.stderr.decode()
     report = json.loads(out.read_text(encoding="utf-8"))
-    assert "error" in report or set(report) == {"worker", "import_torch"}
+    assert "error" in report or set(report) == {"worker", "import_torch", "sentence_limit_s"}

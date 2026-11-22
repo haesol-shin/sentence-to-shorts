@@ -3,6 +3,7 @@ what the adapter drops."""
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 from pathlib import Path
@@ -68,6 +69,73 @@ def test_diagnose_a_worker_without_any_phase_is_killed_at_the_limit(tmp_path: Pa
     report = diagnose.run_worker(argv, dict(os.environ), limit_s=1.0)
     assert (report["ready"], report["timed_out"], report["returncode"]) == (False, True, None)
     assert report["lines"] == []
+
+
+def synth_report(tmp_path: Path, mode: str, limit_s: float = 60) -> dict:
+    argv = [*worker_command(tmp_path, mode), "--device", "cpu"]
+    request = {
+        "text": "t", "language": "Korean", "speaker": "Sohee", "seed": 0, "speed": 1.0,
+        "out": str(tmp_path / "out.wav"),
+    }
+    report = diagnose.run_worker(
+        argv, dict(os.environ), limit_s=60, request=request, synth_limit_s=limit_s
+    )
+    return report["synth"]
+
+
+def test_diagnose_a_request_after_ready_is_timed_from_write_to_answer(tmp_path: Path) -> None:
+    synth = synth_report(tmp_path, "ok")
+    assert synth["sent"] and synth["answered"] and not synth["timed_out"]
+    assert synth["written_at"] <= synth["first_reply_at"] <= synth["done_at"]
+    assert synth["received_at"] is not None
+    assert '"type": "done"' in synth["answer"]
+    assert (tmp_path / "out.wav").is_file()
+
+
+def test_diagnose_a_request_the_worker_never_reads_has_no_first_reply(tmp_path: Path) -> None:
+    synth = synth_report(tmp_path, "deaf", limit_s=1.0)
+    assert synth["sent"] and synth["timed_out"] and not synth["answered"]
+    assert synth["first_reply_at"] is None and synth["received_at"] is None
+
+
+def test_diagnose_a_request_stuck_in_the_model_is_received_but_not_answered(
+    tmp_path: Path,
+) -> None:
+    synth = synth_report(tmp_path, "hang", limit_s=1.0)
+    assert synth["timed_out"] and not synth["answered"]
+    assert synth["received_at"] is not None and synth["done_at"] is None
+
+
+def test_diagnose_a_worker_that_dies_on_the_request_is_not_called_a_timeout(
+    tmp_path: Path,
+) -> None:
+    synth = synth_report(tmp_path, "crash")
+    assert synth["worker_exited"] and not synth["timed_out"] and not synth["answered"]
+
+
+def test_diagnose_without_a_request_the_report_has_no_synth_part(tmp_path: Path) -> None:
+    argv = [*worker_command(tmp_path, "ok"), "--device", "cpu"]
+    assert "synth" not in diagnose.run_worker(argv, dict(os.environ), limit_s=60)
+
+
+def test_diagnose_the_request_carries_the_voice_of_the_installed_manifest(
+    tmp_path: Path,
+) -> None:
+    manifest = Path(diagnose.__file__).parents[3] / "plugins/voices/sohee_ko/manifest.json"
+    request = diagnose.synth_request(manifest, tmp_path / "a.wav")
+    assert request == {
+        "text": diagnose.SENTENCE, "language": "Korean", "speaker": "Sohee", "seed": 0,
+        "speed": 1.0, "out": str(tmp_path / "a.wav"),
+    }
+
+
+def test_diagnose_the_sentence_is_the_line_of_the_installed_voice_probe() -> None:
+    path = Path(__file__).resolve().parents[3] / "packaging" / "voice_probe.py"
+    spec = importlib.util.spec_from_file_location("voice_probe_under_test", path)
+    assert spec is not None and spec.loader is not None
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+    assert diagnose.SENTENCE == probe.LINE
 
 
 def test_diagnose_import_timing_runs_the_given_interpreter() -> None:

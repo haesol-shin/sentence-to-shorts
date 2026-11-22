@@ -61,7 +61,8 @@ JOB_TIMEOUT_S = 600.0
 """Drafting and previews use no model; they end within this or the run is stuck."""
 PROBE_TIMEOUT_S = 30 * 60.0
 DIAGNOSE_TIMEOUT_S = 25 * 60.0
-"""The diagnosis runs the worker for up to 600s and the torch import for up to 600s."""
+"""The diagnosis runs the worker for up to 600s, its one request for up to 240s and the torch
+import for up to 600s."""
 DIAGNOSE_DRIVER = """
 import json, os, sys
 from pathlib import Path
@@ -72,13 +73,17 @@ for name in ("core", "site-packages"):
 try:
     from app.settings import Settings
     from app.tools.tts.qwen3_tts_0_6b.adapter import create
-    from app.tools.tts.qwen3_tts_0_6b.diagnose import diagnose
-    argv, env = create(Settings()).worker_launch()
+    from app.tools.tts.qwen3_tts_0_6b.diagnose import SENTENCE, diagnose, synth_request
+    adapter = create(Settings())
+    argv, env = adapter.worker_launch()
+    manifest = root / "core" / "app" / "plugins" / "voices" / "sohee_ko" / "manifest.json"
+    request = synth_request(manifest, out.with_name("voice-worker-diagnosis.wav"))
     limits = {}
     if os.environ.get("SMOKE_DIAGNOSE_LIMIT_S"):
         limit = float(os.environ["SMOKE_DIAGNOSE_LIMIT_S"])
-        limits = {"worker_limit_s": limit, "import_limit_s": limit}
-    report = diagnose(argv, env, sys.executable, **limits)
+        limits = {"worker_limit_s": limit, "import_limit_s": limit, "synth_limit_s": limit}
+    report = diagnose(argv, env, sys.executable, request=request, **limits)
+    report["sentence_limit_s"] = adapter.sentence_timeout_s(SENTENCE, "ko")
 except Exception as error:
     report = {"error": type(error).__name__ + ": " + str(error)[:300]}
 out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
@@ -845,6 +850,36 @@ def run_diagnosis(root: Path, os_name: str, env: dict[str, str], work: Path) -> 
     return lines
 
 
+def format_synth(synth: Mapping[str, Any], sentence_limit_s: float | None) -> list[str]:
+    """The one real request of the diagnosis: its three times and what they mean."""
+    if not synth.get("sent"):
+        return [f"diagnosis: synth request not written ({synth.get('write_error', 'no reason')})"]
+    written = synth["written_at"]
+
+    def after(at: float | None) -> str:
+        return "never" if at is None else f"+{at}s ({at - written:.1f}s after the write)"
+
+    lines = [
+        f"diagnosis: synth request written +{written}s",
+        f"diagnosis: synth first reply byte {after(synth.get('first_reply_at'))}",
+        f"diagnosis: synth received {after(synth.get('received_at'))}",
+        f"diagnosis: synth answer {after(synth.get('done_at'))}",
+    ]
+    limit = "" if sentence_limit_s is None else f"; the adapter allows {sentence_limit_s:.0f}s"
+    if synth.get("answered"):
+        took = synth["done_at"] - written
+        lines.append(f"diagnosis: synth answered in {took:.1f}s{limit}: {synth.get('answer')}")
+    elif synth.get("worker_exited"):
+        lines.append(f"diagnosis: synth worker exited before it answered{limit}")
+    elif synth.get("received_at") is not None:
+        lines.append(f"diagnosis: synth received but not answered: slow or stuck in the model{limit}")
+    elif synth.get("first_reply_at") is None:
+        lines.append(f"diagnosis: synth no reply at all: the request did not reach the worker{limit}")
+    else:
+        lines.append(f"diagnosis: synth replied without receiving the request{limit}")
+    return lines
+
+
 def format_diagnosis(report: Mapping[str, Any]) -> list[str]:
     """The diagnosis as text: worker exit status, protocol lines, stderr tail, import timing."""
     if "error" in report:
@@ -860,6 +895,8 @@ def format_diagnosis(report: Mapping[str, Any]) -> list[str]:
     protocol = worker.get("lines") or []
     lines.append(f"diagnosis: {len(protocol)} protocol lines")
     lines += [f"diagnosis:   +{entry['at']}s {entry['text']}" for entry in protocol]
+    if worker.get("synth"):
+        lines += format_synth(worker["synth"], report.get("sentence_limit_s"))
     lines.append("diagnosis: stderr tail:")
     lines += [f"diagnosis:   {text}" for text in (worker.get("stderr_tail") or "").splitlines()]
     timing = report.get("import_torch") or {}
@@ -957,12 +994,15 @@ def check_offline(
     result.check(CHECK_OFFLINE, not problems, detail)
 
 
-LOAD_LINE = re.compile(r"tts load (?:phase (\w+) took ([0-9.]+)s|timed out\b.*)$")
+LOAD_LINE = re.compile(
+    r"tts (?:load (?:phase (\w+) took ([0-9.]+)s|timed out\b.*)|sentence (?:done|timed out)\b.*)$"
+)
 
 
 def report_load_phases(result: Result, log_file: Path | None) -> None:
-    """Print the TTS load lines of the launcher log, so the run log shows where a load spends
-    its time without the artifacts. Phase seconds also go to the result under `seconds`."""
+    """Print the TTS load and sentence lines of the launcher log, so the run log shows where a
+    load spends its time without the artifacts. Phase seconds also go to the result under
+    `seconds`."""
     if log_file is None:
         return
     try:
