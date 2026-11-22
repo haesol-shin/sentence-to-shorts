@@ -127,17 +127,23 @@ def adapter_choices(
     """Select providers for the effective profile, including an environment override.
 
     Both distributions carry all profile choices. Only the default profile differs.
-    The developer profile can switch its LLM adapter between `openai_compat` and
-    `claude_cli` with `APP_LLM_ADAPTER`; release never inherits that override.
+    The developer profile reads `APP_LLM_ADAPTER` (`openai_compat` or `claude_cli`).
+    Without it, an `APP_LLM_BASE_URL` keeps `openai_compat` and no endpoint selects the
+    official CLI, so a build started from a menu needs no environment variable.
+    Release never inherits either.
     """
     if dist is None:
         return {}
     if profile not in dist.profile_adapters:
         raise ValueError(f"{DIST_NAME} has no adapters for profile {profile!r}")
     chosen = dict(dist.profile_adapters[profile])
+    if profile != "dev":
+        return chosen
     requested = environ.get("APP_LLM_ADAPTER")
-    if profile == "dev" and requested in ("openai_compat", "claude_cli"):
+    if requested in ("openai_compat", "claude_cli"):
         chosen["llm"] = requested
+    elif not requested and not environ.get("APP_LLM_BASE_URL"):
+        chosen["llm"] = "claude_cli"
     return chosen
 
 

@@ -22,7 +22,7 @@ import pytest
 
 from app.runtime import instance
 from app.runtime import launcher as launcher_module
-from app.runtime.dev_cli import CliStatus
+from app.runtime.dev_cli import GUIDE_URL, CliStatus, check_claude_cli
 from app.runtime.launcher import (
     Parts,
     adapter_choices,
@@ -452,13 +452,60 @@ def test_launcher_distribution_selects_the_effective_profile_providers(tmp_path:
         }), encoding="utf-8"
     )
     dist = read_distribution(tmp_path)
-    assert adapter_choices(dist, "dev", {}) == {"llm": "openai_compat"}
+    assert adapter_choices(dist, "dev", {"APP_LLM_BASE_URL": "http://endpoint.invalid/v1"}) == {
+        "llm": "openai_compat"
+    }
     assert adapter_choices(dist, "dev", {"APP_LLM_ADAPTER": "claude_cli"}) == {"llm": "claude_cli"}
+    assert adapter_choices(
+        dist,
+        "dev",
+        {"APP_LLM_ADAPTER": "openai_compat", "APP_LLM_BASE_URL": ""},
+    ) == {"llm": "openai_compat"}
     assert adapter_choices(dist, "release", {"APP_LLM_ADAPTER": "claude_cli"}) == {
         "llm": "anthropic_api"
     }
     assert adapter_choices(dist, "fixture", {}) == {"llm": "fixture"}
     assert adapter_choices(None, "dev", {}) == {}
+
+
+def test_launcher_dev_without_any_llm_setting_uses_the_cli_and_shows_the_missing_cli_guide(
+    tmp_path: Path,
+) -> None:
+    shown: list[str] = []
+    harness = Harness(tmp_path, "dev")
+    dist = read_distribution(harness.root)
+    assert adapter_choices(dist, "dev", {}) == {"llm": "claude_cli"}
+    parts = harness.parts(
+        cli_check=lambda minimum: check_claude_cli(minimum, which=lambda _name: None),
+        notify=shown.append,
+    )
+    thread = harness.start(parts)
+    record = harness.wait_record()
+    harness.finish(thread)
+    assert record["claude_cli"]["state"] == "missing"
+    assert shown == [record["claude_cli"]["message"]]
+    assert GUIDE_URL in shown[0]
+
+
+def test_launcher_dev_with_a_signed_out_cli_tells_the_user_how_to_sign_in(
+    tmp_path: Path,
+) -> None:
+    shown: list[str] = []
+    harness = Harness(tmp_path, "dev")
+
+    def run_cli(argv: Any) -> tuple[int | None, str]:
+        return (0, "2.9.9 (Claude Code)") if argv[-1] == "--version" else (1, "")
+
+    parts = harness.parts(
+        cli_check=lambda minimum: check_claude_cli(
+            minimum, which=lambda _name: "claude", run=run_cli
+        ),
+        notify=shown.append,
+    )
+    thread = harness.start(parts)
+    harness.wait_record()
+    harness.finish(thread)
+    assert len(shown) == 1 and "claude auth login" in shown[0]
 
 
 def test_launcher_rejects_a_distribution_file_with_a_malformed_adapter_table(
