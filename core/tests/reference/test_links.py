@@ -90,9 +90,11 @@ def _connect_request(proxy: EgressProxy, target: str) -> tuple[str, socket.socke
     host, port = proxy.url.split("//", 1)[1].split(":")
     sock = socket.create_connection((host, int(port)), timeout=5)
     sock.sendall(f"CONNECT {target} HTTP/1.1\r\nHost: {target}\r\n\r\n".encode())
+    # One byte at a time: the tunnel may already have sent payload behind the
+    # reply head, and a larger read would swallow it.
     head = b""
-    while b"\r\n\r\n" not in head:
-        chunk = sock.recv(200)
+    while not head.endswith(b"\r\n\r\n"):
+        chunk = sock.recv(1)
         if not chunk:
             break
         head += chunk
