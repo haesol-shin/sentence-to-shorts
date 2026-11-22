@@ -5045,8 +5045,8 @@
       "sha256": "6bfc454fd1f1f0b926efdbf7254e2312bcbd70a6c3e49d2dc19dbbe38b47ceed",
       "component": "librist",
       "revision": "4f45ef8f78983892d52ccd52d9f675435b23738f",
+      "kind": "git",
       "repo": "https://code.videolan.org/rist/librist.git",
-      "base_url": "https://code.videolan.org/rist/librist/-/raw/4f45ef8f78983892d52ccd52d9f675435b23738f/",
       "files": {
         ".gitattributes": {
           "bytes": 29,
