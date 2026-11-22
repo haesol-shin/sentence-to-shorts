@@ -154,6 +154,7 @@ CHECK_OFFLINE = "second start downloads nothing without network"
 CHECK_TTS = "TTS makes a wav from the installed files"
 CHECK_ALIGN = "the installed aligner times the words of that wav"
 CHECK_ALIGN_FIXTURE = "the installed aligner times the words of the sample wav of the Korean voice"
+CHECK_KEEP_VIDEO = "the generated video is kept next to the report"
 CHECK_TORCH = "the main and the aligner environments hold different torch"
 VOICE_CHECKS = (CHECK_COLD, CHECK_GENERATE, CHECK_OFFLINE, CHECK_TTS, CHECK_ALIGN, CHECK_TORCH)
 
@@ -602,6 +603,8 @@ class VoicePlan:
     diagnose: Callable[[], list[str]] | None = None
     """Run the installed worker by hand and return the lines to print; used after a
     `tts_timeout` or `tts_failed`."""
+    video_file: Path | None = None
+    """Where the mp4 of the generate leg is kept, next to the smoke report; None keeps nothing."""
 
 
 def write_pairing_hook(work: Path, os_name: str) -> tuple[Path, Path]:
@@ -763,8 +766,21 @@ def word_timing(api: Api, job: Mapping[str, Any]) -> str:
     return f"{lines} lines, {phrases} timed phrases"
 
 
+def keep_video(result: Result, plan: VoicePlan, mp4: bytes) -> None:
+    """Write the downloaded mp4 to `plan.video_file`; a failed write is a note, not a failure."""
+    if plan.video_file is None:
+        return
+    try:
+        plan.video_file.write_bytes(mp4)
+    except OSError as error:
+        result.check(
+            CHECK_KEEP_VIDEO, False, f"{plan.video_file.name}: {type(error).__name__}: {error}",
+            gating=False,
+        )
+
+
 def generate_during_preparation(
-    plan: VoicePlan, run: Running, timings: dict[str, float]
+    result: Result, plan: VoicePlan, run: Running, timings: dict[str, float]
 ) -> str:
     """Press generate while the voice group downloads; return the check detail or raise."""
     api = run.api
@@ -819,6 +835,7 @@ def generate_during_preparation(
     if not artifacts.get("final"):
         problems.append("the job result names no final video")
     mp4 = api.download(f"/videos/{video['id']}/download/mp4")
+    keep_video(result, plan, mp4)
     if b"ftyp" not in mp4[:16]:
         problems.append("the downloaded file is not an mp4")
     timing = word_timing(api, job)
@@ -1033,7 +1050,7 @@ def check_cold_start(result: Result, plan: VoicePlan, run: Running) -> bool:
 
 def check_generate(result: Result, plan: VoicePlan, run: Running) -> None:
     try:
-        detail = generate_during_preparation(plan, run, plan.timings)
+        detail = generate_during_preparation(result, plan, run, plan.timings)
         ok = True
     except PROBLEMS as error:
         detail, ok = str(error), False
@@ -1156,6 +1173,9 @@ def voice_leg(
     give_endpoint_models(root)
     hook, url_file = write_pairing_hook(work, args.os)
     data_dir = work / "voice-data"
+    video_file = (
+        args.output.with_name(f"{args.output.stem}-generate.mp4") if args.output else None
+    )
     stub = smoke_llm.start()
     starts: list[Running] = []
     try:
@@ -1191,7 +1211,7 @@ def voice_leg(
         plan = VoicePlan(
             start, stop_app, probe, data_dir / "models", stub,
             log_file=data_dir / "log" / "launcher.log", align_sample=align_sample,
-            diagnose=diagnose,
+            diagnose=diagnose, video_file=video_file,
         )
         voice_phase(result, plan)
     finally:

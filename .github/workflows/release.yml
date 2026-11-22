@@ -255,6 +255,7 @@ jobs:
           name: smoke-${{ matrix.label }}-${{ matrix.profile }}
           path: |
             out/smoke-*.json
+            out/smoke-*.mp4
             out/smoke-logs-*
           if-no-files-found: ignore
           retention-days: 30
