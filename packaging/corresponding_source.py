@@ -4,7 +4,8 @@ The manifest beside this module pins, for every shipped platform, the executable
 that the runtime installs and the source archives and build materials that produced
 it.  ``stage_sources`` downloads every source, checks its byte count and SHA-256
 (for a gitiles ``+archive``, which is rebuilt per request, the digest of the extracted
-tree), and writes the verified files plus the manifest and ``SOURCE-README`` into one
+tree; for a file export, every file's own SHA-256 and the digest of the file list),
+and writes the verified files plus the manifest and ``SOURCE-README`` into one
 directory that the caller packs as a Release asset.  The README explains how the
 sources map to the executable and how to rebuild it.  ``notice_lines`` returns the
 matching Markdown section for the distribution notices, and ``asset_name`` gives
@@ -369,6 +370,14 @@ def _stage_instructions(
             f"| `{name}` | {artifact['component']} | `{artifact['revision']}` "
             f"| {artifact['bytes']} | `{artifact['sha256']}` | {upstream} |"
         )
+    if any(artifact.get("files") is not None for artifact in selected):
+        lines += [
+            "",
+            "An entry whose file name ends with `/` is a folder of files fetched one by "
+            "one at a pinned revision, not a tarball. Its SHA-256 column is a tree digest: "
+            "the SHA-256 of the sorted list of every file's path, byte count and SHA-256, "
+            "and each listed file was checked against its own SHA-256 and byte count.",
+        ]
     lines += ["", "## Rebuilding", ""]
     lines += list(build.get("instructions", []))
     lines += [

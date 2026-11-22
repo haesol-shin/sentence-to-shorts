@@ -314,8 +314,23 @@ def test_corresponding_source_stages_a_hash_pinned_file_export(
     module.stage_sources("linux-x86_64", target, tmp_path / "work")
     assert (target / "export" / "README").read_bytes() == first
     assert (target / "export" / "src" / "second.c").read_bytes() == second
-    assert (target / "SOURCE-README").is_file()
+    readme = (target / "SOURCE-README").read_text(encoding="utf-8")
+    assert "| `export/` |" in readme
+    assert "tree digest" in readme
     assert (target / "ffmpeg-sources.lock.json").is_file()
+
+
+def test_corresponding_source_pins_librist_as_a_file_export_at_its_revision() -> None:
+    """GitLab refuses the generated librist archive, so its files are pinned one by one."""
+    data = module.load_manifest()
+    artifact = data["artifacts"]["50-librist"]
+    assert "url" not in artifact
+    assert artifact["base_url"].endswith(f"/-/raw/{artifact['revision']}/")
+    files = artifact["files"]
+    assert files
+    assert artifact["sha256"] == module._tree_digest(files)
+    assert artifact["bytes"] == sum(meta["bytes"] for meta in files.values())
+    assert {"meson.build", "COPYING"} <= set(files)
 
 
 def test_corresponding_source_rejects_a_bad_file_export_digest(
