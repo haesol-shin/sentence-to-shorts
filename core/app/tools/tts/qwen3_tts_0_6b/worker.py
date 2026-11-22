@@ -7,7 +7,7 @@ Requests on stdin carry `id`, `text`, `language`, `speaker`, `seed`, `speed` and
 `out`. Replies on the protocol stream are one `phase` per finished load step (`name`
 from `LOAD_PHASES`, `seconds` it took), `ready` after the load, then `done` or
 `error` per request, and `bye` when the worker leaves after its idle time. A closed
-stdin ends the worker at once, so a parent that died never leaves a model running.
+stdin ends the worker once the load is over, so a parent that died never leaves a model running.
 
 The model loads from a local folder only: remote code is never trusted and the
 hub is never asked for a file. Library output is moved to stderr so nothing but
@@ -130,7 +130,6 @@ def _synthesize(model: Any, request: dict[str, Any]) -> dict[str, Any]:
 def serve(model_dir: str, threads: int, idle_s: float, device: str) -> int:
     proto = _reply_stream()
     requests: queue.Queue[dict[str, Any]] = queue.Queue()
-    threading.Thread(target=_read_requests, args=(requests,), daemon=True).start()
 
     def phase(name: str, seconds: float) -> None:
         _send(proto, {"type": "phase", "name": name, "seconds": round(seconds, 3)})
@@ -144,6 +143,10 @@ def serve(model_dir: str, threads: int, idle_s: float, device: str) -> int:
         _send(proto, {"type": "error", "code": "load_failed", "name": type(error).__name__})
         return 1
     _send(proto, {"type": "ready"})
+    # Only now: on Windows a pending read on stdin, a synchronous pipe, can block the
+    # import of torch in the main thread. A request sent early waits in the pipe, and a
+    # stdin that closed during the load ends the worker as soon as this thread reads it.
+    threading.Thread(target=_read_requests, args=(requests,), daemon=True).start()
     while True:
         try:
             request = requests.get(timeout=idle_s)
