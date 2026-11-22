@@ -689,3 +689,85 @@ def test_corresponding_source_download_does_not_retry_a_hash_mismatch(
             "https://source.invalid/a", tmp_path / "a", {"bytes": 1, "sha256": "0" * 64}
         )
     assert len(opened) == 1
+
+
+def file_export_manifest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **extra: object
+) -> bytes:
+    content = b"exported source file"
+    files = {"README": {"bytes": len(content), "sha256": digest(content)}}
+    data = {
+        "schema_version": 1,
+        "builds": {
+            "linux-x86_64": {
+                "revision": "1" * 40,
+                "binary": {"file": "ffmpeg-linux", "bytes": 4, "sha256": digest(b"exe!")},
+                "sources": ["export"],
+            }
+        },
+        "artifacts": {
+            "export": {
+                "base_url": "https://source.invalid/revision/",
+                "files": files,
+                "bytes": len(content),
+                "sha256": module._tree_digest(files),
+                "filename": "export",
+                "component": "exported component",
+                "revision": "r42",
+                **extra,
+            }
+        },
+    }
+    path = tmp_path / "ffmpeg-sources.lock.json"
+    path.write_text(json.dumps(data), encoding="utf-8")
+    monkeypatch.setattr(module, "MANIFEST", path)
+    return content
+
+
+def stage_and_collect_headers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, content: bytes
+) -> dict[str, str]:
+    seen: dict[str, str] = {}
+
+    def open_url(request: object, timeout: int) -> Response:
+        seen.update(request.headers)  # type: ignore[attr-defined]
+        return Response(content)
+
+    monkeypatch.setattr(module.urllib.request, "urlopen", open_url)
+    module.stage_sources("linux-x86_64", tmp_path / "asset", tmp_path / "work")
+    return seen
+
+
+def test_corresponding_source_file_export_logs_in_anonymously_when_the_pin_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The xvid host answers 401 to a request without Basic credentials."""
+    content = file_export_manifest(tmp_path, monkeypatch, auth="anonymous-basic")
+    headers = stage_and_collect_headers(tmp_path, monkeypatch, content)
+    assert headers["Authorization"] == "Basic YW5vbnltb3VzOg=="
+
+
+def test_corresponding_source_file_export_sends_no_login_unless_the_pin_says_so(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    content = file_export_manifest(tmp_path, monkeypatch)
+    headers = stage_and_collect_headers(tmp_path, monkeypatch, content)
+    assert "Authorization" not in headers
+
+
+def test_corresponding_source_rejects_an_unknown_download_login(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    file_export_manifest(tmp_path, monkeypatch, auth="token")
+    with pytest.raises(module.SourceError, match="download login"):
+        module.load_manifest()
+
+
+def test_corresponding_source_pins_xvid_to_its_revision_with_an_anonymous_login() -> None:
+    """A trunk URL would follow later commits and no longer match the pinned digests."""
+    data = module.load_manifest()
+    artifact = data["artifacts"]["50-xvid"]
+    assert artifact["revision"] == "r2204"
+    assert artifact["base_url"] == "https://svn.xvid.org/!svn/rvr/2204/trunk/xvidcore/"
+    assert artifact["auth"] == "anonymous-basic"
+    assert "auth" not in data["artifacts"]["50-libmp3lame"]

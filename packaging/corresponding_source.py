@@ -18,6 +18,7 @@ them from the pinned upstream locations.
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -48,6 +49,13 @@ GIT_STATUS = re.compile(r"returned error: (\d{3})")
 RETRY_STATUS = {401, 408, 429}
 RETRY_DELAYS = (5, 15)
 GIT_TIMEOUT = 900
+# A file export host may demand HTTP Basic credentials even for anonymous read access
+# (its own documented checkout uses user "anonymous" and an empty password).  The
+# manifest names the scheme; no secret is ever stored in it.
+ANONYMOUS_BASIC = "anonymous-basic"
+ANONYMOUS_HEADERS = {
+    "Authorization": "Basic " + base64.b64encode(b"anonymous:").decode("ascii")
+}
 
 
 def _artifact_url(artifact: Mapping[str, Any]) -> str:
@@ -107,6 +115,8 @@ def _checked_file_export(
         base = artifact.get("base_url")
         if not isinstance(base, str) or not base.startswith("https://") or not base.endswith("/"):
             raise SourceError(f"{where} has no HTTPS base URL")
+        if artifact.get("auth") not in (None, ANONYMOUS_BASIC):
+            raise SourceError(f"{where} has an unknown download login")
     total = 0
     for path, meta in files.items():
         if not isinstance(path, str) or not _safe_relative(path):
@@ -308,15 +318,22 @@ def _retryable(status: int) -> bool:
     return status >= 500 or status in RETRY_STATUS
 
 
-def download_artifact(url: str, target: Path, artifact: Mapping[str, Any]) -> None:
+def download_artifact(
+    url: str,
+    target: Path,
+    artifact: Mapping[str, Any],
+    headers: Mapping[str, str] | None = None,
+) -> None:
     """Download one archive and refuse it unless it matches its pin.
 
     The pin is the byte count and SHA-256, or for ``"verify": "tree"`` the digest of
-    the extracted tree.  The temporary file is removed on any mismatch, so a failed
+    the extracted tree.  ``headers`` are sent with the request.  The temporary file is removed on any mismatch, so a failed
     attempt cannot be mistaken for a verified archive on the next run.
     """
     host = urlparse(url).hostname or url
-    request = urllib.request.Request(url, headers={"User-Agent": "corresponding-source"})
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "corresponding-source", **(headers or {})}
+    )
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_name(target.name + ".part")
     try:
@@ -535,6 +552,7 @@ def _stage_file_export(artifact: Mapping[str, Any], root: Path) -> None:
     """Fetch one versioned file export and verify every file before it is reused."""
     files = artifact["files"]
     base = str(artifact["base_url"])
+    headers = ANONYMOUS_HEADERS if artifact.get("auth") == ANONYMOUS_BASIC else None
     for path, meta in sorted(files.items()):
         target = root.joinpath(*path.split("/"))
         count = int(meta["bytes"])
@@ -542,7 +560,7 @@ def _stage_file_export(artifact: Mapping[str, Any], root: Path) -> None:
         if target.is_file() and target.stat().st_size == count and _sha256_file(target) == digest:
             continue
         target.unlink(missing_ok=True)
-        download_artifact(base + path, target, {"bytes": count, "sha256": digest})
+        download_artifact(base + path, target, {"bytes": count, "sha256": digest}, headers)
 
 
 def _stage_git_export(artifact: Mapping[str, Any], root: Path) -> None:
