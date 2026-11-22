@@ -34,6 +34,7 @@ SYNTH_LIMIT_S = 240.0
 """How long the one request may take after `ready`: well above the adapter's sentence limit, so
 a slow synthesis ends with its real duration and a hang ends at this limit."""
 IMPORT_LIMIT_S = 600.0
+EXIT_GRACE_S = 5.0
 STDERR_TAIL_BYTES = 4000
 MAX_LINES = 50
 MAX_LINE_CHARS = 300
@@ -156,6 +157,19 @@ def _close_streams(process: subprocess.Popen[bytes]) -> None:
                 pass
 
 
+def _has_exited(
+    process: subprocess.Popen[bytes], answered: threading.Event, synth: dict[str, Any]
+) -> bool:
+    """Whether the worker is gone. Its output ends before the exit is reaped (on Windows for a
+    moment), so a closed output without an answer gets a short wait for the status."""
+    if answered.is_set() and synth["done_at"] is None:
+        try:
+            process.wait(timeout=EXIT_GRACE_S)
+        except subprocess.TimeoutExpired:
+            pass
+    return process.poll() is not None
+
+
 def run_worker(
     argv: Sequence[str], env: Mapping[str, str], limit_s: float = WORKER_LIMIT_S,
     request: Mapping[str, Any] | None = None, synth_limit_s: float = SYNTH_LIMIT_S,
@@ -221,7 +235,7 @@ def run_worker(
         synth_timed_out = _run_request(
             process, request, started, synth, lock, answered, synth_limit_s
         )
-    exited = process.poll() is not None
+    exited = _has_exited(process, answered, synth)
     if not exited:
         process.kill()
     returncode = process.wait()
