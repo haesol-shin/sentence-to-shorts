@@ -195,7 +195,7 @@ def test_packaging_profiles_select_the_effective_llm_provider(
     dist = read_distribution(tmp_path)
     monkeypatch.setenv("APP_PROFILE", profile)
     settings = Settings()
-    settings.providers.adapters.update(adapter_choices(dist, settings.profile, {}))
+    settings.providers.adapters.update(adapter_choices(dist, settings.profile, os.environ))
     assert settings.providers.adapters["llm"] == adapter
     built = ADAPTER_FACTORIES["llm"][adapter](settings)
     assert built.auth_state(PERSONAL_OWNER_ID) in {"ok", "missing", "expired", "unknown"}

@@ -20,6 +20,9 @@ from pathlib import Path
 
 from app.ports import CancelToken
 
+# Characters cmd.exe reads as syntax even when a program name or value looks plain.
+_CMD_SYNTAX = frozenset('"%^&|<>!\r\n')
+
 KILL_GRACE_S = 5.0
 POLL_S = 0.02
 JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
@@ -167,6 +170,29 @@ def _write_stdin(stream, data: bytes) -> None:  # type: ignore[no-untyped-def]
             pass
 
 
+def batch_command(argv: Sequence[str], comspec: str = "cmd.exe") -> str | None:
+    """The command line that runs a Windows batch shim, or None for any other program.
+
+    A `claude.cmd` shim is not a program: Windows hands it to `cmd.exe`, which re-parses
+    the line, so an empty value such as `--tools ""` is not kept reliably. The line is
+    built here with `/s` so `cmd.exe` removes only the outer quotes and every argument
+    reaches the shim quoted as written. No argument may carry a `cmd.exe` operator;
+    the prompt never travels in argv, so a refusal here means a broken path or setting.
+    """
+    if Path(argv[0]).suffix.lower() not in (".cmd", ".bat"):
+        return None
+    if any(_CMD_SYNTAX.intersection(value) for value in argv):
+        raise OSError("the command contains a character cmd.exe would run as syntax")
+    return f'"{comspec}" /d /s /c "{subprocess.list2cmdline(list(argv))}"'
+
+
+def _command(argv: Sequence[str], env: Mapping[str, str]) -> Sequence[str] | str:
+    if sys.platform != "win32":
+        return argv
+    line = batch_command(argv, env.get("COMSPEC") or "cmd.exe")
+    return argv if line is None else line
+
+
 def _start(
     argv: Sequence[str],
     *,
@@ -189,7 +215,7 @@ def _start(
     if sys.platform == "win32":
         job = _JobObject()
     try:
-        process = subprocess.Popen(argv, **kwargs)  # type: ignore[arg-type]
+        process = subprocess.Popen(_command(argv, env), **kwargs)  # type: ignore[arg-type]
     except BaseException:
         if job is not None:
             job.close()

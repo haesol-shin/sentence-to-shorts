@@ -18,6 +18,7 @@ import pytest
 from app.jobs import CancelFlag
 from app.llm.providers.claude_cli import adapter as claude_cli
 from app.llm.providers.claude_cli.adapter import ClaudeCliLlm, create
+from app.llm.providers.claude_cli.process import batch_command
 from app.llm.registry import create as create_llm
 from app.ports import AppError, Cancelled, LlmPart, LlmTask
 from tests.llm.conftest import OWNER
@@ -286,18 +287,18 @@ class FakeCli:
         return [call for call in self.calls() if call["kind"] == "generation"]
 
 
-def _fake_cli(tmp_path: Path, **scenario: object) -> FakeCli:
+def _fake_cli(tmp_path: Path, *, name: str = "fake_cli", **scenario: object) -> FakeCli:
     directory = tmp_path / "fake-cli"
     directory.mkdir(parents=True)
     source = directory / "fake_cli.py"
     source.write_text(FAKE_SCRIPT, encoding="utf-8")
     if os.name == "nt":
-        path = directory / "fake_cli.cmd"
+        path = directory / f"{name}.cmd"
         path.write_text(
             f'@echo off\r\n"{sys.executable}" "{source}" %*\r\n', encoding="utf-8"
         )
     else:
-        path = directory / "fake_cli"
+        path = directory / name
         path.write_text(f"#!{sys.executable}\n{FAKE_SCRIPT}", encoding="utf-8")
         path.chmod(0o755)
     state = directory / "state.jsonl"
@@ -963,3 +964,54 @@ def test_9a_stream_without_result_event_is_invalid_output(
         model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
+
+
+def test_dv1_batch_shim_command_keeps_every_argument_for_cmd_exe() -> None:
+    argv = [r"C:\Users\a b\npm\claude.cmd", "--print", "--tools", "", "--model", "cli-haiku"]
+
+    line = batch_command(argv, r"C:\Windows\System32\cmd.exe")
+
+    assert line == (
+        r'"C:\Windows\System32\cmd.exe" /d /s /c '
+        r'""C:\Users\a b\npm\claude.cmd" --print --tools "" --model cli-haiku"'
+    )
+    assert batch_command([r"C:\tools\claude.exe", "--version"]) is None
+    assert batch_command(["/usr/bin/claude", "--version"]) is None
+
+
+@pytest.mark.parametrize("operator", ["&", "|", "<", ">", "^", "%", "!", '"', "\n"])
+def test_dv1_batch_shim_refuses_an_argument_cmd_exe_would_run(operator: str) -> None:
+    with pytest.raises(OSError):
+        batch_command([r"C:\tools\claude.cmd", "--model", f"x{operator}calc"])
+    with pytest.raises(OSError):
+        batch_command([rf"C:\tools\a{operator}b\claude.bat", "--version"])
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="only Windows starts a batch shim")
+def test_dv1_windows_cmd_shim_found_on_path_answers_one_request(
+    settings, request_data, cancel, tmp_path, monkeypatch
+) -> None:
+    cli = _fake_cli(tmp_path, name="claude")
+    monkeypatch.setenv("PATH", f"{cli.path.parent}{os.pathsep}{os.environ['PATH']}")
+    model = ClaudeCliLlm(settings, routing=_routing())
+    assert model.executable == "claude"
+
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+
+    assert result.parsed == {"answer": "ok"}
+    assert [call["kind"] for call in cli.calls()] == ["version", "help", "generation"]
+    assert cli.generation_calls()[0]["argv"] == list(EXPECTED_GENERATION_ARGV)
+    assert json.loads(str(cli.generation_calls()[0]["stdin"]))["type"] == "user"
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="a script cannot be named like a Windows exe")
+def test_dv1_exe_named_program_is_started_directly_and_answers_one_request(
+    settings, request_data, cancel, tmp_path
+) -> None:
+    cli = _fake_cli(tmp_path, name="claude.exe")
+    model = _adapter(settings, cli)
+
+    result = model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+
+    assert result.parsed == {"answer": "ok"}
+    assert cli.generation_calls()[0]["argv"] == list(EXPECTED_GENERATION_ARGV)
