@@ -188,6 +188,29 @@ class Harness:
         return result
 
 
+def test_generate_leg_keeps_the_downloaded_mp4_next_to_the_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch)
+    kept = tmp_path / "smoke-windows-release-generate.mp4"
+    harness.plan.video_file = kept
+    result = harness.run()
+    assert kept.read_bytes() == b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 40
+    assert smoke.CHECK_KEEP_VIDEO not in by_name(result) and not result.failed
+
+
+def test_generate_leg_passes_when_the_mp4_cannot_be_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    harness = Harness(tmp_path, monkeypatch)
+    harness.plan.video_file = tmp_path / "missing-folder" / "smoke-generate.mp4"
+    result = harness.run()
+    checks = by_name(result)
+    assert not checks[smoke.CHECK_KEEP_VIDEO]["ok"]
+    assert not checks[smoke.CHECK_KEEP_VIDEO]["gating"]
+    assert checks[smoke.CHECK_GENERATE]["ok"] and not result.failed
+
+
 def by_name(result: Any) -> dict[str, dict[str, Any]]:
     return {check["name"]: check for check in result.checks}
 
