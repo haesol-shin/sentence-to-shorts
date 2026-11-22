@@ -5,6 +5,8 @@ name: Release
 # FFmpeg binary. It never runs for a pull request. A tag push builds
 # that tag; a manual run takes the tag name to use for the draft. The Windows installer
 # is opt-in: the manual input or the repository variable RELEASE_WINDOWS=true.
+# A manual run can reuse the bundles of an earlier run (`reuse_run`): it then only
+# installs them and runs the smoke, and it creates no Release.
 
 on:
   push:
@@ -19,6 +21,11 @@ on:
         description: "Also build the Windows installer"
         type: boolean
         default: false
+      reuse_run:
+        description: "Run id whose dist-* bundles to install and smoke instead of building; no Release is made"
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
@@ -42,6 +49,7 @@ jobs:
     outputs:
       sha: ${{ steps.check.outputs.sha }}
       tag: ${{ steps.check.outputs.tag }}
+      reuse: ${{ steps.check.outputs.reuse }}
       matrix: ${{ steps.check.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,6 +67,7 @@ jobs:
           TAG_INPUT: ${{ inputs.tag }}
           WINDOWS_INPUT: ${{ inputs.windows }}
           WINDOWS_VARIABLE: ${{ vars.RELEASE_WINDOWS }}
+          REUSE_RUN: ${{ inputs.reuse_run }}
         run: |
           set -euo pipefail
           if [ "$EVENT" = "push" ]; then
@@ -86,6 +95,24 @@ jobs:
             echo "CI has not passed for this main commit." >&2
             exit 1
           fi
+          reuse=""
+          if [ -n "$REUSE_RUN" ]; then
+            if ! printf '%s' "$REUSE_RUN" | grep -Eq '^[0-9]{1,20}$'; then
+              echo "reuse_run must be a run id." >&2
+              exit 1
+            fi
+            read -r built_sha built_path < <(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${REUSE_RUN}" --jq '[.head_sha, .path] | @tsv')
+            if [ "${built_path%%@*}" != ".github/workflows/release.yml" ]; then
+              echo "Run ${REUSE_RUN} is not a Release run." >&2
+              exit 1
+            fi
+            reuse="$REUSE_RUN"
+            if [ "$built_sha" = "$sha" ]; then
+              echo "Reused run ${REUSE_RUN} built the current main commit ${sha}."
+            else
+              echo "::warning::Reused run ${REUSE_RUN} built ${built_sha}, not the current main commit ${sha}. The smoke script is from ${sha}; the bundles are from ${built_sha}."
+            fi
+          fi
           include='{"os":"ubuntu-24.04","label":"linux","profile":"release"},{"os":"ubuntu-24.04","label":"linux","profile":"dev"}'
           if [ "$WINDOWS_INPUT" = "true" ] || [ "$WINDOWS_VARIABLE" = "true" ]; then
             include="$include"',{"os":"windows-latest","label":"windows","profile":"release"},{"os":"windows-latest","label":"windows","profile":"dev"}'
@@ -93,6 +120,7 @@ jobs:
           {
             echo "sha=$sha"
             echo "tag=$tag"
+            echo "reuse=$reuse"
             echo "matrix={\"include\":[$include]}"
           } >> "$GITHUB_OUTPUT"
 
@@ -101,6 +129,9 @@ jobs:
     needs: verify
     runs-on: ${{ matrix.os }}
     timeout-minutes: ${{ matrix.profile == 'release' && 150 || 60 }}
+    permissions:
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.verify.outputs.matrix) }}
@@ -112,12 +143,14 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.11"
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      - if: needs.verify.outputs.reuse == ''
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24.22.3"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install the pinned build tools
+        if: needs.verify.outputs.reuse == ''
         shell: bash
         # packaging/python.lock.json owns the versions, so this file cannot drift from them.
         run: |
@@ -127,19 +160,21 @@ jobs:
         shell: bash
         run: python scripts/check_brand.py
       - name: Runtime tests
-        if: matrix.profile == 'release'
+        if: needs.verify.outputs.reuse == '' && matrix.profile == 'release'
         shell: bash
         working-directory: core
         run: |
           python -m poetry install
           python -m poetry run pytest tests/runtime -q -m "not sandbox and not models and not realllm"
       - name: Build the frontend
+        if: needs.verify.outputs.reuse == ''
         shell: bash
         working-directory: frontend
         run: |
           npm ci --no-audit --no-fund
           npm run build
       - name: Build the bundle
+        if: needs.verify.outputs.reuse == ''
         shell: bash
         env:
           COMMIT: ${{ needs.verify.outputs.sha }}
@@ -149,6 +184,7 @@ jobs:
           --out dist --web frontend/dist --poetry "python -m poetry" --commit "$COMMIT"
       - name: Make the tarball or installer
         id: archive
+        if: needs.verify.outputs.reuse == ''
         shell: bash
         run: |
           set -euo pipefail
@@ -162,6 +198,14 @@ jobs:
           ls -l out
           # The installed copy and the models need the disk the bundle folder used.
           rm -rf dist
+      - name: Download the bundle of the reused run
+        if: needs.verify.outputs.reuse != ''
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist-${{ matrix.label }}-${{ matrix.profile }}
+          path: out
+          run-id: ${{ needs.verify.outputs.reuse }}
+          github-token: ${{ github.token }}
       - name: Install as a new user and start it
         shell: bash
         run: |
@@ -185,11 +229,12 @@ jobs:
             echo '```' >> "$GITHUB_STEP_SUMMARY"
           done
       - name: Collect the corresponding source of the FFmpeg binary
-        if: matrix.profile == 'release'
+        if: needs.verify.outputs.reuse == '' && matrix.profile == 'release'
         shell: bash
         # Both profiles ship the same FFmpeg binary, so one source archive per OS covers them.
         run: python packaging/build.py sources --os "${{ matrix.label }}" --out out
       - name: Keep the files for the Release job
+        if: needs.verify.outputs.reuse == ''
         shell: bash
         run: |
           mkdir -p assets
@@ -197,7 +242,8 @@ jobs:
           if [ "${{ matrix.profile }}" = "release" ]; then
             cp out/ffmpeg-corresponding-source-*.tar assets/
           fi
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      - if: needs.verify.outputs.reuse == ''
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: dist-${{ matrix.label }}-${{ matrix.profile }}
           path: assets
@@ -216,6 +262,7 @@ jobs:
   release:
     name: Draft Release
     needs: [verify, build]
+    if: needs.verify.outputs.reuse == ''
     runs-on: ubuntu-24.04
     permissions:
       contents: write
