@@ -62,7 +62,25 @@ JOB_TIMEOUT_S = 600.0
 PROBE_TIMEOUT_S = 30 * 60.0
 DIAGNOSE_TIMEOUT_S = 25 * 60.0
 """The diagnosis runs the worker for up to 600s and the torch import for up to 600s."""
-DIAGNOSE_SCRIPT = Path("core") / "app" / "tools" / "tts" / "qwen3_tts_0_6b" / "diagnose.py"
+DIAGNOSE_DRIVER = """
+import json, sys
+from pathlib import Path
+root, out = Path(sys.argv[1]), Path(sys.argv[2])
+for name in ("core", "site-packages"):
+    if (root / name).is_dir():
+        sys.path.insert(0, str(root / name))
+try:
+    from app.settings import Settings
+    from app.tools.tts.qwen3_tts_0_6b.adapter import create
+    from app.tools.tts.qwen3_tts_0_6b.diagnose import diagnose
+    argv, env = create(Settings()).worker_launch()
+    report = diagnose(argv, env, sys.executable)
+except Exception as error:
+    report = {"error": type(error).__name__ + ": " + str(error)[:300]}
+out.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+"""
+"""Run by the bundled interpreter: the adapter is built from the installed files like the
+app builds it, so this stays outside the app tree, where only bootstrap reads settings."""
 DIAGNOSE_LOG = "voice-worker-diagnosis.log"
 TTS_FAILURE_CODES = ("tts_timeout", "tts_failed")
 PAIRING_WAIT_S = 30.0
@@ -806,8 +824,7 @@ def run_diagnosis(root: Path, os_name: str, env: dict[str, str], work: Path) -> 
     out.unlink(missing_ok=True)
     try:
         done = subprocess.run(
-            [str(bundled_python(root, os_name)), str(root / DIAGNOSE_SCRIPT),
-             "--root", str(root), "--out", str(out)],
+            [str(bundled_python(root, os_name)), "-c", DIAGNOSE_DRIVER, str(root), str(out)],
             env=env, capture_output=True, check=False, timeout=DIAGNOSE_TIMEOUT_S,
             cwd=root.parent,
         )

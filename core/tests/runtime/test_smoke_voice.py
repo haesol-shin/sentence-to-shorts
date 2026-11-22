@@ -642,3 +642,15 @@ def test_diagnosis_environment_matches_what_the_launcher_gives_the_app(tmp_path:
     assert given["APP_RUNTIME_DIR"] == expected["APP_RUNTIME_DIR"]
     assert given["APP_MAIN_SITE"] == "kept elsewhere"
     assert smoke.diagnosis_environment(tmp_path, {})["APP_MAIN_SITE"] == expected["APP_MAIN_SITE"]
+
+
+def test_diagnosis_driver_always_writes_a_report_file(tmp_path: Path) -> None:
+    out = tmp_path / "report.json"
+    done = subprocess.run(
+        [sys.executable, "-c", smoke.DIAGNOSE_DRIVER, str(tmp_path), str(out)],
+        cwd=REPO / "core", capture_output=True, check=False, timeout=120,
+        env={**os.environ, "APP_MODEL_DIR": str(tmp_path / "models")},
+    )
+    assert done.returncode == 0, done.stderr.decode()
+    report = json.loads(out.read_text(encoding="utf-8"))
+    assert "error" in report or set(report) == {"worker", "import_torch"}

@@ -1,28 +1,22 @@
-"""Run the installed TTS worker by hand and write what the adapter drops to a JSON file.
+"""Run the installed TTS worker by hand and report what the adapter drops.
 
-    <bundled python> diagnose.py --root <install folder> --out report.json
-
-The release smoke runs this when a voice check ends in `tts_timeout` or `tts_failed`. The
-adapter keeps no worker stderr, so a worker that never reports a load phase leaves no
-trace. This script starts the worker with the argv and environment the adapter builds
-(`Qwen3TtsAdapter.worker_launch`), reads its protocol lines with their times, keeps the
-exit status and the stderr tail, and times `python -X importtime -c "import torch"` with the
-same interpreter and environment. It is for CI only: it uses no user text, and the report
-goes to the smoke artifact, never to a user log. The caller gives the environment the
-launcher gives the app (`APP_MAIN_SITE`, `APP_RUNTIME_DIR`).
+The release smoke calls this, in the installed interpreter, when a voice check ends in
+`tts_timeout` or `tts_failed`. The adapter keeps no worker stderr, so a worker that never
+reports a load phase leaves no trace. `diagnose` starts the worker with the argv and
+environment the adapter builds (`Qwen3TtsAdapter.worker_launch`), reads its protocol lines
+with their times, keeps the exit status and the stderr tail, and times
+`python -X importtime -c "import torch"` with the same interpreter and environment. It is for
+CI only: it uses no user text, and the report goes to the smoke artifact, never to a user log.
 """
 
 from __future__ import annotations
 
-import argparse
-import json
 import subprocess
 import sys
 import threading
 import time
 from collections import deque
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any
 
 WORKER_LIMIT_S = 600.0
@@ -150,32 +144,3 @@ def diagnose(
         "worker": run_worker(argv, env, worker_limit_s),
         "import_torch": time_import_torch(python, env, import_limit_s),
     }
-
-
-def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--root", type=Path, required=True)
-    parser.add_argument("--out", type=Path, required=True)
-    args = parser.parse_args(argv)
-    root = args.root.resolve()
-    for name in ("core", "site-packages"):
-        folder = root / name
-        if folder.is_dir():
-            sys.path.insert(0, str(folder))
-    try:
-        from app.settings import Settings
-        from app.tools.tts.qwen3_tts_0_6b.adapter import create
-
-        adapter = create(Settings())
-        launch_argv, launch_env = adapter.worker_launch()
-        report = diagnose(launch_argv, launch_env, sys.executable)
-    except Exception as error:  # noqa: BLE001 - the report must say what broke
-        report = {"error": f"{type(error).__name__}: {str(error)[:300]}"}
-    staged = args.out.with_name(args.out.name + ".tmp")
-    staged.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    staged.replace(args.out)
-    return 0
-
-
-if __name__ == "__main__":
-    sys.exit(main())
