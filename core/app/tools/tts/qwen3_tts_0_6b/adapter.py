@@ -14,7 +14,9 @@ adapter never downloads a file: a missing model file or package is
 
 A sentence has its own timeout, the larger of ``SENTENCE_TIMEOUT_FLOOR_S`` and
 ``SENTENCE_TIMEOUT_FACTOR`` times the expected speech length. Timeout, worker
-failure and an unusable WAV end the call with ``tts_timeout`` or ``tts_failed``.
+failure and an unusable WAV end the call with ``tts_timeout`` or ``tts_failed``. The
+worker answers each request with a ``received`` notice before it synthesizes; a timeout
+detail says whether it arrived, and the sentence log line says how long the answer took.
 
 The worker reports each load step as a ``phase`` message. A load may take as long
 as ``LOAD_TIMEOUT_S`` in all, but each step has ``PHASE_TIMEOUT_S`` from the previous
@@ -429,12 +431,48 @@ class Qwen3TtsAdapter:
             if not worker.send({"id": self._request_id, **request}):
                 self._stop_worker()
                 continue
-            reply = self._wait(worker, deadline, cancel, "synthesize")
+            reply = self._wait_reply(worker, deadline, cancel, timeout_s)
             if reply is not None and reply.get("type") == "bye":
                 self._stop_worker()
                 continue
             return self._finish(reply, request)
         raise _failed("worker_idle_exit")
+
+    def _wait_reply(
+        self, worker: _Worker, deadline: float, cancel: CancelToken, timeout_s: float
+    ) -> dict[str, Any] | None:
+        """The worker's answer to the request, after its `received` notice.
+
+        The notice tells a request that never crossed the pipe from a synthesis that is
+        only slow; the timeout error and the log carry which of the two it was.
+        """
+        started = time.monotonic()
+        received_s: float | None = None
+        try:
+            reply = self._wait(worker, deadline, cancel, "synthesize")
+            while reply is not None and reply.get("type") == "received":
+                received_s = time.monotonic() - started
+                reply = self._wait(worker, deadline, cancel, "synthesize")
+        except AppError as error:
+            if error.code == "tts_timeout":
+                error.detail["received"] = received_s is not None
+                logger.warning(
+                    "tts sentence timed out after %.0fs (limit %.0fs); the worker %s the request",
+                    time.monotonic() - started,
+                    timeout_s,
+                    "received" if received_s is not None else "never received",
+                )
+            raise
+        if reply is not None and reply.get("type") == "done":
+            seconds = reply.get("seconds")
+            logger.info(
+                "tts sentence done in %.1fs (limit %.0fs); the worker took %ss",
+                time.monotonic() - started,
+                timeout_s,
+                seconds if isinstance(seconds, (int, float)) and not isinstance(seconds, bool)
+                else "?",
+            )
+        return reply
 
     def _finish(self, reply: dict[str, Any] | None, request: dict[str, Any]) -> int:
         if reply is None:

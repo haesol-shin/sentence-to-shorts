@@ -5,9 +5,11 @@ nothing from `app`. The protocol is one ASCII JSON object per line.
 
 Requests on stdin carry `id`, `text`, `language`, `speaker`, `seed`, `speed` and
 `out`. Replies on the protocol stream are one `phase` per finished load step (`name`
-from `LOAD_PHASES`, `seconds` it took), `ready` after the load, then `done` or
-`error` per request, and `bye` when the worker leaves after its idle time. A closed
-stdin ends the worker once the load is over, so a parent that died never leaves a model running.
+from `LOAD_PHASES`, `seconds` it took), `ready` after the load, then `received` the
+moment the main thread takes a request off the queue, and `done` (with the `seconds`
+the synthesis took) or `error` per request, and `bye` when the worker leaves after its
+idle time. A closed stdin ends the worker once the load is over, so a parent that died
+never leaves a model running.
 
 The model loads from a local folder only: remote code is never trusted and the
 hub is never asked for a file. Library output is moved to stderr so nothing but
@@ -153,10 +155,16 @@ def serve(model_dir: str, threads: int, idle_s: float, device: str) -> int:
         except queue.Empty:
             _send(proto, {"type": "bye"})
             return 0
+        # Sent before the model runs: a request that gets no `received` never crossed
+        # the pipe, one that gets it and no `done` is a slow or stuck synthesis.
+        _send(proto, {"type": "received", "id": request["id"]})
+        started = time.monotonic()
         try:
             reply = _synthesize(model, request)
         except Exception as error:  # noqa: BLE001 - one request must not end the worker
             reply = {"type": "error", "code": "synth_failed", "name": type(error).__name__}
+        if reply["type"] == "done":
+            reply["seconds"] = round(time.monotonic() - started, 3)
         reply["id"] = request["id"]
         _send(proto, reply)
 
