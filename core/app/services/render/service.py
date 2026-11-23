@@ -20,12 +20,16 @@ from app.caption_layout import (
     CAPTION_MAX_LINES,
     PLATE_PAD,
     SAFE_HEIGHT,
+    bubble_box,
     caption_inner,
+    caption_text_size,
+    draws_bubble,
     fixed_text_box,
     inside,
     place_pair,
     plate_box,
     safe_area,
+    side_padded,
     text_box,
 )
 from app.ports import (
@@ -48,6 +52,7 @@ from app.schemas.settings import CaptionLayer, CaptionPosition, ProgressMode
 from app.schemas.style_manifest import AssetKind, Palette, Theme
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
+from app.services.render.layers import place_box
 from app.services.render.motion import (
     OPAQUE,
     SCALE_STEP,
@@ -173,7 +178,7 @@ def _typed(block: TextBlock, count: int) -> TextBlock:
     for line in block.lines:
         shown = line.units[:max(0, remaining)]
         remaining -= len(line.units)
-        lines.append(TextLine(units=shown, width=line.width))
+        lines.append(TextLine(units=shown, width=line.width, ink=line.ink))
     return TextBlock(size=block.size, line_height=block.line_height, lines=tuple(lines))
 
 
@@ -203,7 +208,8 @@ class Resolved:
 
 
 def _caption_inner(res: Resolved) -> Box:
-    return caption_inner(res.template.regions.caption, dialog=res.template.dialog_box)
+    """The plate area of a builtin plate template: the caption region without its insets."""
+    return caption_inner(res.template.regions.caption, dialog=False)
 
 
 @dataclass(frozen=True)
@@ -341,7 +347,7 @@ class RenderService:
         assert scene.visual is not None
         sprite = res.style.sprite(scene.visual.background_id, {AssetKind.background})
         image = rasterize(sprite)
-        region = res.template.regions.visual
+        region = res.template.picture or res.template.regions.visual
         factor = max(math.ceil(region.w / image.width), math.ceil(region.h / image.height), 1)
         scaled = image.resize(
             (image.width * factor, image.height * factor), Image.Resampling.NEAREST
@@ -583,7 +589,7 @@ class RenderService:
             return block
         res = plan.res
         line = plan.scene.lines[line_index]
-        inner = _caption_inner(res)
+        text_width, text_height = caption_text_size(res.template)
         if layer == "extra":
             assert res.extra is not None
             font = res.extra.font
@@ -599,13 +605,13 @@ class RenderService:
             )
             if phrase is not None:
                 text, highlight = _phrase_text(text, highlight, *phrase)
-            height = CAPTION_BLOCK_LIMIT if res.extra is not None else inner.h
+            height = CAPTION_BLOCK_LIMIT if res.extra is not None else text_height
             where = f"caption:{line.id}"
         block = fit(
             font,
             text,
             highlight or None,
-            width=inner.w,
+            width=text_width,
             height=height,
             max_lines=CAPTION_MAX_LINES,
             sizes=_caption_sizes(font),
@@ -624,7 +630,7 @@ class RenderService:
             return cached
         res = plan.res
         line = plan.scene.lines[line_index]
-        inner = _caption_inner(res)
+        text_width = caption_text_size(res.template)[0]
         if layer == "extra":
             assert res.extra is not None
             font = res.extra.font
@@ -644,7 +650,7 @@ class RenderService:
             font,
             text,
             highlight or None,
-            width=inner.w,
+            width=text_width,
             height=CAPTION_BLOCK_LIMIT,
             max_lines=CAPTION_MAX_LINES,
             where=where,
@@ -782,9 +788,14 @@ class RenderService:
         block = self._caption_block(plan, state.line, phrase)
         if state.typed is not None:
             block = _typed(block, state.typed)
-        inner = _caption_inner(res)
-        if template.dialog_box or template.renderer.kind != "builtin":
+        valign = "middle"
+        if draws_bubble(template):
+            plate = bubble_box(region, caption.position)
+            text = plate
+            valign = "ink"
+        elif template.renderer.kind != "builtin":
             plate = region
+            inner = side_padded(caption_inner(region, dialog=template.dialog_box))
             text = fixed_text_box(inner, block.height, caption.position)
             if not plan.framed:
                 pen.rectangle(
@@ -792,14 +803,14 @@ class RenderService:
                     fill=palette.caption_box,
                 )
         else:
-            plate = plate_box(inner, block.height, caption.position)
+            plate = plate_box(_caption_inner(res), block.height, caption.position)
             text = text_box(plate, block.height)
             pen.rectangle(
                 (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
                 fill=palette.caption_box,
             )
         boxes = draw_block(
-            pen, res.font, block, text,
+            pen, res.font, block, text, valign=valign,
             color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
         )
         if not inside(plate, safe_area()) or not all(inside(box, plate) for box in boxes):
@@ -829,6 +840,13 @@ class RenderService:
             if overlay.size != OUTPUT:
                 raise AppError("render_input_invalid", detail={"input": "layer", "reason": "size"})
             base.alpha_composite(overlay)
+        if draws_bubble(res.template):
+            if "skin" not in parts:
+                raise AppError(
+                    "render_input_invalid", detail={"input": "skin", "reason": "missing"}
+                )
+            bubble = bubble_box(res.template.regions.caption, video.settings.caption.position)
+            place_box(base, decode_png(parts["skin"], "skin"), bubble)
         figure, figure_at = self._figure(video, scene, parts, res)
         elements = self._place_elements(scene, res)
         top = Image.new("RGBA", OUTPUT, (0, 0, 0, 0))

@@ -90,10 +90,9 @@ class Studio:
                 0,
                 cancel=Token(),
             )
-        skin = self.parts.theme_parts(style, video.settings.visual.theme_id)
+        parts = {**parts, **self.parts.theme_parts(style, video.settings.visual.theme_id)}
         layer, _ = self.layers.draw_layer(
-            video.settings.format.layout, scene, (1080, 1920), {**parts, **skin}, 0,
-            cancel=Token(),
+            video.settings.format.layout, scene, (1080, 1920), parts, 0, cancel=Token(),
         )
         return parts, layer
 

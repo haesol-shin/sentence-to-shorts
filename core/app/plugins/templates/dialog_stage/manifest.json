@@ -17,8 +17,9 @@
     "title": null,
     "progress": null,
     "visual": {"x": 0, "y": 0, "w": 1080, "h": 1010},
-    "caption": {"x": 140, "y": 1060, "w": 800, "h": 140}
+    "caption": {"x": 90, "y": 1062, "w": 900, "h": 138}
   },
+  "picture": {"x": 0, "y": 0, "w": 1080, "h": 1920},
   "character_anchors": {
     "top_left": {"x": 270, "y": 606},
     "top_center": {"x": 540, "y": 606},

@@ -2,10 +2,12 @@
 
 A caption block sits at one of five presets inside the safe band. Its plate is
 the block plus a 4px pad above and below, so a preset change moves the plate
-with its text. A template that draws its own box (a dialog bubble or a sandbox
-layer) keeps the plate fixed and moves only the text inside it. This module is
-the only home for those numbers, so the still, the clip and the template
-validator cannot drift apart.
+with its text. The dialog bubble of the builtin dialog template moves the same
+way: the preset places the bubble in the band and the text stays centred in it.
+A sandbox layer draws its own box, which cannot move, so the preset moves only
+the text inside that box. Text keeps a side pad to the plate, bubble or box.
+This module is the only home for those numbers, so the still, the clip and the
+template validator cannot drift apart.
 """
 
 from __future__ import annotations
@@ -42,6 +44,13 @@ DIALOG_CAPTION_INSET = 12
 
 CAPTION_MAX_LINES = 2
 """Lines one caption layer may use inside its plate."""
+
+PLATE_SIDE_PAD = 40
+"""Shortest space between caption text and the left or right side of its plate."""
+
+BUBBLE_OUTSET = 18
+"""How far the dialog bubble reaches outside the template caption region: the three
+skin cells of its border."""
 
 POSITIONS: tuple[CaptionPosition, ...] = (
     CaptionPosition.top,
@@ -117,16 +126,41 @@ def text_box(plate: Box, block_height: int) -> Box:
 
 
 def fixed_text_box(inner: Box, block_height: int, position: CaptionPosition) -> Box:
-    """The area a text block is drawn in when its plate cannot move.
+    """The area a text block is drawn in when its box cannot move.
 
-    A dialog bubble or a template-drawn box owns the plate, so the preset moves
-    the text through the space the block leaves.
+    A template-drawn (sandbox) box owns its place, so the preset moves the text
+    through the space the block leaves.
     """
     return Box(
         x=inner.x,
         y=inner.y + _offset(inner.h - block_height, position),
         w=inner.w,
         h=block_height,
+    )
+
+
+def side_padded(inner: Box) -> Box:
+    """``inner`` without ``PLATE_SIDE_PAD`` on its left and right."""
+    return Box(
+        x=inner.x + PLATE_SIDE_PAD,
+        y=inner.y,
+        w=max(1, inner.w - 2 * PLATE_SIDE_PAD),
+        h=inner.h,
+    )
+
+
+def bubble_box(region: Box, position: CaptionPosition) -> Box:
+    """The dialog bubble around a caption region, kept inside the safe band.
+
+    The bubble does not change size with its text and the text is centred in it.
+    ``top`` puts the bubble at the top of the band and ``bottom`` at its bottom, like a plate.
+    """
+    height = region.h + 2 * BUBBLE_OUTSET
+    return Box(
+        x=region.x - BUBBLE_OUTSET,
+        y=SAFE_TOP + _offset(SAFE_HEIGHT - height, position),
+        w=region.w + 2 * BUBBLE_OUTSET,
+        h=height,
     )
 
 
@@ -224,6 +258,33 @@ def supports_caption_pair(template: TemplateManifest) -> bool:
     return not template.dialog_box and template.renderer.kind == "builtin"
 
 
+def draws_bubble(template: TemplateManifest) -> bool:
+    """Whether the app draws the template's caption bubble and moves it with the preset."""
+    return template.dialog_box and template.renderer.kind == "builtin"
+
+
+def caption_text_size(template: TemplateManifest) -> tuple[int, int]:
+    """Widest line and tallest block of one caption layer in the template."""
+    region = template.regions.caption
+    inner = caption_inner(region, dialog=template.dialog_box)
+    width = region.w + 2 * BUBBLE_OUTSET if draws_bubble(template) else inner.w
+    return max(1, width - 2 * PLATE_SIDE_PAD), inner.h
+
+
+def caption_region_fits(template: TemplateManifest) -> bool:
+    """Whether the template keeps its captions inside the safe band at every preset."""
+    region = template.regions.caption
+    if not inside(region, safe_area()):
+        return False
+    if not draws_bubble(template):
+        return True
+    return (
+        region.h + 2 * BUBBLE_OUTSET <= SAFE_HEIGHT
+        and region.x >= BUBBLE_OUTSET
+        and region.x + region.w + BUBBLE_OUTSET <= FRAME_WIDTH
+    )
+
+
 def caption_pair_fits(
     template: TemplateManifest,
     primary_pixel_size: int | None,
@@ -245,14 +306,18 @@ def single_caption_fits(
     template: TemplateManifest, pixel_size: int | None, position: CaptionPosition
 ) -> bool:
     region = template.regions.caption
-    inner = caption_inner(region, dialog=template.dialog_box)
     height = smallest_caption_height(pixel_size)
     if supports_caption_pair(template):
+        inner = caption_inner(region, dialog=False)
         return inside(plate_box(inner, height, position), safe_area())
+    if draws_bubble(template):
+        return caption_region_fits(template) and height <= caption_text_size(template)[1]
+    inner = caption_inner(region, dialog=template.dialog_box)
     return height <= inner.h and inside(region, safe_area())
 
 
 __all__ = [
+    "BUBBLE_OUTSET",
     "CAPTION_INSET",
     "CAPTION_MAX_LINES",
     "CaptionPair",
@@ -260,12 +325,17 @@ __all__ = [
     "FRAME_WIDTH",
     "PLATE_GAP",
     "PLATE_PAD",
+    "PLATE_SIDE_PAD",
     "POSITIONS",
     "SAFE_BOTTOM",
     "SAFE_HEIGHT",
     "SAFE_TOP",
+    "bubble_box",
     "caption_inner",
     "caption_pair_fits",
+    "caption_region_fits",
+    "caption_text_size",
+    "draws_bubble",
     "fixed_text_box",
     "inside",
     "intersects",
@@ -276,6 +346,7 @@ __all__ = [
     "rank_pairs",
     "safe_area",
     "separated",
+    "side_padded",
     "single_caption_fits",
     "smallest_caption_height",
     "smallest_caption_size",

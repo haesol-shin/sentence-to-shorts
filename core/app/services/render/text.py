@@ -8,12 +8,13 @@ from its cmap fails with ``font_missing_glyph`` and no other font is tried.
 from __future__ import annotations
 
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path
 
 from fontTools.ttLib import TTFont
-from PIL import ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 from app.ports import AppError, CatalogPort, UnknownCatalogId
 from app.schemas.common import Box, PinnedRef
@@ -119,6 +120,14 @@ def open_font(catalog: CatalogPort, ref: PinnedRef) -> CaptionFont:
 class TextLine:
     units: tuple[Unit, ...]
     width: int
+    """Advance width of the line."""
+    ink: tuple[int, int, int, int] | None
+    """Left, top, right and bottom edge of the drawn pixels, in px from the pen origin of
+    the line; ``None`` for a line that draws nothing.
+
+    The advance box and the ink differ: a full stop owns its whole advance but fills
+    only its left part, so a line ending in one has more advance than ink on its right.
+    """
 
     @property
     def text(self) -> str:
@@ -136,9 +145,44 @@ class TextBlock:
         """Every line keeps its full line height, so the last underline stays inside."""
         return self.line_height * len(self.lines)
 
+    @property
+    def ink_rows(self) -> tuple[int, int]:
+        """First and last-plus-one row the block draws, in px from its top."""
+        rows = [
+            (index * self.line_height + line.ink[1], index * self.line_height + line.ink[3])
+            for index, line in enumerate(self.lines)
+            if line.ink is not None
+        ]
+        if not rows:
+            return (0, self.height)
+        return (min(top for top, _ in rows), max(bottom for _, bottom in rows))
+
 
 def _width(font: ImageFont.FreeTypeFont, items: list[Unit]) -> int:
     return int(round(font.getlength("".join(unit.text for unit in items))))
+
+
+def _pen(font: ImageFont.FreeTypeFont, items: Sequence[Unit], index: int) -> int:
+    """Where ``items[index]`` starts on its line: the advance of the text before it."""
+    return int(round(font.getlength("".join(item.text for item in items[:index]))))
+
+
+def _ink(font: ImageFont.FreeTypeFont, items: list[Unit]) -> tuple[int, int, int, int] | None:
+    """Edges of the pixels ``draw_block`` draws for ``items``; ``None`` when there are none."""
+    pad = font.size
+    canvas = Image.new("L", (_width(font, items) + 2 * pad, 3 * pad), 0)
+    pen = ImageDraw.Draw(canvas)
+    pen.fontmode = "1"
+    for index, unit in enumerate(items):
+        pen.text((pad + _pen(font, items, index), pad), unit.text, font=font, fill=255)
+    box = canvas.getbbox()
+    if box is None:
+        return None
+    return (box[0] - pad, box[1] - pad, box[2] - pad, box[3] - pad)
+
+
+def _line(font: ImageFont.FreeTypeFont, items: list[Unit]) -> TextLine:
+    return TextLine(tuple(items), _width(font, items), _ink(font, items))
 
 
 def _words(items: list[Unit]) -> list[list[Unit]]:
@@ -178,7 +222,7 @@ def wrap(font: ImageFont.FreeTypeFont, items: list[Unit], max_width: int) -> lis
             current.append(unit)
     if current:
         lines.append(current)
-    return [TextLine(tuple(line), _width(font, line)) for line in lines]
+    return [_line(font, line) for line in lines]
 
 
 def wrap_code(font: ImageFont.FreeTypeFont, text: str, max_width: int) -> list[TextLine]:
@@ -193,7 +237,7 @@ def wrap_code(font: ImageFont.FreeTypeFont, text: str, max_width: int) -> list[T
                 current = []
             current.append(unit)
         lines.append(current)
-    return [TextLine(tuple(line), _width(font, line)) for line in lines]
+    return [_line(font, line) for line in lines]
 
 
 ELLIPSIS = "\u2026"
@@ -270,22 +314,35 @@ def draw_block(
     align: str = "center",
 ) -> list[Box]:
     """Draw lines centred (or left aligned) in ``box``; highlights get a colour and an
-    underline."""
+    underline. A centred line is centred by its drawn pixels, not by its advance.
+
+    ``valign`` ``ink`` centres the drawn pixels of the whole block, where ``middle``
+    centres its line boxes, which keep room below the text for an underline.
+    """
     face = font.at(block.size)
     stroke = max(2, block.size // (font.pixel_size or 12))
     free = box.h - block.height
-    top = box.y + {"top": 0, "middle": free // 2, "bottom": free}[valign]
+    ink_top, ink_bottom = block.ink_rows
+    top = box.y + {
+        "top": 0,
+        "middle": free // 2,
+        "bottom": free,
+        "ink": (box.h - (ink_bottom - ink_top)) // 2 - ink_top,
+    }[valign]
     placed: list[Box] = []
     for index, line in enumerate(block.lines):
         y = top + index * block.line_height
-        x0 = box.x if align == "left" else box.x + (box.w - line.width) // 2
+        if align == "left" or line.ink is None:
+            x0 = box.x
+        else:
+            left, _, right, _ = line.ink
+            x0 = box.x + (box.w - (right - left)) // 2 - left
         for unit_index, unit in enumerate(line.units):
-            prefix = "".join(item.text for item in line.units[:unit_index])
-            x = x0 + int(round(face.getlength(prefix)))
+            x = x0 + _pen(face, line.units, unit_index)
             fill = highlight_color if unit.highlight else color
             draw.text((x, y), unit.text, font=face, fill=fill)
             if unit.highlight and not unit.space:
-                end = x0 + int(round(face.getlength(prefix + unit.text)))
+                end = x0 + _pen(face, line.units, unit_index + 1)
                 base = y + block.size + stroke * UNDERLINE_GAP_FONT_PX
                 draw.rectangle((x, base, max(x, end - 1), base + stroke - 1), fill=fill)
         placed.append(Box(x=x0, y=y, w=max(1, line.width), h=block.line_height))

@@ -353,6 +353,7 @@
     },
     "TemplateManifest": {
       "additionalProperties": false,
+      "description": "A template package.\n\n``picture`` is where the background and a framed template's frame are drawn. The\nscene content (character, elements) is laid out in ``regions.visual``, so a picture\ntaller than the visual region lets the background run on below the content without\ngrowing the character. ``None`` draws the picture in the visual region, as templates\nwritten before this field did.",
       "properties": {
         "api_version": {
           "const": 1,
@@ -383,6 +384,17 @@
         },
         "origin": {
           "$ref": "#/$defs/PackageOrigin"
+        },
+        "picture": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Box"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "provenance": {
           "anyOf": [

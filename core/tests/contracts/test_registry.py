@@ -100,6 +100,26 @@ def test_caption_box_outside_safe_area_is_rejected(tmp_path: Path) -> None:
     assert error.value.code == "unsafe_caption_box"
 
 
+def test_dialog_caption_that_cannot_fit_its_bubble_is_rejected(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "templates", "dialog_stage")
+    manifest = _read(package / "manifest.json")
+    manifest["regions"]["caption"].update({"y": 1040, "h": 170})
+    _write(package / "manifest.json", manifest)
+    with pytest.raises(RegistryError) as error:
+        _registry(tmp_path).load()
+    assert error.value.code == "unsafe_caption_box"
+
+
+def test_picture_that_does_not_cover_the_visual_region_is_rejected(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "templates", "fixed_stage")
+    manifest = _read(package / "manifest.json")
+    manifest["picture"]["h"] = 600
+    _write(package / "manifest.json", manifest)
+    with pytest.raises(RegistryError) as error:
+        _registry(tmp_path).load()
+    assert error.value.code == "invalid_manifest"
+
+
 def test_symlink_escape_is_rejected(tmp_path: Path) -> None:
     package = _copy_package(tmp_path, "art_styles", "pixel")
     outside = tmp_path / "outside.json"

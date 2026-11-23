@@ -2417,7 +2417,16 @@ export interface components {
             kind: "builtin";
             module: components["schemas"]["CatalogId"];
         };
-        /** TemplateManifest */
+        /**
+         * TemplateManifest
+         * @description A template package.
+         *
+         *     ``picture`` is where the background and a framed template's frame are drawn. The
+         *     scene content (character, elements) is laid out in ``regions.visual``, so a picture
+         *     taller than the visual region lets the background run on below the content without
+         *     growing the character. ``None`` draws the picture in the visual region, as templates
+         *     written before this field did.
+         */
         TemplateManifest: {
             /**
              * Api Version
@@ -2432,6 +2441,7 @@ export interface components {
             id: components["schemas"]["CatalogId"];
             label: components["schemas"]["LocalizedText"];
             origin: components["schemas"]["PackageOrigin"];
+            picture?: components["schemas"]["Box"] | null;
             provenance: components["schemas"]["Provenance"] | null;
             regions: components["schemas"]["Regions"];
             /** Renderer */

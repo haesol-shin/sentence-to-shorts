@@ -19,7 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.caption_layout import inside, safe_area
+from app.caption_layout import caption_region_fits
 from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
 from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry, UploadBgm
@@ -250,7 +250,7 @@ def validate_package(
             raise RegistryError("digest_mismatch", expected_id, package_dir / relative)
 
     if isinstance(manifest, TemplateManifest):
-        if not inside(manifest.regions.caption, safe_area()):
+        if not caption_region_fits(manifest):
             raise RegistryError(
                 "unsafe_caption_box", expected_id, package_dir / "manifest.json"
             )
