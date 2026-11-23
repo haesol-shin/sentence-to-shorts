@@ -23,6 +23,16 @@
   stroke-width: var(--icon-stroke);
 }
 
+.icon-button--compact {
+  width: var(--part-small);
+  height: var(--part-small);
+}
+
+.icon-button--compact svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+}
+
 .icon-button:hover:not(:disabled),
 .icon-button[data-force-state~='hover']:not(:disabled) {
   background: var(--state-hover-white);

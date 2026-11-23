@@ -30,8 +30,10 @@
   line-height: var(--line-height-small);
 }
 
+/* The before value ends at the arrow, so the arrow sits midway between the two values. */
 .range-dialog__before {
   color: var(--sub);
+  text-align: end;
 }
 
 .range-dialog__after {

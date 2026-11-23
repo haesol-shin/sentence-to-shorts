@@ -7,6 +7,7 @@ import {
   FileText,
   Info,
   Library,
+  RotateCw,
   Settings,
 } from 'lucide-react';
 
@@ -249,11 +250,7 @@ const RANGE_CHANGES = [
   { label: '장면 수', before: '4개', after: '5개' },
 ];
 
-const RANGE_SCOPE = [
-  '대본을 처음부터 다시 씀',
-  '장면 1, 2의 목소리와 렌더를 다시 만듦',
-  '바뀌지 않은 장면 3, 4의 파일은 그대로 둠',
-];
+const RANGE_SCOPE = ['대본을 처음부터 다시 씀', '장면 1, 2의 목소리와 렌더를 다시 만듦'];
 
 const STAGES = [
   { value: 'concept', label: '컨셉' },
@@ -383,7 +380,12 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       );
     case 'button-icon':
       return (
-        <IconButton label="설정" forceState={state} selected={state === 'selected'}>
+        <IconButton
+          label="설정"
+          size={entry.slug === 'compact' ? 'compact' : 'default'}
+          forceState={state}
+          selected={state === 'selected'}
+        >
           <Settings aria-hidden="true" />
         </IconButton>
       );
@@ -622,9 +624,9 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           remove={<CloseButton label="파일 지우기" size="sm" />}
           retry={
             errored ? (
-              <Button variant="ghost" size="sm">
-                다시
-              </Button>
+              <IconButton label="재시도" size="compact">
+                <RotateCw aria-hidden="true" />
+              </IconButton>
             ) : undefined
           }
         />

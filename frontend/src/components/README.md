@@ -11,6 +11,16 @@
 - trigger로 쓰는 단추는 `React.forwardRef`로 ref를 DOM까지 넘긴다. React 18에서 이것이 없으면 tooltip과 메뉴 열림 상태가 깨진다.
 - `frontend/src/shared/ui/tokens.css`는 `design/tokens/tokens.json`과 `design/tokens/shell.css`에서 만든 파일이다. 직접 고치지 않는다.
 
+## 반원 부품의 안쪽 여백
+
+반원(`--radius-pill`)과 그에 준하는 부품은 바깥 가장자리에서 첫 표시까지의 안쪽 여백을 양쪽에서 같게 둔다. 글자와 아이콘이 함께 있는 부품은 그 값을 높이의 절반으로 두어 반원이 끝나는 자리에서 내용이 시작한다(기준: 값 칸의 아이콘 쪽). 아이콘 상자에는 안쪽 빈 공간이 있어서 끝에 놓인 아이콘은 `base.css`의 `--icon-ink-glyph`(화살표, 닫기)와 `--icon-ink-mark`(원, 체크, 파일)만큼 바깥으로 당겨 아이콘의 선이 그 자리에 오게 한다. spinner처럼 상자 끝에서 그려지는 표시는 당기지 않는다.
+
+글자와 아이콘이 함께 있는 적용 부품: Button(md 44, sm 32, trigger), Chip(닫기 단추 쪽 포함), Tag, RadioGroup의 선택 항목, ValueField의 값 칸, TextField, SettingsRow의 값 칸, TopBarItem과 TopBarStatus의 trigger, Composer의 값 칩(Button sm을 36으로 키운 것). 글자만 있는 반원(StageIndicator의 단계)은 양쪽 여백이 이미 같아 그대로 두고, 아이콘 하나만 있는 부품(IconButton, CloseButton, SidebarItem, PlaybackControls, SendButton, ReorderList의 이동 단추)과 작은 겹침 칩(Card의 번호와 길이), popup 면(Tooltip, MenuButton의 메뉴)은 상자 가운데 정렬이라 이 규칙에 넣지 않는다. 새 반원 부품은 이 목록과 `frontend/tests/gallery/pill-parts.spec.ts`의 부품 목록에 함께 더한다.
+
+## 호버 색
+
+흰 면 위 부품의 호버는 `--state-hover-white`(#F2F4F6), 회색 면 위 부품의 호버는 `--state-hover-gray`(#DADDE1)다. 한 면 위에서는 한 값을 쓰므로 ReorderList의 줄과 그 안의 손잡이와 이동 단추는 모두 흰 면의 호버를 쓴다. 호버 색이 부품마다 갈리면 같은 회색이 조작을 덮어 보이지 않게 되므로, 새 부품은 놓인 면의 호버 token을 그대로 쓴다.
+
 ## 시험
 
 - 부품 시험은 각 부품 폴더의 `*.test.tsx`에 있고 `npx vitest run src/components`로 돈다.

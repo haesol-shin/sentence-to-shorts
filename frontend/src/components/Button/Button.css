@@ -9,7 +9,7 @@
   min-width: var(--size-control);
   border: var(--part-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  padding-inline: var(--space-20);
+  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
@@ -28,7 +28,7 @@
 
 .button--sm {
   height: var(--part-small);
-  padding-inline: var(--space-12);
+  padding-inline: calc(var(--part-small) / 2 - var(--part-hairline));
   font-weight: var(--font-weight-regular);
 }
 
@@ -40,6 +40,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.button__icon--start {
+  margin-inline-start: calc(var(--icon-default) * var(--icon-ink-mark) * -1);
+}
+
+.button__icon--end {
+  margin-inline-end: calc(var(--icon-default) * var(--icon-ink-glyph) * -1);
 }
 
 .button__icon svg,
