@@ -44,7 +44,7 @@ export interface ScriptApi {
   rewrite(
     document: ScriptDocument,
     sceneId: string,
-    options?: { signal?: AbortSignal; attempt?: number },
+    options?: { signal?: AbortSignal },
   ): Promise<string[]>;
   confirm(document: ScriptDocument): Promise<ScriptDocument>;
   /** The edit step asks for scene previews only after this gate opens. */
@@ -84,10 +84,10 @@ export class MockScriptApi implements ScriptApi {
   rewrite(
     document: ScriptDocument,
     sceneId: string,
-    options: { signal?: AbortSignal; attempt?: number } = {},
+    options: { signal?: AbortSignal } = {},
   ): Promise<string[]> {
     this.record('rewrite', sceneId);
-    const proposal = buildRewriteProposal(document, sceneId, options.attempt ?? 0);
+    const proposal = buildRewriteProposal(document, sceneId);
     if (proposal === null) {
       return Promise.reject(new ScriptApiError('revision_conflict', 'Unknown scene'));
     }

@@ -174,7 +174,7 @@ test('test_23_adding_a_scene_asks_for_the_server_rebuild_scope', async () => {
   await waitFor(() => expect(dialog.querySelector('[data-slot="preview-after"]')).not.toBeNull());
   const previewImage = dialog.querySelector<HTMLImageElement>('img[data-slot="preview-after"]');
   expect(previewImage?.src.startsWith('data:image/png')).toBe(true);
-  const apply = within(dialog).getByRole('button', { name: '바꾸기' });
+  const apply = within(dialog).getByRole('button', { name: '적용' });
   expect(apply).toHaveProperty('disabled', true);
   fireEvent.load(previewImage!);
   fireEvent.click(apply);
@@ -205,8 +205,8 @@ test.each(['image', 'job'] as const)('test_23_a_failed_%s_cannot_bypass_change_c
     fireEvent.error(image);
   }
   await within(dialog).findByText('미리보기를 만들지 못했어요.');
-  expect(within(dialog).getByRole('button', { name: '바꾸기' })).toHaveProperty('disabled', true);
-  fireEvent.click(within(dialog).getByRole('button', { name: '그대로 두기' }));
+  expect(within(dialog).getByRole('button', { name: '적용' })).toHaveProperty('disabled', true);
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(3);
 });
@@ -227,7 +227,7 @@ test('test_23_the_order_warning_precedes_even_an_auto_applied_server_change', as
   const dialog = await screen.findByRole('dialog', { name: '장면 순서를 바꿀까요?' });
   expect(within(dialog).getByText('장면 흐름이 끊길 수 있어요. 순서를 한 번 더 확인해 주세요.')).toBeTruthy();
   expect(savedOrders).toEqual([]);
-  fireEvent.click(within(dialog).getByRole('button', { name: '바꾸기' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
   await waitFor(() => expect(savedOrders).toEqual([[view.video.scene_order[1], view.video.scene_order[0], view.video.scene_order[2]]]));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
@@ -242,14 +242,14 @@ test('test_23_deleting_a_scene_asks_first_and_can_be_kept', async () => {
   const column = await renderScreen();
   fireEvent.click(screen.getByRole('button', { name: '장면 삭제' }));
   const dialog = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' });
-  fireEvent.click(within(dialog).getByRole('button', { name: '그대로 두기' }));
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: '장면을 삭제할까요?' })).toBeNull());
   expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(3);
 
   fireEvent.click(screen.getByRole('button', { name: '장면 삭제' }));
   const second = await screen.findByRole('dialog', { name: '장면을 삭제할까요?' });
   expect(within(second).getByText('삭제될 장면')).toBeTruthy();
-  fireEvent.click(within(second).getByRole('button', { name: '바꾸기' }));
+  fireEvent.click(within(second).getByRole('button', { name: '적용' }));
   await waitFor(() => expect(column.querySelectorAll('[data-slot="scene-card"]')).toHaveLength(2));
 });
 
@@ -523,7 +523,7 @@ test('test_10a_scene_chat_uses_the_change_and_reports_unsupported_parts_of_the_s
   expect(target).toBe(view.video.scene_order[0]);
 });
 
-test.each(['바꾸기', '그대로 두기'])('test_10a_queued_chat_waits_for_the_first_proposal_to_be_decided_with_%s', async (decision) => {
+test.each(['적용', '취소'])('test_10a_queued_chat_waits_for_the_first_proposal_to_be_decided_with_%s', async (decision) => {
   const api = createMockEditApi(view);
   const originalSend = api.sendMessage.bind(api);
   const firstResult = new Map<string, Job>();
@@ -556,7 +556,7 @@ test.each(['바꾸기', '그대로 두기'])('test_10a_queued_chat_waits_for_the
   expect(sentRevisions).toEqual([view.video.revision]);
   fireEvent.click(within(dialog).getByRole('button', { name: decision }));
   await screen.findByText('바꿀 값이 없어요.', {}, { timeout: 5000 });
-  expect(sentRevisions).toEqual([view.video.revision, view.video.revision + (decision === '바꾸기' ? 1 : 0)]);
+  expect(sentRevisions).toEqual([view.video.revision, view.video.revision + (decision === '적용' ? 1 : 0)]);
 });
 
 test('test_10a_a_stale_chat_change_is_neither_proposed_nor_reported_as_applied', async () => {

@@ -265,7 +265,7 @@ test('test_23_reordering_with_the_buttons_shows_the_scope_and_keeps_the_arrow_si
   await expect(dialog.locator('[data-slot="rebuild-scope"]')).toContainText('최종 영상을 다시 조립해요');
   await expect(dialog).toContainText('장면 흐름이 끊길 수 있어요');
   await expect(page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`).first()).toContainText('훅');
-  await dialog.getByRole('button', { name: '바꾸기' }).click();
+  await dialog.getByRole('button', { name: '적용' }).click();
   await expect(page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`).first()).toContainText('첫 번째');
 });
 
@@ -301,12 +301,12 @@ test('test_10a_the_script_tone_is_decided_in_the_conversation', async ({ page })
   const chat = page.locator('[data-slot="conversation"]');
   await tone.click();
   await page.getByRole('option', { name: '~합니다', exact: true }).click();
-  await chat.getByRole('button', { name: '모두 그대로 두기' }).click();
+  await chat.getByRole('button', { name: '모두 취소' }).click();
   await expect(input).toHaveValue('커피 맛을 천천히 봐요.');
 
   await tone.click();
   await page.getByRole('option', { name: '~합니다', exact: true }).click();
-  await chat.getByRole('button', { name: '모두 바꾸기', exact: true }).click();
+  await chat.getByRole('button', { name: '모두 적용', exact: true }).click();
   await expect(script.locator('[data-slot="script-changed"]').first()).toHaveText('바뀜');
   await expect(input).toHaveValue('커피 맛을 천천히 봅니다.');
 });

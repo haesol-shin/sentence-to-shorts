@@ -26,8 +26,9 @@ The document uses the merged ScrollPane, which owns the jump control and does no
 
 The conversation pane is not part of this feature. It reads `useScript()` and calls these exports:
 
-- `applyTone()` and `dismissTone()` for the tone decision (「모두 바꾸기」, 「모두 그대로 두기」).
-- `applyRewrite()`, `dismissRewrite()` and `retryRewrite()` for the scene review (「바꾸기」, 「그대로 두기」, 「다시」).
+- `applyTone()` and `dismissTone()` for the tone decision (「✕ 모두 취소」, 「✓ 모두 적용」).
+- `applyRewrite()` and `dismissRewrite()` for the scene review (「✕ 취소」, 「✓ 적용」). The scene's own rewrite button repeats the request.
+- `addLine(id)` appends one empty line to a scene, up to the four-line cap the edit panel also uses.
 - `focusScene(id)` for a changed-scene jump; the screen scrolls to that scene and frames it in blue.
 - `clearTarget()` for the 「장면 N ×」 chip. `targetSceneId` names the scene and `sceneNumber(document, id)` gives its number.
 - `rewriteScene(id)` and `stopRewrite()` when a chat instruction targets a scene.

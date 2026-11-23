@@ -46,7 +46,8 @@
   --layout-sidebar-w: 72px;
   --layout-sidebar-w-sm: 56px;
   --layout-topbar-h: 64px;
-  --layout-first-w: 576px;
+  --layout-first-w: 672px;
+  --layout-gutter: 28px;
   --layout-scene-col-w: 152px;
   --layout-scene-panel-max-w: 520px;
   --layout-conversation-aspect: 380 / 796;

@@ -36,7 +36,7 @@
   --palette-blue: #3182F6;
   --palette-blue-deep: #1B64DA;
   --palette-orange: #B45309;
-  --palette-red: #D82426;
+  --palette-red: #DC2626;
   /* roles */
   --background: var(--palette-gray-3);
   --foreground: var(--palette-gray-11);
@@ -68,11 +68,11 @@
   --disabled-foreground: var(--palette-gray-8);
   --border: var(--palette-gray-6);
   --input: var(--palette-gray-6);
-  --ring: var(--palette-blue-deep);
+  --ring: var(--palette-blue);
   /* surfaces over pictures */
   --overlay-caption: rgba(255, 255, 255, 0.88);
   --overlay-scene-number: rgba(255, 255, 255, 0.92);
-  --overlay-length: rgba(0, 0, 0, 0.57);
+  --overlay-length: rgba(0, 0, 0, 0.55);
   --overlay-scrim: rgba(255, 255, 255, 0.55);
   --overlay-dialog-scrim: rgba(34, 38, 43, 0.24);
   /* typography */
@@ -196,7 +196,8 @@
   --layout-sidebar-w: 72px;
   --layout-sidebar-w-sm: 56px;
   --layout-topbar-h: 64px;
-  --layout-first-w: 576px;
+  --layout-first-w: 672px;
+  --layout-gutter: 28px;
   --layout-scene-col-w: 152px;
   --layout-scene-panel-max-w: 520px;
   --layout-conversation-aspect: 380 / 796;

@@ -74,7 +74,6 @@ test('test_13_no_protected_read_runs_before_the_session_is_ready', async () => {
   expect(api.count('GET', '/api/v1/catalog/format_card')).toBe(0);
   expect(api.count('GET', '/api/v1/projects')).toBe(0);
   expect(screen.queryByText('카드를 불러오지 못했어요.')).toBeNull();
-  expect(screen.queryByText('최근 프로젝트를 불러오지 못했어요.')).toBeNull();
 
   await act(async () => {
     release();
@@ -83,9 +82,8 @@ test('test_13_no_protected_read_runs_before_the_session_is_ready', async () => {
   expect(await screen.findByRole('button', { name: /딱 3가지만/ })).toBeTruthy();
   expect(api.count('GET', '/api/v1/runtime')).toBe(1);
   expect(api.count('GET', '/api/v1/catalog/format_card')).toBe(1);
-  expect(api.count('GET', '/api/v1/projects')).toBe(1);
+  expect(api.count('GET', '/api/v1/projects')).toBe(0);
   expect(screen.queryByText('카드를 불러오지 못했어요.')).toBeNull();
-  expect(screen.queryByText('최근 프로젝트를 불러오지 못했어요.')).toBeNull();
 });
 
 test('test_13_a_reload_renews_the_token_from_the_session_cookie', async () => {

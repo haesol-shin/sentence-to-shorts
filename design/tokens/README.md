@@ -40,7 +40,7 @@ shadcn/ui 이름에 없는 역할은 아래와 같다. 값은 모두 결정표�
 - `--state-hover-white`, `--state-selected`, `--state-pressed-white`: 흰 면 위 부품의 올림·선택·눌림 면이다. 올림과 선택은 같은 색을 쓰지 않는다. 안쪽 요소가 `--card` 회색이 된 뒤로 올림은 #DADDE1이라 회색 면 위에서도 보인다.
 - `--state-hover-gray`, `--state-pressed-gray`: 회색 바탕 부품(보조 단추 등)의 올림·눌림 면이다.
 - `--sub`: 보조 글자 #646B76. 회색 면 `--muted`에서 4.88로 4.5를 넘고, 값 칸의 자리표시 글자에 쓴다.
-- `--emphasis`: 강조 단어와 안 본 변경 표시, 진행 표시의 spinner와 아이콘에 쓰는 파랑이다. 포커스 선 `--ring`은 회색 올림 면에서도 3:1을 넘도록 팔레트 `blue-deep` #1B64DA를 쓴다.
+- `--emphasis`: 강조 단어와 안 본 변경 표시, 진행 표시의 spinner와 아이콘에 쓰는 파랑이다. 포커스 선 `--ring`은 정한 파랑 `blue` #3182F6을 쓰고, 회색 올림 면의 3:1 미달은 `contrast.exceptions`에 감수로 적는다.
 - `--progress`: 진행 글자와 그 안의 숫자에 쓰는 파랑 #1B64DA다. 흰 면 5.41, 회색 면 4.62로 4.5를 넘고 진한 면에는 쓰지 않는다. spinner와 아이콘은 `--emphasis`를 쓴다.
 - `--disabled-foreground`: 쓸 수 없는 글자 색이다.
 - `--overlay-*` 다섯 가지: 그림 위에 놓는 반투명 면이다. `--overlay-dialog-scrim`은 확인 창 뒤의 진한 회색 24% 막이고 나머지 네 가지는 흰 막과 그림 위 표시다.
@@ -53,10 +53,10 @@ shadcn/ui 이름에 없는 역할은 아래와 같다. 값은 모두 결정표�
 
 모든 글자 크기가 24px 아래이므로 글자 조합은 4.5:1을 넘어야 한다. 계산 결과가 표를 정한다.
 
-- 뜻 색(`--muted-foreground`, `--destructive`, `--warning`, `--emphasis`)을 작은 글자로 쓰는 면은 `contrast.md`가 정한다. 요소 면 `--card` #F2F4F6에서 `--muted-foreground`는 4.88, `--destructive`는 4.53, `--warning`은 4.55로 통과하고 `--emphasis`는 3.37을 감수한다. `--sub`는 같은 면에서 4.88로 통과해 값 칸의 자리표시 글자에 쓴다.
+- 뜻 색(`--muted-foreground`, `--destructive`, `--warning`, `--emphasis`)을 작은 글자로 쓰는 면은 `contrast.md`가 정한다. 요소 면 `--card` #F2F4F6에서 `--muted-foreground`는 4.88, `--warning`은 4.55로 통과하고 `--destructive`는 4.38, `--emphasis`는 3.37을 감수한다. `--sub`는 같은 면에서 4.88로 통과해 값 칸의 자리표시 글자에 쓴다.
 - 회색 면과 강조 면 위의 글자는 `--foreground`를 쓴다. 이 조합은 11을 넘는다.
-- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 그 바탕의 뜻 색 글자는 `--muted-foreground` 4.88, `--destructive` 4.53, `--warning` 4.55가 통과하고 `--emphasis`는 3.37로 미달이다. 그래서 `--emphasis`는 아이콘에 쓰거나 밝은 면으로 옮긴다.
-- 강조 단어의 작은 파랑 글자(`--emphasis`)는 `--card`에서 3.37, `--popover`에서 3.71이고 이 두 조합만 감수한다. 진행 글자는 `--progress`를 써서 흰 면 5.41로 4.5를 넘긴다.
+- 꼬리표와 안내 문장은 결정표대로 회색 바탕(`--muted`)을 쓴다. 그 바탕의 뜻 색 글자는 `--muted-foreground` 4.88, `--warning` 4.55가 통과하고 `--destructive`는 4.38, `--emphasis`는 3.37로 미달이다. 그래서 `--emphasis`는 아이콘에 쓰거나 밝은 면으로 옮긴다.
+- 강조 단어의 작은 파랑 글자(`--emphasis`)는 `--card`에서 3.37, `--popover`에서 3.71이고, 정한 오류 빨강(`--destructive`)은 `--card`, `--secondary`, `--muted`에서 4.38이고, 길이 표시 막(`--overlay-length`) 위 `--card`는 4.30이다. 이 조합들을 감수한다. 진행 글자는 `--progress`를 써서 흰 면 5.41로 4.5를 넘긴다.
 - 쓸 수 없는 글자는 WCAG 예외로 두고 `contrast.md`에 따로 적는다.
 
 ## 상태

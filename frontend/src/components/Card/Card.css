@@ -6,10 +6,10 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--space-8);
-  padding: var(--space-8);
+  gap: var(--space-12);
+  padding: var(--space-20);
   border: var(--part-hairline) solid var(--card);
-  border-radius: var(--radius-content);
+  border-radius: var(--radius-surface);
   background: var(--card);
   color: var(--foreground);
   font-family: var(--font-family-sans);
@@ -30,7 +30,7 @@
  */
 .card--format {
   width: var(--part-format-width);
-  padding-inline: calc(var(--space-8) - var(--part-hairline));
+  padding: calc(var(--space-8) - var(--part-hairline));
 }
 
 .card--scene {

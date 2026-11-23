@@ -54,7 +54,7 @@ test('test_10a_the_text_field_is_full_width_and_stops_at_ten_lines', async ({ pa
   await textarea.fill(lines(10));
   await expect
     .poll(async () => Math.round((await textarea.boundingBox())?.height ?? 0))
-    .toBe(240);
+    .toBe(260);
   expect(await textarea.evaluate((node) => getComputedStyle(node).maskImage)).toBe('none');
 
   await textarea.fill(lines(9));
@@ -63,7 +63,7 @@ test('test_10a_the_text_field_is_full_width_and_stops_at_ten_lines', async ({ pa
   await textarea.fill(lines(11));
   await expect
     .poll(async () => Math.round((await textarea.boundingBox())?.height ?? 0))
-    .toBe(240);
+    .toBe(260);
   expect(await textarea.evaluate((node) => getComputedStyle(node).maskImage)).not.toBe('none');
 });
 
@@ -81,7 +81,7 @@ test('test_10a_the_stage_input_grows_upward_and_keeps_its_bottom_edge', async ({
   await textarea.fill(lines(11));
   await expect
     .poll(async () => Math.round((await textarea.boundingBox())?.height ?? 0))
-    .toBe(240);
+    .toBe(260);
 
   const after = await composer.boundingBox();
   expect(after).not.toBeNull();

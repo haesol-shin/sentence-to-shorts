@@ -298,22 +298,36 @@ function acceptedKey(text, surface) {
   return `${text} ${surface}`;
 }
 
-export function textVerdict(tokens, text, surface) {
+/** The decided colour pairs whose contrast is below the threshold on purpose. */
+export function acceptedPairs(tokens) {
   const accepted = new Set();
   for (const exception of tokens.contrast.exceptions) {
     if (exception.kind !== 'accepted') continue;
     for (const candidate of exception.surfaces) accepted.add(acceptedKey(exception.text, candidate));
   }
-  const disabledText = tokens.contrast.exceptions
-    .filter((exception) => exception.kind === 'disabled')
-    .map((exception) => exception.text);
+  return accepted;
+}
+
+export function textVerdict(tokens, text, surface) {
+  const accepted = acceptedPairs(tokens);
   const value = pairRatio(tokens, text, surface);
   let verdict = '통과';
   if (accepted.has(acceptedKey(text, surface))) verdict = '감수';
-  else if (disabledText.includes(text)) verdict = 'WCAG 예외';
+  else if (tokens.contrast.exceptions
+    .filter((exception) => exception.kind === 'disabled')
+    .map((exception) => exception.text)
+    .includes(text)) verdict = 'WCAG 예외';
   else if (value < 4.5) verdict = '금지';
   return { value, verdict };
 }
+
+function nonTextVerdict(tokens, threshold, text, surface) {
+  const value = pairRatio(tokens, text, surface);
+  if (value >= threshold) return { value, verdict: '통과' };
+  if (acceptedPairs(tokens).has(acceptedKey(text, surface))) return { value, verdict: '감수' };
+  return { value, verdict: '금지' };
+}
+
 
 export function contrastReport(tokens) {
   const text = [];
@@ -327,10 +341,10 @@ export function contrastReport(tokens) {
     }
   }
 
-  const overlays = tokens.contrast.overlays.map((pair) => {
-    const value = pairRatio(tokens, pair.text, pair.surface);
-    return { ...pair, value, verdict: value >= 4.5 ? '통과' : '금지' };
-  });
+  const overlays = tokens.contrast.overlays.map((pair) => ({
+    ...pair,
+    ...nonTextVerdict(tokens, 4.5, pair.text, pair.surface),
+  }));
 
   const ring = new Map();
   for (const row of allRows(tokens)) {
@@ -341,7 +355,10 @@ export function contrastReport(tokens) {
       ring.set(key, { text: '--ring', surface, value: pairRatio(tokens, '--ring', surface) });
     }
   }
-  const ringRows = [...ring.values()].map((row) => ({ ...row, verdict: row.value >= 3 ? '통과' : '금지' }));
+  const ringRows = [...ring.values()].map((row) => ({
+    ...row,
+    ...nonTextVerdict(tokens, 3, row.text, row.surface),
+  }));
 
   const icons = [];
   for (const entry of tokens.contrast.icons) {
@@ -456,9 +473,13 @@ export function renderContrast(tokens) {
   lines.push('');
   lines.push('## 감수한 조합');
   lines.push('');
-  lines.push('작은 파랑 글자는 진한 변형을 만들지 않고 밝은 면에 그대로 쓴다. 이 조합만 4.5:1 아래를 감수한다.');
+  lines.push('정한 색을 바꾸지 않고 기준에 못 미치는 것을 감수한 조합이다. 작은 글자는 4.5:1, 포커스 선은 3:1을 기준으로 적는다.');
   lines.push('');
   for (const row of report.accepted) {
+    lines.push(`- \`${row.text}\` on \`${row.surface}\`: ${pair(row.value)}`);
+  }
+  for (const row of [...report.overlays, ...report.ring]) {
+    if (row.verdict !== '감수') continue;
     lines.push(`- \`${row.text}\` on \`${row.surface}\`: ${pair(row.value)}`);
   }
   lines.push('');
@@ -474,8 +495,24 @@ export function renderContrast(tokens) {
   lines.push('');
   lines.push('여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.');
   lines.push('');
+  const grayText = ['--muted-foreground', '--destructive', '--warning'].map((text) => {
+    const { value, verdict } = textVerdict(tokens, text, '--muted');
+    return { text, value, verdict };
+  });
+  const passingGray = grayText
+    .filter((row) => row.verdict === '통과')
+    .map((row) => `\`${row.text}\` ${pair(row.value)}`);
+  const acceptedGray = grayText
+    .filter((row) => row.verdict === '감수')
+    .map((row) => `\`${row.text}\` ${pair(row.value)}`);
   lines.push(
-    `회색 바탕의 뜻 색 글자는 \`--muted-foreground\` ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--destructive\` ${pair(pairRatio(tokens, '--destructive', '--muted'))}, \`--warning\` ${pair(pairRatio(tokens, '--warning', '--muted'))}가 4.5를 넘고 \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 \`--emphasis\` 글자는 밝은 면에서 쓰고, 나머지 뜻 색은 회색 바탕에도 쓴다.`,
+    [
+      passingGray.length > 0 ? `4.5를 넘는 회색 바탕 뜻 색은 ${passingGray.join(', ')}.` : '',
+      acceptedGray.length > 0
+        ? `4.5에 못 미치지만 감수하는 회색 바탕 뜻 색은 ${acceptedGray.join(', ')}.`
+        : '',
+      `\`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 밝은 면에서만 쓴다.`,
+    ].filter(Boolean).join(' '),
   );
   lines.push('');
   const byText = new Map();

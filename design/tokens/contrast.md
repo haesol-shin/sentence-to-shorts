@@ -128,21 +128,21 @@
 | `--accent-foreground` | `--state-pressed-white` | 11.17 | 통과 |
 | `--accent-foreground` | `--state-hover-gray` | 11.17 | 통과 |
 | `--accent-foreground` | `--state-pressed-gray` | 9.53 | 통과 |
-| `--destructive` | `--background` | 4.27 | 금지 |
-| `--destructive` | `--card` | 4.53 | 통과 |
-| `--destructive` | `--popover` | 5.00 | 통과 |
-| `--destructive` | `--primary` | 3.04 | 금지 |
-| `--destructive` | `--primary-hover` | 2.36 | 금지 |
-| `--destructive` | `--primary-pressed` | 2.12 | 금지 |
-| `--destructive` | `--secondary` | 4.53 | 통과 |
-| `--destructive` | `--muted` | 4.53 | 통과 |
-| `--destructive` | `--accent` | 4.07 | 금지 |
-| `--destructive` | `--accent-pressed` | 3.67 | 금지 |
-| `--destructive` | `--state-hover-white` | 3.67 | 금지 |
-| `--destructive` | `--state-selected` | 4.07 | 금지 |
-| `--destructive` | `--state-pressed-white` | 3.67 | 금지 |
-| `--destructive` | `--state-hover-gray` | 3.67 | 금지 |
-| `--destructive` | `--state-pressed-gray` | 3.13 | 금지 |
+| `--destructive` | `--background` | 4.12 | 금지 |
+| `--destructive` | `--card` | 4.38 | 감수 |
+| `--destructive` | `--popover` | 4.83 | 통과 |
+| `--destructive` | `--primary` | 3.15 | 금지 |
+| `--destructive` | `--primary-hover` | 2.45 | 금지 |
+| `--destructive` | `--primary-pressed` | 2.20 | 금지 |
+| `--destructive` | `--secondary` | 4.38 | 감수 |
+| `--destructive` | `--muted` | 4.38 | 감수 |
+| `--destructive` | `--accent` | 3.93 | 금지 |
+| `--destructive` | `--accent-pressed` | 3.54 | 금지 |
+| `--destructive` | `--state-hover-white` | 3.54 | 금지 |
+| `--destructive` | `--state-selected` | 3.93 | 금지 |
+| `--destructive` | `--state-pressed-white` | 3.54 | 금지 |
+| `--destructive` | `--state-hover-gray` | 3.54 | 금지 |
+| `--destructive` | `--state-pressed-gray` | 3.02 | 금지 |
 | `--warning` | `--background` | 4.29 | 금지 |
 | `--warning` | `--card` | 4.55 | 통과 |
 | `--warning` | `--popover` | 5.02 | 통과 |
@@ -212,7 +212,7 @@
 | --- | --- | --- | --- |
 | `--foreground` | `--overlay-caption` | 11.53 | 통과 |
 | `--foreground` | `--overlay-scene-number` | 12.76 | 통과 |
-| `--card` | `--overlay-length` | 4.62 | 통과 |
+| `--card` | `--overlay-length` | 4.30 | 감수 |
 | `--foreground` | `--overlay-scrim` | 4.52 | 통과 |
 
 ## 의미 있는 아이콘과 포커스 표시 (3:1)
@@ -223,12 +223,12 @@
 
 | 표시 | 이웃한 면 | 대비 | 판정 |
 | --- | --- | --- | --- |
-| `--ring` | `--background` | 4.62 | 통과 |
-| `--ring` | `--card` | 4.91 | 통과 |
-| `--ring` | `--popover` | 5.41 | 통과 |
-| `--ring` | `--muted` | 4.91 | 통과 |
-| `--ring` | `--state-selected` | 4.40 | 통과 |
-| `--ring` | `--state-hover-white` | 3.97 | 통과 |
+| `--ring` | `--background` | 3.17 | 통과 |
+| `--ring` | `--card` | 3.37 | 통과 |
+| `--ring` | `--popover` | 3.71 | 통과 |
+| `--ring` | `--muted` | 3.37 | 통과 |
+| `--ring` | `--state-selected` | 3.02 | 통과 |
+| `--ring` | `--state-hover-white` | 2.73 | 감수 |
 
 ### 아이콘
 
@@ -254,18 +254,23 @@
 | `--warning` | `--card` | 4.55 | 통과 |
 | `--warning` | `--popover` | 5.02 | 통과 |
 | `--warning` | `--muted` | 4.55 | 통과 |
-| `--destructive` | `--card` | 4.53 | 통과 |
-| `--destructive` | `--popover` | 5.00 | 통과 |
-| `--destructive` | `--muted` | 4.53 | 통과 |
+| `--destructive` | `--card` | 4.38 | 통과 |
+| `--destructive` | `--popover` | 4.83 | 통과 |
+| `--destructive` | `--muted` | 4.38 | 통과 |
 | `--primary-foreground` | `--primary` | 15.22 | 통과 |
 | `--primary-foreground` | `--primary-pressed` | 10.61 | 통과 |
 
 ## 감수한 조합
 
-작은 파랑 글자는 진한 변형을 만들지 않고 밝은 면에 그대로 쓴다. 이 조합만 4.5:1 아래를 감수한다.
+정한 색을 바꾸지 않고 기준에 못 미치는 것을 감수한 조합이다. 작은 글자는 4.5:1, 포커스 선은 3:1을 기준으로 적는다.
 
+- `--destructive` on `--card`: 4.38
+- `--destructive` on `--secondary`: 4.38
+- `--destructive` on `--muted`: 4.38
 - `--emphasis` on `--card`: 3.37
 - `--emphasis` on `--popover`: 3.71
+- `--card` on `--overlay-length`: 4.30
+- `--ring` on `--state-hover-white`: 2.73
 
 ## WCAG 예외
 
@@ -291,7 +296,7 @@
 
 여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.
 
-회색 바탕의 뜻 색 글자는 `--muted-foreground` 4.88, `--destructive` 4.53, `--warning` 4.55가 4.5를 넘고 `--emphasis`는 3.37로 못 미친다. 그래서 `--emphasis` 글자는 밝은 면에서 쓰고, 나머지 뜻 색은 회색 바탕에도 쓴다.
+4.5를 넘는 회색 바탕 뜻 색은 `--muted-foreground` 4.88, `--warning` 4.55. 4.5에 못 미치지만 감수하는 회색 바탕 뜻 색은 `--destructive` 4.38. `--emphasis`는 3.37로 밝은 면에서만 쓴다.
 
 - `--foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
 - `--card-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
@@ -301,7 +306,7 @@
 - `--muted-foreground`: `--primary` (2.83), `--primary-hover` (2.20), `--primary-pressed` (1.97), `--accent` (4.37), `--accent-pressed` (3.94), `--state-hover-white` (3.94), `--state-selected` (4.37), `--state-pressed-white` (3.94), `--state-hover-gray` (3.94), `--state-pressed-gray` (3.37)
 - `--sub`: `--primary` (2.83), `--primary-hover` (2.20), `--primary-pressed` (1.97), `--accent` (4.37), `--accent-pressed` (3.94), `--state-hover-white` (3.94), `--state-selected` (4.37), `--state-pressed-white` (3.94), `--state-hover-gray` (3.94), `--state-pressed-gray` (3.37)
 - `--accent-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
-- `--destructive`: `--background` (4.27), `--primary` (3.04), `--primary-hover` (2.36), `--primary-pressed` (2.12), `--accent` (4.07), `--accent-pressed` (3.67), `--state-hover-white` (3.67), `--state-selected` (4.07), `--state-pressed-white` (3.67), `--state-hover-gray` (3.67), `--state-pressed-gray` (3.13)
+- `--destructive`: `--background` (4.12), `--primary` (3.15), `--primary-hover` (2.45), `--primary-pressed` (2.20), `--accent` (3.93), `--accent-pressed` (3.54), `--state-hover-white` (3.54), `--state-selected` (3.93), `--state-pressed-white` (3.54), `--state-hover-gray` (3.54), `--state-pressed-gray` (3.02)
 - `--warning`: `--background` (4.29), `--primary` (3.03), `--primary-hover` (2.35), `--primary-pressed` (2.11), `--accent` (4.08), `--accent-pressed` (3.69), `--state-hover-white` (3.69), `--state-selected` (4.08), `--state-pressed-white` (3.69), `--state-hover-gray` (3.69), `--state-pressed-gray` (3.14)
 - `--emphasis`: `--background` (3.17), `--primary` (4.10), `--primary-hover` (3.18), `--primary-pressed` (2.86), `--secondary` (3.37), `--muted` (3.37), `--accent` (3.02), `--accent-pressed` (2.73), `--state-hover-white` (2.73), `--state-selected` (3.02), `--state-pressed-white` (2.73), `--state-hover-gray` (2.73), `--state-pressed-gray` (2.33)
 - `--progress`: `--primary` (2.81), `--primary-hover` (2.18), `--primary-pressed` (1.96), `--accent` (4.40), `--accent-pressed` (3.97), `--state-hover-white` (3.97), `--state-selected` (4.40), `--state-pressed-white` (3.97), `--state-hover-gray` (3.97), `--state-pressed-gray` (3.39)

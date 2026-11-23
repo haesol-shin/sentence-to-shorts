@@ -220,7 +220,7 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
     await expect(review.getByText('둘째, 로스팅 정도')).toBeVisible();
     await expect(review.getByText(REWRITTEN_LINE)).toBeVisible();
     await shot(page, 'compare');
-    await page.getByRole('dialog', { name: '장면을 바꿀까요?' }).getByRole('button', { name: '바꾸기' }).click();
+    await page.getByRole('dialog', { name: '장면을 바꿀까요?' }).getByRole('button', { name: '적용' }).click();
     await expect(page.getByRole('dialog', { name: '장면을 바꿀까요?' })).toBeHidden();
     const applied = await readVideo(page, session.videoId);
     const target = applied.video.scene_order[2];
@@ -252,7 +252,7 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
     await page.keyboard.press('Enter');
     const review = page.getByRole('dialog', { name: '장면을 바꿀까요?' });
     await expect(review).toBeVisible();
-    await review.getByRole('button', { name: '그대로 두기' }).focus();
+    await review.getByRole('button', { name: '취소' }).focus();
     await page.keyboard.press('Enter');
     await expect(review).toBeHidden();
     await expect(save).toBeFocused();

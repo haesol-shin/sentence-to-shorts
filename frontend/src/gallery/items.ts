@@ -521,7 +521,7 @@ const SPECS: readonly PartSpec[] = [
     id: 'composer',
     batch: 2,
     title: '입력창',
-    description: '글 칸이 위, 단추 줄이 아래다. 열 줄 240까지 자라고 넘으면 칸 안에서 스크롤하며 가려진 쪽을 흐린다. 반경은 28 고정이다.',
+    description: '글 칸이 위, 단추 줄이 아래다. 열 줄 260까지 자라고 넘으면 칸 안에서 스크롤하며 가려진 쪽을 흐린다. 반경은 28 고정이다.',
     matrixPart: 'composer.surface',
     matrixParts: ['composer.surface', 'composer.textarea', 'composer.placeholder'],
     notApplicable: MATRIX_SKIP.textSurface,

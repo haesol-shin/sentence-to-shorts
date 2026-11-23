@@ -15,7 +15,7 @@
   "change.addTitle": "Add a scene?",
   "change.after": "After",
   "change.afterEmpty": "No new picture",
-  "change.apply": "Change it",
+  "change.apply": "Apply",
   "change.before": "Now",
   "change.beforeEmpty": "No earlier picture",
   "change.compareOrder": "Order comparison",
@@ -30,7 +30,7 @@
   "change.previewAfterScript": "Confirm the script before making previews.",
   "change.previewFailed": "The preview could not be made.",
   "change.previewLoading": "Making previews",
-  "change.reject": "Keep it",
+  "change.reject": "Cancel",
   "change.removedStill": "Scene to be deleted",
   "change.reorderTitle": "Change the scene order?",
   "change.scope": "Made again",
@@ -190,8 +190,8 @@
   "tabs.label": "Edit tabs",
   "tabs.scenes": "Scenes",
   "tabs.sound": "Sound",
-  "tone.applyAll": "Change all",
+  "tone.applyAll": "Apply all",
   "tone.failed": "The tone could not be changed. Check that the concept is not already confirmed.",
-  "tone.keepAll": "Keep all as is",
+  "tone.keepAll": "Cancel all",
   "tone.preview": "Changing the tone also changes the concept's tone."
 }

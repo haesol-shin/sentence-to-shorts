@@ -88,9 +88,32 @@ describe('script screen', () => {
 
     const card = first.querySelector('.script-card');
     const rewrite = within(first).getByRole('button', { name: 'AI로 다시 쓰기' });
-    expect(card?.contains(rewrite)).toBe(false);
+    expect(card?.contains(rewrite)).toBe(true);
     expect(first.contains(rewrite)).toBe(true);
+    expect(
+      (within(first).getByRole('button', { name: '대사 줄 추가' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
     expect(document.querySelector('[data-slot="script-fade"]')).toBeNull();
+  });
+
+  test('test_2_add_line_adds_a_line_and_stops_at_four', async () => {
+    await open();
+    const id = firstSceneId();
+    const first = document.querySelector('[data-slot="script-scene"]') as HTMLElement;
+    expect(snapshot().document.scenes[id]?.lines).toHaveLength(1);
+
+    fireEvent.click(within(first).getByRole('button', { name: '대사 줄 추가' }));
+    await waitFor(() => expect(snapshot().document.scenes[id]?.lines).toHaveLength(2));
+    const box = within(first).getByRole('textbox', { name: '장면 1 대사 2' });
+    expect((box as HTMLTextAreaElement).value).toBe('');
+
+    fireEvent.click(within(first).getByRole('button', { name: '대사 줄 추가' }));
+    await waitFor(() => expect(snapshot().document.scenes[id]?.lines).toHaveLength(3));
+    fireEvent.click(within(first).getByRole('button', { name: '대사 줄 추가' }));
+    await waitFor(() => expect(snapshot().document.scenes[id]?.lines).toHaveLength(4));
+    expect(
+      (within(first).getByRole('button', { name: '대사 줄 추가' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
   });
 
   test('test_26_the_tone_preview_shows_old_and_new_lines_and_apply_marks_scenes', async () => {
@@ -130,9 +153,12 @@ describe('script screen', () => {
       await rewriteScene(id);
     });
 
-    expect(document.querySelector('[data-slot="script-review"]')).not.toBeNull();
+    const review = document.querySelector('[data-slot="script-review"]') as HTMLElement;
+    expect(review).not.toBeNull();
+    expect(within(review).getByRole('button', { name: '취소' })).toHaveProperty('disabled', false);
+    expect(within(review).queryByRole('button', { name: '다시' })).toBeNull();
     expect(screen.getByRole('button', { name: '되돌리기' })).toHaveProperty('disabled', true);
-    fireEvent.click(screen.getByRole('button', { name: '바꾸기' }));
+    fireEvent.click(within(review).getByRole('button', { name: '적용' }));
 
     await waitFor(() => expect(screen.getByRole('button', { name: '되돌리기' })).toHaveProperty('disabled', false));
     expect(snapshot().document.scenes[id]?.lines[0]?.display_text.startsWith('다시 말하면, ')).toBe(
@@ -143,24 +169,6 @@ describe('script screen', () => {
     await waitFor(() =>
       expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe(original),
     );
-  });
-
-  test('test_8a_retry_asks_for_another_rewrite', async () => {
-    await open();
-    const id = firstSceneId();
-
-    await act(async () => {
-      await rewriteScene(id);
-    });
-    const first = snapshot().rewrite?.after[0];
-
-    fireEvent.click(screen.getByRole('button', { name: '다시' }));
-
-    await waitFor(() =>
-      expect(snapshot().rewrite?.after[0]?.startsWith('정리하면, ')).toBe(true),
-    );
-    expect(snapshot().rewrite?.after[0]).not.toBe(first);
-    expect(snapshot().changedSceneIds).toHaveLength(0);
   });
 
   test('test_2_the_same_card_control_becomes_stop_and_keeps_the_original', async () => {

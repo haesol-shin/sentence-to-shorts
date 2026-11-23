@@ -4,7 +4,7 @@ import {
   useLayoutEffect,
   useRef,
 } from 'react';
-import { ChevronDown, ChevronUp, GripVertical, MoreHorizontal } from 'lucide-react';
+import { Check, ChevronDown, ChevronUp, GripVertical, MoreHorizontal, Plus, RefreshCw, X } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
 import { Button } from '@/components/Button/Button';
@@ -16,6 +16,7 @@ import { ValueField } from '@/components/ValueField/ValueField';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import {
+  addLine,
   applyRewrite,
   confirmScript,
   dismissRewrite,
@@ -23,7 +24,6 @@ import {
   ensureScript,
   moveScene,
   moveSceneTo,
-  retryRewrite,
   rewriteScene,
   setLength,
   setRegister,
@@ -37,6 +37,7 @@ import {
   estimateLineSeconds,
   getScriptSceneCounts,
   MAX_DISPLAY_CHARS,
+  MAX_SCENE_LINES,
   REGISTERS,
   textLength,
 } from './model';
@@ -384,7 +385,6 @@ export function ScriptScreen({
                         aria-label={t('script.review.title')}
                         className="script-review"
                       >
-                        <h3>{t('script.review.title')}</h3>
                         <ul className="script-review-lines" aria-label={t('script.tone.old')}>
                           {review.before.map((text, lineIndex) => (
                             <li key={`before-${lineIndex}`}>
@@ -401,13 +401,16 @@ export function ScriptScreen({
                           ))}
                         </ul>
                         <div className="script-review-actions">
-                          <Button variant="ghost" onClick={dismissRewrite}>
+                          <Button
+                            variant="ghost"
+                            iconStart={<X aria-hidden size={16} />}
+                            onClick={dismissRewrite}
+                          >
                             {t('script.review.keep')}
                           </Button>
-                          <Button variant="ghost" onClick={retryRewrite}>
-                            {t('script.review.retry')}
+                          <Button iconStart={<Check aria-hidden size={16} />} onClick={applyRewrite}>
+                            {t('script.review.apply')}
                           </Button>
-                          <Button onClick={applyRewrite}>{t('script.review.apply')}</Button>
                         </div>
                       </div>
                     ) : toneReview !== null ? (
@@ -469,21 +472,36 @@ export function ScriptScreen({
                         ))}
                       </div>
                     )}
-                  </div>
 
-                  <div className="script-card-foot">
-                    <Button
-                      data-slot="script-rewrite"
-                      className="script-rewrite"
-                      variant="secondary"
-                      running={working}
-                      stopLabel={t('script.stop')}
-                      onStop={stopRewrite}
-                      disabled={!working && rewriteBlocked}
-                      onClick={() => void rewriteScene(sceneId)}
-                    >
-                      {t('script.rewrite')}
-                    </Button>
+                    {review === null && toneReview === null ? (
+                      <div className="script-card-actions">
+                        <Button
+                          data-slot="script-rewrite"
+                          className="script-rewrite"
+                          variant="secondary"
+                          iconStart={<RefreshCw aria-hidden size={16} />}
+                          running={working}
+                          stopLabel={t('script.stop')}
+                          onStop={stopRewrite}
+                          disabled={!working && rewriteBlocked}
+                          onClick={() => void rewriteScene(sceneId)}
+                        >
+                          {t('script.rewrite')}
+                        </Button>
+                        <Button
+                          data-slot="script-add-line"
+                          variant="ghost"
+                          iconStart={<Plus aria-hidden size={16} />}
+                          disabled={
+                            structureLocked ||
+                            scene.lines.length >= MAX_SCENE_LINES
+                          }
+                          onClick={() => addLine(sceneId)}
+                        >
+                          {t('script.addLine')}
+                        </Button>
+                      </div>
+                    ) : null}
                   </div>
                 </li>
               );

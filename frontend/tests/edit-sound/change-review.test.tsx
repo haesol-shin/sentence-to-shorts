@@ -177,8 +177,8 @@ test.each([
 });
 
 test.each([
-  { language: 'ko', name: '이름을 알 수 없는 항목', background: '배경', expression: '표정', apply: '바꾸기' },
-  { language: 'en', name: 'Unnamed option', background: 'Background', expression: 'Face', apply: 'Change it' },
+  { language: 'ko', name: '이름을 알 수 없는 항목', background: '배경', expression: '표정', apply: '적용' },
+  { language: 'en', name: 'Unnamed option', background: 'Background', expression: 'Face', apply: 'Apply' },
 ] as const)('test_14_the_scene_form_keeps_the_review_names_after_apply_in_$language', async ({
   language, name, background, expression, apply,
 }) => {

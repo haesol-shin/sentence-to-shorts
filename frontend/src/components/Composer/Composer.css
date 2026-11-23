@@ -43,10 +43,11 @@
 
 .composer__input {
   display: block;
+  box-sizing: border-box;
   width: 100%;
   min-height: var(--size-control);
-  max-height: calc(var(--space-48) * 5);
-  padding: var(--space-8) var(--space-8) 0;
+  max-height: calc(var(--space-24) * 10 + var(--space-20));
+  padding: calc(var(--space-20) / 2) var(--space-8);
   border: 0;
   background: none;
   color: var(--foreground);
