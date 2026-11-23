@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, expect, test } from 'vitest';
 
+import { HistoryButtons } from '@/app/shell/history-buttons';
 import { PlaceholderComposer } from '@/app/shell/composer';
 import { ShellViewProvider } from '@/app/shell/shell-view';
 import { createMockEditApi, stageRecord, type Job } from '@/features/edit/api';
@@ -32,6 +33,7 @@ function wrap(children: ReactNode, api = createMockEditApi(view), language: 'ko'
   return render(
     <LocaleProvider language={language} setLanguage={() => undefined}>
       <EditProvider active videoId="v_test" api={api}>
+        <HistoryButtons view="edit" />
         {children}
       </EditProvider>
     </LocaleProvider>,
@@ -386,22 +388,25 @@ test('test_23_the_sfx_picker_uses_catalog_references', async () => {
   await waitFor(() => expect((screen.getByRole('button', { name: '효과음 추가' }) as HTMLButtonElement).disabled).toBe(true));
 });
 
-test('test_26_a_line_can_be_edited_and_added', async () => {
-  await renderScreen();
+test('test_26_a_line_has_one_caption_box_and_the_voice_follows_it', async () => {
+  const api = createMockEditApi(view);
+  wrap(<EditScreen />, api);
+  await screen.findByRole('heading', { name: '장면 1' });
   const display = screen.getByRole('textbox', { name: '화면 글 1' }) as HTMLTextAreaElement;
-  const speech = screen.getByRole('textbox', { name: '말할 글 1' }) as HTMLTextAreaElement;
+  expect(screen.queryByRole('textbox', { name: /말할 글/ })).toBeNull();
   fireEvent.change(display, { target: { value: '고친 첫 줄' } });
-  fireEvent.change(speech, { target: { value: '고친 첫 줄 말' } });
   fireEvent.click(within(display.closest('[data-slot="line-editor"]') as HTMLElement).getByRole('button', { name: '줄 저장' }));
   await waitFor(() => expect(screen.getByRole('button', { name: '되돌리기' })).toHaveProperty('disabled', false));
   expect(display.value).toBe('고친 첫 줄');
-  expect(speech.value).toBe('고친 첫 줄 말');
+  const saved = (await api.load('v_test')).video.scenes[view.video.scene_order[0] ?? '']?.lines[0];
+  expect(saved?.display_text).toBe('고친 첫 줄');
+  expect(saved?.speech_text).toBe('고친 첫 줄');
 
   fireEvent.click(screen.getByRole('button', { name: '대사 줄 추가' }));
   const draft = document.querySelector<HTMLElement>('[data-slot="line-draft"]') as HTMLElement;
   expect(within(draft).getByRole('button', { name: '줄 저장' })).toHaveProperty('disabled', true);
+  expect(within(draft).queryByRole('textbox', { name: /말할 글/ })).toBeNull();
   fireEvent.change(within(draft).getByRole('textbox', { name: '화면 글 3' }), { target: { value: '새 화면 글' } });
-  fireEvent.change(within(draft).getByRole('textbox', { name: '말할 글 3' }), { target: { value: '새 말할 글' } });
   fireEvent.click(within(draft).getByRole('button', { name: '줄 저장' }));
   await waitFor(() => expect(screen.getAllByRole('textbox', { name: /화면 글/ })).toHaveLength(3));
 });

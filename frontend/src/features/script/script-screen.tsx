@@ -29,7 +29,6 @@ import {
   setRegister,
   setSceneCount,
   stopRewrite,
-  undo,
   useScript,
   useScriptLoadFailed,
 } from './store';
@@ -497,11 +496,6 @@ export function ScriptScreen({
         <p id={noteId} role="status" className="script-footer-note">
           {note}
         </p>
-        {snapshot.canUndo ? (
-          <Button data-slot="script-undo" variant="ghost" onClick={undo}>
-            {t('script.undo')}
-          </Button>
-        ) : null}
         <Button
           data-slot="script-next"
           disabled={

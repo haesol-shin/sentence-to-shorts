@@ -70,7 +70,7 @@ function renderEdit(api: EditApi, language: Language = 'ko') {
   return render(
     <LocaleProvider language={language} setLanguage={() => undefined}>
       <EditProvider active videoId="v_test" api={api}>
-        <TopBar brand="앱" view="edit" videoId="v_test" onStage={() => undefined} />
+        <TopBar view="edit" videoId="v_test" onStage={() => undefined} />
         <StartVideo />
       </EditProvider>
     </LocaleProvider>,

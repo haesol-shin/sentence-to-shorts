@@ -5,6 +5,7 @@ import { useEditOptional } from '@/features/edit/edit-context';
 import { useActivityReporting } from '@/features/export/activity';
 import { useExportState } from '@/features/export/store';
 import { StageScrollProvider } from '@/shared/lib/stage-scroll';
+import { cn } from '@/shared/lib/utils';
 import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
 import { EditBridge } from './edit-bridge';
@@ -105,10 +106,9 @@ export function AppShell({
           style={{ height: keyboardOpen ? `calc(100dvh - ${inset}px)` : '100dvh' }}
         >
           {announcer}
-          <Sidebar view={view} onNewVideo={onNewVideo} />
+          <Sidebar view={view} onNewVideo={onNewVideo} brand={brand} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <TopBar
-              brand={brand}
               view={view}
               videoId={videoId}
               onStage={onStage}
@@ -116,22 +116,26 @@ export function AppShell({
             />
             {/* While the keys are up the phone shows the sheet: step, panel and input. */}
             {keyboardOpen ? null : header}
-            <div className="flex min-h-0 flex-1">
+            {/*
+              From the first draft on, the conversation and the work area are two
+              white faces on the app backdrop, a gap apart, so the eye never reads
+              them as one sheet. The first screen has neither face.
+            */}
+            <div
+              data-slot="workspace"
+              style={stage === null ? undefined : { containerType: 'size' }}
+              className={cn(
+                'flex min-h-0 flex-1',
+                stage !== null && 'md:gap-[var(--space-24)] md:bg-[var(--background)] md:p-[var(--space-24)]',
+              )}
+            >
               {stage !== null && composer !== null ? (
                 <div
                   data-slot="conversation"
-                  className={
-                    view === 'edit' || view === 'export'
-                      ? 'hidden min-w-[260px] shrink flex-col justify-end p-3 md:flex'
-                      : 'hidden shrink-0 flex-col justify-end p-3 md:flex'
-                  }
-                  style={{
-                    width:
-                      view === 'edit' || view === 'export'
-                        ? 'min(calc((100dvh - var(--layout-topbar-h) - 40px) * 0.477), 26vw)'
-                        : undefined,
-                    aspectRatio: 'var(--layout-conversation-aspect)',
-                  }}
+                  className="hidden shrink-0 flex-col justify-end rounded-[var(--radius-card)] bg-[var(--surface)] p-[var(--space-20)] md:flex"
+                  // The width follows the face height (the row is the size container), so the
+                  // 380 / 796 phone ratio of the layout tokens holds at every window size and engine.
+                  style={{ width: 'calc(100cqh * 380 / 796)' }}
                 >
                   {view === 'edit' || view === 'export' ? (
                     <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -143,7 +147,13 @@ export function AppShell({
                   )}
                 </div>
               ) : null}
-              <section data-slot="stage" className="flex min-h-0 min-w-0 flex-1 flex-col">
+              <section
+                data-slot="stage"
+                className={cn(
+                  'flex min-h-0 min-w-0 flex-1 flex-col',
+                  stage !== null && 'md:overflow-hidden md:rounded-[var(--radius-card)] md:bg-[var(--surface)]',
+                )}
+              >
                 <div
                   key={view === 'edit' ? 'edit' : 'stage'}
                   data-slot="stage-scroll"

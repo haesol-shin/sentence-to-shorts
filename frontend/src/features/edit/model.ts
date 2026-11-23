@@ -109,6 +109,25 @@ export function totalEstimatedSeconds(scenes: readonly Scene[]): number {
   return scenes.reduce((total, scene) => total + estimatedSeconds(scene), 0);
 }
 
+export type BandField = 'background' | 'expression' | 'position' | 'lines' | 'highlight' | 'sfx';
+
+/** What a change touched in one scene, so the scene form lights exactly those cells. */
+export function changedFields(before: Scene | undefined, after: Scene | undefined): BandField[] {
+  if (before === undefined || after === undefined) return [];
+  const fields: BandField[] = [];
+  const character = (scene: Scene) => scene.visual?.characters?.[0];
+  if ((before.visual?.background_id ?? '') !== (after.visual?.background_id ?? '')) fields.push('background');
+  if ((character(before)?.expression_id ?? '') !== (character(after)?.expression_id ?? '')) fields.push('expression');
+  if ((character(before)?.anchor ?? '') !== (character(after)?.anchor ?? '')) fields.push('position');
+  const texts = (scene: Scene) => JSON.stringify(scene.lines.map((line) => [line.id, line.display_text]));
+  if (texts(before) !== texts(after)) fields.push('lines');
+  const spans = (scene: Scene) => JSON.stringify(scene.lines.map((line) => line.highlight));
+  if (spans(before) !== spans(after)) fields.push('highlight');
+  const cues = (scene: Scene) => JSON.stringify(scene.visual?.sfx ?? []);
+  if (cues(before) !== cues(after)) fields.push('sfx');
+  return fields;
+}
+
 export function moveScene(
   order: readonly string[],
   sceneId: string,

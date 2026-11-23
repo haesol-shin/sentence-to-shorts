@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Library, Plus, Settings, type LucideIcon } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
@@ -38,7 +39,15 @@ const ITEMS: readonly NavItem[] = [
  * The collapsed rail. A screen that is not built yet stays visible: it is
  * greyed, tagged and explains itself in the tooltip (SPEC 10a.1).
  */
-export function Sidebar({ view, onNewVideo }: { view: View; onNewVideo: () => void }) {
+export function Sidebar({
+  view,
+  onNewVideo,
+  brand,
+}: {
+  view: View;
+  onNewVideo: () => void;
+  brand: ReactNode;
+}) {
   const { t } = useLocale();
   const inline = NAV_LABEL_MODE === 'inline';
 
@@ -53,6 +62,10 @@ export function Sidebar({ view, onNewVideo }: { view: View; onNewVideo: () => vo
         data-slot="logo"
         className="mb-1 size-8 rounded-[10px] bg-[var(--text-strong)]"
       />
+      {/* The logo is the app's mark; the name stays for a screen reader. */}
+      <span data-slot="brand" className="sr-only">
+        {brand}
+      </span>
       <nav className="flex flex-col items-center gap-1">
         {ITEMS.map((item) => {
           const name = t(item.labelKey);

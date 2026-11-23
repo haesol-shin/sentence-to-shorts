@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Music, Plus, Sparkles, Trash2 } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { Music, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
 import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
@@ -19,7 +19,7 @@ import type { CatalogItem } from './api';
 import { CaptionsTab } from './captions/captions-tab';
 import { SoundTab } from './sound/sound-tab';
 import { EDIT_TABS } from './tabs';
-import type { EditValue, SceneFieldPatch } from './edit-context';
+import type { EditValue, SceneBand, SceneFieldPatch } from './edit-context';
 import {
   POSITION_CELLS,
   anchorForCell,
@@ -31,6 +31,7 @@ import {
   spanSelected,
   toggleSpan,
   wordSpans,
+  type BandField,
   type Line,
   type PlacementAnchor,
   type Scene,
@@ -45,6 +46,29 @@ function labelFor(t: Translate, prefix: string, id: string): string {
 
 function sceneCharacters(scene: Scene) {
   return scene.visual?.characters ?? [];
+}
+
+/**
+ * A cell a chat change touched: a light band crosses it once. A new band
+ * token mounts it again, so a second change lights it a second time.
+ */
+function Swept({
+  field,
+  band,
+  className,
+  children,
+}: {
+  field: BandField;
+  band: SceneBand | null;
+  className?: string;
+  children: ReactNode;
+}) {
+  const lit = band !== null && band.fields.includes(field);
+  return (
+    <div key={lit ? band.token : 'still'} className={cn('edit-sweep', className)} data-sweep={lit ? 'true' : undefined}>
+      {children}
+    </div>
+  );
 }
 
 function PositionGrid({
@@ -129,7 +153,7 @@ function HighlightWords({
                   aria-pressed={active}
                   onClick={() => onChange(line.id, toggleSpan(line.highlight, word))}
                   className={cn(
-                    'focus-ring min-h-11 rounded-[var(--radius-inset)] px-1 text-[17px] leading-6 transition-colors duration-[var(--motion-short)]',
+                    'hit-area focus-ring min-h-11 rounded-[var(--radius-inset)] px-1 text-[17px] leading-6 transition-colors duration-[var(--motion-short)]',
                     active
                       ? 'bg-[var(--surface-muted)] text-[var(--emphasis)] underline decoration-2 underline-offset-2'
                       : 'text-[var(--text)] hover:bg-[var(--surface-muted)]',
@@ -204,6 +228,10 @@ function SfxPicker({
   );
 }
 
+/**
+ * One caption box per line. The spoken text is not asked for: it follows the
+ * caption, so the voice and the caption never drift apart.
+ */
 function LineEditor({
   line,
   index,
@@ -217,16 +245,12 @@ function LineEditor({
 }) {
   const { t } = useLocale();
   const [display, setDisplay] = useState(line.display_text);
-  const [speech, setSpeech] = useState(line.speech_text);
-  const dirty = display !== line.display_text || speech !== line.speech_text;
-  const invalid = display.trim() === '' || speech.trim() === '';
+  const dirty = display !== line.display_text;
+  const invalid = display.trim() === '';
   return (
     <div data-slot="line-editor" className="flex flex-col gap-1 rounded-[var(--radius-panel)] bg-[var(--surface-muted)] p-2">
-      <span className="text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.line', { number: index + 1 })}
-      </span>
       <label className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.displayText')}
+        {t('edit.scene.line', { number: index + 1 })}
         <textarea
           aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
           value={display}
@@ -235,21 +259,11 @@ function LineEditor({
           className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         />
       </label>
-      <label className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.speechText')}
-        <textarea
-          aria-label={t('edit.scene.speechTextLabel', { number: index + 1 })}
-          value={speech}
-          onChange={(event) => setSpeech(event.target.value)}
-          rows={2}
-          className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-        />
-      </label>
       <div className="flex justify-end">
         <Button
           variant="ghost"
           disabled={!dirty || invalid || edit.busy}
-          onClick={() => edit.applyLine(sceneId, line.id, display, speech)}
+          onClick={() => edit.applyLine(sceneId, line.id, display, display)}
         >
           {t('edit.scene.saveLine')}
         </Button>
@@ -269,13 +283,11 @@ function LineDraft({
 }) {
   const { t } = useLocale();
   const [display, setDisplay] = useState('');
-  const [speech, setSpeech] = useState('');
-  const invalid = display.trim() === '' || speech.trim() === '';
+  const invalid = display.trim() === '';
   return (
     <div data-slot="line-draft" className="flex flex-col gap-1 rounded-[var(--radius-panel)] border border-[var(--border)] p-2">
-      <span className="text-[13px] text-[var(--text-muted)]">{t('edit.scene.newLine', { number: index + 1 })}</span>
       <label className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.displayText')}
+        {t('edit.scene.newLine', { number: index + 1 })}
         <textarea
           aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
           value={display}
@@ -284,19 +296,9 @@ function LineDraft({
           className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface-muted)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         />
       </label>
-      <label className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.speechText')}
-        <textarea
-          aria-label={t('edit.scene.speechTextLabel', { number: index + 1 })}
-          value={speech}
-          onChange={(event) => setSpeech(event.target.value)}
-          rows={2}
-          className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface-muted)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-        />
-      </label>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}>{t('edit.scene.cancelLine')}</Button>
-        <Button disabled={invalid} onClick={() => onSave(display, speech)}>{t('edit.scene.saveLine')}</Button>
+        <Button disabled={invalid} onClick={() => onSave(display, display)}>{t('edit.scene.saveLine')}</Button>
       </div>
     </div>
   );
@@ -329,6 +331,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
   }));
 
   const apply = (patch: SceneFieldPatch) => edit.applyField(patch);
+  const band = edit.band !== null && edit.band.sceneId === scene.id ? edit.band : null;
 
   return (
     <div data-slot="scene-form" className="flex flex-col gap-5">
@@ -339,54 +342,52 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
           </h2>
           <p className="text-[15px] text-[var(--text-muted)]">{scene.beat_label}</p>
         </div>
-        <Button
-          variant="ghost"
-          disabled={!edit.canUndo || edit.busy}
-          onClick={edit.undo}
-          iconStart={<Sparkles aria-hidden size={16} />}
-        >
-          {t('edit.scene.undo')}
-        </Button>
       </div>
 
-      <SettingsRow
-        label={t('edit.scene.background')}
-        control={
-          <ValueField
-            label={t('edit.scene.background')}
-            items={backgroundItems}
-            value={background}
-            onValueChange={(value) => apply({ kind: 'background', value })}
-          />
-        }
-      />
+      <Swept field="background" band={band}>
+        <SettingsRow
+          label={t('edit.scene.background')}
+          control={
+            <ValueField
+              label={t('edit.scene.background')}
+              items={backgroundItems}
+              value={background}
+              onValueChange={(value) => apply({ kind: 'background', value })}
+            />
+          }
+        />
+      </Swept>
 
-      <SettingsRow
-        label={t('edit.scene.expression')}
-        control={
-          <ValueField
-            label={t('edit.scene.expression')}
-            items={expressionItems}
-            value={expression}
-            disabled={!hasCharacter}
-            onValueChange={(value) => apply({ kind: 'expression', value })}
-          />
-        }
-      />
+      <Swept field="expression" band={band}>
+        <SettingsRow
+          label={t('edit.scene.expression')}
+          control={
+            <ValueField
+              label={t('edit.scene.expression')}
+              items={expressionItems}
+              value={expression}
+              disabled={!hasCharacter}
+              onValueChange={(value) => apply({ kind: 'expression', value })}
+            />
+          }
+        />
+      </Swept>
 
-      <SettingsRow
-        label={t('edit.scene.position')}
-        description={hasCharacter ? t('edit.scene.positionHelp') : t('edit.scene.noCharacter')}
-        control={
-          <PositionGrid
-            value={anchor}
-            disabled={!hasCharacter}
-            onChange={(next) => apply({ kind: 'position', anchor: next })}
-          />
-        }
-      />
+      <Swept field="position" band={band}>
+        <SettingsRow
+          label={t('edit.scene.position')}
+          description={hasCharacter ? t('edit.scene.positionHelp') : t('edit.scene.noCharacter')}
+          control={
+            <PositionGrid
+              value={anchor}
+              disabled={!hasCharacter}
+              onChange={(next) => apply({ kind: 'position', anchor: next })}
+            />
+          }
+        />
+      </Swept>
 
-      <section className="flex flex-col gap-2">
+      <Swept field="lines" band={band} className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
             {t('edit.scene.lines')}
@@ -420,9 +421,9 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
             }}
           />
         ))}
-      </section>
+      </Swept>
 
-      <section className="flex flex-col gap-2">
+      <Swept field="highlight" band={band} className="flex flex-col gap-2">
         <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
           {t('edit.scene.highlight')}
         </h3>
@@ -430,9 +431,9 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
           scene={scene}
           onChange={(lineId, spans) => apply({ kind: 'highlight', lineId, spans })}
         />
-      </section>
+      </Swept>
 
-      <section className="flex flex-col gap-2">
+      <Swept field="sfx" band={band} className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
             {t('edit.scene.sfx')}
@@ -476,7 +477,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
           </ul>
         )}
         <p className="text-[13px] text-[var(--text-muted)]">{t('edit.scene.sfxLimit')}</p>
-      </section>
+      </Swept>
 
       <section className="flex flex-col gap-3">
         <h3 className="text-[15px] font-bold text-[var(--text-strong)]">

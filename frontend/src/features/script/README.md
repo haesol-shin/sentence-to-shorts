@@ -31,7 +31,7 @@ The conversation pane is not part of this feature. It reads `useScript()` and ca
 - `focusScene(id)` for a changed-scene jump; the screen scrolls to that scene and frames it in blue.
 - `clearTarget()` for the 「장면 N ×」 chip. `targetSceneId` names the scene and `sceneNumber(document, id)` gives its number.
 - `rewriteScene(id)` and `stopRewrite()` when a chat instruction targets a scene.
-- `undo()` for the one step back the screen offers.
+- `undo()` for the one step back; the top bar's undo button calls it, the screen has no undo button of its own.
 
 ## Server and mock paths
 

@@ -13,7 +13,6 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 
 import type { Mood } from '../api';
 import type { EditValue } from '../edit-context';
-import { ChoiceDialog, type ChoiceItem } from './choice-dialog';
 import {
   BGM_GAINS,
   bgmChange,
@@ -21,9 +20,8 @@ import {
   MOODS,
   moodPatch,
   readAudio,
-  trackPatch,
-  tracksOfMood,
 } from './model';
+import { BgmCard } from './value-cards';
 import type { AudioPreview } from './use-audio-preview';
 
 export function BgmSection({ edit, preview }: { edit: EditValue; preview: AudioPreview }) {
@@ -45,12 +43,6 @@ export function BgmSection({ edit, preview }: { edit: EditValue; preview: AudioP
   const gainItems = gainValues.map((value) => ({
     value: String(value),
     label: bgmGainLabel(t, value),
-  }));
-  const choices: ChoiceItem[] = tracksOfMood(edit.bgm, bgm.mood).map((item) => ({
-    id: item.id,
-    label: item.label[language],
-    previewKey: `bgm:${item.id}`,
-    loadPreview: () => edit.audio.previewUrl('bgm', item.id),
   }));
 
   return (
@@ -194,22 +186,7 @@ export function BgmSection({ edit, preview }: { edit: EditValue; preview: AudioP
         </div>
       )}
 
-      <ChoiceDialog
-        open={open}
-        onOpenChange={setOpen}
-        title={t('audio.bgm.pickerTitle', { mood: t(`audio.mood.${bgm.mood}`) })}
-        description={t('audio.bgm.pickerDescription')}
-        listLabel={t('audio.bgm.list')}
-        emptyText={t('audio.bgm.empty')}
-        items={choices}
-        current={bgm.entryId}
-        preview={preview}
-        disabled={edit.settingsBusy || !catalogReady}
-        onApply={(id) => {
-          const picked = edit.bgm.find((item) => item.id === id);
-          if (picked !== undefined) edit.applySettings(bgmChange(edit.video, trackPatch(picked)));
-        }}
-      />
+      <BgmCard edit={edit} preview={preview} open={open} onOpenChange={setOpen} />
     </section>
   );
 }

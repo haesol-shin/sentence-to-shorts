@@ -6,6 +6,7 @@ import {
   anchorForCell,
   applyScenePatch,
   breaksFlow,
+  changedFields,
   cellForAnchor,
   duplicateScene,
   estimatedSeconds,
@@ -129,5 +130,21 @@ describe('edit model', () => {
       '음료를 고르는 기준은 세 가지뿐이다.',
     );
     expect(echoes).toEqual([video.scene_order[1]]);
+  });
+
+  test('test_10a_a_change_lights_only_the_cells_it_touched', () => {
+    const video = makeVideo();
+    const before = video.scenes[video.scene_order[0]!]!;
+    const after = structuredClone(before);
+    expect(changedFields(before, after)).toEqual([]);
+
+    after.visual!.background_id = 'bg_city';
+    after.visual!.characters![0]!.anchor = 'top_right';
+    after.lines[0]!.display_text = '다른 문장이다.';
+    expect(changedFields(before, after)).toEqual(['background', 'position', 'lines']);
+
+    after.lines[0]!.highlight = [{ start: 0, end: 2 }];
+    expect(changedFields(before, after)).toContain('highlight');
+    expect(changedFields(undefined, after)).toEqual([]);
   });
 });

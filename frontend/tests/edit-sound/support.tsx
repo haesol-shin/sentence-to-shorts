@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 
 import { PlaceholderComposer } from '@/app/shell/composer';
+import { HistoryButtons } from '@/app/shell/history-buttons';
 import { ShellViewProvider } from '@/app/shell/shell-view';
 import { createMockEditApi, type EditApi } from '@/features/edit/api';
 import { EditProvider } from '@/features/edit/edit-context';
@@ -40,6 +41,7 @@ export async function renderEdit(view: VideoView = soundView(), api: EditApi = c
   render(
     <LocaleProvider language="ko" setLanguage={() => undefined}>
       <EditProvider active videoId="v_test" api={api}>
+        <HistoryButtons view="edit" />
         <EditScreen />
         <ShellViewProvider value="edit">
           <PlaceholderComposer label="편집 요청" placeholder="편집 요청" sendLabel="보내기" deployment="hosted" />
