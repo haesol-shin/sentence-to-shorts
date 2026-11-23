@@ -1,7 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles } from 'lucide-react';
 
-import { Button } from '@/components/Button/Button';
 import { RadioGroup } from '@/components/RadioGroup/RadioGroup';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
@@ -43,7 +41,6 @@ export function CaptionsTab({ edit }: { edit: EditValue }) {
   const caption = readCaption(edit.video);
   const options = edit.captionOptions;
   const disabled = edit.video === null || edit.settingsBusy;
-  const undoDisabled = disabled || !edit.canUndo;
   const videoId = edit.video?.id ?? null;
   const layoutId = edit.video?.settings.format.layout?.id ?? null;
 
@@ -192,18 +189,6 @@ export function CaptionsTab({ edit }: { edit: EditValue }) {
   return (
     <ScrollPane label={t('audio.caption.label')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
       <div data-slot="captions-tab" className="flex flex-col gap-5 pb-16">
-        <div className="flex justify-end">
-          <Button
-            variant="ghost"
-            disabled={undoDisabled}
-            onClick={() => {
-              if (!undoDisabled) edit.undo();
-            }}
-            iconStart={<Sparkles aria-hidden size={16} />}
-          >
-            {t('edit.scene.undo')}
-          </Button>
-        </div>
         <CaptionIssues issues={shown} />
         <section data-slot="caption-mode" className="flex flex-col gap-2">
           <h3 className="text-[15px] font-bold text-[var(--text-strong)]">{t('audio.caption.mode')}</h3>

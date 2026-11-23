@@ -181,7 +181,7 @@ test('test_8a_the_rewrite_review_applies_in_place_and_undoes_once', async ({ pag
 
   const review = card.locator('[data-slot="script-review"]');
   await expect(review).toBeVisible();
-  await expect(screen.locator('[data-slot="script-undo"]')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '되돌리기', exact: true })).toBeDisabled();
   await expect(review.locator('del')).toContainText('커피를 고르는 세 가지 기준');
   await expect(review).toContainText('다시 말하면, 커피를 고르는 세 가지 기준');
 
@@ -193,7 +193,7 @@ test('test_8a_the_rewrite_review_applies_in_place_and_undoes_once', async ({ pag
   );
   await expect(card.locator('[data-slot="script-changed"]')).toBeVisible();
 
-  await screen.getByRole('button', { name: '되돌리기', exact: true }).click();
+  await page.getByRole('button', { name: '되돌리기', exact: true }).click();
 
   await expect(firstLine(card)).toHaveValue(original);
   await expect(card.locator('[data-slot="script-changed"]')).toHaveCount(0);

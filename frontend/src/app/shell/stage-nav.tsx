@@ -47,7 +47,7 @@ export function StageIndicator({
                 onClick={() => onSelect(stage)}
                 className={cn(
                   STEP,
-                  'hover:underline',
+                  'hit-area focus-ring rounded-[var(--radius-capsule)] hover:underline',
                   isPast ? 'text-[var(--text-strong)]' : 'text-[var(--text-disabled)]',
                 )}
               >

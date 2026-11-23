@@ -9,8 +9,8 @@ import { Tag } from '@/components/Tag/Tag';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import type { EditValue } from '../edit-context';
-import { ChoiceDialog, type ChoiceItem } from './choice-dialog';
-import { readAudio, VOICE_PATH } from './model';
+import { readAudio } from './model';
+import { VoiceCard } from './value-cards';
 import type { AudioPreview } from './use-audio-preview';
 
 /** The voice is only picked here; the real speech is made when the video is made. */
@@ -22,13 +22,6 @@ export function VoiceSection({ edit, preview }: { edit: EditValue; preview: Audi
   const name = current?.label[language] ?? voiceId ?? t('audio.voice.none');
   const key = voiceId === null ? null : `voice:${voiceId}`;
   const sounding = key !== null && preview.playing === key;
-
-  const items: ChoiceItem[] = edit.voices.map((item) => ({
-    id: item.id,
-    label: item.label[language],
-    previewKey: `voice:${item.id}`,
-    loadPreview: () => edit.audio.previewUrl('voice', item.id),
-  }));
 
   return (
     <section data-slot="voice-section" className="flex flex-col gap-1">
@@ -66,23 +59,7 @@ export function VoiceSection({ edit, preview }: { edit: EditValue; preview: Audi
         </Notice>
       ) : null}
       <p className="text-[13px] text-[var(--text-muted)]">{t('audio.voice.note')}</p>
-      <ChoiceDialog
-        open={open}
-        onOpenChange={setOpen}
-        title={t('audio.voice.pickerTitle')}
-        description={t('audio.voice.pickerDescription')}
-        listLabel={t('audio.voice.list')}
-        emptyText={t('audio.voice.empty')}
-        items={items}
-        current={voiceId}
-        preview={preview}
-        disabled={edit.settingsBusy}
-        onApply={(id) => {
-          const item = edit.voices.find((entry) => entry.id === id);
-          if (item === undefined) return;
-          edit.applySettings([{ path: VOICE_PATH, value: { id: item.id, revision: item.revision } }]);
-        }}
-      />
+      <VoiceCard edit={edit} preview={preview} open={open} onOpenChange={setOpen} />
     </section>
   );
 }

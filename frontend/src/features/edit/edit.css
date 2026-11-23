@@ -21,8 +21,8 @@
 
 @media (min-width: 768px) {
   .edit-stage-panel {
-    flex: 0 0 clamp(420px, 28vw, var(--layout-scene-panel-max-w));
-    min-width: 420px;
+    flex: 0 0 clamp(340px, 28vw, var(--layout-scene-panel-max-w));
+    min-width: 340px;
   }
 
   .edit-preview-area {
@@ -44,6 +44,40 @@
       width: auto;
       height: 100%;
     }
+  }
+}
+
+/*
+ * A cell a chat change touched: one light band crosses it in 0.6 seconds. The
+ * wrapper clips only while the band runs, so a focus ring is never cut.
+ */
+.edit-sweep[data-sweep] {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-panel);
+}
+
+.edit-sweep[data-sweep]::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: -120px;
+  width: 120px;
+  background: linear-gradient(90deg, transparent, var(--emphasis), transparent);
+  opacity: 0.2;
+  pointer-events: none;
+  animation: edit-sweep 0.6s ease-out forwards;
+}
+
+@keyframes edit-sweep {
+  to {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edit-sweep[data-sweep]::before {
+    display: none;
   }
 }
 

@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { HistoryButtons } from '@/app/shell/history-buttons';
 import { LocaleProvider } from '@/shared/lib/i18n/locale';
 import { recommendedSceneCount } from '@/features/concept/model';
 import { MockScriptApi } from '@/features/script/api';
@@ -42,6 +43,7 @@ async function open(props: { onNext?: () => void } = {}): Promise<void> {
   await ensureScript('ko');
   render(
     <LocaleProvider language="ko" setLanguage={() => undefined}>
+      <HistoryButtons view="script" />
       <ScriptScreen {...props} />
     </LocaleProvider>,
   );
@@ -129,10 +131,10 @@ describe('script screen', () => {
     });
 
     expect(document.querySelector('[data-slot="script-review"]')).not.toBeNull();
-    expect(document.querySelector('[data-slot="script-undo"]')).toBeNull();
+    expect(screen.getByRole('button', { name: '되돌리기' })).toHaveProperty('disabled', true);
     fireEvent.click(screen.getByRole('button', { name: '바꾸기' }));
 
-    await waitFor(() => expect(screen.getByRole('button', { name: '되돌리기' })).toBeTruthy());
+    await waitFor(() => expect(screen.getByRole('button', { name: '되돌리기' })).toHaveProperty('disabled', false));
     expect(snapshot().document.scenes[id]?.lines[0]?.display_text.startsWith('다시 말하면, ')).toBe(
       true,
     );

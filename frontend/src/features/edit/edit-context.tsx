@@ -26,11 +26,13 @@ import type {
 } from './api';
 import { createEditApi, EditApiError, sceneFieldOps } from './api';
 import {
+  changedFields,
   duplicateScene,
   moveScene,
   newLocalId,
   scenesOf,
   totalEstimatedSeconds,
+  type BandField,
   type Line,
   type SceneFieldPatch,
   type Scene,
@@ -57,6 +59,12 @@ interface ChatRequest {
   target: string | null;
 }
 
+export interface SceneBand {
+  sceneId: string;
+  fields: readonly BandField[];
+  token: number;
+}
+
 export interface PreviewState {
   job: Job | null;
   stills: Record<string, string>;
@@ -79,6 +87,7 @@ interface EditState {
   targetId: string | null;
   tab: string;
   unseen: readonly string[];
+  band: SceneBand | null;
   pending: ChangePlan | null;
   pendingSelect: string | null;
   reorder: ReorderReview | null;
@@ -110,6 +119,7 @@ const INITIAL: EditState = {
   targetId: null,
   tab: 'scenes',
   unseen: [],
+  band: null,
   pending: null,
   pendingSelect: null,
   reorder: null,
@@ -136,7 +146,7 @@ const INITIAL: EditState = {
 type EditAction =
   | { type: 'loading' }
   | { type: 'loaded'; view: VideoView; storedScene: string | null; pending: ChangePlan | null }
-  | { type: 'refresh'; view: VideoView }
+  | { type: 'refresh'; view: VideoView; band?: boolean }
   | { type: 'load-failed'; error?: string }
   | { type: 'select'; id: string }
   | { type: 'target'; id: string | null }
@@ -216,16 +226,35 @@ function reducer(state: EditState, action: EditAction): EditState {
         state.targetId !== null && action.view.video.scenes[state.targetId] !== undefined
           ? state.targetId
           : null;
-      return { ...state, view: action.view, selectedId: selected, targetId: target };
+      const band =
+        action.band === true && selected !== null && state.view !== null
+          ? changedFields(state.view.video.scenes[selected], action.view.video.scenes[selected])
+          : [];
+      return {
+        ...state,
+        view: action.view,
+        selectedId: selected,
+        targetId: target,
+        band:
+          band.length === 0 || selected === null
+            ? state.band
+            : { sceneId: selected, fields: band, token: (state.band?.token ?? 0) + 1 },
+      };
     }
     case 'load-failed':
       return { ...INITIAL, error: action.error ?? 'edit.error.load' };
     case 'select':
-      return { ...state, selectedId: action.id, targetId: action.id, unseen: state.unseen.filter((id) => id !== action.id) };
+      return {
+        ...state,
+        selectedId: action.id,
+        targetId: action.id,
+        unseen: state.unseen.filter((id) => id !== action.id),
+        band: null,
+      };
     case 'target':
       return { ...state, targetId: action.id };
     case 'tab':
-      return { ...state, tab: action.tab };
+      return { ...state, tab: action.tab, band: null };
     case 'unseen':
       return {
         ...state,
@@ -329,6 +358,8 @@ export interface EditValue {
   canUndo: boolean;
   canStartVideo: boolean;
   unseen: readonly string[];
+  /** The cells a chat change touched in the open scene; a new token lights them again. */
+  band: SceneBand | null;
   pending: ChangePlan | null;
   pendingPreview: PreviewState;
   reorder: ReorderReview | null;
@@ -661,13 +692,13 @@ export function EditProvider({
   }, [videoId]);
 
   const refresh = useMemo(
-    () => async (selectAfter: string | null = null) => {
+    () => async (selectAfter: string | null = null, band = false) => {
       if (videoId === null) return;
       const epoch = videoEpoch.current;
       const view = await api.load(videoId);
       if (epoch !== videoEpoch.current) return;
       revisionRef.current = view.video.revision;
-      dispatch({ type: 'refresh', view });
+      dispatch({ type: 'refresh', view, band });
       if (selectAfter !== null) {
         const next = selectedAfter(view, selectAfter);
         if (next !== null) rememberSelection(next);
@@ -796,7 +827,7 @@ export function EditProvider({
         if (plan.status === 'proposed') {
           dispatch({ type: 'pending', plan, selectAfter: plan.target.scene_id });
         } else if (plan.status === 'applied' || plan.status === 'stale') {
-          await refresh();
+          await refresh(null, plan.status === 'applied');
           if (!current()) return;
           if (plan.status === 'applied') dispatch({ type: 'unseen', ids: sceneIds });
         }
@@ -1306,6 +1337,7 @@ export function EditProvider({
       dismissError: () => dispatch({ type: 'action-error', error: null }),
       chatBusy: state.sending,
       unseen: state.unseen,
+      band: state.band,
       pending: state.pending,
       pendingPreview: state.preview,
       reorder: state.reorder,
@@ -1432,6 +1464,7 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   dismissError: () => undefined,
   chatBusy: false,
   unseen: [],
+  band: null,
   pending: null,
   pendingPreview: { job: null, stills: {}, loading: false, error: null },
   reorder: null,

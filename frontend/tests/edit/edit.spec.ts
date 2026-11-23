@@ -371,8 +371,10 @@ test('test_23_the_edit_widths_match_the_approved_layout', async ({ page }, testI
     expect(panel).not.toBeNull();
     expect(conversation).not.toBeNull();
     if (panel === null || conversation === null) return;
-    if (width === 1280) expect(Math.round(panel.width)).toBeGreaterThanOrEqual(420);
-    else expect(Math.round(conversation.width)).toBe(466);
+    // The conversation face keeps the phone ratio of its height, a gap of 24 beside the rail.
+    expect(Math.abs(conversation.width / conversation.height - 380 / 796)).toBeLessThan(0.005);
+    expect(Math.round(conversation.x)).toBe(96);
+    expect(Math.round(panel.width)).toBeGreaterThanOrEqual(340);
     if (testInfo.project.use.browserName === 'chromium') {
       const name = `edit-${width}.png`;
       const path = testInfo.outputPath(name);

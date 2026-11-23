@@ -1,4 +1,3 @@
-import { Button } from '@/components/Button/Button';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
@@ -18,11 +17,6 @@ export function SoundTab({ edit }: { edit: EditValue }) {
   return (
     <ScrollPane label={t('audio.sound.label')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
       <div data-slot="sound-tab" className="flex flex-col gap-5 pb-16">
-        <div className="flex justify-end">
-          <Button variant="ghost" disabled={!edit.canUndo || edit.settingsBusy} onClick={edit.undo}>
-            {t('edit.scene.undo')}
-          </Button>
-        </div>
         <VoiceSection edit={edit} preview={preview} />
         <BgmSection edit={edit} preview={preview} />
         <section data-slot="sfx-section" className="flex flex-col gap-1">
