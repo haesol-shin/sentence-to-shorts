@@ -25,7 +25,6 @@ import {
   anchorForCell,
   cellForAnchor,
   estimatedSeconds,
-  newLocalId,
   sceneNumber,
   sceneVisualLabel,
   spanSelected,
@@ -272,42 +271,9 @@ function LineEditor({
   );
 }
 
-function LineDraft({
-  index,
-  onSave,
-  onCancel,
-}: {
-  index: number;
-  onSave: (display: string, speech: string) => void;
-  onCancel: () => void;
-}) {
-  const { t } = useLocale();
-  const [display, setDisplay] = useState('');
-  const invalid = display.trim() === '';
-  return (
-    <div data-slot="line-draft" className="flex flex-col gap-1 rounded-[var(--radius-panel)] border border-[var(--border)] p-2">
-      <label className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.newLine', { number: index + 1 })}
-        <textarea
-          aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
-          value={display}
-          onChange={(event) => setDisplay(event.target.value)}
-          rows={2}
-          className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface-muted)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-        />
-      </label>
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={onCancel}>{t('edit.scene.cancelLine')}</Button>
-        <Button disabled={invalid} onClick={() => onSave(display, display)}>{t('edit.scene.saveLine')}</Button>
-      </div>
-    </div>
-  );
-}
-
 function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
   const { t } = useLocale();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [drafts, setDrafts] = useState<Array<{ id: string; display: string; speech: string }>>([]);
   const number = sceneNumber(edit.video, scene.id);
   const character = sceneCharacters(scene)[0];
   const hasCharacter = sceneCharacters(scene).length > 0;
@@ -388,19 +354,9 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
       </Swept>
 
       <Swept field="lines" band={band} className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
-            {t('edit.scene.lines')}
-          </h3>
-          <Button
-            variant="ghost"
-            disabled={scene.lines.length + drafts.length >= 4}
-            onClick={() => setDrafts((current) => [...current, { id: newLocalId('l'), display: '', speech: '' }])}
-            iconStart={<Plus aria-hidden size={16} />}
-          >
-            {t('edit.scene.addLine')}
-          </Button>
-        </div>
+        <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
+          {t('edit.scene.lines')}
+        </h3>
         {scene.lines.map((line, index) => (
           <LineEditor
             key={`${line.id}-${line.display_text}-${line.speech_text}`}
@@ -408,17 +364,6 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
             index={index}
             sceneId={scene.id}
             edit={edit}
-          />
-        ))}
-        {drafts.map((draft, index) => (
-          <LineDraft
-            key={draft.id}
-            index={scene.lines.length + index}
-            onCancel={() => setDrafts((current) => current.filter((item) => item.id !== draft.id))}
-            onSave={(display, speech) => {
-              edit.addLine(scene.id, display, speech);
-              setDrafts((current) => current.filter((item) => item.id !== draft.id));
-            }}
           />
         ))}
       </Swept>

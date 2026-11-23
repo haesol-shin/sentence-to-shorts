@@ -212,15 +212,21 @@
 
 .export-result__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-12);
+}
+
+/* The 44 control overflows the title line instead of pushing the title off the padding line. */
+.export-result__head .close-button {
+  margin-block: calc((var(--font-size-title) - var(--size-control)) / 2);
 }
 
 .export-result__title {
   margin: 0;
   font-size: var(--font-size-title);
-  line-height: var(--line-height-title);
+  /* No half-leading: the title line box sits on the card padding line. */
+  line-height: var(--font-size-title);
   font-weight: var(--font-weight-bold);
 }
 

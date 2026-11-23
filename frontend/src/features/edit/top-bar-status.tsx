@@ -61,7 +61,7 @@ export function EditTopBarStatus() {
               className="pointer-events-auto relative flex max-h-[calc(100dvh-var(--layout-topbar-h)-32px)] w-[480px] max-w-[calc(100vw-32px)] flex-col gap-4 overflow-hidden rounded-[var(--radius-surface)] bg-[var(--popover)] p-6 shadow-[var(--shadow-float)] outline-none"
             >
               <div className="flex items-start justify-between gap-3">
-                <DialogPrimitive.Title className="flex items-center gap-2 text-[22px] leading-8 font-bold text-[var(--text-strong)]">
+                <DialogPrimitive.Title className="flex items-center gap-2 text-[22px] leading-[var(--font-size-title)] font-bold text-[var(--text-strong)]">
                   {edit.phase === 'done' ? (
                     <Check aria-hidden className="text-[var(--progress)]" />
                   ) : (
@@ -74,6 +74,7 @@ export function EditTopBarStatus() {
                     <CloseButton
                       label={t('edit.status.close')}
                       data-slot="progress-close"
+                      className="my-[calc((var(--font-size-title)-var(--size-control))/2)]"
                       onClick={close}
                     />
                   }
@@ -88,7 +89,8 @@ export function EditTopBarStatus() {
                 label={t('edit.status.progressLabel')}
                 valueText={`${done} / ${edit.progress.total}`}
               />
-              <ScrollPane label={t('edit.status.progressLabel')} jumpLabel={t('shell.scroll.jump')} className="max-h-80">
+              {/* The 44 row leaves 15px under its 15px text; pull the list up so the bottom space reads 24. */}
+              <ScrollPane label={t('edit.status.progressLabel')} jumpLabel={t('shell.scroll.jump')} className="max-h-80 -mb-[15px]">
                 <ul className="flex flex-col gap-1">
                 {edit.progress.scenes.map((scene, index) => (
                   <li
