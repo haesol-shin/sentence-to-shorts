@@ -8,7 +8,7 @@ The workspace owns the current video and stage. Export checks that the edit snap
 - Not made yet: confirming the scenes opens the output check. It shows the opening promise, ending answer, claims with source excerpts, assumptions, and the fact-checking caveat. Pressing Make the video submits the checked revision and returns to edit for progress.
 - Making: one sentence and a way back to edit. The screen draws no progress and no cancel control.
 - Interrupted: show the stopped part and allow a retry when the existing job is retryable.
-- Made: the result card opens after the job finishes and the latest files have been read. The scene column targets the existing composer without changing stages; saving the settings explicitly applies a preset when starting the next video in this workspace.
+- Made: the result card opens after the job finishes and the latest files have been read. Closing it with the x, Esc or the edit button lands on the edit step's finished video; only the usage view keeps this panel in place. The scene column targets the existing composer without changing stages; saving the settings explicitly applies a preset when starting the next video in this workspace.
 
 ## Top bar seat
 

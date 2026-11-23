@@ -17,7 +17,8 @@ const TITLE_ID = 'export-result-card-title';
  * gallery assembles it: video and play row on the left; title, one sentence
  * and four fact lines stacked from the top on the right; only the button row
  * holds the bottom. The close x is the only close control, and its ring is
- * drawn inside so the card edge never cuts it.
+ * drawn inside so the card edge never cuts it. Every way out of the card
+ * except the usage view lands on the edit screen's finished video.
  */
 export function ResultCard({
   open,

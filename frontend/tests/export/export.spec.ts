@@ -47,6 +47,12 @@ async function closeCard(card: Locator): Promise<void> {
   await expect(card).toBeHidden();
 }
 
+/** The card closes onto the edit screen, so a test that needs the result panel opens the stage again. */
+async function openExport(page: Page): Promise<void> {
+  await openStage(page, '내보내기');
+  await expect(page.locator(EXPORT_STAGE)).toBeVisible();
+}
+
 /** The screen is checked at both desktop widths, whichever project runs the file. */
 function eachWidth(name: string, body: (page: Page) => Promise<void>): void {
   for (const [width, height] of [
@@ -163,9 +169,19 @@ eachWidth('test_10a_the_card_x_keeps_its_focus_ring_inside_the_card', async (pag
   expect(ring.top - ring.reach).toBeGreaterThanOrEqual(ring.scrollTop - 0.5);
 });
 
+eachWidth('test_10a_closing_the_card_lands_on_the_edit_step_with_the_finished_video', async (page) => {
+  const card = await makeVideo(page);
+  await closeCard(card);
+
+  await expect(page.locator('[data-slot="stage-panel"][data-stage="edit"]')).toBeVisible();
+  await expect(page.locator(EXPORT_STAGE)).toHaveCount(0);
+  await expect(page.locator('.edit-preview-area')).toBeVisible();
+});
+
 eachWidth('test_10a_the_top_bar_save_is_a_named_primary_button_44_high_in_the_top_right', async (page) => {
   const card = await makeVideo(page);
   await closeCard(card);
+  await openExport(page);
 
   const save = page.locator(TOP_SAVE);
   await expect(save).toHaveText('mp4 저장');
@@ -183,6 +199,7 @@ eachWidth('test_10a_the_top_bar_save_is_a_named_primary_button_44_high_in_the_to
 eachWidth('test_29_the_caption_button_says_srt_only_in_its_tooltip', async (page) => {
   const card = await makeVideo(page);
   await closeCard(card);
+  await openExport(page);
 
   const caption = page.locator(EXPORT_STAGE).getByRole('button', { name: '자막 저장' });
   await expect(caption).toBeVisible();
@@ -194,6 +211,7 @@ eachWidth('test_29_the_caption_button_says_srt_only_in_its_tooltip', async (page
 eachWidth('test_10a_the_result_scenes_use_the_24_number_circle_and_a_press_sets_the_target', async (page) => {
   const card = await makeVideo(page);
   await closeCard(card);
+  await openExport(page);
 
   const rail = page.locator('[data-slot="export-scenes"]');
   await expect(rail.locator('[data-slot="result-scene"]')).toHaveCount(5);
@@ -239,6 +257,7 @@ eachWidth('test_30_before_the_video_exists_the_check_before_output_shows_and_the
 eachWidth('test_23_the_result_screen_fits_the_width_without_a_sideways_scroll', async (page) => {
   const card = await makeVideo(page);
   await closeCard(card);
+  await openExport(page);
 
   const overflow = await page.evaluate(() => {
     const stage = document.querySelector<HTMLElement>('[data-slot="stage-scroll"]');

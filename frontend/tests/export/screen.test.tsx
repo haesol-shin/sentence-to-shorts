@@ -219,6 +219,17 @@ test('test_10a_the_card_edit_button_asks_for_the_edit_step_and_closes_the_card',
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
 
+test('test_10a_closing_the_card_with_the_x_lands_on_the_edit_step_not_the_export_panel', async () => {
+  const onOpenEdit = vi.fn();
+  renderExport(builtView(), stubApi(), { onOpenEdit });
+  const card = await screen.findByRole('dialog', { name: '영상' });
+
+  fireEvent.click(within(card).getByRole('button', { name: '결과 카드 닫기' }));
+
+  await waitFor(() => expect(onOpenEdit).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+});
+
 test('test_13_the_save_buttons_download_the_mp4_and_the_caption_file', async () => {
   const hrefs = recordDownloads();
   const view = builtView();
@@ -304,13 +315,15 @@ test('test_27_known_usage_shows_time_tokens_cost_and_the_rebuilt_scenes', async 
 });
 
 test('test_27_the_usage_button_closes_the_card_and_moves_to_the_usage_section', async () => {
-  renderExport(builtView(), stubApi());
+  const onOpenEdit = vi.fn();
+  renderExport(builtView(), stubApi(), { onOpenEdit });
   const card = await screen.findByRole('dialog', { name: '영상' });
 
   fireEvent.click(within(card).getByRole('button', { name: '사용량 보기' }));
 
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   await waitFor(() => expect(document.activeElement).toBe(document.querySelector('[data-slot="export-usage"]')));
+  expect(onOpenEdit).not.toHaveBeenCalled();
 });
 
 test('test_27_the_credit_line_of_the_music_shows_next_to_the_video', async () => {

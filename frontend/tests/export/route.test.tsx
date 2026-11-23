@@ -49,6 +49,7 @@ test('test_19_the_result_composer_sends_to_the_selected_scene_without_leaving_ex
 
   fireEvent.click(await screen.findByRole('button', { name: '결과 카드 닫기' }));
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  onStage.mockClear();
   expect(screen.getAllByText('장면 1')[0]).toBeTruthy();
 
   fireEvent.click(screen.getByRole('button', { name: '첫 번째' }));
@@ -137,7 +138,11 @@ test('test_13_the_next_video_uses_the_saved_preset_but_never_the_previous_topic_
   fireEvent.click(screen.getByRole('button', { name: '단계 열기' }));
   fireEvent.click(screen.getByRole('menuitem', { name: '내보내기' }));
   fireEvent.click(await screen.findByRole('button', { name: '결과 카드 닫기' }));
-  fireEvent.click(screen.getByRole('button', { name: '다음 영상도 이 설정으로' }));
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  // Closing the result card lands on the edit step, so the result panel is opened again.
+  fireEvent.click(screen.getByRole('button', { name: '단계 열기' }));
+  fireEvent.click(screen.getByRole('menuitem', { name: '내보내기' }));
+  fireEvent.click(await screen.findByRole('button', { name: '다음 영상도 이 설정으로' }));
   await screen.findByText('다음 영상도 이 설정으로 시작해요.');
   fireEvent.click(screen.getByRole('button', { name: '새로 만들기' }));
 
