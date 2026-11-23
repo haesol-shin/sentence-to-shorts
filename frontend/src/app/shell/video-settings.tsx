@@ -10,6 +10,7 @@ import { readAudio } from '@/features/edit/sound/model';
 import { useAudioPreview } from '@/features/edit/sound/use-audio-preview';
 import { BgmCard, VoiceCard } from '@/features/edit/sound/value-cards';
 import { useLocale } from '@/shared/lib/i18n/locale';
+import { cn } from '@/shared/lib/utils';
 
 type Card = 'voice' | 'bgm';
 
@@ -97,9 +98,12 @@ export function VideoSettings() {
             role="dialog"
             aria-label={t('edit.settings.title')}
             data-slot="video-settings-panel"
-            className="absolute top-[calc(100%+4px)] right-0 z-[calc(var(--z-panel)+1)] flex w-100 max-w-[calc(100vw-var(--space-48))] flex-col gap-3 rounded-[var(--radius-surface)] bg-[var(--popover)] p-5 shadow-[var(--shadow-float)]"
+            className={cn(
+              'absolute top-[calc(100%+4px)] right-0 z-[calc(var(--z-panel)+1)] flex w-100 max-w-[calc(100vw-var(--space-48))] flex-col gap-3 rounded-[var(--radius-surface)] bg-[var(--popover)] p-5 shadow-[var(--shadow-float)]',
+              edit !== null && video !== null && 'pb-[calc(var(--space-20)-var(--space-12))]',
+            )}
           >
-            <h2 className="text-[22px] leading-8 font-bold text-[var(--text-strong)]">
+            <h2 className="text-[22px] leading-[var(--font-size-title)] font-bold text-[var(--text-strong)]">
               {t('edit.settings.title')}
             </h2>
             {edit === null || video === null ? (

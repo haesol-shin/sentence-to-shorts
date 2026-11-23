@@ -232,14 +232,10 @@ test('test_23_the_order_warning_precedes_even_an_auto_applied_server_change', as
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 });
 
-test('test_26_a_new_line_draft_does_not_follow_the_selection_to_another_scene', async () => {
-  const column = await renderScreen();
-  fireEvent.click(screen.getByRole('button', { name: '대사 줄 추가' }));
-  fireEvent.change(screen.getByRole('textbox', { name: '화면 글 3' }), { target: { value: '다른 장면에 남기면 안 되는 글' } });
-  fireEvent.click(within(column).getByRole('button', { name: /^첫 번째$/ }));
-  await screen.findByRole('heading', { name: '장면 2' });
-  expect(screen.queryByDisplayValue('다른 장면에 남기면 안 되는 글')).toBeNull();
-  expect(screen.getAllByRole('textbox', { name: /화면 글/ })).toHaveLength(1);
+test('test_26_the_edit_scene_panel_has_no_add_line_control', async () => {
+  await renderScreen();
+  expect(screen.queryByRole('button', { name: '대사 줄 추가' })).toBeNull();
+  expect(document.querySelector('[data-slot="line-draft"]')).toBeNull();
 });
 
 test('test_23_deleting_a_scene_asks_first_and_can_be_kept', async () => {
@@ -401,14 +397,6 @@ test('test_26_a_line_has_one_caption_box_and_the_voice_follows_it', async () => 
   const saved = (await api.load('v_test')).video.scenes[view.video.scene_order[0] ?? '']?.lines[0];
   expect(saved?.display_text).toBe('고친 첫 줄');
   expect(saved?.speech_text).toBe('고친 첫 줄');
-
-  fireEvent.click(screen.getByRole('button', { name: '대사 줄 추가' }));
-  const draft = document.querySelector<HTMLElement>('[data-slot="line-draft"]') as HTMLElement;
-  expect(within(draft).getByRole('button', { name: '줄 저장' })).toHaveProperty('disabled', true);
-  expect(within(draft).queryByRole('textbox', { name: /말할 글/ })).toBeNull();
-  fireEvent.change(within(draft).getByRole('textbox', { name: '화면 글 3' }), { target: { value: '새 화면 글' } });
-  fireEvent.click(within(draft).getByRole('button', { name: '줄 저장' }));
-  await waitFor(() => expect(screen.getAllByRole('textbox', { name: /화면 글/ })).toHaveLength(3));
 });
 
 test('test_10a_the_edit_composer_targets_a_scene_and_sends', async () => {

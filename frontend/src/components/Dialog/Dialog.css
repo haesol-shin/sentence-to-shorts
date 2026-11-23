@@ -60,7 +60,8 @@
   gap: var(--space-8);
   margin: 0;
   font-size: var(--font-size-title);
-  line-height: var(--line-height-title);
+  /* No half-leading: the title line box sits on the window padding line. */
+  line-height: var(--font-size-title);
   font-weight: var(--font-weight-bold);
   word-break: keep-all;
   text-wrap: balance;
