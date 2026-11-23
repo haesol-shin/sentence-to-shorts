@@ -182,13 +182,20 @@
   overflow-wrap: anywhere;
 }
 
-/* The result card, assembled as the gallery assembles it. */
+/*
+ * The result card, assembled as the gallery assembles it. The close x rises above the
+ * title line, so the scroll frame starts that much higher and the content moves back down:
+ * the frame clips neither the x nor its focus ring.
+ */
 .dialog.export-result-dialog {
+  --export-close-rise: calc((var(--size-control) - var(--font-size-title)) / 2);
   width: min(calc(var(--part-preview-width) * 2 + var(--space-48) * 3), calc(100vw - var(--space-48)));
+  padding-top: calc(var(--space-24) - var(--export-close-rise));
 }
 
 .export-result-dialog .dialog__content {
   margin-top: 0;
+  padding-top: var(--export-close-rise);
 }
 
 .export-result {
@@ -219,7 +226,7 @@
 
 /* The 44 control overflows the title line instead of pushing the title off the padding line. */
 .export-result__head .close-button {
-  margin-block: calc((var(--font-size-title) - var(--size-control)) / 2);
+  margin-block: calc(var(--export-close-rise) * -1);
 }
 
 .export-result__title {

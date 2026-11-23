@@ -62,8 +62,13 @@
   gap: var(--space-8);
 }
 
-/* The 44 control overflows the title line instead of pushing the title off the padding line. */
+/*
+ * The 44 control overflows the title line instead of pushing the title off the padding line.
+ * Its lower part reaches into the scroll frame, a positioned later sibling, so the stack
+ * order keeps the whole 44 pressable and above the frame's fade (z-index 1).
+ */
 .sheet-popup__head .close-button {
+  z-index: 2;
   margin-block: calc((var(--font-size-title) - var(--size-control)) / 2);
 }
 
