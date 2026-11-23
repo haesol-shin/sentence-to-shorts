@@ -87,6 +87,10 @@
   color: var(--destructive);
 }
 
+.dialog[data-tone='danger'] .dialog__title {
+  color: var(--destructive);
+}
+
 .dialog__description,
 .dialog__content {
   margin-top: var(--space-8);

@@ -403,7 +403,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   justify-content: flex-end;
   gap: var(--space-8);
   padding: var(--space-12) var(--space-24);
-  background: var(--card);
+  background: var(--surface);
 }
 
 .script-footer-note {

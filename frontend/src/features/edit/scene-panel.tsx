@@ -256,7 +256,7 @@ function LineEditor({
           value={display}
           onChange={(event) => setDisplay(event.target.value)}
           rows={2}
-          className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+          className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface-muted)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
         />
       </label>
       <div className="flex justify-end">

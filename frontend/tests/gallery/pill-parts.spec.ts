@@ -33,8 +33,8 @@ const PILL_PART_IDS = [
   'playback-controls',
 ] as const;
 
-/** White surface hover, grey surface hover, grey surface pressed (the decided state colours). */
-const HOVER_WHITE = 'rgb(242, 244, 246)';
+/** Both surfaces hover to #DADDE1 after the inner parts moved onto the element grey. */
+const HOVER_WHITE = 'rgb(218, 221, 225)';
 const HOVER_GREY = 'rgb(218, 221, 225)';
 
 test.describe.configure({ mode: 'serial', timeout: 300_000 });

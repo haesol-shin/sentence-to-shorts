@@ -456,7 +456,7 @@ export function renderContrast(tokens) {
   lines.push('');
   lines.push('## 감수한 조합');
   lines.push('');
-  lines.push('작은 파랑 글자는 진한 변형을 만들지 않고 흰 면에 그대로 쓴다. 이 조합만 4.5:1 아래를 감수한다.');
+  lines.push('작은 파랑 글자는 진한 변형을 만들지 않고 밝은 면에 그대로 쓴다. 이 조합만 4.5:1 아래를 감수한다.');
   lines.push('');
   for (const row of report.accepted) {
     lines.push(`- \`${row.text}\` on \`${row.surface}\`: ${pair(row.value)}`);
@@ -475,7 +475,7 @@ export function renderContrast(tokens) {
   lines.push('여기 적힌 조합은 4.5:1 아래이고 글자에 쓰지 않는다.');
   lines.push('');
   lines.push(
-    `회색 바탕의 뜻 색 글자는 \`--warning\`만 ${pair(pairRatio(tokens, '--warning', '--muted'))}로 통과하고 \`--muted-foreground\`와 \`--destructive\`는 ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 회색 바탕의 뜻 색은 아이콘에 쓰고, 뜻 색 글자는 흰 면에서 쓴다.`,
+    `회색 바탕의 뜻 색 글자는 \`--muted-foreground\` ${pair(pairRatio(tokens, '--muted-foreground', '--muted'))}, \`--destructive\` ${pair(pairRatio(tokens, '--destructive', '--muted'))}, \`--warning\` ${pair(pairRatio(tokens, '--warning', '--muted'))}가 4.5를 넘고 \`--emphasis\`는 ${pair(pairRatio(tokens, '--emphasis', '--muted'))}로 못 미친다. 그래서 \`--emphasis\` 글자는 밝은 면에서 쓰고, 나머지 뜻 색은 회색 바탕에도 쓴다.`,
   );
   lines.push('');
   const byText = new Map();

@@ -48,12 +48,12 @@ const DECIDED = {
     '#3182F6',
     '#1B64DA',
     '#B45309',
-    '#DC2626',
+    '#D82426',
   ],
   overlays: [
     'rgba(255, 255, 255, 0.88)',
     'rgba(255, 255, 255, 0.92)',
-    'rgba(0, 0, 0, 0.55)',
+    'rgba(0, 0, 0, 0.57)',
     'rgba(255, 255, 255, 0.55)',
     'rgba(34, 38, 43, 0.24)',
   ],
@@ -401,7 +401,7 @@ describe('design tokens', () => {
   test('test_9_contrast_pairs_are_computed_from_tokens', () => {
     // Changing a palette value moves every ratio that uses it.
     const probe = structuredClone(tokens);
-    probe.color.palette['gray-9'] = '#000000';
+    probe.color.palette['gray-sub'] = '#000000';
     const before = pairRatio(tokens, '--muted-foreground', '--card');
     const after = pairRatio(probe, '--muted-foreground', '--card');
     expect(after).toBeGreaterThan(before);

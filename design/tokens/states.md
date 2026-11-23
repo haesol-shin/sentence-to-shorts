@@ -407,7 +407,7 @@
 | `notice.title` | `warning` | `default` | `--muted` | `--foreground` | `--warning` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
 | `notice.title` | `error` | `default` | `--muted` | `--foreground` | `--destructive` | `--muted` | 없음 | 제목 글자는 foreground이고 아이콘에만 뜻 색을 쓴다. 뜻 색 글자는 --warning만 회색 바탕에서 기준을 넘는다 |
 | `notice.body` | - | `default` | `--muted` | `--foreground` | - | `--muted` | 없음 |  |
-| `text.emphasis` | - | `default` | `--card` | `--emphasis` | - | `--card` | 없음 | 강조 단어와 안 본 변경 표시에 쓴다. 흰 바탕에서만 쓴다 |
+| `text.emphasis` | - | `default` | `--card` | `--emphasis` | - | `--card` | 없음 | 강조 단어와 안 본 변경 표시에 쓴다. 밝은 바탕에서만 쓴다 |
 | `toast.surface` | - | `default` | `--popover` | `--popover-foreground` | - | `--popover` | 없음 | 알림 면은 높이 44, 반경 22, shadow.float를 쓴다 |
 | `composer.surface` | - | `default` | `--card` | `--foreground` | - | `--input` | 없음 |  |
 | `composer.surface` | - | `disabled` | `--card` | `--disabled-foreground` | - | `--input` | 글자 |  |
