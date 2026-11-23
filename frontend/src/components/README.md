@@ -13,13 +13,13 @@
 
 ## 반원 부품의 안쪽 여백
 
-높이가 `--size-control`, `--part-chip`, `--part-small`, `--part-tag`인 반원(`--radius-pill`) 부품은 바깥 가장자리에서 첫 표시까지 높이의 절반만큼 띄운다. 글자가 있는 쪽도 아이콘이 있는 쪽도 같다. 아이콘 상자에는 안쪽 빈 공간이 있어서 끝에 놓인 아이콘은 `base.css`의 `--icon-ink-glyph`(화살표, 닫기)와 `--icon-ink-mark`(원, 체크, 파일)만큼 바깥으로 당겨 아이콘의 선이 그 자리에 오게 한다. 아이콘 하나만 있는 부품은 상자 가운데에 둔다.
+반원(`--radius-pill`)과 그에 준하는 부품은 바깥 가장자리에서 첫 표시까지의 안쪽 여백을 양쪽에서 같게 둔다. 글자와 아이콘이 함께 있는 부품은 그 값을 높이의 절반으로 두어 반원이 끝나는 자리에서 내용이 시작한다(기준: 값 칸의 아이콘 쪽). 아이콘 상자에는 안쪽 빈 공간이 있어서 끝에 놓인 아이콘은 `base.css`의 `--icon-ink-glyph`(화살표, 닫기)와 `--icon-ink-mark`(원, 체크, 파일)만큼 바깥으로 당겨 아이콘의 선이 그 자리에 오게 한다. spinner처럼 상자 끝에서 그려지는 표시는 당기지 않는다.
 
-적용 부품: Button, Chip(닫기 단추가 있는 쪽 포함), Tag, RadioGroup, MenuButton의 trigger(Button), ValueField, TextField, SettingsRow의 값 칸, SendButton, Composer의 값 칩, TopBarItem, TopBarStatus. 아이콘 하나만 있는 IconButton, CloseButton, SidebarItem, PlaybackControls, ReorderList의 이동 단추는 가운데 정렬이라 해당 없다. 새 반원 부품은 이 목록에 더하고 `frontend/tests/gallery/pill-parts.spec.ts`의 부품 목록에도 넣는다.
+글자와 아이콘이 함께 있는 적용 부품: Button(md 44, sm 32, trigger), Chip(닫기 단추 쪽 포함), Tag, RadioGroup의 선택 항목, ValueField의 값 칸, TextField, SettingsRow의 값 칸, TopBarItem과 TopBarStatus의 trigger, Composer의 값 칩(Button sm을 36으로 키운 것). 글자만 있는 반원(StageIndicator의 단계)은 양쪽 여백이 이미 같아 그대로 두고, 아이콘 하나만 있는 부품(IconButton, CloseButton, SidebarItem, PlaybackControls, SendButton, ReorderList의 이동 단추)과 작은 겹침 칩(Card의 번호와 길이), popup 면(Tooltip, MenuButton의 메뉴)은 상자 가운데 정렬이라 이 규칙에 넣지 않는다. 새 반원 부품은 이 목록과 `frontend/tests/gallery/pill-parts.spec.ts`의 부품 목록에 함께 더한다.
 
 ## 호버 색
 
-흰 면 위 부품의 호버는 `--state-hover-white`(#F2F4F6), 회색 면 위 부품의 호버는 `--state-hover-gray`(#DADDE1)다. 호버로 회색이 된 줄 안의 조작은 평소 투명하고, 직접 올리면 회색 면의 호버로 한 단 진해진다.
+흰 면 위 부품의 호버는 `--state-hover-white`(#F2F4F6), 회색 면 위 부품의 호버는 `--state-hover-gray`(#DADDE1)다. 줄 하나가 호버로 회색이 되면 그 안의 조작도 같은 회색을 쓰고, 그 조작을 직접 올리면 회색 면의 호버로 한 단 진해져 사라지지 않는다. ReorderList가 그 예다.
 
 ## 시험
 

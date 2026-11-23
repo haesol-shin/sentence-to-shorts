@@ -98,9 +98,9 @@
   width: var(--part-move);
   height: var(--part-move);
   padding: 0;
-  border: var(--part-hairline) solid transparent;
+  border: var(--part-hairline) solid var(--card);
   border-radius: var(--radius-pill);
-  background: transparent;
+  background: var(--card);
   color: var(--foreground);
   cursor: pointer;
   transition:
@@ -109,7 +109,14 @@
     color var(--motion-state-duration) var(--motion-ease);
 }
 
-/* A hovered row is already the hover grey, so a control inside it steps to the grey surface hover. */
+/* One hover grey per surface: on the hovered row the controls take the row's grey, and a
+   control the pointer is on steps to the grey surface hover so it stays visible. */
+.reorder-row:hover .reorder-row__move,
+.reorder-row[data-force-state~='hover'] .reorder-row__move {
+  background: var(--state-hover-white);
+  border-color: var(--state-hover-white);
+}
+
 .reorder-row__move:hover:not(:disabled) {
   background: var(--state-hover-gray);
   border-color: var(--state-hover-gray);

@@ -18,6 +18,7 @@ const PILL_PART_IDS = [
   'chip',
   'tag',
   'radio',
+  'stage-indicator',
   'menu',
   'value-field',
   'text-field',
@@ -156,6 +157,7 @@ test('test_w0_pill_parts_have_equal_inner_padding_on_the_icon_side_and_the_text_
       'chip',
       'tag',
       'radio',
+          'stage-indicator',
       'menu',
       'value-field',
       'settings-row',
@@ -240,16 +242,38 @@ test('test_w0_hover_background_is_the_decided_grey_of_its_surface', async ({ pag
   await openGroup(page, 'sidebar-item');
   expect(await hoverOver('[data-case="31-1-default"] .sidebar-item')).toBe(HOVER_GREY);
 
-  // The reorder row is a white surface; the controls in it sit on that grey, so they step to the grey surface hover.
+  // One hover grey per surface: the row's controls take the row grey, and a control the
+  // pointer is on steps to the grey surface hover so it does not vanish.
   await openGroup(page, 'reorder-list');
   const row = '[data-case="36-1-default"] .reorder-row:nth-child(2)';
-  const target = page.locator(`${row} .reorder-row__label`);
-  await target.hover();
+  await page.locator(`${row} .reorder-row__label`).hover();
   await page.waitForTimeout(60);
   expect(await colorOf(page, row)).toBe(HOVER_WHITE);
-  expect(await colorOf(page, `${row} .reorder-row__move`)).toBe('rgba(0, 0, 0, 0)');
+  expect(await colorOf(page, `${row} .reorder-row__move`)).toBe(HOVER_WHITE);
   expect(await hoverOver(`${row} .reorder-row__move`)).toBe(HOVER_GREY);
   expect(await hoverOver(`${row} .reorder-row__grip`)).toBe(HOVER_GREY);
+  await page.mouse.move(0, 0);
+  await page.waitForTimeout(60);
+  expect(await colorOf(page, `${row} .reorder-row__move`)).toBe('rgb(255, 255, 255)');
+});
+
+test('test_w0_top_bar_status_working_spinner_keeps_the_text_side_gap', async ({ page }) => {
+  // The working tone puts a spinner where the tone mark goes. It is a portal case, so the
+  // group view never measures it.
+  await page.setViewportSize({ width: 1920, height: 2400 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto(`${GALLERY}?case=${encodeURIComponent('33-8-working-open')}`, {
+    waitUntil: 'domcontentloaded',
+    timeout: 120_000,
+  });
+  await page.waitForSelector('[data-case="33-8-working-open"] .top-bar-status__trigger');
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  const rows = (await page.evaluate(measurePills)).filter((row) => row.element.includes('top-bar-status'));
+  expect(rows.length).toBe(1);
+  expect(rows[0].startKind).toBe('icon');
+  expect(Math.abs(rows[0].start - rows[0].end)).toBeLessThanOrEqual(1);
 });
 
 test('test_w0_file_chip_receiving_shows_progress_and_failure_retry_is_an_icon', async ({ page }) => {
