@@ -64,7 +64,7 @@
 }
 
 .reorder-row__grip:hover {
-  background: var(--state-hover-white);
+  background: var(--state-hover-gray);
   color: var(--foreground);
 }
 
@@ -98,9 +98,9 @@
   width: var(--part-move);
   height: var(--part-move);
   padding: 0;
-  border: var(--part-hairline) solid var(--card);
+  border: var(--part-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--card);
+  background: transparent;
   color: var(--foreground);
   cursor: pointer;
   transition:
@@ -109,14 +109,15 @@
     color var(--motion-state-duration) var(--motion-ease);
 }
 
+/* A hovered row is already the hover grey, so a control inside it steps to the grey surface hover. */
 .reorder-row__move:hover:not(:disabled) {
-  background: var(--state-hover-white);
-  border-color: var(--state-hover-white);
+  background: var(--state-hover-gray);
+  border-color: var(--state-hover-gray);
 }
 
 .reorder-row__move:active:not(:disabled) {
-  background: var(--state-pressed-white);
-  border-color: var(--state-pressed-white);
+  background: var(--state-pressed-gray);
+  border-color: var(--state-pressed-gray);
 }
 
 .reorder-row__move:disabled {

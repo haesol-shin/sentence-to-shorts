@@ -8,7 +8,7 @@
   gap: var(--space-8);
   max-width: 100%;
   height: var(--part-chip);
-  padding-inline: var(--space-12);
+  padding-inline: calc(var(--part-chip) / 2 - var(--part-hairline));
   border: var(--part-hairline) solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--card);
@@ -20,7 +20,7 @@
 
 .chip__spinner {
   position: absolute;
-  left: var(--space-12);
+  left: calc(var(--part-chip) / 2 - var(--part-hairline));
   top: 50%;
   color: var(--muted-foreground);
   translate: 0 -50%;
@@ -31,7 +31,11 @@
 }
 
 .chip--removable {
-  padding-inline-end: var(--space-4);
+  /* The close mark sits in its 32 circle; the chip's end gap is measured to the mark itself. */
+  padding-inline-end: calc(
+    var(--part-chip) / 2 - var(--part-hairline) - (var(--part-small) - var(--icon-close)) / 2 -
+      var(--icon-close) * var(--icon-ink-glyph)
+  );
 }
 
 .chip__lead {
@@ -39,6 +43,16 @@
   align-items: center;
   justify-content: center;
   color: var(--muted-foreground);
+}
+
+/* The lead box is pulled out by the icon's blank edge in every state, so the chip keeps one width. */
+.chip__lead:first-child {
+  margin-inline-start: calc(var(--icon-inline) * var(--icon-ink-mark) * -1);
+}
+
+/* The spinner is drawn to its box edge, so it steps back in without changing the layout. */
+.chip__lead:first-child .spinner {
+  translate: calc(var(--icon-inline) * var(--icon-ink-mark)) 0;
 }
 
 .chip__lead svg {

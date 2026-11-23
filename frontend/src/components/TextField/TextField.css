@@ -20,7 +20,7 @@
   width: 100%;
   min-width: var(--size-control);
   height: var(--size-control);
-  padding-inline: var(--space-16);
+  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
   border: var(--part-hairline) solid var(--input);
   border-radius: var(--radius-surface);
   background: var(--card);

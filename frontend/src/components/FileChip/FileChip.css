@@ -69,21 +69,29 @@
   align-items: center;
 }
 
+/* Two 32 controls side by side need 4 more than the row gap so their 44 hit areas do not touch. */
+.file-chip__retry {
+  margin-inline-end: var(--space-4);
+}
+
+/* The bar sits inside the chip's rounded ends, under the name and the detail line. */
 .file-chip__bar {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: calc(var(--part-hairline) * 3);
-  background: var(--muted);
+  right: var(--space-12);
+  bottom: var(--space-4);
+  left: var(--space-12);
+  height: var(--space-4);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
 }
 
 .file-chip__bar-fill {
   display: block;
   width: var(--file-progress, 0%);
   height: 100%;
-  border-radius: 0 var(--radius-pill) var(--radius-pill) 0;
-  background: var(--foreground);
+  border-radius: var(--radius-pill);
+  background: var(--progress);
   transition: width var(--motion-state-duration) var(--motion-ease);
 }
 

@@ -90,7 +90,7 @@
 
 .composer .composer-chip {
   height: var(--part-chip);
-  padding-inline: var(--space-12);
+  padding-inline: calc(var(--part-chip) / 2 - var(--part-hairline));
   border-color: var(--border);
   background: var(--card);
   color: var(--foreground);

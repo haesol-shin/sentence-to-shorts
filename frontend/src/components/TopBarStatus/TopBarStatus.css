@@ -8,7 +8,7 @@
   gap: var(--space-4);
   height: var(--size-control);
   min-width: var(--size-control);
-  padding-inline: var(--space-12);
+  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
   border: var(--part-hairline) solid var(--background);
   border-radius: var(--radius-pill);
   background: var(--background);
@@ -42,6 +42,14 @@
   width: var(--icon-inline);
   height: var(--icon-inline);
   stroke-width: var(--icon-stroke);
+}
+
+.top-bar-status__icon {
+  margin-inline-start: calc(var(--icon-inline) * var(--icon-ink-mark) * -1);
+}
+
+.top-bar-status__chevron {
+  margin-inline-end: calc(var(--icon-inline) * var(--icon-ink-glyph) * -1);
 }
 
 .top-bar-status__trigger[data-tone='error'] .top-bar-status__icon {

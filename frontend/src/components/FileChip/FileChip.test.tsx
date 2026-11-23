@@ -36,4 +36,14 @@ describe('FileChip', () => {
     expect(chip?.style.getPropertyValue('--file-progress')).toBe('40%');
     expect(container.querySelector('.file-chip__bar-fill')).not.toBeNull();
   });
+
+  test('test_w0_file_chip_loading_exposes_the_progress_to_assistive_technology', () => {
+    render(<FileChip name="BGM.mp3" state="loading" progress={0.45} />);
+
+    const bar = screen.getByRole('progressbar', { name: 'BGM.mp3' });
+    expect(bar.getAttribute('aria-valuenow')).toBe('45');
+    cleanup();
+    render(<FileChip name="BGM.mp3" detail="BGM" />);
+    expect(screen.queryByRole('progressbar')).toBeNull();
+  });
 });

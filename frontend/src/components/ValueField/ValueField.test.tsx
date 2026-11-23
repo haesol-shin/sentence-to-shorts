@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test } from 'vitest';
 
 import { ValueField, type ValueFieldItem } from './ValueField';
@@ -47,5 +47,46 @@ describe('ValueField', () => {
     expect(screen.getByRole('combobox', { name: '목소리' }).textContent).toContain(
       '목소리 고르기',
     );
+  });
+
+  test('test_w0_value_field_takes_index_values_and_hands_the_same_value_back', () => {
+    const seen: number[] = [];
+    const rows: readonly ValueFieldItem<number>[] = [
+      { value: 0, label: '첫째' },
+      { value: 1, label: '둘째' },
+      { value: 2, label: '셋째' },
+    ];
+    render(
+      <ValueField<number>
+        label="순서"
+        items={rows}
+        value={1}
+        onValueChange={(next) => seen.push(next)}
+        defaultOpen
+      />,
+    );
+
+    expect(screen.getByRole('combobox', { name: '순서' }).textContent).toContain('둘째');
+    expect(screen.getByRole('option', { name: '둘째' }).getAttribute('aria-selected')).toBe('true');
+    const third = screen.getByRole('option', { name: '셋째' });
+    // Base UI selects on the pointer sequence, which jsdom does not synthesize from a click alone.
+    fireEvent.pointerDown(third);
+    fireEvent.pointerUp(third);
+    fireEvent.mouseUp(third);
+    fireEvent.click(third);
+    expect(seen).toEqual([2]);
+  });
+
+  test('test_w0_value_field_matches_values_that_are_not_strings_by_identity', () => {
+    const rows: readonly ValueFieldItem<boolean | null>[] = [
+      { value: true, label: '켜짐' },
+      { value: false, label: '꺼짐' },
+      { value: null, label: '자동' },
+    ];
+    render(<ValueField<boolean | null> label="모드" items={rows} value={null} />);
+    expect(screen.getByRole('combobox', { name: '모드' }).textContent).toContain('자동');
+    cleanup();
+    render(<ValueField<boolean | null> label="모드" items={rows} value={false} />);
+    expect(screen.getByRole('combobox', { name: '모드' }).textContent).toContain('꺼짐');
   });
 });
