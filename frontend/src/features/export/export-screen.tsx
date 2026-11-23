@@ -115,6 +115,12 @@ export function ExportScreen({
     });
   };
 
+  /** The card closes onto the edit screen's finished video, never onto this panel again. */
+  const returnToEdit = () => {
+    closeCard();
+    onEdit();
+  };
+
   const body = (() => {
     if (state.phase === 'empty' || (state.phase === 'idle' && view?.video.scene_order.length === 0)) {
       return (
@@ -263,11 +269,8 @@ export function ExportScreen({
             exact={exact}
             tokens={tokens}
             onDuration={setPlayerSeconds}
-            onClose={closeCard}
-            onEdit={() => {
-              closeCard();
-              onEdit();
-            }}
+            onClose={returnToEdit}
+            onEdit={returnToEdit}
             onShowUsage={showUsage}
           />
         </>

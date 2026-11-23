@@ -261,6 +261,9 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
   await test.step('the next video starts from the same settings with nothing carried over', async () => {
     await openStage(page, '내보내기');
     await page.getByRole('button', { name: '결과 카드 닫기' }).click();
+    // Closing the card lands on the edit step, so the export panel is opened again for the save control.
+    await expect(page.locator('[data-slot="stage-panel"][data-stage="edit"]')).toBeVisible();
+    await openStage(page, '내보내기');
     await page.getByRole('button', { name: '다음 영상도 이 설정으로' }).click();
     await expect(page.getByText('다음 영상도 이 설정으로 시작해요.')).toBeVisible();
     const previous = await readVideo(page, session.videoId);

@@ -2,6 +2,20 @@ import { expect, test, type Page } from '@playwright/test';
 
 const EXPORT_STAGE = '[data-slot="stage-panel"][data-stage="export"]';
 
+/** Opens a step from the stage menu, or from the indicator when the menu is not drawn. */
+async function openStage(page: Page, label: string): Promise<void> {
+  const menu = page.getByRole('button', { name: '단계 열기' });
+  if (await menu.isVisible()) {
+    await menu.click();
+    await page.getByRole('menuitem', { name: label, exact: true }).click();
+    return;
+  }
+  await page
+    .locator('[data-slot="stage-indicator"]')
+    .getByRole('button', { name: label, exact: true })
+    .click();
+}
+
 /**
  * Runs a click that saves a file and returns the saved name and bytes. The link
  * the page clicks is read instead of the browser's download, so engines that
@@ -37,16 +51,7 @@ test('the result plays and saves a video and timed captions', async ({ page }) =
     .fill('색이 다른 사각형의 움직임');
   await page.getByRole('button', { name: '보내기' }).click();
   await expect(page.getByRole('heading', { name: '컨셉' })).toBeVisible();
-  const menu = page.getByRole('button', { name: '단계 열기' });
-  if (await menu.isVisible()) {
-    await menu.click();
-    await page.getByRole('menuitem', { name: '편집', exact: true }).click();
-  } else {
-    await page
-      .locator('[data-slot="stage-indicator"]')
-      .getByRole('button', { name: '편집', exact: true })
-      .click();
-  }
+  await openStage(page, '편집');
   await expect(page.locator('[data-slot="scene-column"] [data-slot="scene-card"]')).toHaveCount(5);
 
   const nextAction = page.locator('[data-slot="top-bar"] [data-slot="next-action"]');
@@ -75,6 +80,9 @@ test('the result plays and saves a video and timed captions', async ({ page }) =
   });
   await card.getByRole('button', { name: '결과 카드 닫기' }).click();
   await expect(card).toBeHidden();
+  // Closing the card lands on the edit step, so the export panel is opened again for the save controls.
+  await openStage(page, '내보내기');
+  await expect(stage).toBeVisible();
 
   const mp4 = await saveFile(page, () => nextAction.click());
   expect(mp4.name).toBe('example.mp4');
