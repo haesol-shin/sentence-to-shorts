@@ -185,7 +185,7 @@ test('test_8a_the_rewrite_review_applies_in_place_and_undoes_once', async ({ pag
   await expect(review.locator('del')).toContainText('커피를 고르는 세 가지 기준');
   await expect(review).toContainText('다시 말하면, 커피를 고르는 세 가지 기준');
 
-  await review.getByRole('button', { name: '바꾸기', exact: true }).click();
+  await review.getByRole('button', { name: '적용', exact: true }).click();
 
   await expect(review).toHaveCount(0);
   await expect(firstLine(card)).toHaveValue(

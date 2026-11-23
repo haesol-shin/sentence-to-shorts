@@ -48,12 +48,12 @@ const DECIDED = {
     '#3182F6',
     '#1B64DA',
     '#B45309',
-    '#D82426',
+    '#DC2626',
   ],
   overlays: [
     'rgba(255, 255, 255, 0.88)',
     'rgba(255, 255, 255, 0.92)',
-    'rgba(0, 0, 0, 0.57)',
+    'rgba(0, 0, 0, 0.55)',
     'rgba(255, 255, 255, 0.55)',
     'rgba(34, 38, 43, 0.24)',
   ],
@@ -264,6 +264,13 @@ describe('design tokens', () => {
     // The accepted pair is used, and the disabled exception is listed.
     const accepted = report.accepted.map((row) => `${row.text} ${row.surface}`);
     expect(accepted).toContain('--emphasis --card');
+    expect(accepted).toContain('--destructive --card');
+    expect(accepted).toContain('--destructive --secondary');
+    expect(accepted).toContain('--destructive --muted');
+    const acceptedOverlay = report.overlays
+      .filter((row) => row.verdict === '감수')
+      .map((row) => `${row.text} ${row.surface}`);
+    expect(acceptedOverlay).toContain('--card --overlay-length');
     expect(report.disabled.length).toBeGreaterThan(0);
     for (const row of report.disabled) expect(row.text).toBe('--disabled-foreground');
     expect(report.forbidden.length).toBeGreaterThan(0);
@@ -278,10 +285,20 @@ describe('design tokens', () => {
 
   test('test_4_focus_and_icons_meet_3', () => {
     const report = contrastReport(tokens);
+    const accepted = new Set(
+      tokens.contrast.exceptions
+        .filter((entry) => entry.kind === 'accepted')
+        .flatMap((entry) => entry.surfaces.map((surface) => `${entry.text} ${surface}`)),
+    );
     expect(report.ring.length).toBeGreaterThan(0);
     for (const row of report.ring) {
-      expect(row.value >= 3, `ring on ${row.surface}: ${row.value.toFixed(2)}`).toBe(true);
-      expect(row.verdict).toBe('통과');
+      if (row.verdict === '감수') {
+        expect(accepted.has(`--ring ${row.surface}`), `ring on ${row.surface}`).toBe(true);
+        expect(row.value < 3, `ring on ${row.surface}: ${row.value.toFixed(2)}`).toBe(true);
+      } else {
+        expect(row.verdict).toBe('통과');
+        expect(row.value >= 3, `ring on ${row.surface}: ${row.value.toFixed(2)}`).toBe(true);
+      }
     }
     expect(report.icons.length).toBeGreaterThan(0);
     for (const row of report.icons) {

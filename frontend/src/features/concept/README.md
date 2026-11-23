@@ -12,7 +12,7 @@ The change review lists values before and after, affected locks, user values bei
 
 ## Fine-tune panel
 
-The reference entry is one band above the three groups. Each story card carries a 「세부 조정」 row; the selected card opens a floating white panel with the card's layout, character role, register and humor. The panel keeps one value per card, so changing the card loads that card's values and never copies them into another card. Locks for those four values stay in 「세부 설정」.
+The reference entry is one band above the three groups. Each story card carries a 「세부 조정」 row; the selected card opens a floating white panel with the card's layout, register and humor. The panel spans the card row's width and keeps one value per card, so changing the card loads that card's values and never copies them into another card. Locks for those values stay in 「세부 설정」.
 
 ## Input
 

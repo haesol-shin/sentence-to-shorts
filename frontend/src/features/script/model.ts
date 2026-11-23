@@ -11,6 +11,8 @@ import type {
 /** `Line.display_text` and `Line.speech_text` limits from the video contract. */
 export const MAX_DISPLAY_CHARS = 300;
 export const MAX_SPEECH_CHARS = 500;
+/** The script screen and the edit panel both stop a scene at four lines. */
+export const MAX_SCENE_LINES = 4;
 
 const SECONDS_PER_CHARACTER = 5;
 
@@ -215,6 +217,31 @@ export function withLineText(
   return next;
 }
 
+/**
+ * Append one empty line to a scene. The caller edits its text in place, the
+ * same way the edit panel's add-line draft settles into a line.
+ */
+export function withAddedLine(
+  document: ScriptDocument,
+  sceneId: string,
+  lineFloor = 0,
+): ScriptDocument {
+  const next = cloneDocument(document);
+  const scene = next.scenes[sceneId];
+  if (scene === undefined) {
+    return document;
+  }
+  const lineIds = Object.values(next.scenes).flatMap((entry) =>
+    entry.lines.map((line) => line.id),
+  );
+  const nextLine = Math.max(maxEntityNumber(lineIds, 'l'), lineFloor) + 1;
+  scene.lines = [
+    ...scene.lines,
+    { id: lineEntityId(nextLine), display_text: '', speech_text: '' },
+  ];
+  return next;
+}
+
 export function withSceneOrder(document: ScriptDocument, order: readonly string[]): ScriptDocument {
   if (new Set(order).size !== order.length || order.length !== document.scene_order.length) {
     return document;
@@ -284,37 +311,27 @@ export function withDuration(document: ScriptDocument, duration: TargetDuration)
   return { ...document, target_duration_s: duration };
 }
 
-const REWRITE_PREFIXES = ['다시 말하면, ', '정리하면, '];
-
-function stripRewritePrefix(text: string): string {
-  for (const prefix of REWRITE_PREFIXES) {
-    if (text.startsWith(prefix)) {
-      return text.slice(prefix.length);
-    }
-  }
-  return text;
-}
+const REWRITE_PREFIX = '다시 말하면, ';
 
 /**
  * The mock rewrite says the first line again with a different lead-in. The
  * real script job owns wording; this keeps the review honest and repeatable.
  */
-export function rewriteLines(lines: readonly string[], attempt: number): string[] {
-  const prefix = REWRITE_PREFIXES[attempt % REWRITE_PREFIXES.length] ?? REWRITE_PREFIXES[0];
-  return lines.map((text, index) =>
-    index === 0 ? `${prefix}${stripRewritePrefix(text)}` : stripRewritePrefix(text),
-  );
+export function rewriteLines(lines: readonly string[]): string[] {
+  return lines.map((text, index) => {
+    const plain = text.startsWith(REWRITE_PREFIX) ? text.slice(REWRITE_PREFIX.length) : text;
+    return index === 0 ? `${REWRITE_PREFIX}${plain}` : plain;
+  });
 }
 
 export function buildRewriteProposal(
   document: ScriptDocument,
   sceneId: string,
-  attempt: number,
 ): RewriteProposal | null {
   const scene = document.scenes[sceneId];
   if (scene === undefined) {
     return null;
   }
   const before = scene.lines.map((line) => line.display_text);
-  return { sceneId, before, after: rewriteLines(before, attempt) };
+  return { sceneId, before, after: rewriteLines(before) };
 }

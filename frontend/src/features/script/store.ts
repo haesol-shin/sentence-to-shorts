@@ -12,8 +12,10 @@ import {
   hasDuplicateOrder,
   hasEmptyLine,
   isConfirmed,
+  MAX_SCENE_LINES,
   maxEntityNumber,
   totalSeconds,
+  withAddedLine,
   withDuration,
   withLineText,
   withSceneCount,
@@ -60,7 +62,6 @@ let openToken = 0;
 let loadError: string | null = null;
 let rewriteToken = 0;
 let rewriteController: AbortController | null = null;
-let attempts: Record<string, number> = {};
 
 const listeners = new Set<() => void>();
 let cached: ScriptSnapshot | null = null;
@@ -267,7 +268,6 @@ export function ensureScript(
   session = null;
   opening = null;
   loadError = null;
-  attempts = {};
   targetKey = key;
   emit();
 
@@ -366,6 +366,33 @@ export function editLine(sceneId: string, lineId: string, text: string): void {
   emit();
 }
 
+/** Add one empty line to a scene, up to the same four-line cap as edit. */
+export function addLine(sceneId: string): void {
+  const state = requireSession();
+  if (state === null || structureLocked(state)) {
+    return;
+  }
+  const scene = state.document.scenes[sceneId];
+  if (scene === undefined || scene.lines.length >= MAX_SCENE_LINES) {
+    return;
+  }
+  const next = withAddedLine(state.document, sceneId, state.lineIdMax);
+  if (next === state.document) {
+    return;
+  }
+  state.document = next;
+  state.lineIdMax = Math.max(
+    state.lineIdMax,
+    maxEntityNumber(
+      Object.values(next.scenes).flatMap((entry) => entry.lines.map((line) => line.id)),
+      'l',
+    ),
+  );
+  state.error = null;
+  clearUndo(state);
+  emit();
+}
+
 export function moveScene(sceneId: string, delta: number): void {
   const state = requireSession();
   if (state === null || structureLocked(state)) {
@@ -418,7 +445,6 @@ export async function rewriteScene(sceneId: string): Promise<void> {
   ) {
     return;
   }
-  const attempt = attempts[sceneId] ?? 0;
   const token = ++rewriteToken;
   const controller = new AbortController();
   rewriteController = controller;
@@ -429,7 +455,6 @@ export async function rewriteScene(sceneId: string): Promise<void> {
   try {
     const after = await api.rewrite(state.document, sceneId, {
       signal: controller.signal,
-      attempt,
     });
     if (token !== rewriteToken) {
       return;
@@ -470,17 +495,6 @@ export function stopRewrite(): void {
   rewriteController = null;
   state.workingSceneId = null;
   emit();
-}
-
-export function retryRewrite(): void {
-  const state = requireSession();
-  if (state === null || state.rewrite === null) {
-    return;
-  }
-  const sceneId = state.rewrite.sceneId;
-  state.rewrite = null;
-  attempts[sceneId] = (attempts[sceneId] ?? 0) + 1;
-  void rewriteScene(sceneId);
 }
 
 export function dismissRewrite(): void {
@@ -627,7 +641,6 @@ export function resetScriptSessions(): void {
   opening = null;
   targetKey = null;
   loadError = null;
-  attempts = {};
   emit();
 }
 

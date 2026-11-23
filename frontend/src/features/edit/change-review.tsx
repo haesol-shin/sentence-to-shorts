@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, X } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
 import { CloseButton } from '@/components/CloseButton/CloseButton';
@@ -493,10 +494,10 @@ function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
       label={title}
       actions={
         <>
-          <Button variant="ghost" disabled={edit.busy} onClick={edit.rejectPending}>
+          <Button variant="ghost" disabled={edit.busy} iconStart={<X aria-hidden size={16} />} onClick={edit.rejectPending}>
             {t('edit.change.reject')}
           </Button>
-          <Button disabled={edit.busy || !canApply} onClick={edit.applyPending}>
+          <Button disabled={edit.busy || !canApply} iconStart={<Check aria-hidden size={16} />} onClick={edit.applyPending}>
             {t('edit.change.apply')}
           </Button>
         </>
@@ -536,8 +537,8 @@ export function ChangeReview({ edit }: { edit: EditValue }) {
       label={title}
       actions={
         <>
-          <Button variant="ghost" onClick={edit.dismissReorder}>{t('edit.change.reject')}</Button>
-          <Button onClick={edit.confirmReorder}>{t('edit.change.apply')}</Button>
+          <Button variant="ghost" iconStart={<X aria-hidden size={16} />} onClick={edit.dismissReorder}>{t('edit.change.reject')}</Button>
+          <Button iconStart={<Check aria-hidden size={16} />} onClick={edit.confirmReorder}>{t('edit.change.apply')}</Button>
         </>
       }
     >

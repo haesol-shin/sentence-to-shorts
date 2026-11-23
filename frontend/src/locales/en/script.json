@@ -1,4 +1,5 @@
 {
+  "addLine": "Add line",
   "changed": "Changed",
   "confirm.done": "The script is confirmed.",
   "confirm.manual": "The script is confirmed. Use the step menu to open Edit.",
@@ -26,8 +27,7 @@
   "reason.tone": "Decide the tone change first.",
   "reason.working": "A scene is still being rewritten.",
   "review.apply": "Apply",
-  "review.keep": "Keep the old lines",
-  "review.retry": "Try again",
+  "review.keep": "Cancel",
   "review.title": "Changed lines",
   "rewrite": "Rewrite with AI",
   "scene.grip": "Reorder scene {number}",

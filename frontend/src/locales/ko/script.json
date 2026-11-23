@@ -1,4 +1,5 @@
 {
+  "addLine": "대사 줄 추가",
   "changed": "바뀜",
   "confirm.done": "대본을 확인했어요.",
   "confirm.manual": "대본을 확인했어요. 단계 메뉴에서 편집으로 넘어가요.",
@@ -25,9 +26,8 @@
   "reason.rewrite": "바뀐 대사를 먼저 정해 주세요.",
   "reason.tone": "말투를 바꿀지 먼저 정해 주세요.",
   "reason.working": "고치는 중인 장면이 있어요.",
-  "review.apply": "바꾸기",
-  "review.keep": "그대로 두기",
-  "review.retry": "다시",
+  "review.apply": "적용",
+  "review.keep": "취소",
   "review.title": "바뀐 대사",
   "rewrite": "AI로 다시 쓰기",
   "scene.grip": "장면 {number} 순서 바꾸기",

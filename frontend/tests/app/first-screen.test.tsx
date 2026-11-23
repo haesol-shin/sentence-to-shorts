@@ -9,8 +9,6 @@ import { LocaleProvider } from '@/shared/lib/i18n/locale';
 import {
   DRAFT_JOB_PATH,
   DRAFT_VIDEO_PATH,
-  shellRoutes,
-  stubApi,
 } from '../support/api';
 import { renderApp, sendSentence } from '../support/render';
 
@@ -19,13 +17,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test('test_10a_first_screen_lists_three_cards_and_recent_projects', async () => {
+test('test_10a_first_screen_lists_three_story_cards', async () => {
   await renderApp();
 
   expect(await screen.findByRole('button', { name: /딱 3가지만/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: /○○로 치면/ })).toBeTruthy();
   expect(screen.getByRole('button', { name: /만약 ~라면/ })).toBeTruthy();
-  expect(screen.getByText('커피 시리즈')).toBeTruthy();
+  expect(screen.queryByText('최근 프로젝트')).toBeNull();
 });
 
 test('test_10a_picking_a_card_marks_the_composer', async () => {
@@ -96,17 +94,6 @@ test('test_16_language_switch_turns_the_screen_english', async () => {
 
   expect(await screen.findByRole('heading', { name: 'What video should we make?' })).toBeTruthy();
   expect(document.documentElement.lang).toBe('en');
-});
-
-test('test_10a_recent_projects_failure_does_not_claim_an_empty_list', async () => {
-  const routes = shellRoutes();
-  delete routes['GET /api/v1/projects'];
-  stubApi(routes);
-
-  await renderApp(routes);
-
-  expect(await screen.findByText('최근 프로젝트를 불러오지 못했어요.')).toBeTruthy();
-  expect(screen.queryByText('아직 만든 영상이 없어요.')).toBeNull();
 });
 
 function FirstScreenHarness({

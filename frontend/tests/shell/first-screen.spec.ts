@@ -24,20 +24,30 @@ test('test_10a_first_screen_is_named_by_one_column_beside_the_sidebar', async ({
   expect(Math.abs(box.x + box.width / 2 - (SIDEBAR + (width - SIDEBAR) / 2))).toBeLessThanOrEqual(2);
 });
 
-test('test_10a_the_input_cards_and_recent_projects_share_their_edges', async ({ page }) => {
+test('test_10a_the_input_and_card_row_share_the_672_line', async ({ page }) => {
   await page.goto('/');
   const composer = await page.locator('[data-slot="first-screen"] [data-slot="composer"]').boundingBox();
   const cards = await page.locator('[data-slot="first-cards"]').boundingBox();
-  const recent = await page.locator('[data-slot="first-recent"]').boundingBox();
   expect(composer).not.toBeNull();
   expect(cards).not.toBeNull();
-  expect(recent).not.toBeNull();
-  if (composer === null || cards === null || recent === null) return;
+  if (composer === null || cards === null) return;
 
-  for (const part of [cards, recent]) {
+  expect(Math.round(composer.width)).toBe(672);
+  expect(Math.round(cards.width)).toBe(672);
+  for (const part of [cards]) {
     expect(Math.abs(part.x - composer.x)).toBeLessThanOrEqual(1);
     expect(Math.abs(part.width - composer.width)).toBeLessThanOrEqual(1);
   }
+
+  const card = page.locator('[data-slot="first-cards"] button').first();
+  const cardBox = await card.boundingBox();
+  const picture = await card.locator('span').first().boundingBox();
+  expect(cardBox).not.toBeNull();
+  expect(picture).not.toBeNull();
+  expect(Math.round(cardBox?.width ?? 0)).toBe(216);
+  expect(Math.round(cardBox?.height ?? 0)).toBe(266);
+  expect(Math.round(picture?.width ?? 0)).toBe(200);
+  expect(Math.round(picture?.height ?? 0)).toBe(150);
 });
 
 test('test_10a_the_first_screen_has_no_step_indicator', async ({ page }) => {

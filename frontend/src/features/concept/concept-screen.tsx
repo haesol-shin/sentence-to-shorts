@@ -1,5 +1,5 @@
 import { Children, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Image, LockKeyhole } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Image, LockKeyhole, X } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
 import { Chip } from '@/components/Chip/Chip';
@@ -259,8 +259,8 @@ export function ChangeReview({ plan, settings, busy }: { plan: Plan; settings: S
       {plan.confirmation_reasons.map((reason) => <p key={reason}>{t(`concept.reason.${reason}`)}</p>)}
       {plan.warnings.map((warning, index) => <p key={index}>{t(`concept.warning.${warning.code}`)}</p>)}
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="ghost" disabled={busy} onClick={rejectConceptPlan}>{t('concept.keep')}</Button>
-        <Button disabled={busy} onClick={() => void applyConceptPlan()}>{t('concept.apply')}</Button>
+        <Button variant="ghost" disabled={busy} iconStart={<X aria-hidden size={16} />} onClick={rejectConceptPlan}>{t('concept.keep')}</Button>
+        <Button disabled={busy} iconStart={<Check aria-hidden size={16} />} onClick={() => void applyConceptPlan()}>{t('concept.apply')}</Button>
       </div>
     </section>
   );
@@ -337,13 +337,12 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
     setOpenTune((open) => open === id ? null : id);
   };
   const openCardId = openTune !== null && openTune === activeCardId ? openTune : null;
-  const tuneOrigins = ['/format/layout', '/format/character_role', '/format/register', '/format/humor']
+  const tuneOrigins = ['/format/layout', '/format/register', '/format/humor']
     .map((path) => originOf(settings, path));
   const tuneSummary = tuneOrigins.includes('user')
     ? 'concept.tune.userValues'
     : tuneOrigins.includes('reference') ? 'concept.tune.referenceValues' : 'concept.tune.cardValues';
   const layoutOptions = (catalog?.layouts ?? []).map((item) => ({ value: item.ref, label: valueLabel(item.ref, t) }));
-  const roleOptions = choices(SHORT_OPTIONS.character_role);
   const registerOptions = choices(SHORT_OPTIONS.register);
   const humorOptions = choices(SHORT_OPTIONS.humor);
   const tunePanel = (id: string) => (
@@ -356,7 +355,6 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
       </div>
       <div className="concept-tune-panel__grid">
         <TuneChip name={t('concept.field.format.layout')} path="/format/layout" options={layoutOptions} value={settings.format.layout} disabled={frozen} />
-        <TuneChip name={t('concept.field.format.character_role')} path="/format/character_role" options={roleOptions} value={settings.format.character_role} disabled={frozen} />
         <TuneChip name={t('concept.field.format.register')} path="/format/register" options={registerOptions} value={settings.format.register} disabled={frozen} />
         <TuneChip name={t('concept.field.format.humor')} path="/format/humor" options={humorOptions} value={settings.format.humor} disabled={frozen} />
       </div>

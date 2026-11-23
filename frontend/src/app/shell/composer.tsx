@@ -9,7 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { FileText, Film, Info, Link2, Music, Plus } from 'lucide-react';
+import { Check, FileText, Film, Info, Link2, Music, Plus, X } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
 import { chatProposal } from '@/features/concept/model';
@@ -52,9 +52,10 @@ import { cn } from '@/shared/lib/utils';
 
 import { useShellView } from './shell-view';
 
-/** One line of the text field; ten of them is the tallest the box may grow. */
+/** One line of the text field; ten of them plus the box padding is the tallest the box may grow. */
 const LINE_HEIGHT = 24;
-const MAX_TEXT_HEIGHT = LINE_HEIGHT * 10;
+const FIELD_PADDING = 20;
+const MAX_TEXT_HEIGHT = LINE_HEIGHT * 10 + FIELD_PADDING;
 const TOUCH_TARGET = 44;
 const SEND_VISUAL = 32;
 const DURATION_VALUES = [30, 60, 120] as const;
@@ -80,6 +81,8 @@ interface ComposerBoxProps {
   label: string;
   placeholder: string;
   sendLabel: string;
+  /** The first screen rounds its box 24; the chat face rounds it 28. */
+  face?: 'first' | 'chat';
   onCancel?: () => void;
   cancelActive?: boolean;
   value: string;
@@ -225,6 +228,7 @@ function ComposerBox({
   label,
   placeholder,
   sendLabel,
+  face = 'first',
   onCancel,
   cancelActive = false,
   value,
@@ -520,7 +524,8 @@ function ComposerBox({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        'relative flex w-full flex-col gap-2 rounded-[var(--radius-input)] border-2 border-transparent bg-[var(--surface-muted)] p-3 transition-colors',
+        'relative flex w-full flex-col gap-2 border-2 border-transparent bg-[var(--surface-muted)] p-3 transition-colors',
+        face === 'first' ? 'rounded-[var(--radius-input)]' : 'rounded-[var(--radius-composer)]',
         dragging && 'border-dashed border-[var(--text-muted)]',
         className,
       )}
@@ -592,7 +597,7 @@ function ComposerBox({
           event.currentTarget.scrollIntoView?.({ block: 'nearest' });
         }}
         style={maskStyle}
-        className="block max-h-[240px] w-full resize-none overflow-y-auto bg-transparent p-0 text-[17px] leading-6 text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed"
+        className="block max-h-[260px] w-full resize-none overflow-y-auto bg-transparent px-0 py-2.5 text-[17px] leading-6 text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed"
       />
 
       {linkOpen ? (
@@ -658,7 +663,7 @@ function ComposerBox({
         // One row at every width: wrapping would drop the send button onto a
         // second line (WebKit sizes a select wider than Blink does) and make
         // the docked box taller than the room a phone keyboard leaves it.
-        className="flex min-w-0 items-center gap-1.5"
+        className="flex min-w-0 items-center gap-2"
       >
         <div data-slot="composer-plus" data-hit={TOUCH_TARGET} className="relative shrink-0">
           <IconButton
@@ -889,6 +894,7 @@ function EditComposer({
       <Tooltip content={reason ?? t('concept.composer.noSession')} side="top">
         <div className="w-full">
           <ComposerBox
+            face="chat"
             label={rest.label}
             placeholder={rest.placeholder}
             sendLabel={rest.sendLabel}
@@ -907,8 +913,8 @@ function EditComposer({
         <div className="flex flex-col gap-2">
           <p>{t('edit.tone.preview')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={() => void decideTone(false)}>{t('edit.tone.keepAll')}</Button>
-            <Button onClick={() => void decideTone(true)}>{t('edit.tone.applyAll')}</Button>
+            <Button variant="ghost" iconStart={<X aria-hidden size={16} />} onClick={() => void decideTone(false)}>{t('edit.tone.keepAll')}</Button>
+            <Button iconStart={<Check aria-hidden size={16} />} onClick={() => void decideTone(true)}>{t('edit.tone.applyAll')}</Button>
           </div>
         </div>
       )}
@@ -923,6 +929,7 @@ function EditComposer({
       ) : null}
       <Composer
         {...rest}
+        face="chat"
         label={rest.label}
         placeholder={number > 0 ? t('edit.composer.placeholderScene', { number }) : t('edit.composer.placeholder')}
         sendLabel={rest.sendLabel}
@@ -977,8 +984,8 @@ function ScriptComposer({
         <div className="flex flex-col gap-2">
           <p>{t('script.tone.preview')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
-            <Button onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
+            <Button variant="ghost" iconStart={<X aria-hidden size={16} />} onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
+            <Button iconStart={<Check aria-hidden size={16} />} onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
           </div>
         </div>
       )}
@@ -986,6 +993,7 @@ function ScriptComposer({
         <div className="w-full">
           <ComposerBox
             {...rest}
+            face="chat"
             value=""
             disabled
             placeholder={number === null ? rest.placeholder : t('edit.composer.placeholderScene', { number })}
@@ -1027,7 +1035,7 @@ export function PlaceholderComposer({
     return (
       <Tooltip content={reason ?? t('concept.composer.noSession')} side="top">
         <div className="w-full">
-          <ComposerBox {...rest} value="" disabled />
+          <ComposerBox {...rest} face="chat" value="" disabled />
         </div>
       </Tooltip>
     );
@@ -1074,6 +1082,7 @@ export function PlaceholderComposer({
       )}
       <Composer
         {...rest}
+        face="chat"
         value={snapshot.draft}
         onChange={setConceptDraft}
         onSubmit={(attachments) => sendConcept(snapshot.draft, attachments)}

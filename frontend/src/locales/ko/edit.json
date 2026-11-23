@@ -15,7 +15,7 @@
   "change.addTitle": "장면을 추가할까요?",
   "change.after": "바뀐 뒤",
   "change.afterEmpty": "새 그림 없음",
-  "change.apply": "바꾸기",
+  "change.apply": "적용",
   "change.before": "지금",
   "change.beforeEmpty": "이전 그림 없음",
   "change.compareOrder": "순서 비교",
@@ -30,7 +30,7 @@
   "change.previewAfterScript": "대본을 확인한 뒤에 미리보기를 만들 수 있어요.",
   "change.previewFailed": "미리보기를 만들지 못했어요.",
   "change.previewLoading": "미리보기를 만드는 중",
-  "change.reject": "그대로 두기",
+  "change.reject": "취소",
   "change.removedStill": "삭제될 장면",
   "change.reorderTitle": "장면 순서를 바꿀까요?",
   "change.scope": "다시 만들 범위",
@@ -190,8 +190,8 @@
   "tabs.label": "편집 탭",
   "tabs.scenes": "장면",
   "tabs.sound": "소리",
-  "tone.applyAll": "모두 바꾸기",
+  "tone.applyAll": "모두 적용",
   "tone.failed": "말투를 바꾸지 못했어요. 컨셉이 이미 정해졌는지 확인해 주세요.",
-  "tone.keepAll": "모두 그대로 두기",
+  "tone.keepAll": "모두 취소",
   "tone.preview": "말투를 바꾸면 컨셉의 말투도 함께 바뀌어요."
 }

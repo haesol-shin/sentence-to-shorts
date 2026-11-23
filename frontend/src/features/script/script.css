@@ -148,14 +148,14 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
-  padding: var(--space-16);
+  padding: var(--space-20);
   border-radius: var(--radius-surface);
   background: var(--muted);
 }
 
 .script-card-head {
   display: flex;
-  min-height: var(--size-control);
+  min-height: var(--line-height-small);
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8);
@@ -188,6 +188,9 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   display: flex;
   align-items: center;
   margin-left: auto;
+  /* The 44 controls may stand above the title's 22 line, so the title keeps
+     the card padding line. */
+  margin-block: calc((var(--line-height-small) - var(--size-control)) / 2);
 }
 
 .script-grip {
@@ -281,9 +284,13 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   text-align: end;
 }
 
-.script-card-foot {
+.script-card-actions {
   display: flex;
-  justify-content: flex-end;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  /* The pill's left edge lines up with the dialogue text inside the line box. */
+  padding-inline-start: var(--space-12);
 }
 
 .script-rewrite {
@@ -294,17 +301,6 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  padding: var(--space-12);
-  border-radius: var(--radius-content);
-  background: var(--card);
-}
-
-.script-review h3 {
-  margin: 0;
-  color: var(--foreground);
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-small);
-  font-weight: var(--font-weight-bold);
 }
 
 .script-review-lines {
@@ -312,7 +308,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   flex-direction: column;
   gap: var(--space-4);
   margin: 0;
-  padding: 0;
+  padding-inline: var(--space-12);
   color: var(--sub);
   list-style: none;
 }
@@ -323,14 +319,16 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 }
 
 .script-review-new {
+  background: var(--background);
   color: var(--foreground);
 }
 
 .script-review-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--space-8);
+  padding-inline-start: var(--space-12);
 }
 
 .script-tone {
@@ -402,7 +400,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-8);
-  padding: var(--space-12) var(--space-24);
+  padding: var(--layout-gutter);
   background: var(--surface);
 }
 
