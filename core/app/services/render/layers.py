@@ -1,8 +1,9 @@
-"""Builtin template modules: one RGBA layer with the regions and the theme box skin.
+"""Builtin template modules: one RGBA layer with the framed regions and the theme box skin.
 
 The skin arrives as the ``skin`` part, a grid image with one pixel per cell.
 It is drawn as a nine-slice box: the outer three cells on each side keep their
-shape and the centre cell fills the inside.
+shape and the centre cell fills the inside. The dialog bubble is not in the
+layer: the renderer draws it where the caption preset puts it, with ``place_box``.
 """
 
 from __future__ import annotations
@@ -21,7 +22,6 @@ FRAME = (1080, 1920)
 SKIN_CELL = 6
 CORNER_CELLS = 3
 STAGE_OUTSET = 2 * SKIN_CELL
-DIALOG_OUTSET = 3 * SKIN_CELL
 BUILTIN_TEMPLATE_MODULES = ("fixed_stage", "full_stage", "dialog_stage")
 
 
@@ -53,7 +53,10 @@ def nine_slice(skin: Image.Image, width: int, height: int, *, hollow: bool = Fal
     return grid.resize((cols * SKIN_CELL, rows * SKIN_CELL), Image.Resampling.NEAREST)
 
 
-def _place(layer: Image.Image, skin: Image.Image, box: Box, *, hollow: bool = False) -> list[int]:
+def place_box(
+    layer: Image.Image, skin: Image.Image, box: Box, *, hollow: bool = False
+) -> list[int]:
+    """Draw a skin box centred in ``box`` and return the box it covers."""
     tile = nine_slice(skin, box.w, box.h, hollow=hollow)
     left = box.x + (box.w - tile.width) // 2
     top = box.y + (box.h - tile.height) // 2
@@ -116,14 +119,13 @@ class BuiltinLayerDrawer:
         boxes: dict[str, list[int]] = {}
         module = manifest.renderer.module
         if module == "fixed_stage":
-            boxes["stage"] = _place(layer, skin, _outset(regions.visual, STAGE_OUTSET), hollow=True)
+            picture = manifest.picture or regions.visual
+            boxes["stage"] = place_box(layer, skin, _outset(picture, STAGE_OUTSET), hollow=True)
             for name in ("title", "progress"):
                 region = getattr(regions, name)
                 if region is not None:
-                    boxes[name] = _place(layer, skin, region)
-        if module == "dialog_stage":
-            boxes["caption"] = _place(layer, skin, _outset(regions.caption, DIALOG_OUTSET))
+                    boxes[name] = place_box(layer, skin, region)
         return encode_png(layer), {"module": module, "boxes": boxes}
 
 
-__all__ = ["BUILTIN_TEMPLATE_MODULES", "BuiltinLayerDrawer", "nine_slice"]
+__all__ = ["BUILTIN_TEMPLATE_MODULES", "BuiltinLayerDrawer", "nine_slice", "place_box"]

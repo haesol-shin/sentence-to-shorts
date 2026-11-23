@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from app.schemas.common import (
     Box,
@@ -81,6 +81,15 @@ class TemplateTest(ContractModel):
 
 
 class TemplateManifest(ContractModel):
+    """A template package.
+
+    ``picture`` is where the background and a framed template's frame are drawn. The
+    scene content (character, elements) is laid out in ``regions.visual``, so a picture
+    taller than the visual region lets the background run on below the content without
+    growing the character. ``None`` draws the picture in the visual region, as templates
+    written before this field did.
+    """
+
     schema_version: Literal[1]
     api_version: Literal[1]
     id: CatalogId
@@ -90,6 +99,7 @@ class TemplateManifest(ContractModel):
     status: PackageStatus
     renderer: TemplateRenderer
     regions: Regions
+    picture: Box | None = None
     character_anchors: CharacterAnchors
     caption_modes: Annotated[
         list[CaptionMode], Field(min_length=1, json_schema_extra={"uniqueItems": True})
@@ -97,3 +107,15 @@ class TemplateManifest(ContractModel):
     dialog_box: bool
     test: TemplateTest
     provenance: Provenance | None
+
+    @model_validator(mode="after")
+    def _check_picture(self) -> TemplateManifest:
+        picture, visual = self.picture, self.regions.visual
+        if picture is not None and not (
+            picture.x <= visual.x
+            and picture.y <= visual.y
+            and visual.x + visual.w <= picture.x + picture.w
+            and visual.y + visual.h <= picture.y + picture.h
+        ):
+            raise ValueError("picture must contain the visual region")
+        return self
