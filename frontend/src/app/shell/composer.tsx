@@ -907,8 +907,8 @@ function EditComposer({
         <div className="flex flex-col gap-2">
           <p>{t('edit.tone.preview')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void decideTone(true)}>{t('edit.tone.applyAll')}</Button>
             <Button variant="ghost" onClick={() => void decideTone(false)}>{t('edit.tone.keepAll')}</Button>
+            <Button onClick={() => void decideTone(true)}>{t('edit.tone.applyAll')}</Button>
           </div>
         </div>
       )}
@@ -977,8 +977,8 @@ function ScriptComposer({
         <div className="flex flex-col gap-2">
           <p>{t('script.tone.preview')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
             <Button variant="ghost" onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
+            <Button onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
           </div>
         </div>
       )}

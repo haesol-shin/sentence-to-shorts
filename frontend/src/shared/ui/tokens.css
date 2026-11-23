@@ -36,11 +36,11 @@
   --palette-blue: #3182F6;
   --palette-blue-deep: #1B64DA;
   --palette-orange: #B45309;
-  --palette-red: #DC2626;
+  --palette-red: #D82426;
   /* roles */
   --background: var(--palette-gray-3);
   --foreground: var(--palette-gray-11);
-  --card: var(--palette-white);
+  --card: var(--palette-gray-2);
   --card-foreground: var(--palette-gray-11);
   --popover: var(--palette-white);
   --popover-foreground: var(--palette-gray-11);
@@ -51,12 +51,12 @@
   --secondary: var(--palette-gray-2);
   --secondary-foreground: var(--palette-gray-11);
   --muted: var(--palette-gray-2);
-  --muted-foreground: var(--palette-gray-9);
+  --muted-foreground: var(--palette-gray-sub);
   --sub: var(--palette-gray-sub);
   --accent: var(--palette-gray-4);
   --accent-foreground: var(--palette-gray-11);
   --accent-pressed: var(--palette-gray-5);
-  --state-hover-white: var(--palette-gray-2);
+  --state-hover-white: var(--palette-gray-5);
   --state-selected: var(--palette-gray-4);
   --state-pressed-white: var(--palette-gray-5);
   --state-hover-gray: var(--palette-gray-5);
@@ -68,11 +68,11 @@
   --disabled-foreground: var(--palette-gray-8);
   --border: var(--palette-gray-6);
   --input: var(--palette-gray-6);
-  --ring: var(--palette-blue);
+  --ring: var(--palette-blue-deep);
   /* surfaces over pictures */
   --overlay-caption: rgba(255, 255, 255, 0.88);
   --overlay-scene-number: rgba(255, 255, 255, 0.92);
-  --overlay-length: rgba(0, 0, 0, 0.55);
+  --overlay-length: rgba(0, 0, 0, 0.57);
   --overlay-scrim: rgba(255, 255, 255, 0.55);
   --overlay-dialog-scrim: rgba(34, 38, 43, 0.24);
   /* typography */
@@ -172,7 +172,7 @@
   --gray-900: var(--palette-gray-11);
 
   /* Shell surface and text names. */
-  --surface: var(--card);
+  --surface: var(--popover);
   --surface-muted: var(--muted);
   --surface-sunken: var(--accent);
   --line: var(--accent);

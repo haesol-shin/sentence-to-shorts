@@ -21,9 +21,9 @@ export type ConfirmDialogProps = {
 
 
 /**
- * A question before a change lands. It uses the alert role, puts cancel first
- * and uses the primary action for the confirm. A danger tone colours the title
- * icon, not the action text, so the contrast on the grey cancel surface holds.
+ * A question before a change lands. It uses the alert role, puts the grey
+ * cancel control first and the black confirm last. A danger tone makes the
+ * title red and the icon red.
  */
 export function ConfirmDialog({
   title,

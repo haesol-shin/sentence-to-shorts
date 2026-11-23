@@ -132,7 +132,7 @@ export function AppShell({
               {stage !== null && composer !== null ? (
                 <div
                   data-slot="conversation"
-                  className="hidden shrink-0 flex-col justify-end rounded-[var(--radius-card)] bg-[var(--surface)] p-[var(--space-20)] md:flex"
+                  className="hidden shrink-0 flex-col justify-end rounded-[var(--radius-card)] bg-[var(--surface)] p-[var(--space-20)] md:flex md:shadow-[var(--shadow-float)]"
                   // The width follows the face height (the row is the size container), so the
                   // 380 / 796 phone ratio of the layout tokens holds at every window size and engine.
                   style={{ width: 'calc(100cqh * 380 / 796)' }}
@@ -151,7 +151,8 @@ export function AppShell({
                 data-slot="stage"
                 className={cn(
                   'flex min-h-0 min-w-0 flex-1 flex-col',
-                  stage !== null && 'md:overflow-hidden md:rounded-[var(--radius-card)] md:bg-[var(--surface)]',
+                  stage !== null &&
+                    'md:overflow-hidden md:rounded-[var(--radius-card)] md:bg-[var(--surface)] md:shadow-[var(--shadow-float)]',
                 )}
               >
                 <div

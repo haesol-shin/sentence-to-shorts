@@ -22,7 +22,7 @@
   --gray-900: var(--palette-gray-11);
 
   /* Shell surface and text names. */
-  --surface: var(--card);
+  --surface: var(--popover);
   --surface-muted: var(--muted);
   --surface-sunken: var(--accent);
   --line: var(--accent);

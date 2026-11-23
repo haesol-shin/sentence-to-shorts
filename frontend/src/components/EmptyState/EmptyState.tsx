@@ -20,6 +20,7 @@ export type EmptyStateProps = {
 /**
  * A section with a title, one sentence and an action, used for an empty list
  * and for a failure that the user can recover from. No picture is drawn.
+ * Callers pass secondary actions first and the primary action last.
  */
 export function EmptyState({ title, children, tone = 'neutral', icon, actions, className }: EmptyStateProps) {
   return (

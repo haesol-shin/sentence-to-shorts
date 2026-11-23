@@ -25,6 +25,7 @@
   color: var(--foreground);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
+  font-weight: var(--font-weight-bold);
   word-break: keep-all;
 }
 

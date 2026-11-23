@@ -685,8 +685,8 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           tone="danger"
           icon={<AlertCircle />}
           title="영상을 만들지 못했어요"
-          confirmLabel="확인"
-          cancelLabel={null}
+          confirmLabel="다시 시도"
+          cancelLabel="닫기"
         >
           연결을 확인한 뒤 다시 시도해 주세요. 만들던 내용은 저장돼 있어요.
         </ConfirmDialog>
@@ -791,8 +791,8 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           title={entry.slug === 'long' ? '영상을 만들지 못했어요' : '영상 링크를 받지 못했어요'}
           actions={
             <>
-              <Button>다시 시도</Button>
               <Button variant="secondary">파일로 올리기</Button>
+              <Button>다시 시도</Button>
             </>
           }
         >
