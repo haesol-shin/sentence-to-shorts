@@ -36,6 +36,16 @@
   --part-format-width: 216px;
   --part-tooltip-width: 240px;
   --part-menu-width: calc(var(--space-48) * 6);
+
+  /*
+   * A pill part starts its content where the half circle ends: the gap from the
+   * outer edge to the first mark is half the part's height. An icon has blank
+   * space inside its box, so an icon at an end is pulled outward by that space
+   * and its ink, not its box, sits at the gap. Chevron and close marks reach
+   * 5/24 into the box; the leading marks (circles, checks, files) about 2/24.
+   */
+  --icon-ink-glyph: 0.2083;
+  --icon-ink-mark: 0.0833;
 }
 
 .hit-area {

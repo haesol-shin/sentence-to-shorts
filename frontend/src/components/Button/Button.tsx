@@ -88,7 +88,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ) : (
         <>
           {iconStart === undefined ? null : (
-            <span className="button__icon" aria-hidden="true">
+            <span className="button__icon button__icon--start" aria-hidden="true">
               {iconStart}
             </span>
           )}

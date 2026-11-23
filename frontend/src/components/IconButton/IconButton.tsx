@@ -6,9 +6,13 @@ import './IconButton.css';
 
 import { statesOf, type ForceState } from '../force-state';
 
+export type IconButtonSize = 'default' | 'compact';
+
 export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> & {
   /** The accessible name. An icon alone carries no text. */
   label: string;
+  /** `compact` draws 32 and keeps the 44 hit area, for controls that sit inside a row or a field. */
+  size?: IconButtonSize;
   selected?: boolean;
   forceState?: ForceState;
   children: ReactNode;
@@ -16,9 +20,9 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
 
 
 
-/** A 44x44 icon control. The box is the hit area, so the icon never shrinks it. */
+/** A 44x44 icon control; the compact size draws 32 and the hit area stays 44. The icon never shrinks the box. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
-  { label, selected = false, forceState, className, type = 'button', disabled = false, children, ...rest },
+  { label, size = 'default', selected = false, forceState, className, type = 'button', disabled = false, children, ...rest },
   ref,
 ) {
   const forced = statesOf(forceState);
@@ -32,7 +36,7 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(functio
       type={type}
       aria-label={label}
       aria-pressed={isSelected ? true : undefined}
-      className={cn('icon-button', 'hit-area', 'focus-ring', className)}
+      className={cn('icon-button', `icon-button--${size}`, 'hit-area', 'focus-ring', className)}
       data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
       disabled={isDisabled}
     >

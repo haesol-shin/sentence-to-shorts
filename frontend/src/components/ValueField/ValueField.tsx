@@ -11,8 +11,9 @@ import { usePopupContainer } from '../PopupContainer';
 import { Tooltip } from '../Tooltip/Tooltip';
 import { useOverflowFade } from '../use-overflow-fade';
 
-export type ValueFieldItem = {
-  value: string;
+export type ValueFieldItem<Value = string> = {
+  /** Any value: a string, an index, a number, a boolean. Rows are matched with `Object.is`. */
+  value: Value;
   label: string;
   disabled?: boolean;
   /** A Tag element from the caller. */
@@ -23,16 +24,17 @@ export type ValueFieldItem = {
   | { unavailable: true; unavailableName: string }
 );
 
-export type ValueFieldProps = {
+export type ValueFieldProps<Value = string> = {
   /** The accessible name of the field. */
   label: string;
-  items: readonly ValueFieldItem[];
+  items: readonly ValueFieldItem<Value>[];
   placeholder?: string;
   /** The visible reason for unavailable rows. Without it the rows show no reason. */
   note?: ReactNode;
-  value?: string;
-  defaultValue?: string;
-  onValueChange?: (value: string) => void;
+  /** The chosen value. `undefined` leaves the field uncontrolled; a value no row matches shows the placeholder. */
+  value?: Value;
+  defaultValue?: Value;
+  onValueChange?: (value: Value) => void;
   disabled?: boolean;
   open?: boolean;
   defaultOpen?: boolean;
@@ -46,9 +48,11 @@ export type ValueFieldProps = {
 
 /**
  * A grey value field whose menu opens below it with the same width. Base UI
- * flips the open side only when the space below cannot hold the menu.
+ * flips the open side only when the space below cannot hold the menu. The row
+ * values can be of any type: the menu keys its rows by position and hands the
+ * caller's own value back.
  */
-export function ValueField({
+export function ValueField<Value = string>({
   label,
   items,
   placeholder,
@@ -62,7 +66,7 @@ export function ValueField({
   onOpenChange,
   forceState,
   className,
-}: ValueFieldProps) {
+}: ValueFieldProps<Value>) {
   const noteId = useId();
   const container = usePopupContainer();
   const [list, setList] = useState<HTMLDivElement | null>(null);
@@ -70,15 +74,23 @@ export function ValueField({
   const forced = statesOf(forceState);
 
   const resolvedNote = items.some((item) => item.unavailable) ? note : undefined;
-  const rootItems = items.map((item) => ({ value: item.value, label: item.label }));
+  const rootItems = items.map((item, index) => ({ value: String(index), label: item.label }));
+  // The menu keys rows by position, so a value of any type reaches Base UI as a string.
+  const keyOf = (candidate: Value | undefined): string | null | undefined => {
+    if (candidate === undefined) return undefined;
+    const index = items.findIndex((item) => Object.is(item.value, candidate));
+    return index < 0 ? null : String(index);
+  };
 
   return (
     <SelectPrimitive.Root
       items={rootItems}
-      value={value}
-      defaultValue={defaultValue}
+      value={keyOf(value)}
+      defaultValue={keyOf(defaultValue) ?? undefined}
       onValueChange={(next) => {
-        if (next !== null) onValueChange?.(String(next));
+        if (next === null) return;
+        const item = items[Number(next)];
+        if (item !== undefined) onValueChange?.(item.value);
       }}
       disabled={disabled}
       open={open}
@@ -105,11 +117,12 @@ export function ValueField({
           <SelectPrimitive.Popup className="field-menu">
             <div className="scroll-fade" data-fade={fade === 'none' ? undefined : fade}>
               <SelectPrimitive.List className="field-menu__list" ref={setList}>
-                {items.map((item) => {
+                {items.map((item, index) => {
+                  const key = String(index);
                   const row = (
                     <SelectPrimitive.Item
-                      key={item.value}
-                      value={item.value}
+                      key={key}
+                      value={key}
                       disabled={item.disabled === true || item.unavailable === true}
                       className="field-item hit-area"
                       data-unavailable={item.unavailable === true ? '' : undefined}
@@ -127,7 +140,7 @@ export function ValueField({
                   );
                   return item.unavailable === true && resolvedNote !== undefined ? (
                     <Tooltip
-                      key={item.value}
+                      key={key}
                       content={resolvedNote}
                       side="right"
                       positionerClassName="tooltip-positioner--from-popup"

@@ -5,7 +5,7 @@
   align-items: center;
   gap: var(--space-4);
   height: var(--part-tag);
-  padding-inline: var(--space-8);
+  padding-inline: calc(var(--part-tag) / 2);
   /* The decided 26 high tag keeps a 13 radius, the half of its height. */
   border-radius: calc(var(--part-tag) / 2);
   background: var(--muted);
@@ -26,6 +26,10 @@
   width: var(--icon-close);
   height: var(--icon-close);
   stroke-width: var(--icon-stroke);
+}
+
+.tag__icon:first-child svg {
+  margin-inline-start: calc(var(--icon-close) * var(--icon-ink-mark) * -1);
 }
 
 .tag--neutral .tag__icon {

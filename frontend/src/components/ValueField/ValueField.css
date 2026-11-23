@@ -9,7 +9,7 @@
   width: 100%;
   min-width: var(--size-control);
   height: var(--size-control);
-  padding-inline: var(--space-16);
+  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
   border: var(--part-hairline) solid var(--muted);
   border-radius: var(--radius-surface);
   background: var(--muted);
@@ -46,6 +46,7 @@
   align-items: center;
   justify-content: center;
   transition: transform var(--motion-panel-duration) var(--motion-ease);
+  margin-inline-end: calc(var(--icon-default) * var(--icon-ink-glyph) * -1);
 }
 
 .field-trigger__icon svg {

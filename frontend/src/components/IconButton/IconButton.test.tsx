@@ -41,4 +41,23 @@ describe('IconButton', () => {
     fireEvent.click(button);
     expect(button.disabled).toBe(true);
   });
+
+  test('test_w0_icon_button_compact_is_a_size_variant_and_the_default_stays_full_size', () => {
+    render(
+      <>
+        <IconButton label="기본">
+          <span aria-hidden="true">+</span>
+        </IconButton>
+        <IconButton label="보내기" size="compact">
+          <span aria-hidden="true">+</span>
+        </IconButton>
+      </>,
+    );
+
+    expect(screen.getByRole('button', { name: '기본' }).className).toContain('icon-button--default');
+    const compact = screen.getByRole('button', { name: '보내기' });
+    expect(compact.className).toContain('icon-button--compact');
+    // The 44 hit area comes from the shared ring, which the compact size keeps.
+    expect(compact.className).toContain('hit-area');
+  });
 });

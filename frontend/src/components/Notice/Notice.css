@@ -15,11 +15,13 @@
   line-height: var(--line-height-small);
 }
 
+/* The icon box is as tall as the first text line, so the icon centers on that line. */
 .notice__icon {
   display: inline-flex;
   flex: none;
   align-items: center;
   justify-content: center;
+  height: var(--line-height-small);
 }
 
 .notice__icon svg {

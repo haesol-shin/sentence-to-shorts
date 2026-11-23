@@ -13,7 +13,7 @@
   align-items: center;
   gap: var(--space-8);
   height: var(--size-control);
-  padding-inline: var(--space-16);
+  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
   border: var(--part-hairline) solid var(--border);
   border-radius: var(--radius-pill);
   background: var(--card);
@@ -35,6 +35,7 @@
   width: var(--icon-inline);
   height: var(--icon-inline);
   flex: none;
+  margin-inline-end: calc(var(--icon-inline) * var(--icon-ink-mark) * -1);
   stroke-width: var(--icon-stroke);
 }
 

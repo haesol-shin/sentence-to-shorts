@@ -109,6 +109,8 @@
     color var(--motion-state-duration) var(--motion-ease);
 }
 
+/* The row and the controls in it are one white surface: both take the white surface hover,
+   so the same grey never hides a control. */
 .reorder-row__move:hover:not(:disabled) {
   background: var(--state-hover-white);
   border-color: var(--state-hover-white);

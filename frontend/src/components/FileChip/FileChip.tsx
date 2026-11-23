@@ -68,7 +68,14 @@ export function FileChip({
         )}
       </span>
       {state === 'loading' ? (
-        <span className="file-chip__bar" aria-hidden="true">
+        <span
+          className="file-chip__bar"
+          role="progressbar"
+          aria-label={name}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={Math.round(Math.min(Math.max(progress, 0), 1) * 100)}
+        >
           <span className="file-chip__bar-fill" />
         </span>
       ) : null}
