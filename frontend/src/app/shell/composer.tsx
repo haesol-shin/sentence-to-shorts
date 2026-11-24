@@ -37,7 +37,7 @@ import {
 } from '@/features/concept/attachments';
 import type { Attachment } from '@/features/concept/types';
 import { sceneNumber as scriptSceneNumber } from '@/features/script/model';
-import { applyTone, clearTarget as clearScriptTarget, dismissTone, useScript } from '@/features/script/store';
+import { clearTarget as clearScriptTarget, useScript } from '@/features/script/store';
 import { LANGUAGES } from '@/shared/lib/i18n/catalog';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { useLoad } from '@/shared/lib/use-load';
@@ -201,7 +201,7 @@ function ComposerField({
       data-slot="composer-action"
       data-kind={kind}
       className={cn(
-        'relative inline-flex h-9 min-w-0 shrink items-center gap-2 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-3 text-[15px] whitespace-nowrap has-[select:focus-visible]:outline-2 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-[var(--ring)]',
+        'relative inline-flex h-9 min-w-0 shrink items-center gap-2 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-3 text-[15px] leading-[18px] whitespace-nowrap has-[select:focus-visible]:outline-2 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-[var(--ring)]',
         !disabled && 'hover:bg-[var(--state-hover-gray)]',
       )}
     >
@@ -1068,33 +1068,22 @@ function ScriptComposer({
   const script = useScript();
   const number = script?.targetSceneId == null ? null : scriptSceneNumber(script.document, script.targetSceneId);
   return (
-    <div className="flex w-full flex-col gap-2">
-      {script?.tone == null ? null : (
-        <div className="flex flex-col gap-2">
-          <p>{t('script.tone.preview')}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button size="36" variant="ghost" iconStart={<X aria-hidden size={16} />} onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
-            <Button size="36" iconStart={<Check aria-hidden size={16} />} onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
-          </div>
-        </div>
-      )}
-      <Tooltip content={reason ?? t('shell.stage.composerReason')} side="top">
-        <div className="w-full">
-          <ComposerBox
-            {...rest}
-            face="chat"
-            value=""
-            disabled
-            placeholder={rest.placeholder}
-            targetChip={number === null ? null : {
-              label: t('edit.chat.target', { number }),
-              removeLabel: t('edit.chat.targetRemove'),
-              onRemove: clearScriptTarget,
-            }}
-          />
-        </div>
-      </Tooltip>
-    </div>
+    <Tooltip content={reason ?? t('shell.stage.composerReason')} side="top">
+      <div className="w-full">
+        <ComposerBox
+          {...rest}
+          face="chat"
+          value=""
+          disabled
+          placeholder={rest.placeholder}
+          targetChip={number === null ? null : {
+            label: t('edit.chat.target', { number }),
+            removeLabel: t('edit.chat.targetRemove'),
+            onRemove: clearScriptTarget,
+          }}
+        />
+      </div>
+    </Tooltip>
   );
 }
 

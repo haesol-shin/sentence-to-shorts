@@ -98,6 +98,10 @@
   font-weight: var(--font-weight-regular);
 }
 
+.label-box__text[data-label]::before {
+  content: attr(data-label);
+}
+
 /*
  * A scrolling popup body keeps the owner's half-row sign: the last row stays
  * half visible and the hidden edge fades into the surface.

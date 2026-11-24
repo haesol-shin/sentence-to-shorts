@@ -240,6 +240,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     <AppShell
       view={view}
       videoId={video?.id ?? null}
+      sentence={video?.topic ?? null}
       brand={
         runtimeHead.brand === null
           ? null

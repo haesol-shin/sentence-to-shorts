@@ -382,8 +382,8 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
     <section data-slot="concept-screen" className="concept-screen" aria-label={t('concept.title')}>
       <ScrollPane label={t('concept.document')} jumpLabel={t('shell.scroll.jump')} className="concept-content">
         <header className="concept-head">
+          {/* The video's name rides the top bar, so the head carries only the step. */}
           <div className="concept-head__names"><h1>{t('concept.title')}</h1>
-            <p className="concept-head__topic">{doc.topic}</p>
             <p className="concept-head__scope">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>
           <div className="concept-head__fields">
             <TuneChip className="concept-tune-chip--head" name={t('concept.field.target_duration_s')} label={t('concept.head.duration')}
@@ -512,9 +512,9 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         actions={<Button disabled={snapshot.busy} onClick={() => void confirmConcept().then(() => setConfirming(false))}>{t('concept.confirm')}</Button>}>
         <p className="concept-dialog__help">{t('concept.confirm.help')}</p>
         <dl className="concept-dialog__values">
-          <div><dt>{t('concept.story')}</dt><dd>{valueLabel(settings.format.story_structure, t)}</dd></div>
+          <div><dt>{t('concept.story')}</dt><dd>{activeCardId === '' ? valueLabel(settings.format.story_structure, t) : t(`concept.card.${activeCardId}`)}</dd></div>
           <div><dt>{t('concept.style')}</dt><dd>{valueLabel(settings.visual.art_style, t)}</dd></div>
-          <div><dt>{t('concept.character')}</dt><dd>{valueLabel(settings.visual.character, t)}</dd></div>
+          <div><dt>{t('concept.character')}</dt><dd>{valueLabel(settings.visual.character?.slots.body, t)}</dd></div>
         </dl>
       </Modal> : null}
     </section>

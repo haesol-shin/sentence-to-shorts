@@ -7,6 +7,9 @@
   "cardTopic.its_like": "재고 관리로 치면",
   "cardTopic.just_three": "커피를 고르는 세 가지 기준",
   "cardTopic.what_if": "만약 인터넷이 하루 멈춘다면?",
+  "conversation.concept": "문장에 어울리는 컨셉을 골랐어요. 바꾸고 싶은 것만 바꾸면 돼요.",
+  "conversation.edit": "장면 {count}개를 만들었어요. 장면을 고르고 고치면 돼요.",
+  "conversation.script": "대본을 썼어요. 고칠 줄은 눌러서 고쳐 주세요.",
   "conversation.title": "대화",
   "edit.addScene": "장면 추가",
   "edit.frames": "장면",
@@ -79,5 +82,6 @@
   "stage.export": "내보내기",
   "stage.list": "단계",
   "stage.menu": "단계 열기",
-  "stage.script": "대본"
+  "stage.script": "대본",
+  "title.menu": "영상 메뉴"
 }

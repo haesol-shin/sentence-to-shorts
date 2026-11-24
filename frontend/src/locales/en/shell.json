@@ -7,6 +7,9 @@
   "cardTopic.its_like": "Think of stock keeping",
   "cardTopic.just_three": "Three ways to pick coffee",
   "cardTopic.what_if": "What if the internet stopped for a day?",
+  "conversation.concept": "I picked a concept that fits the sentence. Change only what you want.",
+  "conversation.edit": "I made the scenes ({count}). Pick a scene and change it.",
+  "conversation.script": "I wrote the script. Click a line to change it.",
   "conversation.title": "Conversation",
   "edit.addScene": "Add a scene",
   "edit.frames": "Scenes",
@@ -79,5 +82,6 @@
   "stage.export": "Export",
   "stage.list": "Steps",
   "stage.menu": "Open a step",
-  "stage.script": "Script"
+  "stage.script": "Script",
+  "title.menu": "Video menu"
 }
