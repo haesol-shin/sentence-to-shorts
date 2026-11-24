@@ -5,7 +5,7 @@ import { App } from '@/app/App';
 
 import { shellRoutes, stubApi, type ApiStub, type RouteHandler } from './api';
 
-export const FIRST_HEADING = '어떤 영상을 만들까요?';
+export const FIRST_HEADING = '한 문장으로 영상을 만들어요';
 export const COMPOSER_LABEL = '만들고 싶은 영상을 한 문장으로 적어 주세요';
 
 /** Renders the app over the stubbed answers and waits for the first screen. */

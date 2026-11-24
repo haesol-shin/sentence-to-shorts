@@ -13,7 +13,7 @@ test('test_10a_the_first_screen_creates_a_project_on_the_fixture_backend', async
   page,
 }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '어떤 영상을 만들까요?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '한 문장으로 영상을 만들어요' })).toBeVisible();
   await expect(page.locator('[data-slot="first-cards"] button')).toHaveCount(3);
 
   const created = page.waitForResponse(

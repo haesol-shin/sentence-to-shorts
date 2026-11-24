@@ -41,7 +41,7 @@ test('test_13_pair_code_becomes_a_session_and_leaves_the_address', async () => {
   window.location.hash = `#pair=${PAIR_CODE}`;
   const api = await renderApp(routes, { strict: true });
 
-  expect(await screen.findByRole('heading', { name: 'What video should we make?' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Make a video from one sentence' })).toBeTruthy();
   expect(window.location.hash).toBe('');
   expect(api.count('POST', '/api/v1/session/pair')).toBe(1);
   expect(window.localStorage.length).toBe(0);
@@ -104,7 +104,7 @@ test('test_13_a_missing_session_is_told_and_the_screen_stays', async () => {
   expect(
     await screen.findByText('컴퓨터 화면에 보이는 연결 코드로 다시 열어 주세요.'),
   ).toBeTruthy();
-  expect(screen.getByRole('heading', { name: '어떤 영상을 만들까요?' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: '한 문장으로 영상을 만들어요' })).toBeTruthy();
 });
 
 test('test_13_a_rate_limited_pairing_keeps_its_message', async () => {

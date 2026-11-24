@@ -101,3 +101,11 @@
   outline: var(--focus-width) solid var(--ring);
   outline-offset: var(--focus-offset);
 }
+
+/* The conversation's scene target: a 44 white capsule with a 2px line, above the input box. */
+.chip.chip--target {
+  height: var(--size-control);
+  padding-inline: var(--space-16);
+  border-width: 2px;
+  background: var(--popover);
+}

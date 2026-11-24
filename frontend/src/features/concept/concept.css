@@ -22,11 +22,58 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   min-height: 0;
 }
 
+/* Between groups the canon keeps 18; the title row keeps 24 above the band. */
 .concept-content .scroll-pane__content {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 18px;
   padding: 22px 28px;
+}
+
+.concept-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 6px;
+}
+
+.concept-head__names {
+  min-width: 0;
+  flex: 1;
+}
+
+.concept-head__names h1 {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-size-title);
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.concept-head__topic {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 17px;
+  line-height: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.concept-head__scope {
+  margin-top: 6px;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: 18px;
+}
+
+/* The length and scene count picks ride 7 above the title line, on the bar's 44 rhythm. */
+.concept-head__fields {
+  display: flex;
+  flex: none;
+  gap: 8px;
+  margin-top: -7px;
 }
 
 /* One 672 line: the title row, the reference band, the card rows and the
@@ -46,7 +93,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 .concept-group {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 10px;
 }
 
 .concept-group__head {
@@ -55,6 +102,22 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.concept-group__title {
+  margin: 0;
+  color: var(--text-strong);
+  font-size: var(--font-size-body);
+  line-height: 20px;
+  font-weight: 700;
+}
+
+.concept-group__title small {
+  margin-inline-start: 4px;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: 18px;
+  font-weight: 400;
 }
 
 .concept-card-grid {
@@ -66,33 +129,55 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   gap: 12px;
 }
 
+/* A story card is a 216 x 266 face: the 200 x 200 body (150 picture, name, example) and the fine-tune toggle. */
 .concept-card-slot {
+  box-sizing: border-box;
   flex: 0 0 216px;
   width: 216px;
+  height: 266px;
+  padding: 8px;
+  border-radius: var(--radius-content);
+  background: transparent;
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
 }
 
-/* 216 x 266: 8 padding, 200 x 150 picture, 52 title and 44 description slots. */
+.concept-card-slot:hover:not([data-selected]) {
+  background: var(--state-hover-gray);
+}
+
+.concept-card-slot[data-selected] {
+  background: var(--surface-sunken);
+}
+
 .concept-card {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  width: 216px;
-  height: 266px;
-  padding: 8px;
+  width: 200px;
+  height: 200px;
+  padding: 0;
   border: 0;
-  border-radius: var(--radius-surface);
-  background: var(--surface-muted);
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
   text-align: start;
   cursor: pointer;
   transition: background-color var(--motion-state-duration) var(--motion-ease);
 }
 
-.concept-card:hover:not(:disabled):not([aria-pressed="true"]) {
+/* An art style tile is its own 216 x 216 face around the same body. */
+.concept-card--tile {
+  width: 216px;
+  height: 216px;
+  padding: 8px;
+  border-radius: var(--radius-content);
+}
+
+.concept-card--tile:hover:not(:disabled):not([aria-pressed="true"]) {
   background: var(--state-hover-gray);
 }
 
-.concept-card[aria-pressed="true"] {
+.concept-card--tile[aria-pressed="true"] {
   background: var(--surface-sunken);
 }
 
@@ -112,28 +197,33 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 
 .concept-card__picture {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: center;
   width: 200px;
   height: 150px;
-  border-radius: var(--radius-inset);
-  background: var(--surface);
+  border-radius: var(--radius-media);
+  background: var(--surface-sunken);
   color: var(--sub);
 }
 
+.concept-card[aria-pressed="true"] .concept-card__picture {
+  background: var(--surface-muted);
+}
+
 .concept-card__title {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
+  flex: none;
   width: 200px;
-  height: 52px;
-  margin-top: 4px;
+  height: 20px;
+  margin-top: 8px;
   overflow: hidden;
   color: var(--sub);
-  font-size: 17px;
-  line-height: 26px;
+  font-size: var(--font-size-body);
+  line-height: 20px;
   font-weight: 400;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .concept-card[aria-pressed="true"] .concept-card__title {
@@ -142,16 +232,17 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 }
 
 .concept-card__description {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  display: block;
+  flex: none;
   width: 200px;
-  height: 44px;
+  height: 18px;
+  margin-top: 4px;
   overflow: hidden;
   color: var(--sub);
-  font-size: 15px;
-  line-height: 22px;
-  overflow-wrap: anywhere;
+  font-size: var(--font-size-small);
+  line-height: 18px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .concept-tune-toggle {
@@ -160,16 +251,21 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   justify-content: space-between;
   width: 200px;
   height: 44px;
-  margin: 8px 8px 0;
+  margin-top: 6px;
   padding: 0 12px;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--surface-muted);
-  color: var(--text);
-  font-size: 15px;
+  background: transparent;
+  color: var(--sub);
+  font-size: var(--font-size-small);
   line-height: 22px;
+  font-weight: 700;
   text-align: start;
   cursor: pointer;
+}
+
+.concept-tune-toggle[aria-expanded="true"] {
+  color: var(--text);
 }
 
 .concept-tune-toggle:hover:not(:disabled) {
@@ -184,18 +280,16 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   transform: rotate(180deg);
 }
 
-/* The floating board spans the card row, below the selected card. */
+/* The floating board spans the card row, 6 below the selected card. */
 .concept-tune-panel {
   position: absolute;
-  top: 324px;
+  top: 272px;
   left: 0;
   z-index: var(--z-menu);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   width: 100%;
-  height: 172px;
   padding: 12px;
   border-radius: var(--radius-surface);
   background: var(--surface);
@@ -208,7 +302,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   flex: none;
   align-items: center;
   gap: 8px;
-  height: 38px;
+  padding: 0 4px 8px;
 }
 
 .concept-tune-panel__mark {
@@ -216,10 +310,10 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 24px;
-  height: 24px;
+  width: 44px;
+  height: 33px;
   border-radius: var(--radius-inset);
-  background: var(--surface-muted);
+  background: var(--surface-sunken);
   color: var(--sub);
 }
 
@@ -227,38 +321,51 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  line-height: 20px;
+  font-size: var(--font-size-small);
+  line-height: 22px;
 }
 
 .concept-tune-panel__names strong {
-  font-size: 15px;
   font-weight: 700;
 }
 
 .concept-tune-panel__names span {
   color: var(--sub);
-  font-size: 12px;
-  line-height: 18px;
 }
 
 .concept-tune-panel__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px 16px;
 }
 
 .concept-tune-chip {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 44px;
-  padding: 0 12px;
+  padding: 0 10px;
   overflow: hidden;
   border-radius: var(--radius-pill);
   background: var(--surface-muted);
-  font-size: 15px;
-  line-height: 22px;
+  font-size: var(--font-size-small);
+  line-height: 18px;
+}
+
+.concept-tune-chip:hover:not(:has(select:disabled)) {
+  background: var(--state-hover-gray);
+}
+
+/* The title row's picks size to their words: name, 12, bold value, 12, chevron. */
+.concept-tune-chip--head {
+  display: inline-flex;
+  gap: 12px;
+  padding: 0 14px 0 16px;
+}
+
+.concept-tune-chip--head .concept-tune-chip__value {
+  flex: none;
 }
 
 .concept-tune-chip__label {
@@ -298,12 +405,11 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 .concept-reference-band {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
-  height: 80px;
-  padding: 0 20px;
+  padding: 16px;
   border: 0;
   border-radius: var(--radius-content);
   background: var(--surface-muted);
@@ -332,6 +438,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 .concept-reference-band__text {
   display: flex;
   min-width: 0;
+  flex: 1;
   flex-direction: column;
 }
 
@@ -421,24 +528,100 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
-  padding: var(--layout-gutter);
+  padding: 16px var(--layout-gutter) 24px;
   background: var(--surface);
 }
 
 .concept-dialog {
-  max-width: min(640px, calc(100vw - 32px));
+  box-sizing: border-box;
+  max-width: min(var(--size-dialog), calc(100vw - 32px));
   width: 100%;
   max-height: calc(100dvh - 32px);
   margin: auto;
+  padding: 24px;
   overflow: hidden;
   border: 0;
-  border-radius: 24px;
+  border-radius: var(--radius-surface);
   background: var(--surface);
+  box-shadow: var(--shadow-float);
   color: var(--text);
+  word-break: keep-all;
 }
 
 .concept-dialog__pane {
-  max-height: calc(100dvh - 32px);
+  max-height: calc(100dvh - 80px);
+}
+
+.concept-dialog__body {
+  display: flex;
+  flex-direction: column;
+}
+
+.concept-dialog__title {
+  margin: 0 0 10px;
+  color: var(--text-strong);
+  font-size: var(--font-size-title);
+  line-height: 26px;
+  font-weight: 700;
+}
+
+.concept-dialog__help {
+  margin: 0;
+  color: var(--sub);
+  font-size: var(--font-size-body);
+  line-height: 26px;
+}
+
+.concept-dialog__values {
+  margin: 0;
+}
+
+.concept-dialog__values > div {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  padding: 10px 0;
+  font-size: var(--font-size-body);
+  line-height: 26px;
+}
+
+.concept-dialog__values dt {
+  flex: none;
+  width: 128px;
+  color: var(--sub);
+}
+
+.concept-dialog__values dd {
+  margin: 0;
+}
+
+.concept-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 22px;
+}
+
+.concept-dialog__cancel {
+  height: var(--size-control);
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--surface-muted);
+  color: var(--text);
+  font-size: var(--font-size-small);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--motion-state-duration) var(--motion-ease);
+}
+
+.concept-dialog__cancel:hover {
+  background: var(--state-hover-gray);
+}
+
+.concept-dialog__cancel:focus-visible {
+  outline: 2px solid var(--text-strong);
+  outline-offset: 2px;
 }
 
 .concept-dialog::backdrop {
@@ -447,7 +630,9 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 
 @media (prefers-reduced-motion: reduce) {
   .concept-card,
+  .concept-card-slot,
   .concept-reference-band,
+  .concept-dialog__cancel,
   .concept-tune-toggle svg {
     transition: none;
   }
@@ -466,6 +651,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 
   .concept-card-slot {
     width: 100%;
+    height: auto;
     flex-basis: 100%;
   }
 
