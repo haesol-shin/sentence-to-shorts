@@ -51,6 +51,16 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   font-weight: 700;
 }
 
+.concept-head__topic {
+  margin: 0;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: 17px;
+  line-height: 26px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .concept-head__scope {
   margin-top: 6px;
   color: var(--sub);

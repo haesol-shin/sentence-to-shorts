@@ -377,6 +377,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
       <ScrollPane label={t('concept.document')} jumpLabel={t('shell.scroll.jump')} className="concept-content">
         <header className="concept-head">
           <div className="concept-head__names"><h1>{t('concept.title')}</h1>
+            <p className="concept-head__topic">{doc.topic}</p>
             <p className="concept-head__scope">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>
           <div className="concept-head__fields">
             <TuneChip className="concept-tune-chip--head" name={t('concept.field.target_duration_s')} label={t('concept.head.duration')}
