@@ -4,6 +4,10 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 }
 
 .script-screen {
+  /* The dialogue line box height of the approved script picture; no token holds it. */
+  --script-line-h: 37px;
+  /* Lines and their buttons start under the scene name, past the grip. */
+  --script-indent: calc(var(--part-grip) + var(--space-8));
   box-sizing: border-box;
   display: flex;
   flex: 1 1 auto;
@@ -44,9 +48,13 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   min-height: 0;
 }
 
+.script-document-pane .scroll-pane__jump {
+  bottom: var(--space-8);
+}
+
 /*
- * The cards are the part's grey, so the jump control takes the secondary
- * button's state colors to stay visible over them.
+ * The jump control floats over the white cards, so it takes the secondary
+ * button's state colors to read as a button.
  */
 .script-document-pane .scroll-pane__jump .icon-button {
   background: var(--background);
@@ -69,49 +77,36 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  padding: var(--space-20) var(--space-24) var(--space-8);
+  padding: var(--space-16) var(--layout-gutter) 0;
+}
+
+.script-head-row {
+  display: flex;
+  min-height: var(--size-control);
+  align-items: center;
+  gap: var(--space-16);
 }
 
 .script-head h2 {
+  flex: 1 1 auto;
+  min-width: 0;
   margin: 0;
   color: var(--foreground);
   font-size: var(--font-size-title);
-  line-height: var(--line-height-title);
+  line-height: normal;
   font-weight: var(--font-weight-bold);
-}
-
-.script-topic {
-  margin: 0;
-  color: var(--foreground);
-}
-
-.script-summary {
-  margin: 0;
-  color: var(--sub);
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-small);
-  font-variant-numeric: tabular-nums;
 }
 
 .script-fields {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-16);
-  padding-top: var(--space-8);
+  justify-content: flex-end;
+  gap: var(--space-8);
 }
 
-.script-field {
-  display: flex;
-  min-width: 0;
-  flex: 0 1 auto;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-
-.script-field-label {
-  color: var(--sub);
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-small);
+/* The tone value keeps one width, so the head does not move when the tone changes. */
+.script-tone-field .field-trigger__value {
+  min-width: 51px;
 }
 
 .script-tone-note {
@@ -124,9 +119,10 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 .script-scenes {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-12);
   margin: 0;
-  padding: var(--space-8) var(--space-24) var(--space-36);
+  /* The first card starts 82 below the panel top, as the picture places it. */
+  padding: 22px var(--layout-gutter) var(--space-36);
   list-style: none;
 }
 
@@ -138,27 +134,34 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   border-radius: var(--radius-surface);
 }
 
-.script-scene[data-highlighted='true'] {
-  outline: var(--focus-width) solid var(--emphasis);
-  outline-offset: var(--focus-offset);
+/* The jumped-to scene takes the element grey, as the picture draws it. */
+.script-scene[data-highlighted='true'] .script-card {
+  background: var(--muted);
 }
 
 .script-card {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: var(--space-12);
-  padding: var(--space-20);
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-8) var(--space-12) var(--space-4);
+  border: var(--part-hairline) solid var(--accent);
   border-radius: var(--radius-surface);
-  background: var(--muted);
+  background: var(--surface);
+}
+
+.script-card[data-working='true'] {
+  border-color: transparent;
 }
 
 .script-card-head {
   display: flex;
-  min-height: var(--line-height-small);
+  min-height: var(--size-control);
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-8);
+  gap: var(--space-12);
+  font-size: var(--font-size-small);
+  line-height: normal;
 }
 
 .script-card-number {
@@ -166,39 +169,64 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   font-weight: var(--font-weight-bold);
 }
 
+.script-card-seconds {
+  color: var(--sub);
+  font-variant-numeric: tabular-nums;
+}
+
 .script-working {
   display: inline-flex;
   align-items: center;
   gap: var(--space-4);
-  color: var(--progress);
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-small);
+  margin-inline-start: var(--space-4);
+  color: var(--sub);
+  font-weight: var(--font-weight-bold);
 }
 
-.script-spinner {
+/*
+ * The picture draws the ring a little wider than the text and lets it reach
+ * back into the gap and past the 18px line, so the head row keeps its height.
+ */
+.script-working .script-spinner {
+  width: 22px;
+  height: 22px;
+  margin-block: calc(var(--space-4) / -2);
+  margin-inline-start: calc(var(--space-4) * -1);
   color: var(--emphasis);
 }
 
 .script-changed {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-4);
+  margin-inline-start: var(--space-4);
+  color: var(--sub);
+  font-weight: var(--font-weight-bold);
+}
+
+.script-changed svg {
+  flex: none;
+  color: var(--emphasis);
+  stroke-width: var(--icon-stroke);
 }
 
 .script-tools {
   display: flex;
   align-items: center;
   margin-left: auto;
-  /* The 44 controls may stand above the title's 22 line, so the title keeps
-     the card padding line. */
-  margin-block: calc((var(--line-height-small) - var(--size-control)) / 2);
+}
+
+.script-tools > :last-child {
+  margin-inline-start: var(--space-8);
 }
 
 .script-grip {
   display: inline-flex;
   width: var(--part-grip);
-  height: var(--part-grip);
+  height: var(--size-control);
   align-items: center;
   justify-content: center;
+  margin-inline-end: calc(var(--space-4) * -1);
   border: 0;
   border-radius: var(--radius-pill);
   background: transparent;
@@ -219,6 +247,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  margin-inline: var(--script-indent) var(--space-8);
 }
 
 .script-line {
@@ -227,21 +256,25 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   gap: var(--space-4);
 }
 
+/* The grey line box holds the text and, at its right end, the line's seconds. */
 .script-line-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-8);
+  padding-inline-end: var(--space-12);
+  border-radius: var(--radius-content);
+  background: var(--card);
 }
 
 .script-line-input {
   box-sizing: border-box;
   flex: 1 1 auto;
   min-width: 0;
-  min-height: var(--size-control);
-  padding: var(--space-8) var(--space-12);
+  min-height: var(--script-line-h);
+  padding-block: calc((var(--script-line-h) - var(--line-height-body)) / 2);
+  padding-inline: var(--space-12);
   border: 0;
   border-radius: var(--radius-content);
-  background: var(--card);
+  background: transparent;
   color: var(--foreground);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-body);
@@ -276,12 +309,11 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 
 .script-seconds {
   flex: none;
-  padding-top: var(--space-12);
-  color: var(--sub);
+  margin-block-start: calc((var(--script-line-h) - var(--line-height-small)) / 2);
+  color: var(--disabled-foreground);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
   font-variant-numeric: tabular-nums;
-  text-align: end;
 }
 
 .script-card-actions {
@@ -289,38 +321,47 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-8);
+  margin-block-start: var(--space-4);
   /* The pill's left edge lines up with the dialogue text inside the line box. */
+  margin-inline-start: var(--script-indent);
   padding-inline-start: var(--space-12);
 }
 
-.script-rewrite {
-  min-width: calc(var(--size-control) * 3);
-}
-
+/* A rewrite or tone proposal: the old lines struck through, then the new lines on the grey band. */
 .script-review {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
+  margin-inline: var(--script-indent) var(--space-8);
 }
 
 .script-review-lines {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-8);
   margin: 0;
-  padding-inline: var(--space-12);
+  padding: 0;
   color: var(--sub);
   list-style: none;
 }
 
-.script-review-lines li {
-  min-height: var(--line-height-body);
+.script-review-lines del,
+.script-review-new li {
+  box-sizing: border-box;
+  display: block;
+  min-height: var(--script-line-h);
+  padding-block: calc((var(--script-line-h) - var(--line-height-body)) / 2);
+  padding-inline: var(--space-12);
+  border-radius: var(--radius-content);
   overflow-wrap: anywhere;
 }
 
 .script-review-new {
-  background: var(--background);
   color: var(--foreground);
+}
+
+.script-review-new li {
+  background: var(--muted);
 }
 
 .script-review-actions {
@@ -328,36 +369,8 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: var(--space-8);
+  margin-block-start: var(--space-4);
   padding-inline-start: var(--space-12);
-}
-
-.script-tone {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.script-tone th,
-.script-tone td {
-  padding: var(--space-4) var(--space-8);
-  text-align: start;
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-
-.script-tone th {
-  color: var(--sub);
-  font-size: var(--font-size-small);
-  line-height: var(--line-height-small);
-  font-weight: var(--font-weight-regular);
-}
-
-.script-tone td:first-child {
-  color: var(--sub);
-}
-
-.script-tone td:last-child {
-  color: var(--foreground);
 }
 
 /* The working card carries a band that travels around its edge. */
@@ -370,7 +383,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 .script-card[data-working='true']::before {
   content: '';
   position: absolute;
-  inset: 0;
+  inset: calc(var(--part-hairline) * -1);
   padding: var(--focus-width);
   border-radius: inherit;
   background: conic-gradient(
@@ -400,7 +413,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-8);
-  padding: var(--layout-gutter);
+  padding: var(--space-16) var(--layout-gutter) var(--space-24);
   background: var(--surface);
 }
 

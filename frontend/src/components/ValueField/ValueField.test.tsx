@@ -49,6 +49,24 @@ describe('ValueField', () => {
     );
   });
 
+  test('test_10a_value_field_names_its_value_in_the_trigger_while_the_rows_keep_their_labels', () => {
+    render(
+      <ValueField
+        label="목소리"
+        name="목소리"
+        display="차분함"
+        items={ITEMS}
+        defaultValue="calm"
+        defaultOpen
+      />,
+    );
+
+    expect(screen.getByRole('combobox', { name: '목소리' }).textContent).toMatch(/^목소리차분함/u);
+    expect(screen.getByRole('option', { name: '차분한 목소리' }).textContent).toContain(
+      '차분한 목소리',
+    );
+  });
+
   test('test_w0_value_field_takes_index_values_and_hands_the_same_value_back', () => {
     const seen: number[] = [];
     const rows: readonly ValueFieldItem<number>[] = [

@@ -29,7 +29,7 @@ The conversation pane is not part of this feature. It reads `useScript()` and ca
 - `applyTone()` and `dismissTone()` for the tone decision (「✕ 모두 취소」, 「✓ 모두 적용」).
 - `applyRewrite()` and `dismissRewrite()` for the scene review (「✕ 취소」, 「✓ 적용」). The scene's own rewrite button repeats the request.
 - `addLine(id)` appends one empty line to a scene, up to the four-line cap the edit panel also uses.
-- `focusScene(id)` for a changed-scene jump; the screen scrolls to that scene and frames it in blue.
+- `focusScene(id)` for a changed-scene jump; the screen scrolls to that scene and gives its card the grey element face.
 - `clearTarget()` for the 「장면 N ×」 chip. `targetSceneId` names the scene and `sceneNumber(document, id)` gives its number.
 - `rewriteScene(id)` and `stopRewrite()` when a chat instruction targets a scene.
 - `undo()` for the one step back; the top bar's undo button calls it, the screen has no undo button of its own.
