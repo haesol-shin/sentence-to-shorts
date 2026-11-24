@@ -315,10 +315,7 @@ test('test_10a_the_edit_composer_has_no_example_chips', async ({ page }) => {
   await openEdit(page);
   const composer = page.locator('[data-slot="conversation"] [data-slot="composer"]');
   await expect(composer).toBeVisible();
-  await expect(composer.locator('textarea')).toHaveAttribute(
-    'placeholder',
-    '장면 1에 대해 요청해요.',
-  );
+  await expect(composer.locator('textarea')).toHaveAttribute('placeholder', '무엇을 바꿀까요?');
   await expect(composer.locator('[data-slot="composer-action"]')).toHaveCount(0);
   await expect(composer.locator('select')).toHaveCount(0);
 });
@@ -386,7 +383,8 @@ test('test_23_the_edit_widths_match_the_approved_layout', async ({ page }, testI
 
 test('test_10a_a_cleared_target_stays_cleared_after_a_field_change', async ({ page }) => {
   await openEdit(page);
-  const composer = page.locator('[data-slot="conversation"] [data-slot="composer"]');
+  // The scene target chip sits above the input box, inside the conversation face.
+  const composer = page.locator('[data-slot="conversation"]');
   await expect(composer.locator('[data-slot="composer-target"]')).toContainText('장면 1');
   await composer.getByRole('button', { name: '대상 지우기' }).click();
   await page.getByRole('group', { name: '위치' }).getByRole('button', { name: '오른쪽 위' }).click();
@@ -396,7 +394,7 @@ test('test_10a_a_cleared_target_stays_cleared_after_a_field_change', async ({ pa
 
 test('test_10a_the_scene_target_chip_can_be_cleared_and_sends', async ({ page }) => {
   await openEdit(page);
-  const composer = page.locator('[data-slot="conversation"] [data-slot="composer"]');
+  const composer = page.locator('[data-slot="conversation"]');
   const input = composer.locator('textarea');
   await expect(composer.locator('[data-slot="composer-target"]')).toContainText('장면 1');
   await expect(input).toBeEnabled();

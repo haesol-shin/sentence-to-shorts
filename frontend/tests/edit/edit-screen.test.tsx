@@ -406,7 +406,7 @@ test('test_10a_the_edit_composer_targets_a_scene_and_sends', async () => {
   expect(target).toBeTruthy();
   const input = screen.getByRole('textbox', { name: '편집 요청' }) as HTMLTextAreaElement;
   expect(input.disabled).toBe(false);
-  expect(input.getAttribute('placeholder')).toContain('장면 1');
+  expect(input.getAttribute('placeholder')).toBe('무엇을 바꿀까요?');
   fireEvent.change(input, { target: { value: '이 장면을 더 짧게' } });
   fireEvent.click(screen.getByRole('button', { name: '보내기' }));
   expect(await screen.findByText('바꿀 값이 없어요.', {}, { timeout: 3000 })).toBeTruthy();

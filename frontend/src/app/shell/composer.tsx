@@ -9,7 +9,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Check, FileText, Film, Info, Link2, Music, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, FileText, Film, Info, Link2, Music, Plus, X } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
 import { chatProposal } from '@/features/concept/model';
@@ -170,6 +170,56 @@ function AttachmentChip({
       >
         {[attachment.name, ...detail].join(' · ')}
       </Chip>
+    </span>
+  );
+}
+
+/** The native list stays the control; it covers the visible field so a click lands on it. */
+const FIELD_SELECT =
+  'absolute inset-0 size-full cursor-pointer appearance-none opacity-0 disabled:cursor-not-allowed';
+
+/**
+ * A pick in the composer's button row: the field name, the chosen value in bold
+ * and a chevron, on the grey capsule. The select inside carries the name and the
+ * choice for assistive technology.
+ */
+function ComposerField({
+  kind,
+  name,
+  value,
+  disabled,
+  children,
+}: {
+  kind: 'language' | 'duration';
+  name: string;
+  value: string;
+  disabled: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      data-slot="composer-action"
+      data-kind={kind}
+      className={cn(
+        'relative inline-flex h-9 min-w-0 shrink items-center gap-2 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-3 text-[15px] whitespace-nowrap has-[select:focus-visible]:outline-2 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-[var(--ring)]',
+        !disabled && 'hover:bg-[var(--state-hover-gray)]',
+      )}
+    >
+      <span aria-hidden className={disabled ? 'text-[var(--text-disabled)]' : 'text-[var(--text-muted)]'}>
+        {name}
+      </span>
+      <span
+        aria-hidden
+        className={cn('min-w-0 truncate font-bold', disabled ? 'text-[var(--text-disabled)]' : 'text-[var(--text-strong)]')}
+      >
+        {value}
+      </span>
+      <ChevronDown
+        aria-hidden
+        size={20}
+        className={cn('shrink-0', disabled ? 'text-[var(--text-disabled)]' : 'text-[var(--text-muted)]')}
+      />
+      {children}
     </span>
   );
 }
@@ -510,8 +560,54 @@ function ComposerBox({
         WebkitMaskImage: 'linear-gradient(to bottom, transparent 0, black 20px)',
       }
     : undefined;
+  // A chat box with no language or length to pick is one row: plus, the text, send.
+  const inline = face === 'chat' && language === undefined && duration === undefined && options === undefined;
 
-  return (
+  const textField = (
+    <textarea
+      ref={textareaRef}
+      aria-label={label}
+      placeholder={placeholder}
+      value={value}
+      disabled={busy}
+      rows={1}
+      data-slot="composer-input"
+      onChange={(event) => onChange?.(event.target.value)}
+      onKeyDown={onKeyDown}
+      onFocus={(event) => {
+        // A browser that only shrinks the visual viewport still scrolls the
+        // focused input into sight; the dock handles the rest of the inset.
+        event.currentTarget.scrollIntoView?.({ block: 'nearest' });
+      }}
+      style={maskStyle}
+      className={cn(
+        'block max-h-[260px] resize-none overflow-y-auto bg-transparent text-[17px] leading-6 text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed',
+        face === 'first' ? 'px-2 pt-1.5 pb-3.5' : 'px-1 py-2.5',
+        inline ? 'min-w-0 flex-1' : 'w-full',
+      )}
+    />
+  );
+
+  // The scene target rides above the box as its own chip, so the box keeps one height.
+  const targetSeat = targetChip === null ? null : (
+    <span data-slot="composer-target" data-kind="scene" className="inline-flex max-w-full">
+      <Chip
+        className="chip--target"
+        remove={
+          <CloseButton
+            size="sm"
+            label={targetChip.removeLabel}
+            disabled={submitting}
+            onClick={targetChip.onRemove}
+          />
+        }
+      >
+        {targetChip.label}
+      </Chip>
+    </span>
+  );
+
+  const box = (
     <div
       ref={rootRef}
       data-slot="composer"
@@ -524,30 +620,14 @@ function ComposerBox({
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       className={cn(
-        'relative flex w-full flex-col gap-2 border-2 border-transparent bg-[var(--surface-muted)] p-3 transition-colors',
-        face === 'first' ? 'rounded-[var(--radius-input)]' : 'rounded-[var(--radius-composer)]',
+        'relative flex w-full flex-col border border-[var(--border)] bg-[var(--surface)] transition-colors',
+        face === 'first' ? 'rounded-[var(--radius-input)] p-3' : 'rounded-[var(--radius-composer)] p-1.5',
         dragging && 'border-dashed border-[var(--text-muted)]',
-        className,
+        targetSeat === null && className,
       )}
     >
-      {card === null && targetChip === null && attachments.length === 0 ? null : (
-        <div data-slot="composer-attachments" className="flex min-w-0 flex-col items-start gap-1">
-          {targetChip === null ? null : (
-            <span data-slot="composer-target" data-kind="scene" className="inline-flex max-w-full">
-              <Chip
-                remove={
-                  <CloseButton
-                    size="sm"
-                    label={targetChip.removeLabel}
-                    disabled={submitting}
-                    onClick={targetChip.onRemove}
-                  />
-                }
-              >
-                {targetChip.label}
-              </Chip>
-            </span>
-          )}
+      {card === null && attachments.length === 0 ? null : (
+        <div data-slot="composer-attachments" className="mb-2 flex min-w-0 flex-col items-start gap-1">
           {card === null ? null : (
             <span data-slot="composer-action" data-kind="card" className="inline-flex max-w-full">
               <Chip
@@ -581,27 +661,10 @@ function ComposerBox({
         </div>
       )}
 
-      <textarea
-        ref={textareaRef}
-        aria-label={label}
-        placeholder={placeholder}
-        value={value}
-        disabled={busy}
-        rows={1}
-        data-slot="composer-input"
-        onChange={(event) => onChange?.(event.target.value)}
-        onKeyDown={onKeyDown}
-        onFocus={(event) => {
-          // A browser that only shrinks the visual viewport still scrolls the
-          // focused input into sight; the dock handles the rest of the inset.
-          event.currentTarget.scrollIntoView?.({ block: 'nearest' });
-        }}
-        style={maskStyle}
-        className="block max-h-[260px] w-full resize-none overflow-y-auto bg-transparent px-0 py-2.5 text-[17px] leading-6 text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed"
-      />
+      {inline ? null : textField}
 
       {linkOpen ? (
-        <div data-slot="composer-link" className="flex flex-col gap-2 text-[15px]">
+        <div data-slot="composer-link" className="my-2 flex flex-col gap-2 text-[15px]">
           <p className="text-[var(--text-muted)]">{t('concept.composer.linkWarning')}</p>
           <input
             aria-label={t('concept.composer.linkLabel')}
@@ -653,7 +716,7 @@ function ComposerBox({
       ) : null}
 
       {error === null ? null : (
-        <p role="alert" data-slot="composer-error" className="text-[15px] text-[var(--text)]">
+        <p role="alert" data-slot="composer-error" className="my-2 text-[15px] text-[var(--text)]">
           {error}
         </p>
       )}
@@ -663,7 +726,7 @@ function ComposerBox({
         // One row at every width: wrapping would drop the send button onto a
         // second line (WebKit sizes a select wider than Blink does) and make
         // the docked box taller than the room a phone keyboard leaves it.
-        className="flex min-w-0 items-center gap-2"
+        className={cn('flex min-w-0', inline ? 'items-end gap-1.5' : 'items-center gap-2')}
       >
         <div data-slot="composer-plus" data-hit={TOUCH_TARGET} className="relative shrink-0">
           <IconButton
@@ -726,6 +789,8 @@ function ComposerBox({
           ) : null}
         </div>
 
+        {inline ? textField : null}
+
         {options}
 
         {language === undefined ? null : onLanguageChange === undefined ? (
@@ -733,13 +798,18 @@ function ComposerBox({
             <Chip>{languageName(language)}</Chip>
           </span>
         ) : (
-          <span data-slot="composer-action" data-kind="language" className="inline-flex min-w-0 shrink">
+          <ComposerField
+            kind="language"
+            name={t('concept.composer.languageField')}
+            value={languageName(language)}
+            disabled={busy}
+          >
             <select
               aria-label={t('concept.composer.languageLabel')}
               value={language}
               disabled={busy}
               onChange={(event) => onLanguageChange(event.target.value as Language)}
-              className="h-9 w-full min-w-0 max-w-32 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+              className={FIELD_SELECT}
             >
               {LANGUAGES.map((code) => (
                 <option key={code} value={code}>
@@ -747,7 +817,7 @@ function ComposerBox({
                 </option>
               ))}
             </select>
-          </span>
+          </ComposerField>
         )}
 
         {duration === undefined ? null : onDurationChange === undefined ? (
@@ -755,13 +825,18 @@ function ComposerBox({
             <Chip>{durationName(duration)}</Chip>
           </span>
         ) : (
-          <span data-slot="composer-action" data-kind="duration" className="inline-flex min-w-0 shrink">
+          <ComposerField
+            kind="duration"
+            name={t('concept.composer.durationField')}
+            value={durationName(duration)}
+            disabled={busy}
+          >
             <select
               aria-label={t('concept.composer.durationLabel')}
               value={duration}
               disabled={busy}
               onChange={(event) => onDurationChange(Number(event.target.value))}
-              className="h-9 w-full min-w-0 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-2.5 text-[15px] text-[var(--text)] disabled:cursor-not-allowed disabled:text-[var(--text-disabled)]"
+              className={FIELD_SELECT}
             >
               {DURATION_VALUES.map((seconds) => (
                 <option key={seconds} value={seconds}>
@@ -769,13 +844,19 @@ function ComposerBox({
                 </option>
               ))}
             </select>
-          </span>
+          </ComposerField>
         )}
 
         <div
           data-slot="composer-send"
           data-hit={TOUCH_TARGET}
-          className="ml-auto flex size-11 shrink-0 items-center justify-center"
+          // The 44 target reaches 6 past the round mark, so the mark ends on the box's inner edge.
+          // On the first screen the mark also sits on the row's bottom edge.
+          className={cn(
+            'flex size-11 shrink-0 justify-center -mr-1.5',
+            inline ? '-ml-1.5 items-center' : 'ml-auto',
+            !inline && (face === 'first' ? 'items-end' : 'items-center'),
+          )}
         >
           {onCancel !== undefined && (cancelActive || disabled) ? (
             <SendButton
@@ -829,6 +910,14 @@ function ComposerBox({
         className="hidden"
         onChange={(event) => onFileInput('text', event)}
       />
+    </div>
+  );
+
+  if (targetSeat === null) return box;
+  return (
+    <div className={cn('flex w-full flex-col items-start gap-3', className)}>
+      {targetSeat}
+      {box}
     </div>
   );
 }
@@ -931,7 +1020,7 @@ function EditComposer({
         {...rest}
         face="chat"
         label={rest.label}
-        placeholder={number > 0 ? t('edit.composer.placeholderScene', { number }) : t('edit.composer.placeholder')}
+        placeholder={t('edit.composer.placeholder')}
         sendLabel={rest.sendLabel}
         onCancel={edit.chatBusy ? edit.cancelChat : undefined}
         cancelActive={edit.chatBusy}
@@ -996,7 +1085,7 @@ function ScriptComposer({
             face="chat"
             value=""
             disabled
-            placeholder={number === null ? rest.placeholder : t('edit.composer.placeholderScene', { number })}
+            placeholder={rest.placeholder}
             targetChip={number === null ? null : {
               label: t('edit.chat.target', { number }),
               removeLabel: t('edit.chat.targetRemove'),
