@@ -84,10 +84,9 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   max-width: 100%;
 }
 
-/* Card faces use the same grey as the jump control; the floating shadow keeps
-   the 44 round control readable over them without changing the shared part. */
-.concept-content .scroll-pane__jump .icon-button {
-  box-shadow: var(--shadow-float);
+/* The jump control sits 8 above the footer and flat, as the canon draws it. */
+.concept-content .scroll-pane__jump {
+  bottom: var(--space-8);
 }
 
 .concept-group {
@@ -243,6 +242,30 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* A coming-soon tile: the picture fades and the tag stays sharp on a white chip
+   16 in from the corner. The 10 side padding is the canon's own value. */
+.concept-card[data-soon] {
+  position: relative;
+  cursor: default;
+}
+
+.concept-card[data-soon] .concept-card__picture {
+  opacity: 0.45;
+}
+
+/* The shared tag keeps its 26 pill; the tile sets it on white in the sub colour. */
+.concept-card .concept-card__tag {
+  position: absolute;
+  top: var(--space-16);
+  right: var(--space-16);
+  gap: 0;
+  padding-inline: 10px;
+  background: var(--surface);
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  font-weight: 700;
 }
 
 .concept-tune-toggle {

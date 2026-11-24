@@ -4,6 +4,7 @@ import { Check, ChevronDown, ChevronRight, Image, LockKeyhole, Video, X } from '
 import { Button } from '@/components/Button/Button';
 import { Chip } from '@/components/Chip/Chip';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
+import { Tag } from '@/components/Tag/Tag';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, STORY_CARD_ORDER, visibleCardCount } from './cards';
@@ -18,6 +19,8 @@ import './concept.css';
 
 const STORIES = STORY_CARD_ORDER;
 const SLOTS: Slot[] = ['body', 'face', 'hair', 'hat', 'outfit', 'prop'];
+// Art styles the canon shows as coming soon beside the built-in one; they cannot be picked yet.
+const SOON_STYLES = ['cutout', 'sketch'] as const;
 
 export interface EntryComposerProps {
   label: string;
@@ -181,15 +184,18 @@ function CardGrid({ children }: { children: ReactNode }) {
 
 /**
  * A picture card. A story card's body sits bare inside its slot, which carries
- * the face; a tile (art style) is its own 216 face.
+ * the face; a tile (art style) is its own 216 face. A `tag` marks a tile that
+ * cannot be picked yet.
  */
-function PictureCard({ title, description, selected, disabled, onClick, tile = false }: {
+function PictureCard({ title, description, selected, disabled, onClick, tile = false, tag }: {
   title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void; tile?: boolean;
+  tag?: string;
 }) {
   return (
     <button type="button" className={tile ? 'concept-card concept-card--tile' : 'concept-card'} aria-label={title} title={title}
-      aria-pressed={selected} disabled={disabled} onClick={onClick}>
+      aria-pressed={selected} disabled={disabled} onClick={onClick} data-soon={tag === undefined ? undefined : ''}>
       <span className="concept-card__picture"><Image aria-hidden size={32} /></span>
+      {tag === undefined ? null : <Tag className="concept-card__tag">{tag}</Tag>}
       <span className="concept-card__title">{clampCardText(title)}</span>
       <span className="concept-card__description">{clampCardText(description ?? '', CARD_DESCRIPTION_LIMIT)}</span>
     </button>
@@ -402,7 +408,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         </button>
         <section aria-labelledby="concept-story-title" className="concept-group">
           <h2 id="concept-story-title" className="concept-group__title">
-            <span>{t('concept.story')} <small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+            <span>{t('concept.story')}<small aria-hidden="true">{t('concept.chooseOne')}</small></span>
           </h2>
           <CardGrid>
             {STORIES.map((id) => (
@@ -416,7 +422,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         <section aria-labelledby="concept-style-title" className="concept-group">
           <div className="concept-group__head">
             <h2 id="concept-style-title" className="concept-group__title">
-              <span>{t('concept.style')} <small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+              <span>{t('concept.style')}<small aria-hidden="true">{t('concept.chooseOne')}</small></span>
             </h2>
             <div className="flex flex-wrap gap-1">
               <Button variant="ghost" disabled={frozen} onClick={() => setEntry('style')}>{t('concept.entry.style')}</Button>
@@ -429,6 +435,11 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
                 description={t(item.manifest.origin === 'builtin' ? 'concept.style.builtin' : 'concept.style.mine')}
                 selected={settings.visual.art_style.id === item.ref.id} disabled={frozen}
                 onClick={() => chooseConcept('/visual/art_style', item.ref)} />
+            ))}
+            {SOON_STYLES.map((id) => (
+              <PictureCard key={id} tile title={t(`concept.style.soon.${id}`)}
+                description={t(`concept.style.soon.${id}.description`)} tag={t('concept.style.soon')}
+                selected={false} disabled onClick={() => undefined} />
             ))}
           </CardGrid>
           <div className="concept-fields">

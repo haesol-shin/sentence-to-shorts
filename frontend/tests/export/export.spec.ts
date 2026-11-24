@@ -4,11 +4,15 @@ const SCENE_CARD = '[data-slot="scene-column"] [data-slot="scene-card"]';
 const EXPORT_STAGE = '[data-slot="stage-panel"][data-stage="export"]';
 const TOP_SAVE = '[data-slot="top-bar"] [data-slot="next-action"]';
 
+/** Opens a step from the phone menu or the desktop tabs; export opens from the edit step's make action. */
 async function openStage(page: Page, label: string): Promise<void> {
   const menu = page.getByRole('button', { name: '단계 열기' });
   if (await menu.isVisible()) {
     await menu.click();
     await page.getByRole('menuitem', { name: label, exact: true }).click();
+  } else if (label === '내보내기') {
+    await page.locator(TOP_SAVE).click();
+    await page.getByRole('dialog', { name: '장면 확인' }).getByRole('button', { name: '영상 만들기' }).click();
   } else {
     await page
       .locator('[data-slot="stage-indicator"]')

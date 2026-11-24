@@ -23,8 +23,7 @@ test('test_23_captures_the_edit_screen_at_this_width', async ({ page }, testInfo
   await page.getByRole('textbox', { name: '만들고 싶은 영상을 한 문장으로 적어 주세요' }).fill('커피를 고르는 세 가지 기준');
   await page.getByRole('button', { name: '보내기' }).click();
   await expect(page.getByRole('heading', { name: '컨셉' })).toBeVisible();
-  await page.getByRole('button', { name: '단계 열기' }).click();
-  await page.getByRole('menuitem', { name: '편집' }).click();
+  await page.locator('[data-slot="stage-indicator"]').getByRole('button', { name: '편집' }).click();
   await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
 
   const width = page.viewportSize()?.width ?? 0;

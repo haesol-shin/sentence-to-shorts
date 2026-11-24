@@ -109,7 +109,7 @@ export function FirstScreen({
           disabled={submitting}
         />
         <div className="flex flex-col gap-2.5">
-          <h2 className="flex items-baseline justify-between gap-3 text-[17px] leading-5 font-bold text-[var(--text-strong)]">
+          <h2 className="flex items-baseline justify-between text-[17px] leading-5 font-bold text-[var(--text-strong)]">
             <span>{t('shell.first.cardsTitle')}</span>
             <small className="text-[15px] leading-5 font-normal text-[var(--text-muted)]">{t('shell.first.cardsHint')}</small>
           </h2>

@@ -2,12 +2,20 @@ import { expect, test, type Page } from '@playwright/test';
 
 const EXPORT_STAGE = '[data-slot="stage-panel"][data-stage="export"]';
 
-/** Opens a step from the stage menu, or from the indicator when the menu is not drawn. */
+/**
+ * Opens a step from the stage menu, or from the desktop tabs when the menu is not
+ * drawn. Export has no tab: it opens from the edit step's make action.
+ */
 async function openStage(page: Page, label: string): Promise<void> {
   const menu = page.getByRole('button', { name: '단계 열기' });
   if (await menu.isVisible()) {
     await menu.click();
     await page.getByRole('menuitem', { name: label, exact: true }).click();
+    return;
+  }
+  if (label === '내보내기') {
+    await page.locator('[data-slot="top-bar"] [data-slot="next-action"]').click();
+    await page.getByRole('dialog', { name: '장면 확인' }).getByRole('button', { name: '영상 만들기' }).click();
     return;
   }
   await page

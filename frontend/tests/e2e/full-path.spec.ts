@@ -76,9 +76,15 @@ async function sendSentence(page: Page): Promise<void> {
   await expect(page.getByText('커피를 고르는 기준')).toBeVisible({ timeout: 60_000 });
 }
 
+/** Opens a step from the desktop tabs or the phone menu; export opens from the edit step's make action. */
 async function openStage(page: Page, stage: string): Promise<void> {
   const flow = page.getByRole('navigation', { name: '단계' });
   if (await flow.isVisible()) {
+    if (stage === '내보내기') {
+      await page.locator('[data-slot="top-bar"] [data-slot="next-action"]').click();
+      await page.getByRole('dialog', { name: '장면 확인' }).getByRole('button', { name: '영상 만들기' }).click();
+      return;
+    }
     await flow.getByRole('button', { name: stage }).click();
     return;
   }
