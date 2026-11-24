@@ -71,11 +71,10 @@ test('test_4_invalid_combinations_block', async ({ page }) => {
 
 test('test_4_fine_tune_panel_attached_to_selected_card_and_values_stay_separate', async ({ page }) => {
   const concept = await start(page);
-  const itsLike = concept.getByRole('button', { name: '○○로 치면', exact: true });
   const whatIf = concept.getByRole('button', { name: '만약 ~라면?', exact: true });
   const panel = await openTune(concept, '○○로 치면');
   const rowBox = await concept.locator('.concept-card-grid').first().boundingBox();
-  const cardBox = await concept.locator('.concept-card-slot', { has: itsLike }).boundingBox();
+  const cardBox = await concept.locator('.concept-card-slot[data-card="its_like"]').boundingBox();
   const panelBox = await panel.boundingBox();
   expect(rowBox).not.toBeNull();
   expect(cardBox).not.toBeNull();
@@ -217,8 +216,9 @@ test('test_4_cards_have_fixed_height_selection_and_no_outline', async ({ page })
   const concept = await start(page);
   const selected = concept.getByRole('button', { name: '딱 3가지만', exact: true });
   const other = concept.getByRole('button', { name: '○○로 치면', exact: true });
-  const selectedFace = concept.locator('.concept-card-slot', { has: selected });
-  const otherFace = concept.locator('.concept-card-slot', { has: other });
+  const selectedFace = concept.locator('.concept-card-slot[data-card="just_three"]');
+  const otherFace = concept.locator('.concept-card-slot[data-card="its_like"]');
+  await page.mouse.move(0, 0);
   const box = await selectedFace.boundingBox();
   expect(box).not.toBeNull();
   expect(Math.round(box!.width)).toBe(216);
@@ -233,7 +233,7 @@ test('test_4_cards_have_fixed_height_selection_and_no_outline', async ({ page })
   expect(Math.round(descriptionBox!.height)).toBe(18);
   expect(await selected.evaluate((node) => getComputedStyle(node).borderTopWidth)).toBe('0px');
   expect(await selectedFace.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgb(229, 232, 235)');
-  expect(await otherFace.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgba(0, 0, 0, 0)');
+  await expect(otherFace).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   expect(await selected.locator('.concept-card__title').evaluate((node) => getComputedStyle(node).fontWeight)).toBe('700');
   expect(await other.locator('.concept-card__title').evaluate((node) => getComputedStyle(node).fontWeight)).toBe('400');
   await expect(selected).toHaveAttribute('title', '딱 3가지만');
