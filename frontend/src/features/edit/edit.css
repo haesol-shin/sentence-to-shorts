@@ -88,7 +88,9 @@
   line-height: 20px;
 }
 
+/* Two values of one group share a row, as the canon scene form draws them. */
 .edit-field-group .settings-row__control {
+  gap: var(--space-12);
   margin-inline-start: 0;
 }
 

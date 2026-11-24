@@ -685,7 +685,8 @@ class MockEditApi implements EditApi {
       const existing = view.build.scenes[sceneId];
       if (existing === undefined) {
         view.build.scenes[sceneId] = { still: missingArtifact(), tts: {}, timing: missingArtifact(), layer: null, clip: missingArtifact() };
-      } else if (existing.still.state === 'fresh') {
+      } else if (existing.still.state === 'fresh' && existing.still.artifact?.id.startsWith('data:image/') !== true) {
+        // A recorded artifact id points at a file this mock cannot serve; a mock picture is shown as it is.
         existing.still = { ...existing.still, artifact: { id: MOCK_STILL, digest: MOCK_DIGEST, cache_key: MOCK_DIGEST } };
       }
     }

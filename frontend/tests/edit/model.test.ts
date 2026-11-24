@@ -1,13 +1,11 @@
 import { describe, expect, test } from 'vitest';
 
 import {
-  POSITION_CELLS,
+  POSITION_CHOICES,
   adjacentEchoes,
-  anchorForCell,
   applyScenePatch,
   breaksFlow,
   changedFields,
-  cellForAnchor,
   duplicateScene,
   estimatedSeconds,
   insertScene,
@@ -31,13 +29,11 @@ describe('edit model', () => {
   });
 
   test('test_23_the_position_menu_keeps_old_anchors_on_the_bottom_row', () => {
-    expect(POSITION_CELLS).toHaveLength(9);
-    expect(cellForAnchor('left')).toMatchObject({ row: 2, column: 0 });
-    expect(cellForAnchor('center')).toMatchObject({ row: 2, column: 1 });
-    expect(cellForAnchor('right')).toMatchObject({ row: 2, column: 2 });
-    expect(anchorForCell(0, 0)).toBe('top_left');
-    expect(anchorForCell(1, 2)).toBe('middle_right');
-    expect(anchorForCell(2, 0)).toBe('left');
+    expect(POSITION_CHOICES.map((choice) => choice.anchor)).toEqual([
+      'top_left', 'top_center', 'top_right',
+      'middle_left', 'middle_center', 'middle_right',
+      'left', 'center', 'right',
+    ]);
   });
 
   test('test_23_one_scene_change_keeps_the_other_scenes', () => {

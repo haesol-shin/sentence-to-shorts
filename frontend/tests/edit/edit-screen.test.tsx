@@ -98,37 +98,47 @@ test('test_10a_the_edit_screen_lists_the_scene_cards', async () => {
   expect(screen.getAllByText('첫 줄').length).toBeGreaterThan(0);
 });
 
-test('test_23_the_position_grid_shows_nine_places_and_undoes', async () => {
-  await renderScreen();
-  const group = screen.getByRole('group', { name: '위치' });
-  expect(within(group).getAllByRole('button')).toHaveLength(9);
-  expect(within(group).getByRole('button', { name: '가운데 아래' }).getAttribute('aria-pressed')).toBe('true');
+function positionField() {
+  return screen.getByRole<HTMLButtonElement>('combobox', { name: '위치' });
+}
 
-  fireEvent.click(within(group).getByRole('button', { name: '왼쪽 위' }));
-  await waitFor(() =>
-    expect(within(group).getByRole('button', { name: '왼쪽 위' }).getAttribute('aria-pressed')).toBe('true'),
-  );
+async function choosePosition(name: string) {
+  fireEvent.click(positionField());
+  const option = await screen.findByRole('option', { name });
+  fireEvent.pointerDown(option);
+  fireEvent.pointerUp(option);
+  fireEvent.mouseUp(option);
+  fireEvent.click(option);
+}
+
+test('test_23_the_position_menu_shows_nine_places_and_undoes', async () => {
+  await renderScreen();
+  expect(positionField().textContent).toContain('가운데 아래');
+  fireEvent.click(positionField());
+  expect(await screen.findAllByRole('option')).toHaveLength(9);
+  fireEvent.keyDown(document.activeElement ?? document.body, { key: 'Escape' });
+
+  await choosePosition('왼쪽 위');
+  await waitFor(() => expect(positionField().textContent).toContain('왼쪽 위'));
   await waitFor(() => expect((screen.getByRole('button', { name: '되돌리기' }) as HTMLButtonElement).disabled).toBe(false));
   fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
-  await waitFor(() =>
-    expect(within(group).getByRole('button', { name: '가운데 아래' }).getAttribute('aria-pressed')).toBe('true'),
-  );
+  await waitFor(() => expect(positionField().textContent).toContain('가운데 아래'));
 });
 
 test('test_23_undo_applies_only_once', async () => {
   await renderScreen();
   const undo = screen.getByRole('button', { name: '되돌리기' }) as HTMLButtonElement;
   expect(undo.disabled).toBe(true);
-  fireEvent.click(within(screen.getByRole('group', { name: '위치' })).getByRole('button', { name: '왼쪽 위' }));
+  await choosePosition('왼쪽 위');
   await waitFor(() => expect(undo.disabled).toBe(false));
   fireEvent.click(undo);
   await waitFor(() => expect(undo.disabled).toBe(true));
-  expect(within(screen.getByRole('group', { name: '위치' })).getByRole('button', { name: '가운데 아래' }).getAttribute('aria-pressed')).toBe('true');
+  expect(positionField().textContent).toContain('가운데 아래');
 });
 
 test('test_23_a_current_scene_change_does_not_leave_an_unseen_dot', async () => {
   const column = await renderScreen();
-  fireEvent.click(screen.getByRole('button', { name: '왼쪽 위' }));
+  await choosePosition('왼쪽 위');
   await waitFor(() => expect(column.querySelectorAll('[data-slot="scene-unseen"]')).toHaveLength(0));
 });
 
@@ -138,7 +148,7 @@ test('test_23_the_position_change_invalidates_the_still', async () => {
   const caption = document.querySelector('[data-slot="preview-caption"]');
   expect(caption?.textContent).toBe('첫 줄');
   expect(picture.contains(caption)).toBe(false);
-  fireEvent.click(screen.getByRole('button', { name: '왼쪽 위' }));
+  await choosePosition('왼쪽 위');
   await waitFor(() => expect(screen.queryByRole('img', { name: '장면 1 정지 그림, 훅' })).toBeNull());
   const note = await screen.findByText('장면 그림이 아직 없어요.', { selector: '[role="status"]' });
   expect(note.closest('[role="img"]')).toBeNull();
@@ -589,15 +599,11 @@ test('test_23_a_field_edit_survives_reopening', async () => {
   const api = createMockEditApi(view);
   const first = wrap(<EditScreen />, api);
   await screen.findByRole('heading', { name: '장면 1' });
-  fireEvent.click(screen.getByRole('button', { name: '왼쪽 위' }));
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: '왼쪽 위' }).getAttribute('aria-pressed')).toBe('true'),
-  );
+  await choosePosition('왼쪽 위');
+  await waitFor(() => expect(positionField().textContent).toContain('왼쪽 위'));
   first.unmount();
   cleanup();
   wrap(<EditScreen />, api);
   await screen.findByRole('heading', { name: '장면 1' });
-  await waitFor(() =>
-    expect(screen.getByRole('button', { name: '왼쪽 위' }).getAttribute('aria-pressed')).toBe('true'),
-  );
+  await waitFor(() => expect(positionField().textContent).toContain('왼쪽 위'));
 });

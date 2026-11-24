@@ -21,9 +21,7 @@ import { SoundTab } from './sound/sound-tab';
 import { EDIT_TABS } from './tabs';
 import type { EditValue, SceneBand, SceneFieldPatch } from './edit-context';
 import {
-  POSITION_CELLS,
-  anchorForCell,
-  cellForAnchor,
+  POSITION_CHOICES,
   estimatedSeconds,
   MAX_LINES_PER_SCENE,
   sceneNumber,
@@ -33,7 +31,6 @@ import {
   wordSpans,
   type BandField,
   type Line,
-  type PlacementAnchor,
   type Scene,
   type Span,
 } from './model';
@@ -53,74 +50,20 @@ function sceneCharacters(scene: Scene) {
  * token mounts it again, so a second change lights it a second time.
  */
 function Swept({
-  field,
+  fields,
   band,
   className,
   children,
 }: {
-  field: BandField;
+  fields: readonly BandField[];
   band: SceneBand | null;
   className?: string;
   children: ReactNode;
 }) {
-  const lit = band !== null && band.fields.includes(field);
+  const lit = band !== null && band.fields.some((field) => fields.includes(field));
   return (
     <div key={lit ? band.token : 'still'} className={cn('edit-sweep', className)} data-sweep={lit ? 'true' : undefined}>
       {children}
-    </div>
-  );
-}
-
-function PositionGrid({
-  value,
-  onChange,
-  disabled = false,
-}: {
-  value: PlacementAnchor;
-  onChange: (anchor: PlacementAnchor) => void;
-  disabled?: boolean;
-}) {
-  const { t } = useLocale();
-  const selected = cellForAnchor(value);
-  return (
-    <div
-      data-slot="position-grid"
-      role="group"
-      aria-label={t('edit.scene.position')}
-      className="grid grid-cols-3 gap-2"
-    >
-      {POSITION_CELLS.map((cell) => {
-        const active = cell.row === selected.row && cell.column === selected.column;
-        const anchor = anchorForCell(cell.row, cell.column);
-        return (
-          <button
-            key={anchor}
-            type="button"
-            aria-label={sceneVisualLabel(t, 'position', anchor)}
-            aria-pressed={active}
-            data-anchor={anchor}
-            disabled={disabled}
-            onClick={() => onChange(anchor)}
-            className={cn(
-              'focus-ring relative flex size-11 items-center justify-center rounded-[var(--radius-inset)] border-2 transition-colors duration-[var(--motion-short)]',
-              active
-                ? 'border-[var(--ring)] bg-[var(--state-selected)]'
-                : 'border-transparent bg-[var(--surface-muted)] hover:bg-[var(--state-hover-gray)]',
-              disabled && 'cursor-not-allowed opacity-50 hover:bg-[var(--surface-muted)]',
-            )}
-          >
-            <span
-              aria-hidden="true"
-              className={cn(
-                'block rounded-[var(--radius-inset)]',
-                active
-                  ? 'size-[10px] bg-[var(--emphasis)]'
-                  : 'size-[6px] bg-[var(--sub)]',
-              )}
-            />
-          </button>
-        );
-      })}
     </div>
   );
 }
@@ -293,6 +236,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
   const expressionItems = expressionIds.map((id) => ({
     value: id, label: sceneVisualLabel(t, 'expression', id, expressions),
   }));
+  const positionItems = POSITION_CHOICES.map((choice) => ({ value: choice.anchor, label: t(choice.labelKey) }));
   const moveItems = edit.scenes.map((_, index) => ({
     value: String(index),
     label: t('edit.scene.number', { number: index + 1 }),
@@ -310,7 +254,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         <p className="text-[15px] leading-[normal] text-[var(--text-muted)]">{t('edit.scene.scope')}</p>
       </div>
 
-      <Swept field="lines" band={band} className="flex flex-col gap-[10px]">
+      <Swept fields={['lines']} band={band} className="flex flex-col gap-[10px]">
         <h3 className="flex items-baseline justify-between text-[17px] leading-[normal] font-bold text-[var(--text-strong)]">
           {t('edit.scene.lines')}
           <small className="text-[15px] font-normal text-[var(--text-muted)]">
@@ -329,39 +273,37 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
       </Swept>
 
       {/* Each value names itself inside its field, so the group title is the only row label. */}
-      <Swept field="expression" band={band}>
+      <Swept fields={['expression', 'position']} band={band}>
         <SettingsRow
           className="edit-field-group"
           label={t('edit.scene.characterGroup')}
+          description={hasCharacter ? undefined : t('edit.scene.noCharacter')}
           control={
-            <ValueField
-              className="edit-scene-field"
-              label={t('edit.scene.expression')}
-              name={t('edit.scene.expression')}
-              items={expressionItems}
-              value={expression}
-              disabled={!hasCharacter}
-              onValueChange={(value) => apply({ kind: 'expression', value })}
-            />
+            <>
+              <ValueField
+                className="edit-scene-field"
+                label={t('edit.scene.expression')}
+                name={t('edit.scene.expression')}
+                items={expressionItems}
+                value={expression}
+                disabled={!hasCharacter}
+                onValueChange={(value) => apply({ kind: 'expression', value })}
+              />
+              <ValueField
+                className="edit-scene-field"
+                label={t('edit.scene.position')}
+                name={t('edit.scene.position')}
+                items={positionItems}
+                value={anchor}
+                disabled={!hasCharacter}
+                onValueChange={(next) => apply({ kind: 'position', anchor: next })}
+              />
+            </>
           }
         />
       </Swept>
 
-      <Swept field="position" band={band}>
-        <SettingsRow
-          label={t('edit.scene.position')}
-          description={hasCharacter ? t('edit.scene.positionHelp') : t('edit.scene.noCharacter')}
-          control={
-            <PositionGrid
-              value={anchor}
-              disabled={!hasCharacter}
-              onChange={(next) => apply({ kind: 'position', anchor: next })}
-            />
-          }
-        />
-      </Swept>
-
-      <Swept field="background" band={band}>
+      <Swept fields={['background']} band={band}>
         <SettingsRow
           className="edit-field-group"
           label={t('edit.scene.backgroundGroup')}
@@ -378,7 +320,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         />
       </Swept>
 
-      <Swept field="highlight" band={band} className="flex flex-col gap-2">
+      <Swept fields={['highlight']} band={band} className="flex flex-col gap-2">
         <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
           {t('edit.scene.highlight')}
         </h3>
@@ -388,7 +330,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         />
       </Swept>
 
-      <Swept field="sfx" band={band} className="flex flex-col gap-2">
+      <Swept fields={['sfx']} band={band} className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
             {t('edit.scene.sfx')}

@@ -134,7 +134,6 @@
   "scene.number": "장면 {number}",
   "scene.order": "장면 순서",
   "scene.position": "위치",
-  "scene.positionHelp": "아홉 자리 중 하나를 골라요.",
   "scene.reorderGrip": "순서 바꾸기: {label}",
   "scene.saveLine": "줄 저장",
   "scene.scope": "이 장면에만 적용돼요",

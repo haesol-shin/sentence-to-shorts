@@ -134,7 +134,6 @@
   "scene.number": "Scene {number}",
   "scene.order": "Scene order",
   "scene.position": "Position",
-  "scene.positionHelp": "Pick one of nine places.",
   "scene.reorderGrip": "Reorder: {label}",
   "scene.saveLine": "Save line",
   "scene.scope": "Applies to this scene only",
