@@ -20,7 +20,7 @@ export type ProgressProps = {
 
 
 /**
- * A 6px progress track. The track is the muted surface, and the fill, the name
+ * A 6px progress track. The track is the border gray, and the fill, the name
  * and the count are the foreground. The top bar keeps the working text and its
  * spinner in the progress token on its own.
  */

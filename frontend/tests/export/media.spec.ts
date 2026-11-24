@@ -63,7 +63,7 @@ test('the result plays and saves a video and timed captions', async ({ page }) =
   const stage = page.locator(EXPORT_STAGE);
   await stage.locator('[data-slot="export-start"]').click();
 
-  const card = page.getByRole('dialog', { name: '영상', exact: true });
+  const card = page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true });
   await expect(card).toBeVisible({ timeout: 20_000 });
   const video = card.locator('[data-slot="result-video"]');
   // A headless engine without an H.264 decoder cannot play the clip; the saved bytes below still prove the file.

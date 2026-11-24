@@ -166,6 +166,7 @@ test('test_w0_pill_parts_have_equal_inner_padding_on_the_icon_side_and_the_text_
       'text-field',
       'top-bar-item',
       'top-bar-status',
+      'playback-controls',
     ].sort(),
   );
   expect(uneven).toEqual([]);

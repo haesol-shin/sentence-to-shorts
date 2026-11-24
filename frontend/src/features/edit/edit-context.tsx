@@ -28,6 +28,7 @@ import { createEditApi, EditApiError, sceneFieldOps } from './api';
 import {
   changedFields,
   duplicateScene,
+  MAX_LINES_PER_SCENE,
   moveScene,
   newLocalId,
   scenesOf,
@@ -1026,7 +1027,7 @@ export function EditProvider({
 
     const addLine = (sceneId: string, display: string, speech: string) => {
       const scene = state.view?.video.scenes[sceneId];
-      if (scene === undefined || scene.lines.length >= 4) return;
+      if (scene === undefined || scene.lines.length >= MAX_LINES_PER_SCENE) return;
       if (display.trim() === '' || speech.trim() === '') return;
       const line: Line = {
         id: newLocalId('l'),

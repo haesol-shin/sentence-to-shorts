@@ -33,8 +33,39 @@
   padding: calc(var(--space-8) - var(--part-hairline));
 }
 
+/*
+ * The scene card is the picture only: 120x116 with a 4px inset, so the
+ * picture is 112x108. The scene line is its accessible name. While the card
+ * is busy the status line sits over the picture, above the length chip, so
+ * the card keeps its size.
+ */
 .card--scene {
   width: var(--part-scene-width);
+  gap: 0;
+  padding: calc(var(--space-4) - var(--part-hairline));
+  border-radius: var(--radius-content);
+  color: var(--sub);
+  font-size: var(--font-size-scene-number);
+  font-weight: var(--font-weight-bold);
+}
+
+.card--scene[data-selected] {
+  color: var(--foreground);
+}
+
+.card--scene:not([data-busy]) .card__label {
+  display: none;
+}
+
+.card--scene[data-busy] .card__label {
+  position: absolute;
+  right: var(--space-12);
+  bottom: calc(var(--space-24) + var(--space-4));
+  left: var(--space-12);
+}
+
+.card--scene .card__duration {
+  font-weight: var(--font-weight-regular);
 }
 
 .card__media {
@@ -53,8 +84,12 @@
 }
 
 .card--scene .card__media {
-  aspect-ratio: 9 / 16;
+  aspect-ratio: 28 / 27;
   border-radius: var(--radius-media);
+}
+
+.card--scene .card__fallback {
+  display: none;
 }
 
 .card__fallback {
@@ -105,6 +140,18 @@
   font-size: var(--font-size-length);
   line-height: var(--line-height-small);
   font-variant-numeric: tabular-nums;
+}
+
+.card--scene .card__number {
+  color: inherit;
+}
+
+.card--scene .card__duration {
+  right: calc(var(--space-8) - 2px);
+  bottom: calc(var(--space-8) - 2px);
+  padding: 1px calc(var(--space-8) - 2px);
+  border-radius: var(--radius-inset);
+  line-height: 14px;
 }
 
 .card__label {

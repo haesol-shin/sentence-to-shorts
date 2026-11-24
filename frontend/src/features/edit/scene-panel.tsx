@@ -25,6 +25,7 @@ import {
   anchorForCell,
   cellForAnchor,
   estimatedSeconds,
+  MAX_LINES_PER_SCENE,
   sceneNumber,
   sceneVisualLabel,
   spanSelected,
@@ -247,26 +248,27 @@ function LineEditor({
   const dirty = display !== line.display_text;
   const invalid = display.trim() === '';
   return (
-    <div data-slot="line-editor" className="flex flex-col gap-1 rounded-[var(--radius-panel)] bg-[var(--surface-muted)] p-2">
-      <label className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-        {t('edit.scene.line', { number: index + 1 })}
-        <textarea
-          aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
-          value={display}
-          onChange={(event) => setDisplay(event.target.value)}
-          rows={2}
-          className="min-h-11 w-full resize-y rounded-[var(--radius-inset)] bg-[var(--surface-muted)] px-2 py-1 text-[17px] leading-6 text-[var(--text-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-        />
-      </label>
-      <div className="flex justify-end">
-        <Button
-          variant="ghost"
-          disabled={!dirty || invalid || edit.busy}
-          onClick={() => edit.applyLine(sceneId, line.id, display, display)}
-        >
-          {t('edit.scene.saveLine')}
-        </Button>
-      </div>
+    <div data-slot="line-editor" className="flex flex-col rounded-[var(--radius-content)] bg-[var(--surface-muted)] px-4 pt-2 pb-[10px]">
+      <span className="text-[15px] leading-[18px] text-[var(--text-muted)]">{index + 1}</span>
+      <textarea
+        aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
+        value={display}
+        onChange={(event) => setDisplay(event.target.value)}
+        rows={1}
+        className="w-full resize-none rounded-[var(--radius-inset)] bg-[var(--surface-muted)] text-[15px] leading-[18px] text-[var(--text-strong)] outline-none [field-sizing:content] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
+      />
+      {/* The line keeps its one row until the text changes; saving is a step on its own. */}
+      {dirty ? (
+        <div className="mt-1 flex justify-end">
+          <Button
+            variant="ghost"
+            disabled={invalid || edit.busy}
+            onClick={() => edit.applyLine(sceneId, line.id, display, display)}
+          >
+            {t('edit.scene.saveLine')}
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -300,15 +302,31 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
   const band = edit.band !== null && edit.band.sceneId === scene.id ? edit.band : null;
 
   return (
-    <div data-slot="scene-form" className="flex flex-col gap-5">
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 className="text-[22px] leading-8 font-bold text-[var(--text-strong)]">
-            {t('edit.scene.number', { number })}
-          </h2>
-          <p className="text-[15px] text-[var(--text-muted)]">{scene.beat_label}</p>
-        </div>
+    <div data-slot="scene-form" className="flex flex-col gap-[18px]">
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-[22px] leading-[normal] font-bold text-[var(--text-strong)]">
+          {t('edit.scene.number', { number })}
+        </h2>
+        <p className="text-[15px] leading-[normal] text-[var(--text-muted)]">{t('edit.scene.scope')}</p>
       </div>
+
+      <Swept field="lines" band={band} className="flex flex-col gap-[10px]">
+        <h3 className="flex items-baseline justify-between text-[17px] leading-[normal] font-bold text-[var(--text-strong)]">
+          {t('edit.scene.lines')}
+          <small className="text-[15px] font-normal text-[var(--text-muted)]">
+            {t('edit.scene.lineCount', { count: scene.lines.length, max: MAX_LINES_PER_SCENE })}
+          </small>
+        </h3>
+        {scene.lines.map((line, index) => (
+          <LineEditor
+            key={`${line.id}-${line.display_text}-${line.speech_text}`}
+            line={line}
+            index={index}
+            sceneId={scene.id}
+            edit={edit}
+          />
+        ))}
+      </Swept>
 
       <Swept field="background" band={band}>
         <SettingsRow
@@ -351,21 +369,6 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
             />
           }
         />
-      </Swept>
-
-      <Swept field="lines" band={band} className="flex flex-col gap-2">
-        <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
-          {t('edit.scene.lines')}
-        </h3>
-        {scene.lines.map((line, index) => (
-          <LineEditor
-            key={`${line.id}-${line.display_text}-${line.speech_text}`}
-            line={line}
-            index={index}
-            sceneId={scene.id}
-            edit={edit}
-          />
-        ))}
       </Swept>
 
       <Swept field="highlight" band={band} className="flex flex-col gap-2">

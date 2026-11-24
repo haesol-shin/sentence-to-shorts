@@ -14,8 +14,13 @@
   padding: var(--space-16) var(--space-24);
 }
 
+/* The video column caption: a small muted label, inset to the 28 column edge beside the scene list. */
 .export-main > .export-title {
-  align-self: stretch;
+  align-self: flex-start;
+  margin-left: 6px;
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: 20px;
 }
 
 .export-main--wide {
@@ -183,24 +188,22 @@
 }
 
 /*
- * The result card, assembled as the gallery assembles it. The close x rises above the
- * title line, so the scroll frame starts that much higher and the content moves back down:
- * the frame clips neither the x nor its focus ring.
+ * The result card, assembled as the gallery assembles it: a 382 player column and a 360
+ * text column. The close x sits on the padding line and the title centers on it, so the
+ * x's inset focus ring stays inside the scroll frame.
  */
 .dialog.export-result-dialog {
-  --export-close-rise: calc((var(--size-control) - var(--font-size-title)) / 2);
-  width: min(calc(var(--part-preview-width) * 2 + var(--space-48) * 3), calc(100vw - var(--space-48)));
-  padding-top: calc(var(--space-24) - var(--export-close-rise));
+  width: min(calc(382px + 360px + var(--space-24) * 3), calc(100vw - var(--space-48)));
+  gap: var(--space-24);
 }
 
 .export-result-dialog .dialog__content {
   margin-top: 0;
-  padding-top: var(--export-close-rise);
 }
 
 .export-result {
   display: grid;
-  grid-template-columns: minmax(0, var(--part-preview-width)) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 382px) minmax(0, 360px);
   column-gap: var(--space-24);
   align-items: stretch;
 }
@@ -209,6 +212,7 @@
   width: 100%;
   min-width: 0;
   justify-content: center;
+  gap: var(--space-16);
 }
 
 .export-result__side {
@@ -219,26 +223,21 @@
 
 .export-result__head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: var(--space-12);
-}
-
-/* The 44 control overflows the title line instead of pushing the title off the padding line. */
-.export-result__head .close-button {
-  margin-block: calc(var(--export-close-rise) * -1);
+  gap: var(--space-8);
 }
 
 .export-result__title {
   margin: 0;
+  color: var(--foreground);
   font-size: var(--font-size-title);
-  /* No half-leading: the title line box sits on the card padding line. */
-  line-height: var(--font-size-title);
+  line-height: var(--line-height-body);
   font-weight: var(--font-weight-bold);
 }
 
 .export-result__description {
-  margin: var(--space-8) 0 0;
+  margin: 0 0 var(--space-16);
   color: var(--sub);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
@@ -246,14 +245,32 @@
   text-wrap: pretty;
 }
 
+/* Each fact line is a 22 line with 3 above and below: rows 6 apart, 3 more on top. */
 .export-result .export-facts {
-  margin-top: var(--space-24);
+  grid-template-columns: 64px minmax(0, 1fr);
+  column-gap: var(--space-12);
+  row-gap: 6px;
+  margin-top: calc(var(--space-16) + 3px);
+}
+
+.export-result .export-facts dd {
+  justify-self: start;
+  gap: var(--space-12);
+}
+
+/* The 32 pill keeps the 22 fact line: it overhangs the line and the dd's right edge. */
+.export-result .export-facts .export-facts__inline {
+  height: 32px;
+  margin: -6px calc(var(--space-12) * -1) -6px 0;
+  padding: 0 var(--space-12);
+  border-radius: var(--radius-pill);
+  font-weight: var(--font-weight-bold);
 }
 
 .export-result__actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-16);
+  gap: var(--space-8);
   margin-top: auto;
   padding-top: var(--space-24);
 }

@@ -937,7 +937,7 @@ test('test_10a_batch_four_progress_text_and_bar_use_the_foreground_token', async
       return getComputedStyle(probe).color;
     };
     const foreground = resolve('--foreground');
-    const muted = resolve('--muted');
+    const border = resolve('--border');
     probe.remove();
     const box = document.querySelector(`[data-case="${caseLabel}"]`);
     const labelElement = box?.querySelector('.progress__label') ?? null;
@@ -946,7 +946,7 @@ test('test_10a_batch_four_progress_text_and_bar_use_the_foreground_token', async
     const track = box?.querySelector('.progress__track') ?? null;
     return {
       foreground,
-      muted,
+      border,
       label: labelElement === null ? '' : getComputedStyle(labelElement).color,
       value: valueElement === null ? '' : getComputedStyle(valueElement).color,
       indicator: indicator === null ? '' : getComputedStyle(indicator).backgroundColor,
@@ -957,7 +957,7 @@ test('test_10a_batch_four_progress_text_and_bar_use_the_foreground_token', async
   expect(colors.label).toBe(colors.foreground);
   expect(colors.value).toBe(colors.foreground);
   expect(colors.indicator).toBe(colors.foreground);
-  expect(colors.track).toBe(colors.muted);
+  expect(colors.track).toBe(colors.border);
 });
 
 test('test_10a_batch_four_top_bar_working_tone_keeps_only_its_text_and_spinner_blue', async ({ page }) => {
@@ -1410,8 +1410,8 @@ test('test_10a_playback_bar_rounds_both_ends', async ({ page }) => {
   }, label);
 
   expect(bar).not.toBeNull();
-  expect(bar?.trackHeight).toBe(6);
-  expect(bar?.fillHeight).toBe(6);
+  expect(bar?.trackHeight).toBe(4);
+  expect(bar?.fillHeight).toBe(4);
   expect(bar?.trackRadius).toBeGreaterThanOrEqual((bar?.trackHeight ?? 0) / 2);
   expect(bar?.fillRadius).toBeGreaterThanOrEqual((bar?.fillHeight ?? 0) / 2);
   expect(bar?.fillWidth).toBeGreaterThan(0);

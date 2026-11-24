@@ -43,14 +43,20 @@ export type DialogProps = DialogName & {
   /** The accessible name when the visible title is not enough. */
   label?: string;
   className?: string;
+  /**
+   * A positioned element to open inside instead of the page. The window then
+   * covers that element from its top edge, as wide as it, and draws no scrim.
+   */
+  container?: HTMLElement | null;
 };
 
 
 
 /**
  * One window for confirmations and alerts. It is 480 wide, uses 24 radius and
- * 24 padding, and draws the dark dialog scrim behind it. Escape closes it and
- * focus returns to its trigger.
+ * 24 padding, and draws the dark dialog scrim behind it. With `container` it
+ * lies over that element instead. Escape closes it and focus returns to its
+ * trigger.
  */
 export function Dialog({
   title,
@@ -67,6 +73,7 @@ export function Dialog({
   label,
   labelledBy,
   className,
+  container,
 }: DialogProps) {
   const [popup, setPopup] = useState<HTMLDivElement | null>(null);
   const [scroll, setScroll] = useState<HTMLDivElement | null>(null);
@@ -79,9 +86,9 @@ export function Dialog({
       onOpenChange={(next) => onOpenChange?.(next)}
     >
       {trigger === undefined ? null : <DialogPrimitive.Trigger render={trigger} />}
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Backdrop className="dialog-backdrop" />
-        <div className="dialog-positioner">
+      <DialogPrimitive.Portal container={container}>
+        {container === undefined ? <DialogPrimitive.Backdrop className="dialog-backdrop" /> : null}
+        <div className={cn('dialog-positioner', container !== undefined && 'dialog-positioner--contained')}>
           <DialogPrimitive.Popup
             ref={setPopup}
             className={cn('dialog', className)}

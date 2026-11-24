@@ -85,6 +85,8 @@ test('test_23_the_scene_list_hides_the_scrollbar_and_shows_a_44_jump', async ({ 
   const viewport = page.locator(`${SCENE_COLUMN} .scroll-pane__viewport`);
   await expect(viewport).toBeVisible();
   expect(await viewport.evaluate((node) => getComputedStyle(node).scrollbarWidth)).toBe('none');
+  // The 120x116 scene card keeps five scenes inside the column, so the jump control needs a short window.
+  await page.setViewportSize({ width: 1920, height: 520 });
   const jump = page.locator(`${SCENE_COLUMN} .scroll-pane__jump .icon-button`);
   await expect(jump).toBeVisible();
   const box = await jump.boundingBox();
@@ -92,6 +94,7 @@ test('test_23_the_scene_list_hides_the_scrollbar_and_shows_a_44_jump', async ({ 
   if (box === null) return;
   expect(Math.round(box.width)).toBe(44);
   expect(Math.round(box.height)).toBe(44);
+  await page.setViewportSize({ width: 1920, height: 1080 });
 
   const chat = page.locator('[data-slot="edit-chat"] .scroll-pane__viewport');
   await expect(chat).toBeVisible();
@@ -192,11 +195,14 @@ test('test_10a_the_edit_screen_stays_usable_while_the_video_is_made', async ({ p
   );
 
   const viewport = page.locator(`${SCENE_COLUMN} .scroll-pane__viewport`);
+  // Five 120x116 cards fit the column at 1080; the short window makes the list scroll.
+  await page.setViewportSize({ width: 1920, height: 520 });
   const jump = page.locator(`${SCENE_COLUMN} .scroll-pane__jump .icon-button`);
   await jump.click();
   await page.waitForTimeout(400);
   const scrolled = await viewport.evaluate((node) => node.scrollTop);
   expect(scrolled).toBeGreaterThan(0);
+  await page.setViewportSize({ width: 1920, height: 1080 });
 
   await expect(page.locator('[data-slot="next-action"]')).toContainText('■');
   await expect(page.locator('[data-slot="next-action"]')).toContainText('만들기 멈추기');

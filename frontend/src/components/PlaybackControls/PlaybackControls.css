@@ -1,5 +1,6 @@
 @import '../base.css';
 
+/* A grey pill: the controls sit inside it, so the bar reads as one part on any surface. */
 .player {
   box-sizing: border-box;
   display: flex;
@@ -8,7 +9,9 @@
   width: 100%;
   min-width: 0;
   min-height: var(--size-control);
-  padding-inline: var(--space-4);
+  padding-inline: var(--space-16);
+  border-radius: calc(var(--size-control) / 2);
+  background: var(--muted);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
@@ -38,6 +41,11 @@
   width: var(--icon-inline);
   height: var(--icon-inline);
   stroke-width: var(--icon-stroke);
+}
+
+/* The play glyph's ink is wider on its left, so it sits two pixels into its box to read even. */
+.player__control:first-child svg {
+  margin-inline-start: -2px;
 }
 
 .player__control:hover:not(:disabled),
@@ -70,10 +78,10 @@
   position: absolute;
   right: 0;
   left: 0;
-  height: var(--part-track);
+  height: var(--space-4);
   overflow: hidden;
   border-radius: var(--radius-pill);
-  background: var(--muted);
+  background: var(--border);
 }
 
 .player__fill {
@@ -86,7 +94,7 @@
 }
 
 .player__seek[data-disabled] .player__fill {
-  background: var(--muted);
+  background: var(--border);
 }
 
 .player__progress {
@@ -148,6 +156,7 @@
 
 .player__time {
   flex: none;
+  line-height: normal;
   color: var(--sub);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
