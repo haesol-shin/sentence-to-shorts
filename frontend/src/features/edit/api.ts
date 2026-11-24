@@ -699,6 +699,8 @@ class MockEditApi implements EditApi {
       const view = clone(loaded);
       view.video.id = videoId;
       view.build.video_id = videoId;
+      // The recorded view lists the recording's own jobs, which this mock never started and cannot read.
+      view.open_jobs = view.open_jobs.filter((id) => this.jobs.has(id));
       this.fillBuild(view);
       this.views.set(videoId, view);
       return clone(view);

@@ -22,6 +22,17 @@
   pointer-events: none;
 }
 
+/* Inside a container the window lies over it from the top edge, border included. */
+.dialog-positioner--contained {
+  position: absolute;
+  inset: -1px -1px auto;
+  display: block;
+}
+
+.dialog-positioner--contained > .dialog {
+  width: 100%;
+}
+
 .dialog {
   box-sizing: border-box;
   position: relative;

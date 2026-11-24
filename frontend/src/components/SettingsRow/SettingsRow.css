@@ -55,3 +55,38 @@
   gap: var(--space-8);
   margin-inline-start: auto;
 }
+
+/*
+ * The compact row of a settings panel: a filled 44 high line with a fixed
+ * label column and the value beside it, so the values of every row line up.
+ */
+.settings-row--field {
+  flex-wrap: nowrap;
+  gap: var(--space-12);
+  min-height: var(--size-control);
+  padding: 0 var(--space-12) 0 var(--space-16);
+  border-radius: var(--radius-content);
+  background: var(--surface-muted);
+}
+
+.settings-row--field .settings-row__text {
+  flex: none;
+  width: 76px;
+}
+
+.settings-row--field .settings-row__label {
+  color: var(--muted-foreground);
+  line-height: 18px;
+  font-weight: var(--font-weight-regular);
+}
+
+.settings-row--field .settings-row__control {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-width: 0;
+  margin-inline-start: 0;
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  line-height: 18px;
+  font-weight: var(--font-weight-bold);
+}

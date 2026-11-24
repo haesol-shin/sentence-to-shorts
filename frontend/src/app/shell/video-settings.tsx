@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
-import { Button } from '@/components/Button/Button';
 import { Notice } from '@/components/Notice/Notice';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
-import { Tag } from '@/components/Tag/Tag';
 import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
+import { readCaption } from '@/features/edit/captions/model';
 import { useEditOptional } from '@/features/edit/edit-context';
 import { readAudio } from '@/features/edit/sound/model';
 import { useAudioPreview } from '@/features/edit/sound/use-audio-preview';
@@ -14,12 +13,40 @@ import { cn } from '@/shared/lib/utils';
 
 type Card = 'voice' | 'bgm';
 
+/** The caption mode is named as the result screen names it. */
+const CAPTION_MODE_KEYS = {
+  sentence: 'export.fact.captionSentence',
+  phrase: 'export.fact.captionPhrase',
+  typewriter: 'export.fact.captionTypewriter',
+} as const;
+
+/** The value of a row that opens a card fills the row beside the label, so the value is the control. */
+const VALUE_BUTTON =
+  'focus-ring flex min-w-0 flex-1 cursor-pointer items-center self-stretch rounded-[var(--radius-inset)] text-left disabled:cursor-not-allowed disabled:text-[var(--disabled-foreground)]';
+
+function GroupTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <h3
+      className={cn(
+        'text-[length:var(--font-size-small)] leading-[18px] font-bold text-[var(--muted-foreground)]',
+        className,
+      )}
+    >
+      {children}
+    </h3>
+  );
+}
+
+function Value({ children }: { children: ReactNode }) {
+  return <span className="min-w-0 flex-1 truncate">{children}</span>;
+}
+
 /**
  * The video-wide values open under the top bar item. The panel keeps its right
  * edge on the button's right edge at every desktop width, and the stage behind
- * it dims until the reader presses outside or Escape. Voice and BGM open their
- * own card over the panel; while a card is open, outside presses and Escape
- * belong to the card and the panel stays.
+ * it lightens until the reader presses outside or Escape. Voice and BGM open
+ * their own card over the panel; while a card is open, outside presses and
+ * Escape belong to the card and the panel stays.
  */
 export function VideoSettings() {
   const { t, language } = useLocale();
@@ -29,6 +56,7 @@ export function VideoSettings() {
   const [card, setCard] = useState<Card | null>(null);
   const wrapper = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const [panel, setPanel] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!open || card !== null) return undefined;
@@ -56,6 +84,7 @@ export function VideoSettings() {
 
   const video = edit?.video ?? null;
   const { voiceId, bgm } = readAudio(video);
+  const caption = readCaption(video);
   const languageLabel =
     video === null
       ? null
@@ -73,6 +102,10 @@ export function VideoSettings() {
     ? t('edit.settings.off')
     : track?.label[language] ?? bgm.entryId ?? t('audio.bgm.trackNone');
   const bgmReady = edit !== null && edit.bgmStatus === 'ready';
+  const font =
+    caption.fontId === null
+      ? t('audio.caption.fontNone')
+      : edit?.fonts.find((item) => item.id === caption.fontId)?.label[language] ?? caption.fontId;
 
   return (
     <div ref={wrapper} className="relative inline-flex shrink-0">
@@ -90,73 +123,95 @@ export function VideoSettings() {
           <div
             data-slot="settings-scrim"
             aria-hidden="true"
-            className="fixed top-[var(--layout-topbar-h)] right-0 bottom-0 left-[var(--layout-sidebar-w-sm)] z-[var(--z-panel)] bg-[var(--overlay-dialog-scrim)] md:left-[var(--layout-sidebar-w)]"
+            className="fixed top-[var(--layout-topbar-h)] right-0 bottom-0 left-[var(--layout-sidebar-w-sm)] z-[var(--z-panel)] bg-[var(--overlay-scrim)] md:left-[var(--layout-sidebar-w)]"
             onClick={() => setOpen(false)}
           />
           <div
+            ref={setPanel}
             id="video-settings-panel"
             role="dialog"
             aria-label={t('edit.settings.title')}
             data-slot="video-settings-panel"
-            className={cn(
-              'absolute top-[calc(100%+4px)] right-0 z-[calc(var(--z-panel)+1)] flex w-100 max-w-[calc(100vw-var(--space-48))] flex-col gap-3 rounded-[var(--radius-surface)] bg-[var(--popover)] p-5 shadow-[var(--shadow-float)]',
-              edit !== null && video !== null && 'pb-[calc(var(--space-20)-var(--space-12))]',
-            )}
+            className="absolute top-[calc(100%+var(--space-12))] right-0 z-[calc(var(--z-panel)+1)] flex w-95 max-w-[calc(100vw-var(--space-48))] flex-col gap-2 rounded-[var(--radius-surface)] border border-[var(--border)] bg-[var(--popover)] p-5 shadow-[var(--shadow-float)]"
           >
-            <h2 className="text-[22px] leading-[var(--font-size-title)] font-bold text-[var(--text-strong)]">
+            <h2 className="text-[length:var(--font-size-body)] leading-5 font-bold text-[var(--text-strong)]">
               {t('edit.settings.title')}
             </h2>
+            <p className="-mt-0.5 text-[length:var(--font-size-small)] leading-[18px] text-[var(--muted-foreground)]">
+              {t('edit.settings.scope')}
+            </p>
             {edit === null || video === null ? (
               <Notice>{t('edit.settings.loading')}</Notice>
             ) : (
               <>
+                <GroupTitle className="mt-1">{t('edit.settings.groupVideo')}</GroupTitle>
                 <SettingsRow
+                  className="settings-row--field"
                   label={t('edit.settings.language')}
-                  control={<Tag>{languageLabel}</Tag>}
+                  control={<Value>{languageLabel}</Value>}
                 />
                 <SettingsRow
+                  className="settings-row--field"
                   label={t('edit.settings.duration')}
-                  control={<Tag>{duration}</Tag>}
+                  control={<Value>{duration}</Value>}
                 />
+                <GroupTitle>{t('edit.settings.groupSound')}</GroupTitle>
                 <SettingsRow
+                  className="settings-row--field"
                   label={t('edit.settings.voice')}
                   control={
-                    <Button
-                      variant="trigger"
+                    <button
+                      type="button"
+                      className={VALUE_BUTTON}
                       data-slot="settings-voice"
                       aria-haspopup="dialog"
                       disabled={edit.settingsBusy}
                       onClick={() => setCard('voice')}
                     >
-                      {voice}
-                    </Button>
+                      <span className="min-w-0 truncate">{voice}</span>
+                    </button>
                   }
                 />
                 <SettingsRow
+                  className="settings-row--field"
                   label={t('edit.settings.bgm')}
                   control={
-                    <Button
-                      variant="trigger"
+                    <button
+                      type="button"
+                      className={VALUE_BUTTON}
                       data-slot="settings-bgm"
                       aria-haspopup="dialog"
                       disabled={!bgm.enabled || !bgmReady || edit.settingsBusy}
                       onClick={() => setCard('bgm')}
                     >
-                      {bgmValue}
-                    </Button>
+                      <span className="min-w-0 truncate">{bgmValue}</span>
+                    </button>
                   }
+                />
+                <GroupTitle>{t('edit.settings.groupCaption')}</GroupTitle>
+                <SettingsRow
+                  className="settings-row--field"
+                  label={t('audio.caption.mode')}
+                  control={<Value>{t(CAPTION_MODE_KEYS[caption.mode])}</Value>}
+                />
+                <SettingsRow
+                  className="settings-row--field"
+                  label={t('audio.caption.font')}
+                  control={<Value>{font}</Value>}
                 />
                 <VoiceCard
                   edit={edit}
                   preview={preview}
                   open={card === 'voice'}
                   onOpenChange={(next) => setCard(next ? 'voice' : null)}
+                  container={panel}
                 />
                 <BgmCard
                   edit={edit}
                   preview={preview}
                   open={card === 'bgm'}
                   onOpenChange={(next) => setCard(next ? 'bgm' : null)}
+                  container={panel}
                 />
               </>
             )}

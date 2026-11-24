@@ -183,56 +183,57 @@ export function ScenePreview({ edit, collapsed }: { edit: EditValue; collapsed: 
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[22px] leading-8 font-bold text-[var(--text-strong)]">
-          {t('edit.preview.title')}
-        </h2>
-        <div className="flex items-center gap-1">
-          <IconButton label={t('edit.preview.expand')} onClick={() => setExpanded(true)}>
-            <Maximize aria-hidden size={20} />
-          </IconButton>
-        </div>
-      </div>
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-[14px]">
+      <div className="edit-preview-area flex min-h-0 w-full flex-1 flex-col items-center">
+        <div className="edit-preview-column flex w-full flex-col items-center gap-[14px]">
+          <div className="edit-preview-head relative ml-0.5 flex w-full items-center">
+            <h2 className="flex-1 text-[15px] leading-[normal] font-bold text-[var(--text-muted)]">
+              <span>{t('edit.preview.title')}</span>
+            </h2>
+            <IconButton
+              label={t('edit.preview.expand')}
+              onClick={() => setExpanded(true)}
+              className="absolute top-1/2 right-0 -translate-y-1/2"
+            >
+              <Maximize aria-hidden size={20} />
+            </IconButton>
+          </div>
 
-      <div className="flex min-h-0 flex-1 items-center justify-center">
-        <div className="edit-preview-area relative flex h-full max-h-full min-h-0 w-full items-center justify-center">
           <StillFrame
             edit={edit}
             className={collapsed ? 'edit-preview-frame--thumb' : 'edit-preview-frame--standard'}
             caption={caption}
           />
+          <div className="edit-preview-controls mt-0.5 w-full min-w-0">
+            <PlaybackControls
+              label={t('edit.preview.play')}
+              labels={{
+                play: t('export.player.play'),
+                pause: t('export.player.pause'),
+                seek: t('export.player.seek'),
+                mute: t('export.player.mute'),
+                unmute: t('export.player.unmute'),
+              }}
+              playing={playing}
+              onToggle={() => {
+                if (lines.length === 0) return;
+                if (!playing && elapsedMs >= totalMs) seek(0);
+                setPlaying((current) => !current);
+              }}
+              position={position}
+              onSeek={(next) => {
+                if (lines.length === 0) return;
+                setPlaying(false);
+                seek(next);
+              }}
+              current={formatClock(Math.floor(elapsedMs / 1000))}
+              duration={`약 ${formatClock(seconds)}`}
+              muted={muted}
+              onToggleMute={() => setMuted((current) => !current)}
+              disabled={lines.length === 0}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="edit-preview-controls min-w-0">
-        <PlaybackControls
-          label={t('edit.preview.play')}
-          labels={{
-            play: t('export.player.play'),
-            pause: t('export.player.pause'),
-            seek: t('export.player.seek'),
-            mute: t('export.player.mute'),
-            unmute: t('export.player.unmute'),
-          }}
-          playing={playing}
-          onToggle={() => {
-            if (lines.length === 0) return;
-            if (!playing && elapsedMs >= totalMs) seek(0);
-            setPlaying((current) => !current);
-          }}
-          position={position}
-          onSeek={(next) => {
-            if (lines.length === 0) return;
-            setPlaying(false);
-            seek(next);
-          }}
-          current={formatClock(Math.floor(elapsedMs / 1000))}
-          duration={`약 ${formatClock(seconds)}`}
-          muted={muted}
-          onToggleMute={() => setMuted((current) => !current)}
-          disabled={lines.length === 0}
-        />
       </div>
       <p className="text-center text-[15px] text-[var(--text-muted)]">{t('edit.preview.note')}</p>
 

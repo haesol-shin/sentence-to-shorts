@@ -25,6 +25,9 @@ const COLUMN_ANCHORS = ['left', 'center', 'right'] as const;
 const MIDDLE_ANCHORS = ['middle_left', 'middle_center', 'middle_right'] as const;
 const TOP_ANCHORS = ['top_left', 'top_center', 'top_right'] as const;
 
+/** The canon line count a scene may reach before adding another line stops. */
+export const MAX_LINES_PER_SCENE = 4;
+
 export const POSITION_CELLS: readonly PositionCell[] = [
   { row: 0, column: 0, anchor: 'top_left', labelKey: 'edit.position.topLeft' },
   { row: 0, column: 1, anchor: 'top_center', labelKey: 'edit.position.topCenter' },

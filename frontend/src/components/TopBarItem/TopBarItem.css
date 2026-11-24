@@ -5,13 +5,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: var(--space-8);
   height: var(--size-control);
   min-width: var(--size-control);
-  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
-  border: var(--part-hairline) solid var(--background);
+  /* The end chevron is a full icon box, so the label side carries the wider inset. */
+  padding: 0 var(--space-12) 0 var(--space-16);
+  border: 0;
   border-radius: var(--radius-pill);
-  background: var(--background);
+  background: var(--surface);
   color: var(--foreground);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
@@ -21,7 +22,6 @@
   cursor: pointer;
   transition:
     background-color var(--motion-state-duration) var(--motion-ease),
-    border-color var(--motion-state-duration) var(--motion-ease),
     color var(--motion-state-duration) var(--motion-ease);
 }
 
@@ -37,47 +37,45 @@
 }
 
 .top-bar-item__icon svg {
-  width: var(--icon-inline);
-  height: var(--icon-inline);
+  width: var(--icon-default);
+  height: var(--icon-default);
   stroke-width: var(--icon-stroke);
 }
 
 .top-bar-item__icon:first-child {
-  margin-inline-start: calc(var(--icon-inline) * var(--icon-ink-mark) * -1);
+  margin-inline-start: calc(var(--icon-default) * var(--icon-ink-mark) * -1);
 }
 
 .top-bar-item__icon--end {
-  margin-inline-end: calc(var(--icon-inline) * var(--icon-ink-glyph) * -1);
   transition: transform var(--motion-panel-duration) var(--motion-ease);
 }
 
 .top-bar-item:hover:not(:disabled),
 .top-bar-item[data-force-state~='hover']:not(:disabled) {
   background: var(--state-hover-gray);
-  border-color: var(--state-hover-gray);
 }
 
 .top-bar-item:active:not(:disabled),
 .top-bar-item[data-force-state~='pressed']:not(:disabled) {
   background: var(--state-pressed-gray);
-  border-color: var(--state-pressed-gray);
 }
 
-.top-bar-item[data-popup-open],
-.top-bar-item[data-force-state~='open'] {
-  background: var(--state-selected);
-  border-color: var(--state-selected);
+/* A panel trigger reports open through aria-expanded; a menu trigger through data-popup-open. */
+.top-bar-item[data-popup-open]:not(:disabled),
+.top-bar-item[aria-expanded='true']:not(:disabled),
+.top-bar-item[data-force-state~='open']:not(:disabled) {
+  background: var(--secondary);
   font-weight: var(--font-weight-bold);
 }
 
 .top-bar-item[data-popup-open] .top-bar-item__icon--end,
+.top-bar-item[aria-expanded='true'] .top-bar-item__icon--end,
 .top-bar-item[data-force-state~='open'] .top-bar-item__icon--end {
   transform: rotate(180deg);
 }
 
 .top-bar-item:disabled {
-  background: var(--background);
-  border-color: var(--background);
+  background: var(--surface);
   color: var(--disabled-foreground);
   cursor: not-allowed;
 }

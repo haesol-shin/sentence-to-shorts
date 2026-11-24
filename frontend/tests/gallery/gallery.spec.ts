@@ -1410,8 +1410,8 @@ test('test_10a_playback_bar_rounds_both_ends', async ({ page }) => {
   }, label);
 
   expect(bar).not.toBeNull();
-  expect(bar?.trackHeight).toBe(6);
-  expect(bar?.fillHeight).toBe(6);
+  expect(bar?.trackHeight).toBe(4);
+  expect(bar?.fillHeight).toBe(4);
   expect(bar?.trackRadius).toBeGreaterThanOrEqual((bar?.trackHeight ?? 0) / 2);
   expect(bar?.fillRadius).toBeGreaterThanOrEqual((bar?.fillHeight ?? 0) / 2);
   expect(bar?.fillWidth).toBeGreaterThan(0);

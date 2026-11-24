@@ -130,7 +130,7 @@ test('test_29_partial_mp4_does_not_open_the_result_until_the_same_job_finishes_a
   expect((screen.getByRole('button', { name: 'mp4 저장' }) as HTMLButtonElement).disabled).toBe(true);
   expect(screen.queryByRole('dialog')).toBeNull();
   finish(complete);
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
   expect((within(card).getByRole('button', { name: '자막 저장' }) as HTMLButtonElement).disabled).toBe(false);
 });
 
@@ -154,7 +154,7 @@ test('test_10a_the_result_card_opens_only_after_the_video_is_made', async () => 
   configureExport(null);
 
   renderExport(builtView(), stubApi());
-  expect(await screen.findByRole('dialog', { name: '영상' })).toBeTruthy();
+  expect(await screen.findByRole('dialog', { name: '영상을 다 만들었어요' })).toBeTruthy();
 });
 
 test('test_10a_the_result_card_comes_back_for_a_new_video_only', async () => {
@@ -172,12 +172,12 @@ test('test_10a_the_result_card_comes_back_for_a_new_video_only', async () => {
   const next = builtView();
   next.build.final.artifact = { id: 'a_0final20000000000000000000', digest: '0'.repeat(64), cache_key: '0'.repeat(64) };
   renderExport(next, stubApi());
-  expect(await screen.findByRole('dialog', { name: '영상' })).toBeTruthy();
+  expect(await screen.findByRole('dialog', { name: '영상을 다 만들었어요' })).toBeTruthy();
 });
 
 test('test_10a_the_result_card_has_the_x_and_the_bottom_row_and_nothing_else_to_close', async () => {
   renderExport(builtView(), stubApi());
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
 
   const names = within(card).getAllByRole('button').map((button) => button.getAttribute('aria-label') ?? button.textContent);
   expect(names).toEqual(
@@ -186,7 +186,6 @@ test('test_10a_the_result_card_has_the_x_and_the_bottom_row_and_nothing_else_to_
   for (const forbidden of ['닫기', '크게 보기', '이 영상으로 새 영상 만들기']) {
     expect(names).not.toContain(forbidden);
   }
-  expect(card.textContent).not.toMatch(/다 만들었/u);
   expect(card.textContent).not.toMatch(/크게 보기|이 영상으로 새 영상 만들기/u);
 
   const labels = Array.from(card.querySelectorAll('dt')).map((term) => term.textContent);
@@ -198,7 +197,7 @@ test('test_10a_the_result_card_has_the_x_and_the_bottom_row_and_nothing_else_to_
 
 test('test_10a_a_video_that_fails_to_play_announces_the_reason_outside_the_picture', async () => {
   renderExport(builtView(), stubApi());
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
   const video = within(card).getByLabelText('영상 미리보기', { selector: 'video' });
 
   fireEvent.error(video);
@@ -211,7 +210,7 @@ test('test_10a_a_video_that_fails_to_play_announces_the_reason_outside_the_pictu
 test('test_10a_the_card_edit_button_asks_for_the_edit_step_and_closes_the_card', async () => {
   const onOpenEdit = vi.fn();
   renderExport(builtView(), stubApi(), { onOpenEdit });
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
 
   fireEvent.click(within(card).getByRole('button', { name: '편집으로' }));
 
@@ -222,7 +221,7 @@ test('test_10a_the_card_edit_button_asks_for_the_edit_step_and_closes_the_card',
 test('test_10a_closing_the_card_with_the_x_lands_on_the_edit_step_not_the_export_panel', async () => {
   const onOpenEdit = vi.fn();
   renderExport(builtView(), stubApi(), { onOpenEdit });
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
 
   fireEvent.click(within(card).getByRole('button', { name: '결과 카드 닫기' }));
 
@@ -317,7 +316,7 @@ test('test_27_known_usage_shows_time_tokens_cost_and_the_rebuilt_scenes', async 
 test('test_27_the_usage_button_closes_the_card_and_moves_to_the_usage_section', async () => {
   const onOpenEdit = vi.fn();
   renderExport(builtView(), stubApi(), { onOpenEdit });
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
 
   fireEvent.click(within(card).getByRole('button', { name: '사용량 보기' }));
 
@@ -383,17 +382,20 @@ test('test_19_pressing_a_result_scene_hands_that_scene_to_the_caller', async () 
   expect(onPickScene).toHaveBeenCalledWith('s_0scene2000000000000000000');
 });
 
-test('test_10a_the_screen_words_never_say_done_or_enlarge_in_any_state', async () => {
-  const words = /다 만들었|크게 보기|이 영상으로 새 영상 만들기/u;
+test('test_10a_only_the_result_card_says_done_and_no_state_says_enlarge', async () => {
+  const done = /다 만들었/u;
+  const words = /크게 보기|이 영상으로 새 영상 만들기/u;
   renderExport(unbuiltView(), stubApi());
   await screen.findByText(REPORT.opening_promise);
+  expect(document.body.textContent).not.toMatch(done);
   expect(document.body.textContent).not.toMatch(words);
   cleanup();
   configureExport(null);
 
   renderExport(builtView(), stubApi());
-  const card = await screen.findByRole('dialog', { name: '영상' });
+  const card = await screen.findByRole('dialog', { name: '영상을 다 만들었어요' });
   expect(card.textContent).not.toMatch(words);
   await closeCard();
+  expect(document.body.textContent).not.toMatch(done);
   expect(document.body.textContent).not.toMatch(words);
 });

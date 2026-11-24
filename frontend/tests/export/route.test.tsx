@@ -191,7 +191,7 @@ test('test_27_retry_uses_the_retained_job_and_can_finish_before_the_stage_change
   );
   expect(await screen.findByText('멈춘 부분: 자막')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: '실패한 부분 다시 시도' }));
-  expect(await screen.findByRole('dialog', { name: '영상' })).toBeTruthy();
+  expect(await screen.findByRole('dialog', { name: '영상을 다 만들었어요' })).toBeTruthy();
   expect(http.count('POST', retryPath)).toBe(1);
   expect(http.count('POST', `/api/v1/videos/${view.video.id}/generate`)).toBe(0);
 });

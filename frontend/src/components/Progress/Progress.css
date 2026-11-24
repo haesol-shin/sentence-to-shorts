@@ -35,7 +35,7 @@
   height: calc(var(--space-8) - var(--focus-width));
   overflow: hidden;
   border-radius: var(--radius-media);
-  background: var(--muted);
+  background: var(--border);
 }
 
 .progress__indicator {

@@ -5,13 +5,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-4);
+  gap: var(--space-8);
   height: var(--size-control);
   min-width: var(--size-control);
-  padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
-  border: var(--part-hairline) solid var(--background);
+  padding-inline: var(--space-16) var(--space-12);
+  border: var(--part-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--background);
+  background: transparent;
   color: var(--foreground);
   font-family: var(--font-family-sans);
   font-size: var(--font-size-small);
@@ -37,20 +37,24 @@
   justify-content: center;
 }
 
-.top-bar-status__icon svg,
-.top-bar-status__chevron svg {
+/* The tone mark is an svg; the working tone puts a spinner there, which is drawn to its box. */
+.top-bar-status__icon svg {
   width: var(--icon-inline);
   height: var(--icon-inline);
+  margin-inline-start: calc(var(--icon-inline) * var(--icon-ink-mark) * -1);
   stroke-width: var(--icon-stroke);
 }
 
-/* The tone mark is an svg; the working tone puts a spinner there, which is drawn to its box. */
-.top-bar-status__icon svg {
-  margin-inline-start: calc(var(--icon-inline) * var(--icon-ink-mark) * -1);
+.top-bar-status__icon .spinner {
+  width: 18px;
+  height: 18px;
 }
 
-.top-bar-status__chevron {
-  margin-inline-end: calc(var(--icon-inline) * var(--icon-ink-glyph) * -1);
+/* The chevron box sits on the 12 end padding as drawn, with no ink pull. */
+.top-bar-status__chevron svg {
+  width: var(--icon-default);
+  height: var(--icon-default);
+  stroke-width: var(--icon-stroke);
 }
 
 .top-bar-status__trigger[data-tone='error'] .top-bar-status__icon {
@@ -87,21 +91,24 @@
   border-color: var(--state-pressed-gray);
 }
 
-.top-bar-status__trigger[data-popup-open],
-.top-bar-status__trigger[data-force-state~='open'] {
-  background: var(--state-selected);
-  border-color: var(--state-selected);
+/* The open look also marks a window the caller opens from this trigger, and it stays over hover. */
+.top-bar-status__trigger[data-popup-open]:not(:disabled),
+.top-bar-status__trigger.top-bar-status__trigger--open:not(:disabled),
+.top-bar-status__trigger[data-force-state~='open']:not(:disabled) {
+  background: var(--muted);
+  border-color: var(--muted);
   font-weight: var(--font-weight-bold);
 }
 
 .top-bar-status__trigger[data-popup-open] .top-bar-status__chevron,
+.top-bar-status__trigger--open .top-bar-status__chevron,
 .top-bar-status__trigger[data-force-state~='open'] .top-bar-status__chevron {
   transform: rotate(180deg);
 }
 
 .top-bar-status__trigger:disabled {
-  background: var(--background);
-  border-color: var(--background);
+  background: transparent;
+  border-color: transparent;
   color: var(--disabled-foreground);
   cursor: not-allowed;
 }
