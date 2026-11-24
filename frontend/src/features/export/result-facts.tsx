@@ -63,6 +63,7 @@ export function ResultFacts({
   exact,
   tokens,
   onShowUsage,
+  captionSave = false,
 }: {
   view: VideoView;
   /** The length in seconds, or null when nothing knows it yet. */
@@ -71,6 +72,8 @@ export function ResultFacts({
   exact: boolean;
   tokens: TokenCounts | null;
   onShowUsage: () => void;
+  /** The result card keeps its own caption button; the page uses the top bar's. */
+  captionSave?: boolean;
 }) {
   const { t, language } = useLocale();
   const caption = CAPTION_KEYS[view.video.settings.caption.mode] ?? CAPTION_KEYS.sentence;
@@ -83,7 +86,7 @@ export function ResultFacts({
       <dt>{t('export.fact.caption')}</dt>
       <dd>
         {t(caption)}
-        <CaptionSave view={view} />
+        {captionSave ? <CaptionSave view={view} /> : null}
       </dd>
       <dt>{t('export.fact.usage')}</dt>
       <dd>

@@ -80,11 +80,12 @@ function SceneCard({
       >
         <Trash2 aria-hidden size={14} />
       </IconButton>
+      {/* The picked card shows by its undimmed picture alone; this empty mark only tags it. */}
       {selected ? (
         <span
           aria-hidden="true"
           data-slot="scene-selected"
-          className="pointer-events-none absolute inset-0 rounded-[var(--radius-content)] ring-2 ring-[var(--ring)]"
+          className="pointer-events-none absolute inset-0 rounded-[var(--radius-content)] p-1"
         />
       ) : null}
     </div>

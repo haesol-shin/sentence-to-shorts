@@ -176,7 +176,7 @@ test('test_29_the_caption_tab_with_a_second_layer_fits_at_1280_and_1920', async 
   await page.getByRole('combobox', { name: '두 번째 언어' }).click();
   await page.getByRole('option', { name: '영어' }).click();
   const tab = page.locator('[data-slot="captions-tab"]');
-  await expect(tab.getByRole('textbox')).toHaveCount(5);
+  await expect(tab.getByRole('textbox')).toHaveCount(11);
   for (const size of WIDTHS) {
     await page.setViewportSize(size);
     await page.waitForTimeout(200);

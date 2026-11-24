@@ -71,6 +71,7 @@ export function ResultCard({
             exact={exact}
             tokens={tokens}
             onShowUsage={onShowUsage}
+            captionSave
           />
           <div className="export-result__actions">
             <Button variant="secondary" onClick={onEdit}>

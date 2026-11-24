@@ -69,6 +69,39 @@
 }
 
 /*
+ * A value group of the scene form: the title on its own line and the named
+ * fields under it, two to a 464 wide form, so the row gets no side label.
+ */
+.settings-row.edit-field-group {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding-block: 0;
+}
+
+.edit-field-group .settings-row__text {
+  flex: none;
+}
+
+.edit-field-group .settings-row__label {
+  font-size: var(--font-size-body);
+  line-height: 20px;
+}
+
+.edit-field-group .settings-row__control {
+  margin-inline-start: 0;
+}
+
+.field-trigger.edit-scene-field {
+  width: 226px;
+}
+
+.edit-scene-field .field-trigger__value {
+  flex: 1;
+  text-align: start;
+}
+
+/*
  * A cell a chat change touched: one light band crosses it in 0.6 seconds. The
  * wrapper clips only while the band runs, so a focus ring is never cut.
  */

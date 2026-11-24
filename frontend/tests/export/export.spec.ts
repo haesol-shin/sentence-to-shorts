@@ -204,7 +204,7 @@ eachWidth('test_29_the_caption_button_says_srt_only_in_its_tooltip', async (page
   await closeCard(card);
   await openExport(page);
 
-  const caption = page.locator(EXPORT_STAGE).getByRole('button', { name: '자막 저장' });
+  const caption = page.locator('[data-slot="top-bar"]').getByRole('button', { name: '자막 저장' });
   await expect(caption).toBeVisible();
   await expect(page.locator('body')).not.toContainText('SRT');
   await caption.hover();

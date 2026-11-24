@@ -97,7 +97,7 @@ test('the result plays and saves a video and timed captions', async ({ page }) =
   expect(Buffer.from(mp4.bytes).toString('ascii', 4, 8)).toBe('ftyp');
   expect(mp4.bytes).toEqual(sourceBytes);
 
-  const srt = await saveFile(page, () => stage.getByRole('button', { name: '자막 저장' }).click());
+  const srt = await saveFile(page, () => page.locator('[data-slot="top-bar"]').getByRole('button', { name: '자막 저장' }).click());
   expect(srt.name).toBe('example.srt');
   expect(Buffer.from(srt.bytes).toString('utf8')).toBe(
     '1\n00:00:00,000 --> 00:00:01,500\n사각형이 왼쪽에서 나타나요.\n\n' +

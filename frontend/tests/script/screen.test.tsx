@@ -121,16 +121,16 @@ describe('script screen', () => {
     await open();
     const before = screen.getByRole('combobox', { name: '길이' }).textContent;
 
-    act(() => setRegister('neutral'));
+    act(() => setRegister('casual'));
 
     await waitFor(() =>
       expect(document.querySelectorAll('[data-slot="script-tone-preview"]')).toHaveLength(5),
     );
     const firstPreview = document.querySelector('[data-slot="script-tone-preview"]') as HTMLElement;
     expect(firstPreview.querySelector('del')?.textContent).toContain('확인해요');
-    expect(firstPreview.textContent).toContain('확인합니다');
+    expect(firstPreview.querySelector('.script-review-new')?.textContent).toContain('이야기를 확인해.');
     expect(snapshot().document.register).toBe('friendly');
-    expect(snapshot().tone?.to).toBe('neutral');
+    expect(snapshot().tone?.to).toBe('casual');
     expect(
       (screen.getByRole('button', { name: '이대로 영상 만들기' }) as HTMLButtonElement).disabled,
     ).toBe(true);
@@ -141,7 +141,7 @@ describe('script screen', () => {
       expect(document.querySelectorAll('[data-slot="script-tone-preview"]')).toHaveLength(0),
     );
     expect(screen.getAllByText('바뀜')).toHaveLength(5);
-    expect(snapshot().document.register).toBe('neutral');
+    expect(snapshot().document.register).toBe('casual');
     expect(screen.getByRole('combobox', { name: '길이' }).textContent).not.toBe(before);
   });
 
