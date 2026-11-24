@@ -11,7 +11,6 @@ import { Button } from '@/components/Button/Button';
 import { IconButton } from '@/components/IconButton/IconButton';
 import { MenuButton } from '@/components/MenuButton/MenuButton';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
-import { Tag } from '@/components/Tag/Tag';
 import { ValueField } from '@/components/ValueField/ValueField';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
@@ -39,6 +38,7 @@ import {
   MAX_DISPLAY_CHARS,
   MAX_SCENE_LINES,
   REGISTERS,
+  sceneSeconds,
   textLength,
 } from './model';
 import type { Register, ScriptDraftState, TargetDuration, ToneSceneReview } from './types';
@@ -212,36 +212,35 @@ export function ScriptScreen({
       <div data-slot="script-document" className="script-document">
         <ScrollPane label={t('script.document')} jumpLabel={t('shell.scroll.jump')} className="script-document-pane">
           <header className="script-head" data-slot="script-head">
-            <h2>{t('script.title')}</h2>
-            <p className="script-topic">{script.topic}</p>
-            <p className="script-summary" data-slot="script-summary">
-              {t('script.summary', { seconds: snapshot.totalSeconds })}
-            </p>
-            <div className="script-fields" data-slot="script-fields">
-              <div className="script-field">
-                <span className="script-field-label">{t('script.field.length')}</span>
+            <div className="script-head-row">
+              <h2>{t('script.title')}</h2>
+              <div className="script-fields" data-slot="script-fields">
                 <ValueField
                   label={t('script.field.length')}
+                  name={t('script.field.length')}
+                  display={t('script.length.display', {
+                    seconds: snapshot.totalSeconds,
+                    target: t(`script.length.${script.target_duration_s}`),
+                  })}
                   items={durationItems}
                   value={String(script.target_duration_s)}
                   onValueChange={(value) => setLength(Number(value) as TargetDuration)}
                   disabled={structureLocked}
                 />
-              </div>
-              <div className="script-field">
-                <span className="script-field-label">{t('script.field.scenes')}</span>
                 <ValueField
                   label={t('script.field.scenes')}
+                  name={t('script.field.scenes')}
+                  display={t('script.scenes.display', { count: script.scene_order.length })}
                   items={sceneItems}
                   value={String(script.scene_order.length)}
                   onValueChange={(value) => setSceneCount(Number(value))}
                   disabled={structureLocked}
                 />
-              </div>
-              <div className="script-field">
-                <span className="script-field-label">{t('script.field.tone')}</span>
                 <ValueField
+                  className="script-tone-field"
                   label={t('script.field.tone')}
+                  name={t('script.field.tone')}
+                  display={t(`script.tone.name.${toneValue}`)}
                   items={toneItems}
                   value={toneValue}
                   onValueChange={(value) => setRegister(value as Register)}
@@ -298,8 +297,24 @@ export function ScriptScreen({
                     data-working={working ? 'true' : undefined}
                   >
                     <div className="script-card-head">
+                      <button
+                        type="button"
+                        draggable={!structureLocked}
+                        aria-label={t('script.scene.grip', { number })}
+                        data-slot="script-grip"
+                        className="script-grip hit-area focus-ring"
+                        onDragStart={(event) => {
+                          event.dataTransfer.effectAllowed = 'move';
+                          event.dataTransfer.setData('text/plain', sceneId);
+                        }}
+                      >
+                        <GripVertical aria-hidden size={20} />
+                      </button>
                       <span className="script-card-number">
                         {t('script.scene.label', { number })}
+                      </span>
+                      <span className="script-card-seconds" data-slot="script-scene-seconds">
+                        {t('script.line.seconds', { seconds: sceneSeconds(script, sceneId) })}
                       </span>
                       {working ? (
                         <span data-slot="script-working" className="script-working">
@@ -309,23 +324,11 @@ export function ScriptScreen({
                       ) : null}
                       {snapshot.changedSceneIds.includes(sceneId) ? (
                         <span data-slot="script-changed" className="script-changed">
-                          <Tag variant="neutral">{t('script.changed')}</Tag>
+                          <Check aria-hidden size={20} />
+                          {t('script.changed')}
                         </span>
                       ) : null}
                       <div className="script-tools">
-                        <button
-                          type="button"
-                          draggable={!structureLocked}
-                          aria-label={t('script.scene.grip', { number })}
-                          data-slot="script-grip"
-                          className="script-grip hit-area focus-ring"
-                          onDragStart={(event) => {
-                            event.dataTransfer.effectAllowed = 'move';
-                            event.dataTransfer.setData('text/plain', sceneId);
-                          }}
-                        >
-                          <GripVertical aria-hidden size={20} />
-                        </button>
                         <IconButton
                           size="36"
                           label={t('script.scene.moveUp')}
@@ -418,28 +421,27 @@ export function ScriptScreen({
                         </div>
                       </div>
                     ) : toneReview !== null ? (
-                      <table
+                      <div
                         data-slot="script-tone-preview"
                         aria-label={t('script.tone.label')}
-                        className="script-tone"
+                        className="script-review"
                       >
-                        <thead>
-                          <tr>
-                            <th scope="col">{t('script.tone.old')}</th>
-                            <th scope="col">{t('script.tone.new')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
+                        <ul className="script-review-lines" aria-label={t('script.tone.old')}>
                           {toneReview.lines.map((line) => (
-                            <tr key={line.lineId}>
-                              <td>
-                                <del>{line.before}</del>
-                              </td>
-                              <td>{line.after}</td>
-                            </tr>
+                            <li key={line.lineId}>
+                              <del>{line.before}</del>
+                            </li>
                           ))}
-                        </tbody>
-                      </table>
+                        </ul>
+                        <ul
+                          className="script-review-lines script-review-new"
+                          aria-label={t('script.tone.new')}
+                        >
+                          {toneReview.lines.map((line) => (
+                            <li key={line.lineId}>{line.after}</li>
+                          ))}
+                        </ul>
+                      </div>
                     ) : (
                       <div className="script-lines">
                         {scene.lines.map((line, lineIndex) => (
@@ -481,7 +483,6 @@ export function ScriptScreen({
                       <div className="script-card-actions">
                         <Button
                           data-slot="script-rewrite"
-                          className="script-rewrite"
                           size="36"
                           variant="secondary"
                           iconStart={<RefreshCw aria-hidden size={16} />}

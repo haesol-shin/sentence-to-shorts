@@ -27,6 +27,10 @@ export type ValueFieldItem<Value = string> = {
 export type ValueFieldProps<Value = string> = {
   /** The accessible name of the field. */
   label: string;
+  /** A visible field name drawn inside the trigger, before the value. */
+  name?: ReactNode;
+  /** What the trigger shows for the chosen value; the menu rows keep their own labels. */
+  display?: ReactNode;
   items: readonly ValueFieldItem<Value>[];
   placeholder?: string;
   /** The visible reason for unavailable rows. Without it the rows show no reason. */
@@ -54,6 +58,8 @@ export type ValueFieldProps<Value = string> = {
  */
 export function ValueField<Value = string>({
   label,
+  name,
+  display,
   items,
   placeholder,
   note,
@@ -98,11 +104,14 @@ export function ValueField<Value = string>({
       onOpenChange={(next) => onOpenChange?.(next)}
     >
       <SelectPrimitive.Trigger
-        className={cn('field-trigger', 'hit-area', 'focus-ring', className)}
+        className={cn('field-trigger', 'hit-area', 'focus-ring', name !== undefined && 'field-trigger--named', className)}
         aria-label={label}
         data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
       >
-        <SelectPrimitive.Value className="field-trigger__value" placeholder={placeholder} />
+        {name === undefined ? null : <span className="field-trigger__name">{name}</span>}
+        <SelectPrimitive.Value className="field-trigger__value" placeholder={placeholder}>
+          {display === undefined ? undefined : () => display}
+        </SelectPrimitive.Value>
         <SelectPrimitive.Icon className="field-trigger__icon" render={<ChevronDown aria-hidden="true" />} />
       </SelectPrimitive.Trigger>
       <SelectPrimitive.Portal container={container ?? undefined}>

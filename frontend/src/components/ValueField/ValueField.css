@@ -64,6 +64,33 @@
   cursor: not-allowed;
 }
 
+/*
+ * A named field shows its name in the sub colour and its value in bold, like a
+ * labelled chip. The canon keeps that look while the screen locks the field.
+ */
+.field-trigger--named {
+  justify-content: flex-start;
+  gap: var(--space-12);
+  width: auto;
+  padding-inline: var(--space-16) 14px;
+  color: var(--sub);
+  line-height: normal;
+}
+
+.field-trigger__name {
+  flex: none;
+  white-space: nowrap;
+}
+
+.field-trigger--named .field-trigger__value {
+  color: var(--foreground);
+  font-weight: var(--font-weight-bold);
+}
+
+.field-trigger--named:disabled {
+  color: var(--sub);
+}
+
 .field-positioner {
   z-index: var(--z-menu);
   isolation: isolate;

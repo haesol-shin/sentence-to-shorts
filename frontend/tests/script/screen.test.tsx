@@ -80,7 +80,8 @@ describe('script screen', () => {
     expect(
       (within(first).getByRole('button', { name: 'AI로 다시 쓰기' }) as HTMLButtonElement).disabled,
     ).toBe(false);
-    expect(within(first).getByText(/약 \d+초/u)).toBeTruthy();
+    expect(first.querySelector('[data-slot="script-scene-seconds"]')?.textContent).toMatch(/^약 \d+초$/u);
+    expect(first.querySelector('[data-slot="script-line-seconds"]')?.textContent).toMatch(/^약 \d+초$/u);
 
     const next = screen.getByRole('button', { name: '이대로 영상 만들기' });
     expect((next as HTMLButtonElement).disabled).toBe(false);
@@ -118,7 +119,7 @@ describe('script screen', () => {
 
   test('test_26_the_tone_preview_shows_old_and_new_lines_and_apply_marks_scenes', async () => {
     await open();
-    const before = document.querySelector('[data-slot="script-summary"]')?.textContent;
+    const before = screen.getByRole('combobox', { name: '길이' }).textContent;
 
     act(() => setRegister('neutral'));
 
@@ -141,7 +142,7 @@ describe('script screen', () => {
     );
     expect(screen.getAllByText('바뀜')).toHaveLength(5);
     expect(snapshot().document.register).toBe('neutral');
-    expect(document.querySelector('[data-slot="script-summary"]')?.textContent).not.toBe(before);
+    expect(screen.getByRole('combobox', { name: '길이' }).textContent).not.toBe(before);
   });
 
   test('test_8a_the_rewrite_review_applies_in_the_scene_and_undoes_once', async () => {

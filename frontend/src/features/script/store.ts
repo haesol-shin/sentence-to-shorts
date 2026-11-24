@@ -571,7 +571,7 @@ export function dismissTone(): void {
   emit();
 }
 
-/** A changed-scene jump from the conversation: scroll there and frame it. */
+/** A changed-scene jump from the conversation: scroll there and tint its card grey. */
 export function focusScene(sceneId: string): void {
   const state = requireSession();
   if (state === null || state.document.scenes[sceneId] === undefined) {
