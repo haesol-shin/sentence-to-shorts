@@ -1,12 +1,12 @@
 import { Children, useEffect, useLayoutEffect, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Check, ChevronDown, ChevronRight, Image, LockKeyhole, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, Image, LockKeyhole, Video, X } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
 import { Chip } from '@/components/Chip/Chip';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
-import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, visibleCardCount } from './cards';
+import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, STORY_CARD_ORDER, visibleCardCount } from './cards';
 import { cardIdForSettings, originOf, SHORT_OPTIONS } from './model';
 import {
   analyzeConceptReference, applyConceptPlan, chooseCardTune, chooseConcept,
@@ -16,7 +16,7 @@ import {
 import type { Attachment, ConceptSnapshot, LockKey, Plan, Settings, Slot } from './types';
 import './concept.css';
 
-const STORIES = ['just_three', 'its_like', 'what_if'] as const;
+const STORIES = STORY_CARD_ORDER;
 const SLOTS: Slot[] = ['body', 'face', 'hair', 'hat', 'outfit', 'prop'];
 
 export interface EntryComposerProps {
@@ -46,7 +46,10 @@ function valueLabel(value: unknown, t: (key: string) => string): string {
   return label === key ? String(value) : label;
 }
 
-function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+/** A modal window: title, the caller's body, then cancel and the caller's actions on the right. */
+function Modal({ title, children, actions, onClose }: {
+  title: string; children: ReactNode; actions?: ReactNode; onClose: () => void;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const cancel = useRef<HTMLButtonElement>(null);
   const { t } = useLocale();
@@ -65,12 +68,15 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
       event.preventDefault(); onClose();
     }} onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <ScrollPane label={title} jumpLabel={t('shell.scroll.jump')} className="concept-dialog__pane">
-        <div className="flex flex-col gap-4 p-6">
-          <h2 className="text-[22px] font-bold">{title}</h2>
+        <div className="concept-dialog__body">
+          <h2 className="concept-dialog__title">{title}</h2>
           {children}
-          <button ref={cancel} type="button" className="concept-small-button" onClick={onClose}>
-            {t('concept.cancel')}
-          </button>
+          <div className="concept-dialog__actions">
+            <button ref={cancel} type="button" className="concept-dialog__cancel" onClick={onClose}>
+              {t('concept.cancel')}
+            </button>
+            {actions}
+          </div>
         </div>
       </ScrollPane>
     </dialog>
@@ -121,23 +127,23 @@ function Field({ snapshot, path, name, options, lockKey }: {
 
 /**
  * Lock and origin controls for a value whose value field lives elsewhere, so
- * the fine-tune panel keeps one value and the lock stays reachable.
+ * the fine-tune panel and the title row keep one value and the lock and reset stay reachable.
  */
 function LockRow({ snapshot, path, name, lockKey, resettable = true }: {
-  snapshot: ConceptSnapshot; path: string; name: string; lockKey: LockKey; resettable?: boolean;
+  snapshot: ConceptSnapshot; path: string; name: string; lockKey?: LockKey; resettable?: boolean;
 }) {
   const { t } = useLocale();
-  const locked = snapshot.document.settings.locks[lockKey] ?? 'varied';
+  const locked = lockKey === undefined ? undefined : snapshot.document.settings.locks[lockKey] ?? 'varied';
   const origin = originOf(snapshot.document.settings, path);
   return (
     <div className="concept-field" data-field={path}>
       <span className="font-bold">{name}</span>
       <div className="flex flex-wrap items-center gap-1 text-[15px]">
         <span className="concept-origin">{t(`concept.origin.${origin}`)}</span>
-        <button type="button" className="concept-small-button"
+        {locked === undefined ? null : <button type="button" className="concept-small-button"
           disabled={snapshot.document.confirmed || snapshot.busy}
           aria-label={`${name}: ${t(`concept.lock.${locked}`)}`} aria-pressed={locked === 'locked'}
-          onClick={() => toggleConceptLock(lockKey)}>{t(`concept.lock.${locked}`)}</button>
+          onClick={() => toggleConceptLock(lockKey!)}>{t(`concept.lock.${locked}`)}</button>}
         {resettable ? <button type="button" className="concept-small-button"
           aria-label={`${name}: ${t('concept.reset')}`} disabled={snapshot.document.confirmed || snapshot.busy}
           onClick={() => resetConcept(path)}>{t('concept.reset')}</button> : null}
@@ -173,13 +179,17 @@ function CardGrid({ children }: { children: ReactNode }) {
   );
 }
 
-function PictureCard({ title, description, selected, disabled, onClick }: {
-  title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void;
+/**
+ * A picture card. A story card's body sits bare inside its slot, which carries
+ * the face; a tile (art style) is its own 216 face.
+ */
+function PictureCard({ title, description, selected, disabled, onClick, tile = false }: {
+  title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void; tile?: boolean;
 }) {
   return (
-    <button type="button" className="concept-card" aria-label={title} title={title}
+    <button type="button" className={tile ? 'concept-card concept-card--tile' : 'concept-card'} aria-label={title} title={title}
       aria-pressed={selected} disabled={disabled} onClick={onClick}>
-      <span className="concept-card__picture"><Image aria-hidden size={28} /></span>
+      <span className="concept-card__picture"><Image aria-hidden size={32} /></span>
       <span className="concept-card__title">{clampCardText(title)}</span>
       <span className="concept-card__description">{clampCardText(description ?? '', CARD_DESCRIPTION_LIMIT)}</span>
     </button>
@@ -192,31 +202,33 @@ function StoryCard({ id, title, description, selected, disabled, open, onPick, o
 }) {
   const { t } = useLocale();
   return (
-    <div className="concept-card-slot" data-card={id}>
+    <div className="concept-card-slot" data-card={id} data-selected={selected ? '' : undefined}>
       <PictureCard title={title} description={description} selected={selected} disabled={disabled} onClick={onPick} />
       <button type="button" className="concept-tune-toggle" aria-expanded={open}
         aria-label={`${title} ${t('concept.tune')}`} aria-controls={`concept-tune-${id}`}
         onClick={onToggle}>
-        <span>{t('concept.tune')}</span><ChevronDown aria-hidden size={16} />
+        <span>{t('concept.tune')}</span><ChevronDown aria-hidden size={20} />
       </button>
-      {open ? <section id={`concept-tune-${id}`} className="concept-tune-panel" aria-label={`${title} ${t('concept.tune')}`}>
+      {open ? <section id={`concept-tune-${id}`} data-slot="concept-detail" className="concept-tune-panel" aria-label={`${title} ${t('concept.tune')}`}>
         {panel}
       </section> : null}
     </div>
   );
 }
 
-function TuneChip({ name, path, options, value, disabled }: {
-  name: string; path: string; options: { value: unknown; label: string }[]; value: unknown; disabled: boolean;
+/** A value pick drawn as name, bold value and chevron; the select over it is the control. */
+function TuneChip({ name, label, path, options, value, disabled, className }: {
+  name: string; label?: string; path: string; options: { value: unknown; label: string }[]; value: unknown;
+  disabled: boolean; className?: string;
 }) {
   const { t } = useLocale();
   const index = options.findIndex((option) => JSON.stringify(option.value) === JSON.stringify(value));
   const current = index < 0 ? valueLabel(value, t) : options[index].label;
   return (
-    <label className="concept-tune-chip">
-      <span className="concept-tune-chip__label">{name}</span>
+    <label className={className === undefined ? 'concept-tune-chip' : `concept-tune-chip ${className}`}>
+      <span className="concept-tune-chip__label">{label ?? name}</span>
       <span className="concept-tune-chip__value">{current}</span>
-      <ChevronDown aria-hidden size={16} className="concept-tune-chip__icon" />
+      <ChevronDown aria-hidden size={20} className="concept-tune-chip__icon" />
       <select className="concept-tune-chip__select" aria-label={name} disabled={disabled}
         value={index < 0 ? '' : index} onChange={(event) => {
           const option = options[Number(event.target.value)];
@@ -348,7 +360,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
   const tunePanel = (id: string) => (
     <>
       <div className="concept-tune-panel__head">
-        <span className="concept-tune-panel__mark"><Image aria-hidden size={16} /></span>
+        <span className="concept-tune-panel__mark"><Image aria-hidden size={20} /></span>
         <div className="concept-tune-panel__names">
           <strong>{t(`concept.card.${id}`)}</strong><span>{t(tuneSummary)}</span>
         </div>
@@ -363,15 +375,18 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
   return (
     <section data-slot="concept-screen" className="concept-screen" aria-label={t('concept.title')}>
       <ScrollPane label={t('concept.document')} jumpLabel={t('shell.scroll.jump')} className="concept-content">
-        <header className="flex flex-wrap items-start justify-between gap-4">
-          <div><h1 className="text-[22px] font-bold">{t('concept.title')}</h1>
-            <p>{doc.topic}</p><p className="text-[15px]">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>
-          <div className="flex flex-wrap gap-3">
-            {field('/target_duration_s', [30, 60, 120])}
-            {field('/format/scene_count', [5, 8, 11])}
+        <header className="concept-head">
+          <div className="concept-head__names"><h1>{t('concept.title')}</h1>
+            <p className="concept-head__topic">{doc.topic}</p>
+            <p className="concept-head__scope">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>
+          <div className="concept-head__fields">
+            <TuneChip className="concept-tune-chip--head" name={t('concept.field.target_duration_s')} label={t('concept.head.duration')}
+              path="/target_duration_s" options={choices([30, 60, 120])} value={settings.target_duration_s} disabled={frozen} />
+            <TuneChip className="concept-tune-chip--head" name={t('concept.field.format.scene_count')} label={t('concept.head.sceneCount')}
+              path="/format/scene_count" options={[5, 8, 11].map((count) => ({ value: count, label: t('concept.head.sceneCountValue', { count }) }))}
+              value={settings.format.scene_count} disabled={frozen} />
           </div>
         </header>
-        {conceptApiIsMock() ? <p className="text-[15px]">{t('concept.mockNotice')}</p> : null}
         {snapshot.error === null ? null : <div role="alert" className="concept-review">
           <p>{snapshot.error.startsWith('concept.') ? t(snapshot.error) : snapshot.error}</p>
           <Button variant="ghost" disabled={snapshot.loading} onClick={() => void reloadConceptCatalog()}>{t('concept.retryCatalog')}</Button>
@@ -379,17 +394,16 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         {snapshot.loading ? <p role="status">{t('concept.loading')}</p> : null}
         <button type="button" className="concept-reference-band" aria-label={t('concept.reference')}
           disabled={frozen} onClick={() => setEntry('reference')}>
-          <span className="concept-reference-band__mark"><Image aria-hidden size={20} /></span>
+          <span className="concept-reference-band__mark"><Video aria-hidden size={20} /></span>
           <span className="concept-reference-band__text">
             <strong>{t('concept.reference')}</strong><span>{t('concept.reference.help')}</span>
           </span>
           <ChevronRight aria-hidden size={20} className="concept-reference-band__icon" />
         </button>
         <section aria-labelledby="concept-story-title" className="concept-group">
-          <div className="concept-group__head">
-            <div><h2 id="concept-story-title" className="text-[22px] font-bold">{t('concept.story')}</h2>
-              <p className="text-[15px]">{t('concept.chooseOne')}</p></div>
-          </div>
+          <h2 id="concept-story-title" className="concept-group__title">
+            <span>{t('concept.story')} <small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+          </h2>
           <CardGrid>
             {STORIES.map((id) => (
               <StoryCard key={id} id={id} title={t(`concept.card.${id}`)} description={t(`concept.example.${id}`)}
@@ -401,8 +415,9 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
         </section>
         <section aria-labelledby="concept-style-title" className="concept-group">
           <div className="concept-group__head">
-            <div><h2 id="concept-style-title" className="text-[22px] font-bold">{t('concept.style')}</h2>
-              <p className="text-[15px]">{t('concept.chooseOne')}</p></div>
+            <h2 id="concept-style-title" className="concept-group__title">
+              <span>{t('concept.style')} <small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+            </h2>
             <div className="flex flex-wrap gap-1">
               <Button variant="ghost" disabled={frozen} onClick={() => setEntry('style')}>{t('concept.entry.style')}</Button>
               <Button variant="ghost" disabled={frozen} onClick={() => setEntry('styleReference')}>{t('concept.entry.styleReference')}</Button>
@@ -410,7 +425,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
           </div>
           <CardGrid>
             {(catalog?.styles ?? []).map((item) => (
-              <PictureCard key={item.ref.id} title={item.manifest.label[language]}
+              <PictureCard key={item.ref.id} tile title={item.manifest.label[language]}
                 description={t(item.manifest.origin === 'builtin' ? 'concept.style.builtin' : 'concept.style.mine')}
                 selected={settings.visual.art_style.id === item.ref.id} disabled={frozen}
                 onClick={() => chooseConcept('/visual/art_style', item.ref)} />
@@ -424,7 +439,7 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
           </div>
         </section>
         <section aria-labelledby="concept-character-title" className="concept-group">
-          <h2 id="concept-character-title" className="text-[22px] font-bold">{t('concept.character')}</h2>
+          <h2 id="concept-character-title" className="concept-group__title"><span>{t('concept.character')}</span></h2>
           <div className="concept-fields">
             {SLOTS.map((slot) => <Field key={slot} snapshot={snapshot} path={`/visual/character/slots/${slot}`}
               name={t(`concept.slot.${slot}`)} options={choices([
@@ -449,6 +464,8 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
           </div>
           <h3 className="font-bold">{t('concept.locks')}</h3>
           <div className="concept-fields">
+            <LockRow snapshot={snapshot} path="/target_duration_s" name={t('concept.field.target_duration_s')} />
+            <LockRow snapshot={snapshot} path="/format/scene_count" name={t('concept.field.format.scene_count')} />
             <LockRow snapshot={snapshot} path="/format/story_structure" name={t('concept.field.format.story_structure')} lockKey="story_structure" resettable={false} />
             <LockRow snapshot={snapshot} path="/format/layout" name={t('concept.field.format.layout')} lockKey="layout" />
             <LockRow snapshot={snapshot} path="/format/character_role" name={t('concept.field.format.character_role')} lockKey="character_role" />
@@ -460,6 +477,8 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
           <summary className="min-h-11 cursor-pointer font-bold">{t('concept.sceneLayer')}</summary>
           <p>{t('concept.sceneLayer.help')}</p>
         </details>
+        {/* The mock notice stays readable at the end of the document, below the picks. */}
+        {conceptApiIsMock() ? <p className="text-[15px]">{t('concept.mockNotice')}</p> : null}
         {settings.format.register === 'neutral' && settings.format.humor === 'light'
           ? <p role="status">{t('concept.weakCombination')}</p> : null}
         {settings.extra_instructions.length ? <div><h3 className="font-bold">{t('concept.extra')}</h3>
@@ -478,12 +497,14 @@ export function ConceptScreen({ ComposerComponent }: { ComposerComponent: Compon
           : <Button disabled={frozen || snapshot.pending !== null} onClick={() => setConfirming(true)}>{t('concept.confirm')}</Button>}
       </footer>
       {entry === null ? null : <Entry mode={entry} onClose={() => setEntry(null)} ComposerComponent={ComposerComponent} />}
-      {confirming ? <Modal title={t('concept.confirm.title')} onClose={() => setConfirming(false)}>
-        <p>{t('concept.confirm.help')}</p>
-        <ul className="list-disc pl-5"><li>{valueLabel(settings.format.story_structure, t)}</li>
-          <li>{valueLabel(settings.visual.art_style, t)}</li><li>{valueLabel(settings.visual.character, t)}</li></ul>
-        <p>{t('concept.confirm.kept')}</p>
-        <Button disabled={snapshot.busy} onClick={() => void confirmConcept().then(() => setConfirming(false))}>{t('concept.confirm')}</Button>
+      {confirming ? <Modal title={t('concept.confirm.title')} onClose={() => setConfirming(false)}
+        actions={<Button disabled={snapshot.busy} onClick={() => void confirmConcept().then(() => setConfirming(false))}>{t('concept.confirm')}</Button>}>
+        <p className="concept-dialog__help">{t('concept.confirm.help')}</p>
+        <dl className="concept-dialog__values">
+          <div><dt>{t('concept.story')}</dt><dd>{valueLabel(settings.format.story_structure, t)}</dd></div>
+          <div><dt>{t('concept.style')}</dt><dd>{valueLabel(settings.visual.art_style, t)}</dd></div>
+          <div><dt>{t('concept.character')}</dt><dd>{valueLabel(settings.visual.character, t)}</dd></div>
+        </dl>
       </Modal> : null}
     </section>
   );

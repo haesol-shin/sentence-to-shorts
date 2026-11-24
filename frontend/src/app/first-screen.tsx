@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Image } from 'lucide-react';
 
 import { listFormatCards, type Language } from '@/shared/api/client';
+import { STORY_CARD_ORDER } from '@/features/concept/cards';
 import type { Attachment } from '@/features/concept/types';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
@@ -10,6 +11,15 @@ import { useLoad } from '@/shared/lib/use-load';
 import { ApiKeyBlock } from './api-key-block';
 import { useDeployment, Composer } from './shell/composer';
 import type { CardPick } from './shell/shell-config';
+
+/** The story cards read in the shared canon order; a card the order does not know follows them. */
+function inCardOrder<T extends { id: string }>(items: readonly T[]): T[] {
+  const rank = (id: string) => {
+    const index = STORY_CARD_ORDER.indexOf(id);
+    return index === -1 ? STORY_CARD_ORDER.length : index;
+  };
+  return [...items].sort((a, b) => rank(a.id) - rank(b.id));
+}
 
 /**
  * The first screen: the heading, the input and the three story cards share one
@@ -77,12 +87,14 @@ export function FirstScreen({
         className="flex w-full flex-col gap-12"
         style={{ maxWidth: 'var(--layout-first-w)' }}
       >
-        <h1 className="text-[22px] font-bold text-[var(--text-strong)]">{t('shell.first.heading')}</h1>
+        <h1 className="self-center text-[length:var(--font-size-display)] leading-[var(--line-height-display)] font-bold text-[var(--text-strong)]">
+          {t('shell.first.heading')}
+        </h1>
         {askKey ? <ApiKeyBlock noticeKey={authFailureKey} onSave={saveKey} /> : null}
         <Composer
           face="first"
           label={t('shell.first.composerLabel')}
-          placeholder={t('shell.first.composerLabel')}
+          placeholder={t('shell.first.composerPlaceholder')}
           sendLabel={t('shell.first.send')}
           value={draft}
           onChange={onDraftChange}
@@ -96,50 +108,59 @@ export function FirstScreen({
           deployment={deployment}
           disabled={submitting}
         />
-        <section data-slot="first-cards" className="flex flex-wrap gap-3">
-          {cards.failureKey === null || cards.pending ? null : (
-            <p className="text-[15px] text-[var(--text-muted)]">{t('shell.first.cardsEmpty')}</p>
-          )}
-          {(cards.data ?? []).map((item) => {
-            const topicKey = `shell.cardTopic.${item.id}`;
-            const topic = t(topicKey);
-            const selected = card?.id === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => onPickCard({ id: item.id, label: item.label[language] })}
-                className={cn(
-                  'focus-ring box-border flex h-[266px] w-[216px] flex-col rounded-[var(--radius-surface)] p-2 text-left transition-colors duration-[var(--motion-short)]',
-                  selected
-                    ? 'bg-[var(--surface-sunken)]'
-                    : 'bg-[var(--surface-muted)] hover:bg-[var(--state-hover-gray)]',
-                )}
-              >
-                <span
-                  className="flex h-[150px] w-[200px] items-center justify-center rounded-[var(--radius-inset)] bg-[var(--surface)] text-[var(--text-muted)]"
-                  aria-hidden="true"
-                >
-                  <Image size={28} />
-                </span>
-                <span
+        <div className="flex flex-col gap-2.5">
+          <h2 className="flex items-baseline justify-between gap-3 text-[17px] leading-5 font-bold text-[var(--text-strong)]">
+            <span>{t('shell.first.cardsTitle')}</span>
+            <small className="text-[15px] leading-5 font-normal text-[var(--text-muted)]">{t('shell.first.cardsHint')}</small>
+          </h2>
+          <section data-slot="first-cards" className="flex flex-wrap gap-3">
+            {cards.failureKey === null || cards.pending ? null : (
+              <p className="text-[15px] text-[var(--text-muted)]">{t('shell.first.cardsEmpty')}</p>
+            )}
+            {inCardOrder(cards.data ?? []).map((item) => {
+              const topicKey = `shell.cardTopic.${item.id}`;
+              const topic = t(topicKey);
+              const selected = card?.id === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => onPickCard({ id: item.id, label: item.label[language] })}
                   className={cn(
-                    'mt-1 line-clamp-2 h-[52px] w-[200px] overflow-hidden text-[17px] leading-[26px] font-normal text-[var(--text-muted)]',
-                    selected && 'font-bold text-[var(--text-strong)]',
+                    'focus-ring box-border flex h-[266px] w-[216px] flex-col justify-center rounded-[var(--radius-content)] p-2 text-left transition-colors duration-[var(--motion-short)]',
+                    selected
+                      ? 'bg-[var(--surface-sunken)]'
+                      : 'bg-transparent hover:bg-[var(--state-hover-gray)]',
                   )}
                 >
-                  {item.label[language]}
-                </span>
-                {topic === topicKey ? null : (
-                  <span className="line-clamp-2 h-[44px] w-[200px] overflow-hidden text-[15px] leading-[22px] text-[var(--text-muted)]">
-                    {t('shell.first.cardExample', { topic })}
+                  <span
+                    className={cn(
+                      'flex h-[150px] w-[200px] shrink-0 items-center justify-center rounded-[var(--radius-media)] text-[var(--text-muted)]',
+                      selected ? 'bg-[var(--surface-muted)]' : 'bg-[var(--surface-sunken)]',
+                    )}
+                    aria-hidden="true"
+                  >
+                    <Image size={32} />
                   </span>
-                )}
-              </button>
-            );
-          })}
-        </section>
+                  <span
+                    className={cn(
+                      'mt-3 h-5 w-[200px] shrink-0 truncate text-[17px] leading-5 font-normal text-[var(--text-muted)]',
+                      selected && 'font-bold text-[var(--text-strong)]',
+                    )}
+                  >
+                    {item.label[language]}
+                  </span>
+                  {topic === topicKey ? null : (
+                    <span className="mt-1 h-[18px] w-[200px] shrink-0 truncate text-[15px] leading-[18px] text-[var(--text-muted)]">
+                      {t('shell.first.cardExample', { topic })}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </section>
+        </div>
       </div>
     </section>
   );

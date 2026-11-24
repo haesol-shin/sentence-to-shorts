@@ -11,7 +11,7 @@ const SCREENS = 'tests/screens';
  */
 test('test_23_captures_the_first_screen_at_this_width', async ({ page }, testInfo) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '어떤 영상을 만들까요?' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '한 문장으로 영상을 만들어요' })).toBeVisible();
   await expect(page.locator('[data-slot="first-cards"] button')).toHaveCount(3);
 
   const width = page.viewportSize()?.width ?? 0;

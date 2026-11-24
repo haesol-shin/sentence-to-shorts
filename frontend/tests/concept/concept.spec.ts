@@ -71,19 +71,18 @@ test('test_4_invalid_combinations_block', async ({ page }) => {
 
 test('test_4_fine_tune_panel_attached_to_selected_card_and_values_stay_separate', async ({ page }) => {
   const concept = await start(page);
-  const itsLike = concept.getByRole('button', { name: '○○로 치면', exact: true });
   const whatIf = concept.getByRole('button', { name: '만약 ~라면?', exact: true });
   const panel = await openTune(concept, '○○로 치면');
   const rowBox = await concept.locator('.concept-card-grid').first().boundingBox();
-  const cardBox = await itsLike.boundingBox();
+  const cardBox = await concept.locator('.concept-card-slot[data-card="its_like"]').boundingBox();
   const panelBox = await panel.boundingBox();
   expect(rowBox).not.toBeNull();
   expect(cardBox).not.toBeNull();
   expect(panelBox).not.toBeNull();
   expect(Math.abs(panelBox!.x - rowBox!.x)).toBeLessThanOrEqual(1);
   expect(Math.abs(panelBox!.width - rowBox!.width)).toBeLessThanOrEqual(1);
-  expect(panelBox!.y - (cardBox!.y + cardBox!.height)).toBeGreaterThanOrEqual(55);
-  expect(panelBox!.y - (cardBox!.y + cardBox!.height)).toBeLessThanOrEqual(60);
+  // The board hangs 6 below the selected card's face.
+  expect(Math.round(panelBox!.y - (cardBox!.y + cardBox!.height))).toBe(6);
 
   const humor = panel.getByRole('combobox', { name: '유머', exact: true });
   await humor.selectOption({ label: '없음' });
@@ -217,7 +216,10 @@ test('test_4_cards_have_fixed_height_selection_and_no_outline', async ({ page })
   const concept = await start(page);
   const selected = concept.getByRole('button', { name: '딱 3가지만', exact: true });
   const other = concept.getByRole('button', { name: '○○로 치면', exact: true });
-  const box = await selected.boundingBox();
+  const selectedFace = concept.locator('.concept-card-slot[data-card="just_three"]');
+  const otherFace = concept.locator('.concept-card-slot[data-card="its_like"]');
+  await page.mouse.move(0, 0);
+  const box = await selectedFace.boundingBox();
   expect(box).not.toBeNull();
   expect(Math.round(box!.width)).toBe(216);
   expect(Math.round(box!.height)).toBe(266);
@@ -227,11 +229,11 @@ test('test_4_cards_have_fixed_height_selection_and_no_outline', async ({ page })
   expect(Math.round(picture!.height)).toBe(150);
   const titleBox = await selected.locator('.concept-card__title').boundingBox();
   const descriptionBox = await selected.locator('.concept-card__description').boundingBox();
-  expect(Math.round(titleBox!.height)).toBe(52);
-  expect(Math.round(descriptionBox!.height)).toBe(44);
+  expect(Math.round(titleBox!.height)).toBe(20);
+  expect(Math.round(descriptionBox!.height)).toBe(18);
   expect(await selected.evaluate((node) => getComputedStyle(node).borderTopWidth)).toBe('0px');
-  expect(await selected.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgb(229, 232, 235)');
-  expect(await other.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgb(242, 244, 246)');
+  expect(await selectedFace.evaluate((node) => getComputedStyle(node).backgroundColor)).toBe('rgb(229, 232, 235)');
+  await expect(otherFace).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)');
   expect(await selected.locator('.concept-card__title').evaluate((node) => getComputedStyle(node).fontWeight)).toBe('700');
   expect(await other.locator('.concept-card__title').evaluate((node) => getComputedStyle(node).fontWeight)).toBe('400');
   await expect(selected).toHaveAttribute('title', '딱 3가지만');

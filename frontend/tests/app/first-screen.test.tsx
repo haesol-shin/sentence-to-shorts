@@ -92,7 +92,7 @@ test('test_16_language_switch_turns_the_screen_english', async () => {
 
   fireEvent.click(screen.getByRole('button', { name: 'English' }));
 
-  expect(await screen.findByRole('heading', { name: 'What video should we make?' })).toBeTruthy();
+  expect(await screen.findByRole('heading', { name: 'Make a video from one sentence' })).toBeTruthy();
   expect(document.documentElement.lang).toBe('en');
 });
 

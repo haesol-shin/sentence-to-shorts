@@ -83,8 +83,8 @@ export function TopBar({
   return (
     <header
       data-slot="top-bar"
-      className="relative flex shrink-0 items-center gap-3 px-4"
-      style={{ minHeight: 'var(--layout-topbar-h)' }}
+      // The desktop bar is a white strip 56 high whose controls hang 6 from its top edge.
+      className="relative flex min-h-[var(--layout-topbar-h)] shrink-0 items-center gap-3 bg-[var(--surface)] px-4 md:h-14 md:min-h-0 md:items-start md:gap-4 md:pt-1.5"
     >
       <div className="hidden md:block">
         <HistoryButtons view={view} />
@@ -98,12 +98,12 @@ export function TopBar({
         </div>
       ) : null}
       {view === 'edit' ? (
-        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:min-h-[var(--size-control)]">
           <EditTopBarStatus />
           <VideoSettings />
         </div>
       ) : (
-        <div className="flex min-w-0 flex-1 items-center">{status}</div>
+        <div className="flex min-w-0 flex-1 items-center md:min-h-[var(--size-control)]">{status}</div>
       )}
       {stage === 'script' ? null : <NextAction stage={stage} videoId={videoId} />}
     </header>

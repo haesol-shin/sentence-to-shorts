@@ -27,7 +27,7 @@ export function HistoryButtons({ view }: { view: View }) {
         : { enabled: false, act: () => undefined };
 
   return (
-    <div data-slot="history" className="flex shrink-0 items-center">
+    <div data-slot="history" className="flex shrink-0 items-center gap-1">
       <IconButton label={t('edit.history.undo')} disabled={!run.enabled} onClick={run.act}>
         <Undo2 aria-hidden size={20} />
       </IconButton>

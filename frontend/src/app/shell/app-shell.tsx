@@ -5,6 +5,7 @@ import { useEditOptional } from '@/features/edit/edit-context';
 import { useActivityReporting } from '@/features/export/activity';
 import { useExportState } from '@/features/export/store';
 import { StageScrollProvider } from '@/shared/lib/stage-scroll';
+import { useLocale } from '@/shared/lib/i18n/locale';
 import { cn } from '@/shared/lib/utils';
 import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
@@ -16,6 +17,13 @@ import { type Stage, type View } from './shell-config';
 
 /** Below this a scroll is a stray pixel, not a reader moving down the screen. */
 const SCROLLED_AT = 24;
+
+/**
+ * The widest work face: the scene list, the 9:16 preview at 462 / 796 of the
+ * face height with a gutter on each side, and the editor at its widest.
+ */
+const STAGE_MAX_WIDTH =
+  'calc(var(--layout-scene-col-w) + var(--layout-gutter) * 2 + 100cqh * 462 / 796 * 9 / 16 + var(--layout-scene-panel-max-w))';
 
 function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
   videoId: string | null;
@@ -80,6 +88,7 @@ export function AppShell({
   composer: ReactNode | null;
   children: ReactNode;
 }) {
+  const { t } = useLocale();
   const { inset, keyboardOpen } = useViewportInsets();
   const [scrolled, setScrolled] = useState(false);
   const stage: Stage | null = view === 'first' ? null : view;
@@ -99,7 +108,7 @@ export function AppShell({
         <ExportHandoff videoId={videoId} view={view} draftWaiting={draftWaiting} onStage={onStage} />
         <main
           data-screen="app"
-          className="flex w-full overflow-hidden bg-[var(--surface)]"
+          className="flex w-full overflow-hidden bg-[var(--surface)] md:bg-[var(--background)]"
           // A phone keyboard covers the bottom of the layout viewport without
           // resizing it, so the shell gives up exactly the covered height. The dock
           // then ends at the top of the keys instead of riding over the stage.
@@ -132,19 +141,24 @@ export function AppShell({
               {stage !== null && composer !== null ? (
                 <div
                   data-slot="conversation"
-                  className="hidden shrink-0 flex-col justify-end rounded-[var(--radius-card)] bg-[var(--surface)] p-[var(--space-20)] md:flex md:shadow-[var(--shadow-float)]"
+                  className="hidden shrink-0 flex-col rounded-[var(--radius-card)] bg-[var(--surface)] px-[var(--space-20)] pt-[18px] pb-[var(--space-20)] md:flex md:shadow-[var(--shadow-float)]"
                   // The width follows the face height (the row is the size container), so the
                   // 380 / 796 phone ratio of the layout tokens holds at every window size and engine.
                   style={{ width: 'calc(100cqh * 380 / 796)' }}
                 >
-                  {view === 'edit' || view === 'export' ? (
-                    <div className="flex min-h-0 flex-1 flex-col gap-2">
-                      <EditChatHistory />
-                      {composer}
-                    </div>
-                  ) : (
-                    composer
-                  )}
+                  <h2 className="mb-[14px] ml-[var(--space-4)] text-[22px] leading-[26px] font-bold text-[var(--text-strong)]">
+                    {t('shell.conversation.title')}
+                  </h2>
+                  <div className="flex min-h-0 flex-1 flex-col justify-end">
+                    {view === 'edit' || view === 'export' ? (
+                      <div className="flex min-h-0 flex-1 flex-col gap-2">
+                        <EditChatHistory />
+                        {composer}
+                      </div>
+                    ) : (
+                      composer
+                    )}
+                  </div>
                 </div>
               ) : null}
               <section
@@ -152,8 +166,12 @@ export function AppShell({
                 className={cn(
                   'flex min-h-0 min-w-0 flex-1 flex-col',
                   stage !== null &&
-                    'md:overflow-hidden md:rounded-[var(--radius-card)] md:bg-[var(--surface)] md:shadow-[var(--shadow-float)]',
+                    'md:mx-auto md:overflow-hidden md:rounded-[var(--radius-card)] md:bg-[var(--surface)] md:shadow-[var(--shadow-float)]',
                 )}
+                // The work face is as wide as the scene list, the 9:16 preview with its
+                // side gutters and the widest editor; the rest of the row is split on
+                // both sides so the face sits in the middle of the room beside the chat.
+                style={stage === null ? undefined : { maxWidth: STAGE_MAX_WIDTH }}
               >
                 <div
                   key={view === 'edit' ? 'edit' : 'stage'}

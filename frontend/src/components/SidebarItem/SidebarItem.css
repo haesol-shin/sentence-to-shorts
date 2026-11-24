@@ -8,9 +8,9 @@
   width: var(--size-control);
   height: var(--size-control);
   padding: 0;
-  border: var(--part-hairline) solid var(--background);
+  border: var(--part-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--background);
+  background: transparent;
   color: var(--muted-foreground);
   cursor: pointer;
   transition:
@@ -53,10 +53,30 @@
 }
 
 .sidebar-item:disabled {
-  background: var(--background);
-  border-color: var(--background);
+  background: transparent;
+  border-color: transparent;
   color: var(--disabled-foreground);
   cursor: not-allowed;
+}
+
+/* The rail's filled action: new video stays dark whether or not it is the current page. */
+.sidebar-item.sidebar-item--primary,
+.sidebar-item.sidebar-item--primary[data-selected] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.sidebar-item.sidebar-item--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+  color: var(--primary-foreground);
+}
+
+.sidebar-item.sidebar-item--primary:active:not(:disabled) {
+  background: var(--primary-pressed);
+  border-color: var(--primary-pressed);
+  color: var(--primary-foreground);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -20,3 +20,9 @@ export function clampCardText(text: string, limit = CARD_TITLE_LIMIT): string {
   if (characters.length <= limit) return characters.join('');
   return `${characters.slice(0, limit - 1).join('')}…`;
 }
+
+/**
+ * The order the three story cards read in, for the first screen and the concept
+ * screen alike: one list, so the two screens cannot drift apart.
+ */
+export const STORY_CARD_ORDER: readonly string[] = ['just_three', 'what_if', 'its_like'];

@@ -37,10 +37,8 @@
   border-color: var(--primary-pressed);
 }
 
+/* The send mark keeps its dark face while there is nothing to send; only the pointer says it waits. */
 .send-button:disabled {
-  background: var(--muted);
-  border-color: var(--muted);
-  color: var(--disabled-foreground);
   cursor: not-allowed;
 }
 

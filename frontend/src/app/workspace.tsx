@@ -258,7 +258,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
         view === 'first' ? null : (
           <PlaceholderComposer
             label={t('shell.stage.composerPlaceholder')}
-            placeholder={t('shell.stage.composerPlaceholder')}
+            placeholder={t('edit.composer.placeholder')}
             sendLabel={t('shell.first.send')}
             reason={t('shell.stage.composerReason')}
           />

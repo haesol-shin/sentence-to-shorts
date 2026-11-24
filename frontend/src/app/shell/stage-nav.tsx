@@ -6,7 +6,8 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 
 import { STAGES, type Stage } from './shell-config';
 
-const STEP = 'text-[15px] whitespace-nowrap';
+// Each step is a 44 high capsule with 14 on each side; the current one carries a dot at its foot.
+const STEP = 'relative inline-flex h-[var(--size-control)] items-center rounded-[var(--radius-capsule)] px-3.5 text-[15px] whitespace-nowrap';
 
 /**
  * The four step names with a dot under the current one. Every other step can be
@@ -27,19 +28,23 @@ export function StageIndicator({
     <nav
       data-slot="stage-indicator"
       aria-label={t('shell.stage.list')}
-      className="flex items-start gap-5"
+      className="flex items-center gap-4"
     >
       {STAGES.map((stage, index) => {
         const isCurrent = stage === current;
         const isPast = index < currentIndex;
         return (
-          <span key={stage} className="flex flex-col items-center gap-1">
+          <span key={stage} className="flex">
             {isCurrent ? (
               <span
                 aria-current="step"
                 className={cn(STEP, 'font-bold text-[var(--text-strong)]')}
               >
                 {t(`shell.stage.${stage}`)}
+                <span
+                  aria-hidden
+                  className="absolute bottom-[3px] left-1/2 size-[5px] -translate-x-1/2 rounded-[var(--radius-capsule)] bg-[var(--text-strong)]"
+                />
               </span>
             ) : (
               <button
@@ -47,20 +52,13 @@ export function StageIndicator({
                 onClick={() => onSelect(stage)}
                 className={cn(
                   STEP,
-                  'hit-area focus-ring rounded-[var(--radius-capsule)] hover:underline',
+                  'focus-ring hover:underline',
                   isPast ? 'text-[var(--text-strong)]' : 'text-[var(--text-disabled)]',
                 )}
               >
                 {t(`shell.stage.${stage}`)}
               </button>
             )}
-            <span
-              aria-hidden
-              className={cn(
-                'size-[5px] rounded-[var(--radius-capsule)]',
-                isCurrent ? 'bg-[var(--text-strong)]' : 'bg-transparent',
-              )}
-            />
           </span>
         );
       })}
@@ -113,8 +111,8 @@ export function StageMenu({
         aria-expanded={open}
         aria-label={t('shell.stage.menu')}
         onClick={() => setOpen((previous) => !previous)}
-        className="inline-flex shrink-0 items-center gap-1 rounded-[var(--radius-capsule)] px-3 text-[15px] font-bold whitespace-nowrap text-[var(--text-strong)] hover:bg-[var(--surface-muted)]"
-        style={{ minHeight: 'var(--touch-target)' }}
+        // The phone keeps the 48 touch target; the desktop bar matches its 44 controls.
+        className="inline-flex min-h-[var(--touch-target)] shrink-0 items-center gap-1 rounded-[var(--radius-capsule)] px-3 text-[15px] font-bold whitespace-nowrap text-[var(--text-strong)] hover:bg-[var(--surface-muted)] md:min-h-[var(--size-control)]"
       >
         {t(`shell.stage.${current}`)}
         <ChevronDown
