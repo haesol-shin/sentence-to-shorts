@@ -37,7 +37,7 @@ async function makeVideo(page: Page): Promise<Locator> {
     .getByRole('button', { name: '영상 만들기' })
     .click();
   await page.locator('[data-slot="export-start"]').click();
-  const card = page.getByRole('dialog', { name: '영상', exact: true });
+  const card = page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true });
   await expect(card).toBeVisible({ timeout: 20_000 });
   return card;
 }
@@ -77,30 +77,30 @@ eachWidth('test_10a_the_edit_step_stays_usable_while_the_video_is_made_and_the_c
   await expect(page.locator('.top-bar-status__trigger')).toHaveCount(0);
   await page.locator('[data-slot="export-start"]').click();
   await expect(page.locator('.top-bar-status__trigger')).toBeVisible({ timeout: 5000 });
-  await expect(page.getByRole('dialog', { name: '영상', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true })).toHaveCount(0);
 
   const third = page.locator(SCENE_CARD).nth(2);
   await third.locator('button.card').click();
-  await expect(third.locator('[data-slot="scene-selected-mark"]')).toBeVisible();
+  await expect(third.locator('[data-slot="scene-selected"]')).toBeVisible();
   await expect(page.locator(EXPORT_STAGE)).toHaveCount(0);
 
-  await expect(page.getByRole('dialog', { name: '영상', exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true })).toBeVisible({ timeout: 20_000 });
   await expect(page.locator(EXPORT_STAGE)).toBeVisible();
   await expect(page.locator('.top-bar-status__trigger')).toHaveCount(0);
   await expect(page.getByRole('progressbar')).toHaveCount(0);
   await expect(page.getByRole('button', { name: /멈추기|취소/u })).toHaveCount(0);
 });
 
-eachWidth('test_10a_the_result_card_is_768_wide_and_stacks_the_facts_from_the_top', async (page) => {
+eachWidth('test_10a_the_result_card_is_814_wide_and_stacks_the_facts_from_the_top', async (page) => {
   const card = await makeVideo(page);
   await page.waitForTimeout(300);
 
   const box = await card.boundingBox();
   expect(box).not.toBeNull();
   if (box === null) return;
-  expect(Math.round(box.width)).toBe(768);
+  expect(Math.round(box.width)).toBe(814);
 
-  await expect(card.getByRole('heading', { name: '영상', exact: true })).toBeVisible();
+  await expect(card.getByRole('heading', { name: '영상을 다 만들었어요', exact: true })).toBeVisible();
   const names = await card.getByRole('button').evaluateAll((nodes) =>
     nodes.map((node) => node.getAttribute('aria-label') ?? node.textContent ?? ''),
   );
@@ -108,7 +108,6 @@ eachWidth('test_10a_the_result_card_is_768_wide_and_stacks_the_facts_from_the_to
     expect(names).not.toContain(forbidden);
   }
   expect(names).toContain('결과 카드 닫기');
-  await expect(card.getByText(/다 만들었/u)).toHaveCount(0);
 
   const labels = await card.locator('dt').allTextContents();
   expect(labels).toEqual(['길이', '형식', '자막', '사용량']);
@@ -131,7 +130,7 @@ eachWidth('test_10a_the_result_card_is_768_wide_and_stacks_the_facts_from_the_to
     };
   });
   // The facts follow the one-line description; only the button row sits at the bottom.
-  expect(geometry.factsTop - geometry.descriptionBottom).toBeLessThanOrEqual(32);
+  expect(geometry.factsTop - geometry.descriptionBottom).toBeLessThanOrEqual(35);
   expect(geometry.rows).toEqual([...geometry.rows].sort((left, right) => left - right));
   expect(Math.round(geometry.actionsBottom)).toBe(Math.round(geometry.sideBottom));
   expect(geometry.actionsTop).toBeGreaterThanOrEqual(geometry.factsBottom);

@@ -1,0 +1,44 @@
+/*
+ * The pick window: 20 padding, the title centred on the 44 close corner,
+ * a 15 description, then 44 rows with the listen mark at their start.
+ */
+.dialog.choice-sheet {
+  padding: var(--space-20);
+}
+
+.choice-sheet .dialog__title {
+  width: fit-content;
+  max-width: calc(100% - var(--size-control) - var(--space-8));
+  margin-top: calc((var(--size-control) - 26px) / 2);
+  line-height: 26px;
+}
+
+.choice-sheet .dialog__description {
+  margin-top: 15px;
+  font-size: var(--font-size-small);
+  line-height: 18px;
+}
+
+.choice-sheet .dialog__content {
+  margin-top: 18px;
+}
+
+.choice-sheet .dialog__actions {
+  margin-top: var(--space-12);
+}
+
+.choice-row {
+  position: relative;
+}
+
+/* The listen mark sits inside the row's start, before the name. */
+.icon-button.choice-listen {
+  position: absolute;
+  top: 10px;
+  left: 14px;
+  z-index: 1;
+}
+
+.choice-select {
+  padding: 0 var(--space-12) 0 40px;
+}

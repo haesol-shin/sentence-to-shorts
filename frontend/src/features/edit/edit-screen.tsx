@@ -41,7 +41,7 @@ export function EditScreen() {
         data-slot="stage-panel"
         data-stage="edit"
         aria-label={t('shell.edit.panel')}
-        className="edit-stage-panel flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-[28px] py-4 md:max-w-[var(--layout-scene-panel-max-w)]"
+        className="edit-stage-panel flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-[28px] pt-[22px] pb-4 md:max-w-[var(--layout-scene-panel-max-w)]"
       >
         <ScenePanel edit={edit} />
       </section>

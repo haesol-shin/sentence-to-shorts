@@ -113,7 +113,7 @@
   "voice.list": "Voice list",
   "voice.none": "No voice picked",
   "voice.note": "You only pick the voice here. The speech itself is made when the video is made.",
-  "voice.pickerDescription": "Listen to the voices, pick one and press Apply.",
+  "voice.pickerDescription": "Listen with ▶ and pick one",
   "voice.pickerTitle": "Pick a voice",
   "voice.title": "Voice"
 }

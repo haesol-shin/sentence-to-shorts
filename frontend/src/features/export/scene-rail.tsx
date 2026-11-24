@@ -21,9 +21,9 @@ export function SceneRail({
   return (
     <aside
       data-slot="export-scenes"
-      className="hidden w-[var(--layout-scene-col-w)] shrink-0 flex-col gap-2 bg-[var(--surface-muted)] p-2 md:flex"
+      className="hidden w-[var(--layout-scene-col-w)] shrink-0 flex-col gap-2 rounded-l-[var(--radius-column)] bg-[var(--surface-muted)] px-4 pt-4 pb-5 md:flex"
     >
-      <h2 className="px-1 text-[15px] font-bold text-[var(--text-strong)]">{t('export.scenes.list')}</h2>
+      <h2 className="ml-0.5 text-[15px] leading-[18px] font-bold text-[var(--text-muted)]">{t('export.scenes.list')}</h2>
       <p className="px-1 text-[13px] text-[var(--text-muted)]">{t('export.scenes.hint')}</p>
       <ScrollPane
         label={t('export.scenes.list')}

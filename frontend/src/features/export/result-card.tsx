@@ -58,7 +58,7 @@ export function ResultCard({
         <div className="export-result__side">
           <div className="export-result__head">
             <h2 id={TITLE_ID} className="export-result__title">
-              {t('export.card.title')}
+              {t('export.card.doneTitle')}
             </h2>
             <DialogClose
               render={<CloseButton label={t('export.card.close')} className="focus-ring--inset" />}

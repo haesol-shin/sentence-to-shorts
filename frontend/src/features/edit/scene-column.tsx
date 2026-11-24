@@ -69,21 +69,21 @@ function SceneCard({
         <span
           data-slot="scene-unseen"
           aria-hidden="true"
-          className="absolute top-3 left-[calc(var(--space-8)+var(--space-24)+var(--space-4))] size-[10px] rounded-[var(--radius-pill)] bg-[var(--emphasis)]"
+          className="absolute top-3 left-10 size-[10px] rounded-[var(--radius-pill)] bg-[var(--emphasis)]"
         />
       ) : null}
       <IconButton
         size="24"
         label={t('edit.scene.deleteLabel', { number })}
         onClick={() => edit.requestDelete(scene.id)}
-        className="absolute top-1 right-1 z-10"
+        className="scene-delete"
       >
-        <Trash2 aria-hidden size={16} />
+        <Trash2 aria-hidden size={14} />
       </IconButton>
       {selected ? (
         <span
           aria-hidden="true"
-          data-slot="scene-selected-mark"
+          data-slot="scene-selected"
           className="pointer-events-none absolute inset-0 rounded-[var(--radius-content)] ring-2 ring-[var(--ring)]"
         />
       ) : null}
@@ -96,13 +96,13 @@ export function SceneColumn({ edit }: { edit: EditValue }) {
   return (
     <aside
       data-slot="scene-column"
-      className="hidden w-[var(--layout-scene-col-w)] shrink-0 flex-col gap-2 bg-[var(--surface-muted)] p-2 md:flex"
+      className="hidden w-[var(--layout-scene-col-w)] shrink-0 flex-col gap-[18px] rounded-l-[var(--radius-column)] bg-[var(--surface-muted)] pt-4 pr-4 pb-5 pl-4 md:flex"
     >
-      <h2 className="px-1 text-[15px] font-bold text-[var(--text-strong)]">
+      <h2 className="ml-0.5 text-[15px] leading-[18px] font-bold text-[var(--text-muted)]">
         {t('edit.scene.list')}
       </h2>
-      <ScrollPane label={t('edit.scene.list')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
-        <div className="flex flex-col items-center gap-3 pb-12">
+      <ScrollPane label={t('edit.scene.list')} jumpLabel={t('shell.scroll.jump')} className="-mx-1 min-h-0 flex-1">
+        <div className="flex flex-col items-start gap-2 pb-12">
           {edit.scenes.length === 0 ? (
             <p className="px-1 text-[15px] text-[var(--text-muted)]">{t('edit.scene.empty')}</p>
           ) : (

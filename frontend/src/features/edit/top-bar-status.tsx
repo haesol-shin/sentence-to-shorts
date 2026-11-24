@@ -45,7 +45,7 @@ export function EditTopBarStatus() {
         onOpenChange={(next) => {
           if (next) setOpen(true);
         }}
-        className="max-w-64"
+        className={open ? 'max-w-64 top-bar-status__trigger--open' : 'max-w-64'}
       />
       <DialogPrimitive.Root open={open} onOpenChange={setOpen} modal={false}>
         <DialogPrimitive.Portal>
@@ -58,14 +58,15 @@ export function EditTopBarStatus() {
               data-slot="progress-window"
               role="dialog"
               aria-label={t('edit.status.title')}
-              className="pointer-events-auto relative flex max-h-[calc(100dvh-var(--layout-topbar-h)-32px)] w-[480px] max-w-[calc(100vw-32px)] flex-col gap-4 overflow-hidden rounded-[var(--radius-surface)] bg-[var(--popover)] p-6 shadow-[var(--shadow-float)] outline-none"
+              className="pointer-events-auto relative flex max-h-[calc(100dvh-var(--layout-topbar-h)-32px)] w-[480px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[var(--radius-surface)] bg-[var(--popover)] p-6 shadow-[var(--shadow-float)] outline-none"
             >
-              <div className="flex items-start justify-between gap-3">
-                <DialogPrimitive.Title className="flex items-center gap-2 text-[22px] leading-[var(--font-size-title)] font-bold text-[var(--text-strong)]">
+              {/* Inside the window progress is drawn in the foreground; only the top bar item is blue. */}
+              <div className="flex h-[var(--size-control)] items-center justify-between gap-3">
+                <DialogPrimitive.Title className="flex items-center gap-[10px] text-[length:var(--font-size-title)] leading-[var(--line-height-body)] font-bold text-[var(--text-strong)]">
                   {edit.phase === 'done' ? (
-                    <Check aria-hidden className="text-[var(--progress)]" />
+                    <Check aria-hidden className="size-[var(--icon-title)] text-[var(--foreground)]" />
                   ) : (
-                    <span className="spinner text-[var(--progress)]" aria-hidden="true" />
+                    <span className="spinner text-[var(--foreground)] [--icon-inline:var(--icon-title)]" aria-hidden="true" />
                   )}
                   {edit.phase === 'done' ? t('edit.status.doneTitle') : t('edit.status.title')}
                 </DialogPrimitive.Title>
@@ -74,45 +75,50 @@ export function EditTopBarStatus() {
                     <CloseButton
                       label={t('edit.status.close')}
                       data-slot="progress-close"
-                      className="my-[calc((var(--font-size-title)-var(--size-control))/2)]"
                       onClick={close}
                     />
                   }
                 />
               </div>
-              <DialogPrimitive.Description className="text-[15px] text-[var(--text-muted)]">
+              <DialogPrimitive.Description className="mt-[10px] text-[length:var(--font-size-body)] leading-[var(--line-height-body)] text-[var(--text-muted)]">
                 {t('edit.status.description')}
               </DialogPrimitive.Description>
               <Progress
+                className="mt-6"
                 value={done}
                 max={Math.max(1, edit.progress.total)}
-                label={t('edit.status.progressLabel')}
+                label={t('edit.status.progressTitle')}
                 valueText={`${done} / ${edit.progress.total}`}
               />
-              {/* The 44 row leaves 15px under its 15px text; pull the list up so the bottom space reads 24. */}
-              <ScrollPane label={t('edit.status.progressLabel')} jumpLabel={t('shell.scroll.jump')} className="max-h-80 -mb-[15px]">
-                <ul className="flex flex-col gap-1">
+              <ScrollPane label={t('edit.status.progressLabel')} jumpLabel={t('shell.scroll.jump')} className="mt-4 max-h-80">
+                <ul className="flex flex-col gap-3">
                 {edit.progress.scenes.map((scene, index) => (
                   <li
                     key={scene.id}
                     data-slot="progress-scene"
                     data-state={scene.state}
-                    className="flex min-h-11 items-center gap-2 text-[15px]"
+                    className="flex h-5 items-center gap-[10px] text-[15px] leading-[18px]"
                   >
-                    <span className="inline-flex size-6 shrink-0 items-center justify-center" aria-hidden="true">
+                    <span className="inline-flex size-[var(--icon-default)] shrink-0 items-center justify-center" aria-hidden="true">
                       {scene.state === 'done' ? (
-                        <Check className="text-[var(--foreground)]" />
+                        <Check className="size-[var(--icon-default)] text-[var(--foreground)]" />
                       ) : scene.state === 'running' ? (
-                        <span className="spinner text-[var(--progress)]" />
+                        <span className="spinner text-[var(--foreground)] [--icon-inline:var(--icon-default)]" />
                       ) : (
-                        <Clock className="text-[var(--sub)]" />
+                        <Clock className="size-[var(--icon-default)] text-[var(--sub)]" />
                       )}
                     </span>
-                    <span className="min-w-0 flex-1 truncate">
+                    <span className="min-w-0 flex-1 truncate text-[var(--text-muted)]">
                       {t('edit.scene.number', { number: index + 1 })}
                       {edit.scenes[index] === undefined ? null : ` · ${edit.scenes[index].beat_label}`}
                     </span>
-                    <span className="shrink-0 text-[13px] text-[var(--text-muted)]">
+                    <span
+                      className={
+                        scene.state === 'waiting'
+                          ? 'shrink-0 text-[var(--text-muted)]'
+                          : 'shrink-0 text-[var(--foreground)]'
+                      }
+                    >
                       {scene.state === 'done'
                         ? t('edit.status.finished')
                         : scene.state === 'running'
