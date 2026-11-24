@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 
-import { EditChatHistory } from '@/features/edit/chat-history';
 import { useEditOptional } from '@/features/edit/edit-context';
 import { useActivityReporting } from '@/features/export/activity';
 import { useExportState } from '@/features/export/store';
@@ -9,6 +8,7 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 import { cn } from '@/shared/lib/utils';
 import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
+import { ConversationLog } from './conversation';
 import { EditBridge } from './edit-bridge';
 import { ShellViewProvider } from './shell-view';
 import { Sidebar } from './sidebar';
@@ -60,11 +60,13 @@ function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
 /**
  * The frame: a collapsed rail, the top bar, one body area and, on a phone, the
  * input docked at the bottom. The conversation column keeps the phone ratio of
- * its height, so the picture beside it never has to be squashed.
+ * its height, so the picture beside it never has to be squashed, and its log
+ * opens with the sentence the video started from.
  */
 export function AppShell({
   view,
   videoId = null,
+  sentence = null,
   brand,
   onNewVideo,
   onStage,
@@ -77,6 +79,8 @@ export function AppShell({
 }: {
   view: View;
   videoId?: string | null;
+  /** The sentence the user sent on the first screen. */
+  sentence?: string | null;
   brand: ReactNode;
   onNewVideo: () => void;
   onStage: (stage: Stage) => void;
@@ -121,6 +125,7 @@ export function AppShell({
               view={view}
               videoId={videoId}
               onStage={onStage}
+              onNewVideo={onNewVideo}
               status={keyboardOpen ? jobStatus : null}
             />
             {/* While the keys are up the phone shows the sheet: step, panel and input. */}
@@ -149,15 +154,9 @@ export function AppShell({
                   <h2 className="mb-[14px] ml-[var(--space-4)] text-[22px] leading-[26px] font-bold text-[var(--text-strong)]">
                     {t('shell.conversation.title')}
                   </h2>
-                  <div className="flex min-h-0 flex-1 flex-col justify-end">
-                    {view === 'edit' || view === 'export' ? (
-                      <div className="flex min-h-0 flex-1 flex-col gap-2">
-                        <EditChatHistory />
-                        {composer}
-                      </div>
-                    ) : (
-                      composer
-                    )}
+                  <div className="flex min-h-0 flex-1 flex-col gap-2">
+                    <ConversationLog stage={stage} sentence={sentence} draftWaiting={draftWaiting} />
+                    {composer}
                   </div>
                 </div>
               ) : null}

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
+import { DRAFT_JOB_PATH, draftJob, shellRoutes } from '../support/api';
 import { renderApp, sendSentence } from '../support/render';
 
 afterEach(() => {
@@ -67,6 +68,42 @@ test('test_10a_the_next_action_keeps_its_seat_on_stage_screens', async () => {
 
   const action = document.querySelector<HTMLButtonElement>('[data-slot="next-action"]');
   expect(action?.disabled).toBe(true);
+});
+
+test('test_10a_top_bar_names_the_video_and_its_menu_starts_a_new_one', async () => {
+  await renderApp();
+  sendSentence('커피를 고르는 세 가지 기준');
+  await screen.findByRole('heading', { name: '컨셉' });
+
+  const title = document.querySelector<HTMLButtonElement>('[data-slot="video-title"]');
+  expect(title?.textContent).toBe('커피를 고르는 세 가지 기준');
+  fireEvent.click(title!);
+  const menu = await screen.findByRole('menu', { name: '영상 메뉴' });
+  expect(menu.textContent).toContain('커피를 고르는 세 가지 기준');
+
+  fireEvent.click(within(menu).getByRole('menuitem', { name: '새로 만들기' }));
+  await screen.findByRole('heading', { name: '한 문장으로 영상을 만들어요' });
+  expect(document.querySelector('[data-slot="top-bar"]')).toBeNull();
+});
+
+test('test_10a_the_conversation_opens_with_the_sent_sentence', async () => {
+  const routes = shellRoutes();
+  let state = 'queued';
+  routes[`GET ${DRAFT_JOB_PATH}`] = () => ({ status: 200, body: { ...draftJob, state } });
+  await renderApp(routes);
+  sendSentence('커피를 고르는 세 가지 기준');
+  await screen.findByRole('heading', { name: '컨셉' });
+
+  const conversation = document.querySelector<HTMLElement>('[data-slot="conversation"]')!;
+  const said = conversation.querySelector('[data-slot="chat-user"]');
+  expect(said?.textContent).toBe('커피를 고르는 세 가지 기준');
+  // The concept line waits for the draft, so the step never claims a pick it has not made.
+  expect(conversation.textContent).not.toContain('문장에 어울리는 컨셉을 골랐어요.');
+
+  state = 'succeeded';
+  await waitFor(() => expect(conversation.textContent).toContain('문장에 어울리는 컨셉을 골랐어요.'), {
+    timeout: 5000,
+  });
 });
 
 test('test_10a_brand_name_comes_from_the_runtime_answer', async () => {

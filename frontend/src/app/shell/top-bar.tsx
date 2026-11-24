@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { useConcept } from '@/features/concept/store';
 import { useEditOptional } from '@/features/edit/edit-context';
 import { EditNextAction } from '@/features/edit/next-action';
 import { EditTopBarStatus } from '@/features/edit/top-bar-status';
@@ -9,7 +10,10 @@ import { PrepareNotice } from '@/features/runtime/prepare-notice';
 import { usePrepare } from '@/features/runtime/use-prepare';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/components/Button/Button';
+import { MenuButton } from '@/components/MenuButton/MenuButton';
+import { Tag } from '@/components/Tag/Tag';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
+import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
 
 import { HistoryButtons } from './history-buttons';
 import { type Stage, type View } from './shell-config';
@@ -32,6 +36,40 @@ function EditAction() {
         className="absolute top-full right-4 z-[var(--z-panel)] mt-2 w-[360px] max-w-[calc(100vw-32px)] rounded-[var(--radius-surface)] bg-[var(--popover)] p-2 shadow-[var(--shadow-float)]"
       />
     </>
+  );
+}
+
+/**
+ * The video's name after undo and redo. The bar cuts a long name short, so the
+ * menu heads with the whole name; it starts a new video as the rail does when
+ * the frame hands it that action, and the video list waits with its reason
+ * until that screen exists.
+ */
+function VideoTitle({ onNewVideo }: { onNewVideo?: () => void }) {
+  const { t } = useLocale();
+  const concept = useConcept();
+  const title = concept?.document.topic.trim() ?? '';
+  if (title === '') return null;
+  return (
+    <MenuButton
+      label={t('shell.title.menu')}
+      heading={title}
+      trigger={<TopBarItem label={title} data-slot="video-title" className="max-w-80" />}
+      items={[
+        ...(onNewVideo === undefined ? [] : [{ value: 'new', label: t('shell.nav.newVideo') }]),
+        {
+          value: 'list',
+          label: t('shell.nav.myVideos'),
+          unavailable: true,
+          unavailableName: `${t('shell.nav.myVideos')} · ${t('shell.nav.soon')}`,
+          tag: <Tag>{t('shell.nav.soon')}</Tag>,
+        },
+      ]}
+      note={t('shell.nav.myVideosReason')}
+      onSelect={(value) => {
+        if (value === 'new') onNewVideo?.();
+      }}
+    />
   );
 }
 
@@ -59,21 +97,24 @@ function NextAction({ stage, videoId }: { stage: Stage; videoId: string | null }
 }
 
 /**
- * Undo and redo on the left, the step tabs in the middle, the next action on the
- * right. The app name is not written here: the rail's logo carries it. The phone
- * swaps the tabs for the step menu, and its middle seat also carries the short job
- * status while a phone keyboard covers the header, so the step menu and the action
- * keep their own space. The first screen has no top bar at all (SPEC 10a.2).
+ * Undo, redo and the video's name on the left, the step tabs in the middle, the
+ * next action on the right. The app name is not written here: the rail's logo
+ * carries it. The phone swaps the tabs for the step menu, and its middle seat
+ * also carries the short job status while a phone keyboard covers the header,
+ * so the step menu and the action keep their own space. The first screen has
+ * no top bar at all (SPEC 10a.2).
  */
 export function TopBar({
   view,
   videoId = null,
   onStage,
+  onNewVideo,
   status,
 }: {
   view: View;
   videoId?: string | null;
   onStage: (stage: Stage) => void;
+  onNewVideo?: () => void;
   status?: ReactNode;
 }) {
   if (view === 'first') return null;
@@ -85,8 +126,10 @@ export function TopBar({
       // The desktop bar is a white strip 56 high whose controls hang 6 from its top edge.
       className="relative flex min-h-[var(--layout-topbar-h)] shrink-0 items-center gap-3 bg-[var(--surface)] px-4 md:h-14 md:min-h-0 md:items-start md:gap-4 md:pt-1.5"
     >
-      <div className="hidden md:block">
+      {/* The name sits 12 after redo, as the canon draws the bar. */}
+      <div className="hidden min-w-0 gap-3 md:flex">
         <HistoryButtons view={view} />
+        <VideoTitle onNewVideo={onNewVideo} />
       </div>
       <div className="shrink-0 md:hidden">
         <StageMenu current={stage} onSelect={onStage} />

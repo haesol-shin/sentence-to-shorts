@@ -23,6 +23,13 @@ describe('TopBarItem', () => {
     expect(item.querySelectorAll('.label-box__text')).toHaveLength(3);
   });
 
+  test('test_10a_top_bar_item_label_is_on_the_page_once', () => {
+    render(<TopBarItem label="커피를 고르는 기준" />);
+
+    // The bold-width copies come from an attribute, so a text search meets the label alone.
+    expect(screen.getAllByText('커피를 고르는 기준')).toHaveLength(1);
+  });
+
   test('test_10a_top_bar_item_click_reaches_the_caller', () => {
     const onClick = vi.fn();
     render(<TopBarItem label="영상 설정" onClick={onClick} />);

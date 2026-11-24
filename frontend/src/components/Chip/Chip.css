@@ -102,10 +102,18 @@
   outline-offset: var(--focus-offset);
 }
 
-/* The conversation's scene target: a 44 white capsule with a 2px line, above the input box. */
+/*
+ * The conversation's scene target: a 44 white capsule with a 2px line, above the input box.
+ * Its close mark stands bare 6 after the label and 16 from the end; the 32 circle overhangs it.
+ */
 .chip.chip--target {
+  gap: 6px;
   height: var(--size-control);
   padding-inline: var(--space-16);
   border-width: 2px;
   background: var(--popover);
+}
+
+.chip.chip--target .chip__remove {
+  margin-inline: calc((var(--part-small) - var(--icon-close)) / -2);
 }
