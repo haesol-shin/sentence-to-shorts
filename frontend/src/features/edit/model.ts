@@ -11,33 +11,28 @@ export type SfxCue = components['schemas']['SfxCue'];
 export type ArtifactStatus = components['schemas']['ArtifactStatus'];
 export type PlacementAnchor = components['schemas']['PlacementAnchor'];
 
-export type PositionRow = 0 | 1 | 2;
-export type PositionColumn = 0 | 1 | 2;
-
-export interface PositionCell {
-  row: PositionRow;
-  column: PositionColumn;
+export interface PositionChoice {
   anchor: PlacementAnchor;
   labelKey: string;
 }
 
-const COLUMN_ANCHORS = ['left', 'center', 'right'] as const;
-const MIDDLE_ANCHORS = ['middle_left', 'middle_center', 'middle_right'] as const;
-const TOP_ANCHORS = ['top_left', 'top_center', 'top_right'] as const;
-
 /** The canon line count a scene may reach before adding another line stops. */
 export const MAX_LINES_PER_SCENE = 4;
 
-export const POSITION_CELLS: readonly PositionCell[] = [
-  { row: 0, column: 0, anchor: 'top_left', labelKey: 'edit.position.topLeft' },
-  { row: 0, column: 1, anchor: 'top_center', labelKey: 'edit.position.topCenter' },
-  { row: 0, column: 2, anchor: 'top_right', labelKey: 'edit.position.topRight' },
-  { row: 1, column: 0, anchor: 'middle_left', labelKey: 'edit.position.middleLeft' },
-  { row: 1, column: 1, anchor: 'middle_center', labelKey: 'edit.position.middleCenter' },
-  { row: 1, column: 2, anchor: 'middle_right', labelKey: 'edit.position.middleRight' },
-  { row: 2, column: 0, anchor: 'left', labelKey: 'edit.position.bottomLeft' },
-  { row: 2, column: 1, anchor: 'center', labelKey: 'edit.position.bottomCenter' },
-  { row: 2, column: 2, anchor: 'right', labelKey: 'edit.position.bottomRight' },
+/**
+ * The nine places of the position menu, top row first. The bottom row keeps
+ * the old unprefixed anchors, so saved scenes keep their place.
+ */
+export const POSITION_CHOICES: readonly PositionChoice[] = [
+  { anchor: 'top_left', labelKey: 'edit.position.topLeft' },
+  { anchor: 'top_center', labelKey: 'edit.position.topCenter' },
+  { anchor: 'top_right', labelKey: 'edit.position.topRight' },
+  { anchor: 'middle_left', labelKey: 'edit.position.middleLeft' },
+  { anchor: 'middle_center', labelKey: 'edit.position.middleCenter' },
+  { anchor: 'middle_right', labelKey: 'edit.position.middleRight' },
+  { anchor: 'left', labelKey: 'edit.position.bottomLeft' },
+  { anchor: 'center', labelKey: 'edit.position.bottomCenter' },
+  { anchor: 'right', labelKey: 'edit.position.bottomRight' },
 ] as const;
 
 /** Keep option names identical in the scene form and change review. */
@@ -49,7 +44,7 @@ export function sceneVisualLabel(
 ): string {
   if (value == null || value === '') return t('edit.change.none');
   const key = field === 'position'
-    ? POSITION_CELLS.find((cell) => cell.anchor === value)?.labelKey
+    ? POSITION_CHOICES.find((choice) => choice.anchor === value)?.labelKey
     : `edit.${field === 'sfx' ? 'sfx.name' : field}.${String(value)}`;
   if (key !== undefined) {
     const label = t(key);
@@ -59,17 +54,6 @@ export function sceneVisualLabel(
   if (index >= 0) return t('edit.scene.unknownOption', { number: index + 1 });
   if (typeof value !== 'string') return t('audio.review.unknown');
   return t('edit.scene.unlistedOption', { id: value });
-}
-
-/** An old unprefixed anchor is the bottom row, so saved scenes keep their place. */
-export function cellForAnchor(anchor: PlacementAnchor): PositionCell {
-  return POSITION_CELLS.find((cell) => cell.anchor === anchor) ?? POSITION_CELLS[7];
-}
-
-export function anchorForCell(row: PositionRow, column: PositionColumn): PlacementAnchor {
-  if (row === 0) return TOP_ANCHORS[column];
-  if (row === 1) return MIDDLE_ANCHORS[column];
-  return COLUMN_ANCHORS[column];
 }
 
 export function scenesOf(video: Video | null): Scene[] {

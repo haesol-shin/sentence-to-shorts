@@ -31,6 +31,12 @@ async function openEdit(page: Page): Promise<void> {
   await expect(page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`)).toHaveCount(5);
 }
 
+async function choosePosition(page: Page, name: string): Promise<void> {
+  await page.getByRole('combobox', { name: '위치', exact: true }).click();
+  await page.getByRole('option', { name, exact: true }).click();
+  await expect(page.getByRole('combobox', { name: '위치', exact: true })).toContainText(name);
+}
+
 async function startVideo(page: Page): Promise<void> {
   await page.locator('[data-slot="next-action"]').click();
   await page
@@ -111,23 +117,19 @@ test('test_23_the_scene_card_shows_a_24_number_a_10_dot_and_the_length', async (
   expect(Math.round(number.height)).toBe(24);
   await expect(card.locator('.card__duration')).toContainText('약');
 
-  await page.getByRole('group', { name: '위치' }).getByRole('button', { name: '왼쪽 위' }).click();
+  await choosePosition(page, '왼쪽 위');
   await expect(card.locator('[data-slot="scene-unseen"]')).toHaveCount(0);
 });
 
 test('test_23_the_position_menu_shows_nine_places', async ({ page }) => {
   await openEdit(page);
-  const grid = page.getByRole('group', { name: '위치' });
-  await expect(grid.getByRole('button')).toHaveCount(9);
-  await expect(grid.getByRole('button', { name: '가운데 아래' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await grid.getByRole('button', { name: '오른쪽 위' }).click();
-  await expect(grid.getByRole('button', { name: '오른쪽 위' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  const field = page.getByRole('combobox', { name: '위치', exact: true });
+  // The mock story stands its first scene's character in the middle of the frame.
+  await expect(field.locator('.field-trigger__value')).toHaveText('가운데');
+  await field.click();
+  await expect(page.getByRole('option')).toHaveCount(9);
+  await page.getByRole('option', { name: '오른쪽 위', exact: true }).click();
+  await expect(field).toContainText('오른쪽 위');
 });
 
 test('test_10a_the_progress_window_is_480_and_closes_by_x_escape_and_outside', async ({ page }) => {
@@ -187,12 +189,7 @@ test('test_10a_the_edit_screen_stays_usable_while_the_video_is_made', async ({ p
   await startVideo(page);
   await expect(page.locator('.top-bar-status__trigger')).toBeVisible({ timeout: 5000 });
 
-  const grid = page.getByRole('group', { name: '위치' });
-  await grid.getByRole('button', { name: '왼쪽 위' }).click();
-  await expect(grid.getByRole('button', { name: '왼쪽 위' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
+  await choosePosition(page, '왼쪽 위');
 
   const viewport = page.locator(`${SCENE_COLUMN} .scroll-pane__viewport`);
   // Five 120x116 cards fit the column at 1080; the short window makes the list scroll.
@@ -393,8 +390,7 @@ test('test_10a_a_cleared_target_stays_cleared_after_a_field_change', async ({ pa
   const composer = page.locator('[data-slot="conversation"]');
   await expect(composer.locator('[data-slot="composer-target"]')).toContainText('장면 1');
   await composer.getByRole('button', { name: '대상 지우기' }).click();
-  await page.getByRole('group', { name: '위치' }).getByRole('button', { name: '오른쪽 위' }).click();
-  await expect(page.getByRole('group', { name: '위치' }).getByRole('button', { name: '오른쪽 위' })).toHaveAttribute('aria-pressed', 'true');
+  await choosePosition(page, '오른쪽 위');
   await expect(composer.locator('[data-slot="composer-target"]')).toHaveCount(0);
 });
 

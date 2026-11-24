@@ -10,7 +10,7 @@ import {
   type Video,
   type VideoView,
 } from '../client';
-import { withMockStory } from './story';
+import { withMockStory, withMockStoryStills } from './story';
 import { editedVideoSettings } from './video-settings';
 
 interface Fixture {
@@ -209,7 +209,10 @@ export function installMockApi(prepare: MockPrepare = mockPrepareFromAddress()):
             topic: video.draftMessage,
             settings: video.created.settings,
           },
-          build: { ...template.build, video_id: video.created.id },
+          build: {
+            ...(video.draftMessage === null ? template.build : withMockStoryStills(template.build, template.video)),
+            video_id: video.created.id,
+          },
         } satisfies VideoView,
       };
     }

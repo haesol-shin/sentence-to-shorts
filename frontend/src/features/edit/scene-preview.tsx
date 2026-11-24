@@ -37,7 +37,7 @@ function HighlightedLine({ text, spans }: { text: string; spans: readonly Span[]
         ) : (
           <span
             key={`${node.start}-${node.text}`}
-            className="text-[var(--emphasis)] underline decoration-2 underline-offset-2"
+            className="font-bold text-[var(--emphasis)]"
           >
             {node.text}
           </span>
@@ -147,7 +147,7 @@ export function ScenePreview({ edit, collapsed }: { edit: EditValue; collapsed: 
     line === undefined ? undefined : (
       <p
         data-slot="preview-caption"
-        className="pointer-events-none absolute right-3 bottom-3 left-3 rounded-[var(--radius-content)] bg-[var(--overlay-caption)] px-2 py-1 text-center text-[15px] leading-[22px] text-[var(--text-strong)]"
+        className="pointer-events-none absolute right-4 bottom-[26px] left-4 rounded-[var(--radius-media)] bg-[var(--overlay-caption)] px-[10px] py-2 text-center text-[15px] leading-[18px] text-[var(--text-strong)]"
       >
         <HighlightedLine text={line.display_text} spans={line.highlight} />
       </p>
