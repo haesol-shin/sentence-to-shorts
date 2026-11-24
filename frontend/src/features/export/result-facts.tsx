@@ -35,7 +35,7 @@ function CaptionSave({ view }: { view: VideoView }) {
   const button = (
     <Button
       variant="ghost"
-      size="sm"
+      size="32"
       className="export-facts__inline"
       disabled={!ready}
       onClick={() => startDownload(downloadUrl(view.video.id, 'srt'))}
@@ -93,7 +93,7 @@ export function ResultFacts({
               output: tokens.output.toLocaleString(language),
             })
           : t('export.fact.unknown')}
-        <Button variant="ghost" size="sm" className="export-facts__inline" onClick={onShowUsage}>
+        <Button variant="ghost" size="32" className="export-facts__inline" onClick={onShowUsage}>
           {t('export.fact.usageOpen')}
         </Button>
       </dd>

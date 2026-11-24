@@ -32,6 +32,17 @@
   font-weight: var(--font-weight-regular);
 }
 
+/* The canon's in-card actions: the start icon sits closer to the edge than the end text. */
+.button--36 {
+  height: var(--part-move);
+  padding-inline: 10px 14px;
+}
+
+.button--32 {
+  height: var(--part-small);
+  padding-inline: var(--space-12);
+}
+
 .button:disabled {
   cursor: not-allowed;
 }
@@ -87,6 +98,25 @@
   color: var(--disabled-foreground);
 }
 
+/*
+ * The canon draws two different unavailable main actions. The edit choice
+ * dialog's apply keeps a pale face with white text; the script footer's next
+ * action stays black while a review waits, so the reader still sees the one
+ * action the screen leads to. Both are scoped to their screen so no other
+ * primary changes.
+ */
+.dialog__actions .button--primary:disabled {
+  background: var(--border);
+  border-color: var(--border);
+  color: var(--primary-foreground);
+}
+
+[data-slot='script-next']:disabled {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
 .button--secondary {
   background: var(--background);
   border-color: var(--background);
@@ -111,9 +141,10 @@
   color: var(--disabled-foreground);
 }
 
+/* The grey actions take the light face the canon measures on white and grey surfaces alike. */
 .button--ghost {
-  background: var(--background);
-  border-color: var(--background);
+  background: var(--secondary);
+  border-color: var(--secondary);
   color: var(--foreground);
 }
 
@@ -130,9 +161,24 @@
 }
 
 .button--ghost:disabled {
-  background: var(--background);
-  border-color: var(--background);
+  background: var(--secondary);
+  border-color: var(--secondary);
   color: var(--disabled-foreground);
+}
+
+/*
+ * The in-card grey actions share that face and write one step lighter than the
+ * main text, also while a running job holds them. The 44 secondary keeps its
+ * face: the script jump control is tied to it.
+ */
+.button--36.button--secondary {
+  background: var(--secondary);
+  border-color: var(--secondary);
+}
+
+.button--36.button--secondary,
+.button--36.button--ghost {
+  color: var(--primary-pressed);
 }
 
 .button--trigger {

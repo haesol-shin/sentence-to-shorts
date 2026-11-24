@@ -9,7 +9,8 @@ import { statesOf, type ForceState } from '../force-state';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'trigger';
 
-export type ButtonSize = 'md' | 'sm';
+/** `md` 44 and `sm` 32 regular; `36` and `32` (bold) are the in-card and fact-line sizes the canon measures. */
+export type ButtonSize = 'md' | '36' | 'sm' | '32';
 
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;

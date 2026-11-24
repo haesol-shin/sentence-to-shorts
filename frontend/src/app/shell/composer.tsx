@@ -984,8 +984,8 @@ function ScriptComposer({
         <div className="flex flex-col gap-2">
           <p>{t('script.tone.preview')}</p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="ghost" iconStart={<X aria-hidden size={16} />} onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
-            <Button iconStart={<Check aria-hidden size={16} />} onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
+            <Button size="36" variant="ghost" iconStart={<X aria-hidden size={16} />} onClick={dismissTone}>{t('edit.tone.keepAll')}</Button>
+            <Button size="36" iconStart={<Check aria-hidden size={16} />} onClick={applyTone}>{t('edit.tone.applyAll')}</Button>
           </div>
         </div>
       )}

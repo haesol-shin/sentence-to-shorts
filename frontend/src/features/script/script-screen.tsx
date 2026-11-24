@@ -327,6 +327,7 @@ export function ScriptScreen({
                           <GripVertical aria-hidden size={20} />
                         </button>
                         <IconButton
+                          size="36"
                           label={t('script.scene.moveUp')}
                           disabled={structureLocked || index === 0}
                           onClick={() => moveScene(sceneId, -1)}
@@ -334,6 +335,7 @@ export function ScriptScreen({
                           <ChevronUp aria-hidden size={20} />
                         </IconButton>
                         <IconButton
+                          size="36"
                           label={t('script.scene.moveDown')}
                           disabled={structureLocked || index === script.scene_order.length - 1}
                           onClick={() => moveScene(sceneId, 1)}
@@ -344,6 +346,7 @@ export function ScriptScreen({
                           label={t('script.scene.menu', { number })}
                           trigger={
                             <IconButton
+                              size="36"
                               label={t('script.scene.menu', { number })}
                               data-slot="script-scene-menu"
                               disabled={structureLocked}
@@ -402,13 +405,14 @@ export function ScriptScreen({
                         </ul>
                         <div className="script-review-actions">
                           <Button
+                            size="36"
                             variant="ghost"
                             iconStart={<X aria-hidden size={16} />}
                             onClick={dismissRewrite}
                           >
                             {t('script.review.keep')}
                           </Button>
-                          <Button iconStart={<Check aria-hidden size={16} />} onClick={applyRewrite}>
+                          <Button size="36" iconStart={<Check aria-hidden size={16} />} onClick={applyRewrite}>
                             {t('script.review.apply')}
                           </Button>
                         </div>
@@ -478,6 +482,7 @@ export function ScriptScreen({
                         <Button
                           data-slot="script-rewrite"
                           className="script-rewrite"
+                          size="36"
                           variant="secondary"
                           iconStart={<RefreshCw aria-hidden size={16} />}
                           running={working}
@@ -490,6 +495,7 @@ export function ScriptScreen({
                         </Button>
                         <Button
                           data-slot="script-add-line"
+                          size="36"
                           variant="ghost"
                           iconStart={<Plus aria-hidden size={16} />}
                           disabled={

@@ -4,9 +4,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: var(--part-hairline) solid var(--card);
+  /* No face of its own, like the icon button: the canon draws it in the colour of its surface. */
+  border: var(--part-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--card);
+  background: transparent;
   color: var(--muted-foreground);
   cursor: pointer;
   transition:
