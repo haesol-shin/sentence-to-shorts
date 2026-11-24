@@ -6,12 +6,15 @@ import './IconButton.css';
 
 import { statesOf, type ForceState } from '../force-state';
 
-export type IconButtonSize = 'default' | 'compact';
+export type IconButtonSize = 'default' | '36' | 'compact' | '24';
 
 export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'aria-label'> & {
   /** The accessible name. An icon alone carries no text. */
   label: string;
-  /** `compact` draws 32 and keeps the 44 hit area, for controls that sit inside a row or a field. */
+  /**
+   * `36` draws the scene tools of a script card, `compact` draws 32 for controls inside a row or a field,
+   * and `24` draws the delete corner of a scene card. Every size keeps the 44 hit area.
+   */
   size?: IconButtonSize;
   selected?: boolean;
   forceState?: ForceState;
@@ -20,7 +23,7 @@ export type IconButtonProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'ari
 
 
 
-/** A 44x44 icon control; the compact size draws 32 and the hit area stays 44. The icon never shrinks the box. */
+/** A 44x44 icon control; the smaller sizes keep the 44 hit area. The icon never shrinks the box. */
 export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(function IconButton(
   { label, size = 'default', selected = false, forceState, className, type = 'button', disabled = false, children, ...rest },
   ref,

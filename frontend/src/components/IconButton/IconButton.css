@@ -6,9 +6,10 @@
   justify-content: center;
   width: var(--size-control);
   height: var(--size-control);
-  border: var(--part-hairline) solid var(--card);
+  /* No face of its own: the canon draws the control in the colour of the surface it sits on. */
+  border: var(--part-hairline) solid transparent;
   border-radius: var(--radius-pill);
-  background: var(--card);
+  background: transparent;
   color: var(--foreground);
   cursor: pointer;
   transition:
@@ -33,6 +34,25 @@
   height: var(--icon-inline);
 }
 
+/* The scene tools inside a script card. */
+.icon-button--36 {
+  width: var(--part-move);
+  height: var(--part-move);
+}
+
+/* The delete corner of a scene card sits over the picture, so it keeps a white face. */
+.icon-button--24 {
+  width: var(--space-24);
+  height: var(--space-24);
+  border-color: var(--popover);
+  background: var(--popover);
+}
+
+.icon-button--24 svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
+}
+
 .icon-button:hover:not(:disabled),
 .icon-button[data-force-state~='hover']:not(:disabled) {
   background: var(--state-hover-white);
@@ -52,8 +72,8 @@
 }
 
 .icon-button:disabled {
-  background: var(--card);
-  border-color: var(--card);
+  background: transparent;
+  border-color: transparent;
   color: var(--disabled-foreground);
   cursor: not-allowed;
 }

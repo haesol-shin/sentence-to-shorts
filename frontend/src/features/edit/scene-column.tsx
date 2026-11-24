@@ -73,6 +73,7 @@ function SceneCard({
         />
       ) : null}
       <IconButton
+        size="24"
         label={t('edit.scene.deleteLabel', { number })}
         onClick={() => edit.requestDelete(scene.id)}
         className="absolute top-1 right-1 z-10"
