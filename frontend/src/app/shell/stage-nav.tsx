@@ -4,15 +4,18 @@ import { ChevronDown } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
-import { STAGES, type Stage } from './shell-config';
+import { STAGES, STEP_TABS, stepTabOf, type Stage } from './shell-config';
 
-// Each step is a 44 high capsule with 14 on each side; the current one carries a dot at its foot.
-const STEP = 'relative inline-flex h-[var(--size-control)] items-center rounded-[var(--radius-capsule)] px-3.5 text-[15px] whitespace-nowrap';
+// Each tab is a 44 high capsule with 14 on each side; the hidden bold copy of the
+// name holds the width, so moving the bold to another tab does not shift the row.
+// A hover greys the tab as the step menu rows do.
+const TAB =
+  'focus-ring relative inline-flex h-[var(--size-control)] flex-col items-center justify-center rounded-[var(--radius-capsule)] px-3.5 text-[15px] leading-[18px] whitespace-nowrap transition-colors duration-[var(--motion-short)] before:invisible before:block before:h-0 before:overflow-hidden before:font-bold before:content-[attr(data-label)] hover:bg-[var(--surface-muted)]';
 
 /**
- * The four step names with a dot under the current one. Every other step can be
- * opened: a later step stays lighter, and tapping ahead is allowed because the
- * steps need not be visited in order (SPEC 10a.2).
+ * The three step tabs centred in the top bar. A step behind the current one is
+ * dark, a step ahead is muted, and every tab can be opened because the steps need
+ * not be visited in order (SPEC 10a.2). The export screen keeps edit current.
  */
 export function StageIndicator({
   current,
@@ -22,7 +25,8 @@ export function StageIndicator({
   onSelect: (stage: Stage) => void;
 }) {
   const { t } = useLocale();
-  const currentIndex = STAGES.indexOf(current);
+  const tab = stepTabOf(current);
+  const currentIndex = STEP_TABS.indexOf(tab);
 
   return (
     <nav
@@ -30,36 +34,30 @@ export function StageIndicator({
       aria-label={t('shell.stage.list')}
       className="flex items-center gap-4"
     >
-      {STAGES.map((stage, index) => {
-        const isCurrent = stage === current;
-        const isPast = index < currentIndex;
+      {STEP_TABS.map((stage, index) => {
+        const label = t(`shell.stage.${stage}`);
+        const isCurrent = stage === tab;
         return (
-          <span key={stage} className="flex">
+          <button
+            key={stage}
+            type="button"
+            data-label={label}
+            aria-current={isCurrent ? 'step' : undefined}
+            onClick={() => onSelect(stage)}
+            className={cn(
+              TAB,
+              isCurrent && 'font-bold',
+              index <= currentIndex ? 'text-[var(--text-strong)]' : 'text-[var(--text-muted)]',
+            )}
+          >
+            {label}
             {isCurrent ? (
               <span
-                aria-current="step"
-                className={cn(STEP, 'font-bold text-[var(--text-strong)]')}
-              >
-                {t(`shell.stage.${stage}`)}
-                <span
-                  aria-hidden
-                  className="absolute bottom-[3px] left-1/2 size-[5px] -translate-x-1/2 rounded-[var(--radius-capsule)] bg-[var(--text-strong)]"
-                />
-              </span>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onSelect(stage)}
-                className={cn(
-                  STEP,
-                  'focus-ring hover:underline',
-                  isPast ? 'text-[var(--text-strong)]' : 'text-[var(--text-disabled)]',
-                )}
-              >
-                {t(`shell.stage.${stage}`)}
-              </button>
-            )}
-          </span>
+                aria-hidden
+                className="absolute bottom-[3px] left-1/2 size-[5px] -translate-x-1/2 rounded-[var(--radius-capsule)] bg-[var(--text-strong)]"
+              />
+            ) : null}
+          </button>
         );
       })}
     </nav>

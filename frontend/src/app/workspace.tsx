@@ -231,7 +231,8 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       {job.failureKey === null ? null : (
         <HeaderNotice tone="error">{t(`errors.${job.failureKey}`)}</HeaderNotice>
       )}
-      {job.job === null ? null : <JobBanner job={job.job} />}
+      {/* A finished job leaves the line to the announcer, so the faces keep their place under the top bar. */}
+      {job.job === null || job.job.state === 'succeeded' ? null : <JobBanner job={job.job} />}
     </div>
   );
 

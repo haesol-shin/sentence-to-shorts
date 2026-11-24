@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { renderApp, sendSentence } from '../support/render';
@@ -40,24 +40,22 @@ test('test_10a_first_screen_shows_no_step_indicator', async () => {
   expect(document.querySelector('[data-slot="stage-menu"]')).toBeNull();
 });
 
-test('test_10a_step_indicator_appears_only_on_the_edit_screen', async () => {
+test('test_10a_step_tabs_show_three_steps_and_export_keeps_edit_current', async () => {
   await renderApp();
   sendSentence('커피를 고르는 세 가지 기준');
   await screen.findByRole('heading', { name: '컨셉' });
 
-  expect(document.querySelector('[data-slot="stage-indicator"]')).toBeNull();
+  const tabs = () => screen.getByRole('navigation', { name: '단계' });
+  const current = () => tabs().querySelector('[aria-current="step"]')?.textContent;
+  expect([...tabs().querySelectorAll('button')].map((tab) => tab.textContent)).toEqual(['컨셉', '대본', '편집']);
+  expect(current()).toBe('컨셉');
 
-  fireEvent.click(screen.getByRole('button', { name: '단계 열기' }));
-  fireEvent.click(screen.getByRole('menuitem', { name: '편집' }));
-
-  const indicator = document.querySelector('[data-slot="stage-indicator"]');
-  expect(indicator).not.toBeNull();
-  expect(indicator?.querySelector('[aria-current="step"]')?.textContent).toBe('편집');
+  fireEvent.click(within(tabs()).getByRole('button', { name: '편집' }));
+  expect(current()).toBe('편집');
 
   fireEvent.click(screen.getByRole('button', { name: '단계 열기' }));
   fireEvent.click(screen.getByRole('menuitem', { name: '내보내기' }));
-
-  expect(document.querySelector('[data-slot="stage-indicator"]')).toBeNull();
+  expect(current()).toBe('편집');
 });
 
 test('test_10a_the_next_action_keeps_its_seat_on_stage_screens', async () => {

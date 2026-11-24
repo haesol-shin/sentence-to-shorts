@@ -7,13 +7,12 @@ import { ExportNextAction } from '@/features/export/next-action';
 import { waitingPercent } from '@/features/runtime/prepare';
 import { PrepareNotice } from '@/features/runtime/prepare-notice';
 import { usePrepare } from '@/features/runtime/use-prepare';
-import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/components/Button/Button';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
 
 import { HistoryButtons } from './history-buttons';
-import { showsStageIndicator, type Stage, type View } from './shell-config';
+import { type Stage, type View } from './shell-config';
 import { StageIndicator, StageMenu } from './stage-nav';
 import { VideoSettings } from './video-settings';
 
@@ -60,11 +59,11 @@ function NextAction({ stage, videoId }: { stage: Stage; videoId: string | null }
 }
 
 /**
- * Undo and redo on the left, step navigation on the way, the next action on the
- * right. The app name is not written here: the rail's logo carries it. The
- * middle seat also carries the short job status while a phone keyboard covers
- * the header, so the step menu and the action keep their own space. The first
- * screen has no top bar at all (SPEC 10a.2).
+ * Undo and redo on the left, the step tabs in the middle, the next action on the
+ * right. The app name is not written here: the rail's logo carries it. The phone
+ * swaps the tabs for the step menu, and its middle seat also carries the short job
+ * status while a phone keyboard covers the header, so the step menu and the action
+ * keep their own space. The first screen has no top bar at all (SPEC 10a.2).
  */
 export function TopBar({
   view,
@@ -89,17 +88,16 @@ export function TopBar({
       <div className="hidden md:block">
         <HistoryButtons view={view} />
       </div>
-      <div className={cn('shrink-0', showsStageIndicator(stage) && 'md:hidden')}>
+      <div className="shrink-0 md:hidden">
         <StageMenu current={stage} onSelect={onStage} />
       </div>
-      {showsStageIndicator(stage) ? (
-        <div className="absolute left-1/2 hidden -translate-x-1/2 md:block">
-          <StageIndicator current={stage} onSelect={onStage} />
-        </div>
-      ) : null}
-      {view === 'edit' ? (
+      <div className="absolute left-1/2 hidden -translate-x-1/2 md:block">
+        <StageIndicator current={stage} onSelect={onStage} />
+      </div>
+      {/* Export opens from the edit step, so its bar keeps the edit step's video settings. */}
+      {view === 'edit' || view === 'export' ? (
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:min-h-[var(--size-control)]">
-          <EditTopBarStatus />
+          {view === 'edit' ? <EditTopBarStatus /> : status}
           <VideoSettings />
         </div>
       ) : (

@@ -17,11 +17,14 @@ export const NAV_LABEL_MODE: 'tooltip' | 'inline' = 'tooltip';
 /** Flow order of the four steps. */
 export const STAGES: readonly Stage[] = ['concept', 'script', 'edit', 'export'];
 
-/** Screens that also show the four step indicator (SPEC 10a.2: edit only). */
-export const STAGE_INDICATOR_SCREENS: readonly Stage[] = ['edit'];
+/**
+ * The steps the top bar draws as tabs on every stage screen. Export is not a
+ * tab: it opens from the edit step, so the edit tab stays current there.
+ */
+export const STEP_TABS: readonly Stage[] = ['concept', 'script', 'edit'];
 
-export function showsStageIndicator(view: View): boolean {
-  return STAGE_INDICATOR_SCREENS.some((stage) => stage === view);
+export function stepTabOf(stage: Stage): Stage {
+  return stage === 'export' ? 'edit' : stage;
 }
 
 

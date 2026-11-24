@@ -17,8 +17,7 @@ async function openScript(page: Page, size?: { width: number; height: number }):
     .fill('커피를 고르는 세 가지 기준');
   await page.getByRole('button', { name: '보내기', exact: true }).click();
   await expect(page.getByRole('heading', { name: '컨셉', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '단계 열기' }).click();
-  await page.getByRole('menuitem', { name: '대본', exact: true }).click();
+  await openStage(page, '대본');
   const screen = page.locator('[data-slot="stage-panel"][data-stage="script"]');
   await expect(screen.getByRole('heading', { name: '대본', exact: true })).toBeVisible();
   return screen;
