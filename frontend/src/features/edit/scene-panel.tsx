@@ -328,26 +328,16 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         ))}
       </Swept>
 
-      <Swept field="background" band={band}>
-        <SettingsRow
-          label={t('edit.scene.background')}
-          control={
-            <ValueField
-              label={t('edit.scene.background')}
-              items={backgroundItems}
-              value={background}
-              onValueChange={(value) => apply({ kind: 'background', value })}
-            />
-          }
-        />
-      </Swept>
-
+      {/* Each value names itself inside its field, so the group title is the only row label. */}
       <Swept field="expression" band={band}>
         <SettingsRow
-          label={t('edit.scene.expression')}
+          className="edit-field-group"
+          label={t('edit.scene.characterGroup')}
           control={
             <ValueField
+              className="edit-scene-field"
               label={t('edit.scene.expression')}
+              name={t('edit.scene.expression')}
               items={expressionItems}
               value={expression}
               disabled={!hasCharacter}
@@ -366,6 +356,23 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
               value={anchor}
               disabled={!hasCharacter}
               onChange={(next) => apply({ kind: 'position', anchor: next })}
+            />
+          }
+        />
+      </Swept>
+
+      <Swept field="background" band={band}>
+        <SettingsRow
+          className="edit-field-group"
+          label={t('edit.scene.backgroundGroup')}
+          control={
+            <ValueField
+              className="edit-scene-field"
+              label={t('edit.scene.background')}
+              name={t('edit.scene.background')}
+              items={backgroundItems}
+              value={background}
+              onValueChange={(value) => apply({ kind: 'background', value })}
             />
           }
         />

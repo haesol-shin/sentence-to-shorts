@@ -206,10 +206,8 @@ test('test_26_the_tone_field_shows_the_old_and_new_line_and_blocks_the_step', as
 
   const previews = screen.locator('[data-slot="script-tone-preview"]');
   await expect(previews).toHaveCount(4);
-  await expect(previews.first().locator('del').first()).toContainText(
-    '첫째, 가장 중요한 점을 확인해요.',
-  );
-  await expect(previews.first()).toContainText('확인합니다');
+  await expect(previews.first().locator('del').first()).toContainText('길 찾기가 어려워요');
+  await expect(previews.first()).toContainText('길 찾기가 어렵습니다');
   await expect(screen.getByRole('button', { name: '이대로 영상 만들기', exact: true })).toBeDisabled();
   await expect(
     screen.locator('[data-slot="script-footer"]').getByRole('status'),

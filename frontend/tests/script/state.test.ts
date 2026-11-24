@@ -33,7 +33,7 @@ let api: MockScriptApi;
 
 const COFFEE = '커피를 고르는 세 가지 기준';
 const FIRST_LINE = `「${COFFEE}」 이야기를 확인해요.`;
-const NEUTRAL_FIRST_LINE = `「${COFFEE}」 이야기를 확인합니다.`;
+const CASUAL_FIRST_LINE = `「${COFFEE}」 이야기를 확인해.`;
 
 function snapshot(): ScriptSnapshot {
   const current = getScriptSnapshot();
@@ -327,18 +327,18 @@ describe('script state', () => {
 
   test('test_26_applying_the_tone_marks_scenes_and_recounts_the_length', () => {
     const before = totalSeconds(snapshot().document);
-    setRegister('neutral');
+    setRegister('casual');
     expect(totalSeconds(snapshot().document)).toBe(before);
 
     applyTone();
 
     expect(snapshot().tone).toBeNull();
     expect(snapshot().changedSceneIds).toHaveLength(5);
-    expect(totalSeconds(snapshot().document)).toBeGreaterThan(before);
+    expect(totalSeconds(snapshot().document)).toBeLessThan(before);
     expect(snapshot().document.scenes[firstSceneId()]?.lines[0]?.display_text).toBe(
-      NEUTRAL_FIRST_LINE,
+      CASUAL_FIRST_LINE,
     );
-    expect(snapshot().document.register).toBe('neutral');
+    expect(snapshot().document.register).toBe('casual');
   });
 
   test('test_26_keeping_the_old_tone_restores_the_text_without_touching_the_register', () => {

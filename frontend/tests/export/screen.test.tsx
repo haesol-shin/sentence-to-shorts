@@ -164,7 +164,9 @@ test('test_10a_the_result_card_comes_back_for_a_new_video_only', async () => {
   configureExport(null);
 
   renderExport(builtView(), stubApi());
-  await screen.findByRole('button', { name: '자막 저장' });
+  await waitFor(() =>
+    expect((screen.getByRole('button', { name: '자막 저장' }) as HTMLButtonElement).disabled).toBe(false),
+  );
   expect(screen.queryByRole('dialog')).toBeNull();
   cleanup();
   configureExport(null);

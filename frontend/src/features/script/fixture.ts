@@ -1,4 +1,5 @@
 import type { Language } from '@/shared/api/client';
+import { MOCK_STORY_LINES } from '@/shared/api/mock/story';
 
 import type { ScriptDocument, ScriptScene, ScriptTarget } from './types';
 
@@ -23,13 +24,8 @@ function topicLine(topic: string): string {
   return `「${trimmed}」 이야기를 확인해요.`;
 }
 
-/** The synthetic scenes after the user's first lines. */
-const SYNTHETIC_TAIL: readonly (readonly string[])[] = [
-  ['첫째, 가장 중요한 점을 확인해요.', '작은 예부터 확인해요.'],
-  ['둘째, 실제 예를 확인해요.'],
-  ['셋째, 기억할 점을 정리해요.'],
-  ['이 세 가지만 기억하면 충분해요.'],
-];
+/** The synthetic scenes after the user's first lines: the shared mock story from its second scene. */
+const SYNTHETIC_TAIL = MOCK_STORY_LINES.slice(1);
 
 /** The user's script opens unchanged; the synthetic draft fills only the rest. */
 function seedTexts(topic: string, script: string | null): readonly (readonly string[])[] {
