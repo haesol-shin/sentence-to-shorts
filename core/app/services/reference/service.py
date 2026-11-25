@@ -4,7 +4,9 @@ A reference arrives as an upload or an allowed link, is checked, and is read as
 sampled frames plus a transcript. The model sees frames and transcript only; the
 cut count, silence ratio and music estimate are measured here. The result is a
 change plan of ``set`` ops with origin ``reference``, a ``ReferenceSummary`` and
-palette hints. The attempt's source, frames and audio live in ``CACHE_DIR/r/<job>/``
+palette hints. Up to four chosen frames are kept in the video's project storage,
+with their palette, so a later style request can show the model the same look.
+The attempt's source, audio and the other frames live in ``CACHE_DIR/r/<job>/``
 and that folder is removed when the analysis ends, however it ends. The staged
 upload is only copied, so the job runner can keep it for a retry and delete it
 after the job succeeds, is cancelled or cannot be retried. No URL and no file
@@ -20,6 +22,7 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TypeVar
 
 from app.ports import (
     AppError,
@@ -31,6 +34,7 @@ from app.ports import (
     MediaInfo,
     MediaPort,
     ProjectStore,
+    ReferenceFrameStore,
     ReferenceOutcome,
     Segment,
     ServiceDeps,
@@ -41,8 +45,10 @@ from app.schemas.change import ChangePlan, ChangeSource, ChangeStatus, Effects, 
 from app.schemas.common import ContractModel
 from app.schemas.job import Job, Stage, WaitingOn
 from app.schemas.video import (
+    MAX_REFERENCE_FRAMES,
     Measured,
     ReferenceKind,
+    ReferenceLook,
     ReferenceStatus,
     ReferenceSummary,
     Video,
@@ -85,12 +91,30 @@ class _Observed:
     transcript: str
 
 
-def _spread(items: list[Path], count: int) -> list[Path]:
+FrameT = TypeVar("FrameT")
+
+
+def _spread(items: list[FrameT], count: int) -> list[FrameT]:
     """``count`` items evenly spaced over the list, first and last included."""
+    if count <= 0:
+        return []
     if len(items) <= count:
         return list(items)
+    if count == 1:
+        return [items[0]]
     step = (len(items) - 1) / (count - 1)
     return [items[round(index * step)] for index in range(count)]
+
+
+def _keep_indexes(count: int, subject: list[int]) -> list[int]:
+    """Positions to keep: one-based subject frames first, spread over the video."""
+    if count <= MAX_REFERENCE_FRAMES:
+        return list(range(count))
+    preferred = sorted({index - 1 for index in subject if 1 <= index <= count})
+    picked = _spread(preferred, MAX_REFERENCE_FRAMES)
+    rest = [index for index in range(count) if index not in picked]
+    picked.extend(_spread(rest, MAX_REFERENCE_FRAMES - len(picked)))
+    return sorted(picked)
 
 
 class ReferenceService:
@@ -103,6 +127,7 @@ class ReferenceService:
         *,
         catalog: CatalogPort,
         project_store: ProjectStore,
+        frames: ReferenceFrameStore,
         cache_dir: Path,
         max_upload_bytes: int,
         max_upload_ms: int,
@@ -114,6 +139,7 @@ class ReferenceService:
         self.llm = llm
         self.catalog = catalog
         self.project_store = project_store
+        self.frames = frames
         self.cache_dir = cache_dir
         self.max_upload_bytes = max_upload_bytes
         self.max_upload_ms = max_upload_ms
@@ -236,8 +262,10 @@ class ReferenceService:
         ctx.cancel.raise_if_set()
         built = values.build(video, answer, seen.scene_count, self.catalog)
         change_id = self._store(video, built) if built.ops else None
+        reference_id = self.project_store.new_id("rf")
+        palette = [color.lower() for color in answer.palette]
         summary = ReferenceSummary(
-            id=self.project_store.new_id("rf"),
+            id=reference_id,
             kind=ReferenceKind.link if link else ReferenceKind.file,
             host=host,
             status=ReferenceStatus.analyzed,
@@ -248,15 +276,46 @@ class ReferenceService:
                 silence_ratio=seen.facts.silence_ratio,
                 has_bgm=seen.facts.has_bgm,
             ),
-            style=None,
+            style=ReferenceLook(
+                palette=palette,
+                frames=self._keep(video, reference_id, seen.frames, answer.subject_frames),
+            ),
         )
         report = ReferenceReport(
             summary=summary,
-            style_hints=StyleHints(palette=[color.lower() for color in answer.palette]),
+            style_hints=StyleHints(palette=palette),
             kept_user_values=built.kept_user_values,
         )
         ctx.progress(done=STEPS, total=STEPS)
         return ReferenceOutcome(change_id=change_id, reference=report)
+
+    # Kept look
+
+    def _keep(
+        self, video: Video, reference_id: str, sent: list[bytes], subject: list[int]
+    ) -> list[str]:
+        """Store up to four of the sent frames and return their file names.
+
+        ``_observe`` extracts the frames at ``FRAME_SIDE`` already, so the bytes
+        the model saw are the bytes kept; no re-encode changes what it saw.
+        """
+        frames = [sent[index] for index in _keep_indexes(len(sent), subject)]
+        return self.frames.put(video.project_id, video.id, reference_id, frames)
+
+    def kept_frames(self, video: Video) -> list[bytes]:
+        """The frames stored with the video's reference, in stored order."""
+        reference = video.reference
+        if reference is None or reference.style is None:
+            return []
+        return self.frames.get(
+            video.project_id, video.id, reference.id, reference.style.frames
+        )
+
+    def prune_frames(self, video: Video) -> None:
+        """Delete every kept-frame folder the video's reference does not use."""
+        reference = video.reference
+        keep = None if reference is None else reference.id
+        self.frames.prune(video.project_id, video.id, keep)
 
     def _probe(self, source: Path, *, link: bool) -> MediaInfo:
         if not source.is_file() or source.is_symlink():
@@ -362,6 +421,7 @@ def create(settings: AppSettings, deps: ServiceDeps) -> ReferenceService:
         deps.llm,
         catalog=deps.catalog,
         project_store=deps.project_store,
+        frames=deps.reference_frames,
         cache_dir=settings.cache_dir,
         max_upload_bytes=uploads.reference_max_bytes,
         max_upload_ms=uploads.reference_max_ms,

@@ -31,6 +31,7 @@ def _service(cache_dir: Path, *, max_bytes: int = 1024) -> ReferenceService:
         object(),  # type: ignore[arg-type]
         catalog=object(),  # type: ignore[arg-type]
         project_store=object(),  # type: ignore[arg-type]
+        frames=object(),  # type: ignore[arg-type]
         cache_dir=cache_dir,
         max_upload_bytes=max_bytes,
         max_upload_ms=60_000,

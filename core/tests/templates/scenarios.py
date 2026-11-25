@@ -10,7 +10,7 @@ import pytest
 from PIL import Image
 
 from app.plugins.registry import file_list_revision
-from app.ports import AppError
+from app.ports import AppError, StyleFrames
 from app.schemas.api import BgmCodeRequest, StyleRequest, TemplateRequest
 from app.schemas.common import PinnedRef
 from app.schemas.style_manifest import StyleManifest
@@ -65,6 +65,57 @@ def shape_change_is_ready(harness: Harness) -> None:
     compared = {name: group for name, group in shape["groups"].items() if group["compared"]}
     assert set(compared) == {"head", "body", "prop", "background"}
     assert all(group["iou_x1000"] < 800 for group in compared.values())
+
+
+def _frame(color: str) -> bytes:
+    buffer = io.BytesIO()
+    Image.new("RGB", (32, 48), color).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def reference_frames_travel_with_the_style_request(harness: Harness) -> None:
+    frames = [_frame("#112233"), _frame("#445566")]
+    hints = StyleFrames(palette=["#112233", "#445566"], frames=frames)
+    harness.llm.queue(style_answer(program("round_style")))
+    req = style_request(harness, "참고 영상의 그림체로").model_copy(
+        update={"use_reference": True}
+    )
+
+    ref = harness.service.generate_style(req, harness.video(), hints, ctx=harness.ctx())
+
+    request = harness.llm.requests[0]
+    assert [part.kind for part in request.parts] == ["png", "png", "text"]
+    assert [part.png for part in request.parts if part.kind == "png"] == frames
+    data = harness.llm.data(0)
+    assert data["reference_hints"] == {"palette": ["#112233", "#445566"]}
+    assert str(harness.root) not in json.dumps(data)
+    manifest = harness.catalog.get("art_style", ref.id, ref.revision)
+    assert isinstance(manifest, StyleManifest) and manifest.provenance is not None
+    assert manifest.provenance.reference_digest is not None
+
+
+def style_repair_keeps_the_reference_frames(harness: Harness) -> None:
+    frames = [_frame("#112233")]
+    hints = StyleFrames(palette=["#112233"], frames=frames)
+    harness.llm.queue(style_answer(program("crash")), style_answer(program("round_style")))
+    req = style_request(harness, "참고 영상의 그림체로").model_copy(
+        update={"use_reference": True}
+    )
+
+    harness.service.generate_style(req, harness.video(), hints, ctx=harness.ctx())
+
+    assert len(harness.llm.requests) == 2
+    for request in harness.llm.requests:
+        assert request.parts[0].kind == "png" and request.parts[0].png == frames[0]
+    assert harness.llm.data(1)["reference_hints"] == {"palette": ["#112233"]}
+
+
+def style_without_reference_sends_no_frames(harness: Harness) -> None:
+    new_style(harness)
+
+    request = harness.llm.requests[0]
+    assert [part.kind for part in request.parts] == ["text"]
+    assert harness.llm.data(0)["reference_hints"] is None
 
 
 def color_only_is_rejected(harness: Harness) -> None:

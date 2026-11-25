@@ -72,10 +72,6 @@ def dev_provider_configured() -> None:
         pytest.skip("the dev provider is not configured (APP_PROFILE=dev and APP_LLM_BASE_URL)")
 
 
-class MissingHook(AssertionError):
-    """The app has no route or hook for a step; the test records it instead of passing."""
-
-
 @dataclass
 class Calls:
     llm: list[str] = field(default_factory=list)
@@ -258,11 +254,6 @@ def test_6_style_request_text_shapes_differ_from_base(
     assert manifest.provenance.reference_digest is None
 
 
-@pytest.mark.xfail(
-    strict=True, raises=MissingHook,
-    reason="reference analysis never stores a style on the summary and the style job reads "
-           "hints only from it",
-)
 def test_6_style_reference_file_shapes_differ_from_base(live_run: LiveRun) -> None:
     with live_run.evidence.case("style-new-from-reference"):
         named = os.environ.get("E2E_REFERENCE_MP4")
@@ -276,8 +267,11 @@ def test_6_style_reference_file_shapes_differ_from_base(live_run: LiveRun) -> No
         assert response.status_code == 202
         live_run.api.wait_job(response.json())
         analyzed = live_run.studio.head(video["id"])
-        if analyzed["reference"] is None or analyzed["reference"]["style"] is None:
-            raise MissingHook("the analyzed reference carries no style for the style request")
+        summary = analyzed["reference"]
+        assert summary is not None, "the analysis kept no reference summary"
+        look = summary["style"]
+        assert look is not None, "the analysis kept no palette for the style request"
+        assert 1 <= len(look["frames"]) <= 4, "the analysis kept no frames to send"
         case = _style(
             live_run, analyzed, "Follow the look of the reference.", "style-reference",
             use_reference=True,

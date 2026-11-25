@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import io
 import json
 import shutil
 from pathlib import Path
 from typing import Any
 
 import pytest
+from PIL import Image
 
 from app.plugins.registry import Registry
 from app.ports import AppError, Cancelled, Segment
@@ -17,7 +19,9 @@ from app.schemas.video import ReferenceHost, ReferenceKind, Video, VideoStage
 from app.services.project import state
 from app.services.reference.service import ReferenceReport, ReferenceService
 from app.services.reference.vision import ROUTE
+from app.storage.paths import Layout
 from app.storage.projects import new_typeid
+from app.storage.reference import FileReferenceFrames
 from tests.fixtures.media import tone_wav
 from tests.media import ffmpeg
 from tests.reference.support import (
@@ -116,6 +120,9 @@ def _service(
         llm,
         catalog=registry,
         project_store=store or Store(),
+        frames=FileReferenceFrames(
+            Layout(data=tmp_path / "data", cache=tmp_path / "cache")
+        ),
         cache_dir=tmp_path / "cache",
         max_upload_bytes=max_bytes,
         max_upload_ms=max_ms,
@@ -136,6 +143,12 @@ def _stage_upload(tmp_path: Path, clip: Path) -> Path:
 
 def _work(tmp_path: Path) -> Path:
     return tmp_path / "cache" / "r" / JOB
+
+
+def _frames(tmp_path: Path, video: Video, reference_id: str) -> Path:
+    return (
+        tmp_path / "data" / "p" / video.project_id / "v" / video.id / "ref" / reference_id
+    )
 
 
 def _run(
@@ -183,21 +196,26 @@ def test_20_analysis_builds_ops_with_origin_reference(
     assert state.new_issues(video, applied.video, registry) == []
 
 
-def test_20_analysis_measures_the_file_and_keeps_the_summary_only(
+def test_20_analysis_measures_the_file_and_keeps_the_summary_with_frames(
     registry: Registry, clip: Path, tmp_path: Path
 ) -> None:
+    video = draft_video()
     service = _service(registry, tmp_path, ScriptedLlm(ANSWER))
     staged = _stage_upload(tmp_path, clip)
     ctx = _context(tmp_path, upload_path=str(staged))
 
-    outcome, source = _run(service, ctx, draft_video(), staged)
+    outcome, source = _run(service, ctx, video, staged)
 
     report = outcome.reference
     assert isinstance(report, ReferenceReport)
     summary = report.summary
     assert summary.kind is ReferenceKind.file and summary.host is None
     assert summary.status.value == "analyzed" and summary.source_deleted
-    assert summary.style is None
+    look = summary.style
+    assert look is not None and look.palette == ["#ff0000", "#0000ff"]
+    assert 1 <= len(look.frames) <= 4
+    folder = _frames(tmp_path, video, summary.id)
+    assert sorted(path.name for path in folder.iterdir()) == sorted(look.frames)
     measured = summary.measured
     assert measured is not None
     assert abs(measured.duration_ms - 3000) <= 150
@@ -206,6 +224,33 @@ def test_20_analysis_measures_the_file_and_keeps_the_summary_only(
     assert not measured.has_bgm
     assert report.style_hints.palette == ["#ff0000", "#0000ff"]
     assert not source.exists()
+
+
+def test_20_analysis_keeps_four_subject_frames_and_deletes_the_rest(
+    registry: Registry, tmp_path: Path
+) -> None:
+    long_clip = make_reference(tmp_path / "long.mp4", seconds=6, with_audio=False)
+    llm = ScriptedLlm({**ANSWER, "subject_frames": [1, 8]})
+    service = _service(registry, tmp_path, llm)
+    video = draft_video()
+    staged = _stage_upload(tmp_path, long_clip)
+    ctx = _context(tmp_path, upload_path=str(staged))
+    ctx.input["upload_path"] = str(staged)
+
+    outcome, _ = _run(service, ctx, video, staged)
+
+    sent = [part.png for part in llm.requests[0].parts if part.kind == "png"]
+    look = outcome.reference.summary.style
+    assert look is not None and len(look.frames) == 4
+    folder = _frames(tmp_path, video, outcome.reference.summary.id)
+    stored = [(folder / name).read_bytes() for name in look.frames]
+    assert all(frame in sent for frame in stored)
+    assert stored[0] == sent[0] and stored[-1] == sent[-1]
+    assert len(list(folder.iterdir())) == 4
+    for frame in stored:
+        with Image.open(io.BytesIO(frame)) as image:
+            assert max(image.size) <= 640
+    assert not _work(tmp_path).exists()
 
 
 def test_20_analysis_sends_frames_and_the_transcript_only(

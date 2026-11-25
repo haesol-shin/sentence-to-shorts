@@ -12,9 +12,9 @@ from app.schemas.common import (
     ContractModel,
     Digest,
     EntityId,
+    HexColor,
     LocalizedText,
     OwnerId,
-    PinnedRef,
     Timestamp,
 )
 from app.schemas.scene import Scene
@@ -95,8 +95,23 @@ class Measured(ContractModel):
     has_bgm: bool
 
 
+MAX_REFERENCE_FRAMES = 4
+REFERENCE_FRAME_PATTERN = r"^frame_[0-3]\.png$"
+"""Kept frames are named in stored order, so a style job can find them without a path."""
+
+
+class ReferenceLook(ContractModel):
+    """The look kept from a reference so a later style request can copy it."""
+
+    palette: Annotated[list[HexColor], Field(max_length=5)]
+    frames: Annotated[
+        list[Annotated[str, Field(pattern=REFERENCE_FRAME_PATTERN)]],
+        Field(max_length=MAX_REFERENCE_FRAMES),
+    ]
+
+
 class ReferenceSummary(ContractModel):
-    """Kept after the source file is deleted. Holds no URL, no frames and no transcript."""
+    """Kept after the source file is deleted. Holds no URL, no frame bytes and no transcript."""
 
     id: EntityId
     kind: ReferenceKind
@@ -104,7 +119,7 @@ class ReferenceSummary(ContractModel):
     status: ReferenceStatus
     source_deleted: bool
     measured: Measured | None
-    style: PinnedRef | None
+    style: ReferenceLook | None
 
 
 class Video(ContractModel):

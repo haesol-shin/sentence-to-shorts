@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import stat
@@ -573,19 +574,50 @@ def test_9a_direct_factory_and_constructor_require_dev_profile(
     assert cli.calls() == []
 
 
-@pytest.mark.parametrize(
-    ("task", "route"),
-    [(LlmTask.reference_vision, "reference_vision"), (LlmTask.draft, "draft")],
-)
-def test_9a_image_parts_are_refused_without_starting_the_cli(
-    settings, request_data, cancel, tmp_path, task, route
+def test_9a_png_parts_travel_as_image_blocks_in_the_user_message(
+    settings, request_data, cancel, tmp_path
+) -> None:
+    cli = _fake_cli(tmp_path)
+    frame = b"\x89PNG\r\n\x1a\nsynthetic-frame"
+    request = replace(
+        request_data,
+        task=LlmTask.reference_vision,
+        route="reference_vision",
+        parts=[
+            LlmPart("png", png=frame),
+            LlmPart("text", text='{"transcript": "synthetic"}'),
+        ],
+    )
+    model = _adapter(settings, cli)
+
+    model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+
+    generation = cli.generation_calls()[0]
+    payload = json.loads(str(generation["stdin"]))
+    content = payload["message"]["content"]
+    assert content[0] == {"type": "text", "text": request.system}
+    image = content[2]
+    assert image == {
+        "type": "image",
+        "source": {
+            "type": "base64",
+            "media_type": "image/png",
+            "data": base64.b64encode(frame).decode("ascii"),
+        },
+    }
+    assert content[3] == {"type": "text", "text": '{"transcript": "synthetic"}'}
+    assert generation["argv"][generation["argv"].index("--tools") + 1] == ""
+
+
+def test_9a_more_than_eight_frames_are_refused_without_starting_the_cli(
+    settings, request_data, cancel, tmp_path
 ) -> None:
     cli = _fake_cli(tmp_path)
     request = replace(
         request_data,
-        task=task,
-        route=route,
-        parts=[LlmPart("png", png=b"\x89PNG synthetic")],
+        task=LlmTask.reference_vision,
+        route="reference_vision",
+        parts=[LlmPart("png", png=b"\x89PNG synthetic")] * 9,
     )
     model = _adapter(settings, cli)
 
@@ -595,6 +627,25 @@ def test_9a_image_parts_are_refused_without_starting_the_cli(
     assert caught.value.code == "llm_refused"
     assert cli.calls() == []
     assert not _cache_root(settings).exists()
+
+
+def test_9a_empty_png_parts_are_refused_without_starting_the_cli(
+    settings, request_data, cancel, tmp_path
+) -> None:
+    cli = _fake_cli(tmp_path)
+    request = replace(
+        request_data,
+        task=LlmTask.reference_vision,
+        route="reference_vision",
+        parts=[LlmPart("png", png=b"")],
+    )
+    model = _adapter(settings, cli)
+
+    with pytest.raises(AppError) as caught:
+        model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+
+    assert caught.value.code == "llm_refused"
+    assert cli.calls() == []
 
 
 @pytest.mark.parametrize("tool_type", ["tool_use", "tool_result"])

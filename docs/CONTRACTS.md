@@ -333,7 +333,7 @@ class LlmTask(StrEnum):
 class LlmPart:
     kind: Literal["text", "png"]
     text: str | None = None
-    png: bytes | None = None          # reference frames only, max 8 per call
+    png: bytes | None = None          # reference frames only, max 8 per call; style_code sends at most 4 kept frames
 
 @dataclass(frozen=True)
 class LlmRequest:
@@ -363,7 +363,7 @@ class LlmPort(Protocol):
 - `anthropic_api`는 공식 SDK를 쓴다. profile 기본값은 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md)을 따른다.
 - `openai_compat`는 표준 OpenAI-compatible Chat Completions API로 endpoint를 호출한다. `base_url`과 model 이름을 설정한다. key가 필요한 endpoint는 keyring 또는 env에서 읽는다. key가 필요 없는 endpoint도 지원한다.
 - `openai_compat`는 PNG를 OpenAI `image_url` content part로 보낸다. endpoint가 이미지를 거절하면 `reference_vision`은 `llm_refused`로 실패한다.
-- `claude_cli`는 수정하지 않은 공식 CLI를 비대화 모드로 실행한다. profile 범위는 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md)을 따른다.
+- `claude_cli`는 수정하지 않은 공식 CLI를 비대화 모드로 실행한다. profile 범위는 [ADR 0003](decisions/0003-separate-llm-providers-and-routing.md)을 따른다. `png` part는 stdin의 stream-json user message에 `image` content block(`source.type`이 `base64`, `media_type`이 `image/png`)으로 넣는다. 이는 공식 Agent SDK가 이미지를 덧붙인 메시지에 쓰는 모양이다. 한 호출에 8장까지고 빈 데이터는 `llm_refused`다.
 - endpoint 인증은 설정된 key만 사용한다. 기여자는 각자 자기 endpoint, 공식 CLI 또는 API key를 쓴다. 한 사람의 endpoint를 공유하지 않는다.
 
 ### 10.2 routing
@@ -391,7 +391,7 @@ class LlmPort(Protocol):
 
 ### 10.4 보안 규칙
 
-- 외부 LLM 전송 목록의 원본: 재료 글, 대본, 대화 문장(chat text), 참고 영상에서 추출한 프레임과 받아쓴 대사뿐이다. 최초 안내는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다.
+- 외부 LLM 전송 목록의 원본: 재료 글, 대본, 대화 문장(chat text), 참고 영상에서 추출한 프레임과 받아쓴 대사뿐이다. 분석이 남긴 참고 프레임(최대 4장)은 새 그림체 요청에서 다시 보내는 같은 자료다. 최초 안내는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다.
 - 참고 자료와 사용자 글은 데이터 part로만 보낸다. system prompt나 설정 파일에 넣지 않는다.
 - LLM 출력은 typed patch와 코드 문자열로만 받는다. 서버가 허용 필드, scene ID, base revision, lock, catalog ID를 다시 검사한다.
 - LLM이 URL, 실행 명령, dependency, host 경로를 등록하지 못한다.
@@ -845,7 +845,7 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 - 기술 시험안: Qwen 비교는 `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice`, `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice`에서 시작한다. 후보별 환경에서 full revision·설정·OS·CPU·RAM·thread를 기록한다. Base checkpoint 클로닝 시험은 별도 실험이며 후보 비교 승인을 클로닝 UI 승인으로 확대하지 않는다.
 - 기술 수락: cold start는 process 시작부터 합성 준비까지, RTF는 wall time/실제 WAV 길이, peak RAM은 자식 process 포함이다. 설치 실패와 청취 부적합도 남긴다. 전부 실패하면 무음·대체 엔진 대신 TTS 미확정 blocker로 보고한다. 최종 한국어·영어 청취를 수행한다.
 - 기술 설계: 전사와 알려진 대본의 forced alignment는 별도 adapter다. WhisperX는 정렬 기준선이며 가벼운 경로는 한영 시험 통과 때만 대체한다. 화면 글과 말할 글의 대응은 11.2절을 따른다.
-- 기술 설계: 참고 화면은 ffmpeg 프레임으로, 소리는 별도 전사 adapter로 분석한다. 무음 비율·BGM 유무·길이·장면 수를 측정한다. 확정 분석값과 검증 artifact로 삭제·복구를 연결한다. 공급자 보관 정책과 실제 링크 성공은 검증 대기다. 링크 경계는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 유지한다.
+- 기술 설계: 참고 화면은 ffmpeg 프레임으로, 소리는 별도 전사 adapter로 분석한다. 무음 비율·BGM 유무·길이·장면 수를 측정한다. 분석은 보낸 프레임 중 주 대상이 보이는 프레임 번호를 함께 받고, 그 프레임을 우선해 최대 4장을 고른다. 확정 분석값과 검증 artifact로 삭제·복구를 연결한다. 공급자 보관 정책과 실제 링크 성공은 검증 대기다. 링크 경계는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 유지한다.
 
 ### 16.4 기록과 연결 상태
 
@@ -979,6 +979,7 @@ DATA_DIR/
   state.db                      projects, videos, revisions, changes, presets, jobs, artifacts, holds, idempotency, activity, credentials, usage_events
   p/<project_id>/project.json
   p/<project_id>/v/<video_id>/r/<revision>.json
+  p/<project_id>/v/<video_id>/ref/<reference_id>/frame_<n>.png   분석이 남긴 참고 프레임 (최대 4장)
   p/<project_id>/u/<upload_id>.wav
   o/<video_id>/<artifact_id>.mp4 | .srt
   s/<digest16>/                 생성 style, template, code BGM package (immutable)
@@ -1006,6 +1007,7 @@ CACHE_DIR/
 | `state.db` | `storage` | migration 백업만 남긴다 |
 | `p/` | `storage` (project 서비스 요청) | 프로젝트 삭제 때 해당 프로젝트만 지운다 |
 | `p/<pid>/u/` | `storage` (sound 서비스 요청) | 프로젝트가 참조하는 동안 보존한다 |
+| `p/<pid>/v/<vid>/ref/` | `storage` (reference 서비스 요청) | 참고를 바꾸거나 지울 때 그 참고 폴더를 지운다. 프로젝트 삭제는 `p/`와 함께 지운다 |
 | `staging/bgm/` | `storage` (sound 서비스 요청) | job 입력이 가리키는 동안 보존하고 job terminal 상태와 시작 복구에서 지운다 |
 | `o/` | `storage` (assemble 결과 공개) | 영상이나 프로젝트 삭제 때만 지운다 |
 | `s/` | `plugins/registry` (templates 서비스 요청) | 참조하는 revision, 프리셋, catalog 항목이 없을 때만 지운다 |
@@ -1016,7 +1018,7 @@ CACHE_DIR/
 - hold 주체는 `rev:<video_id>:<revision>`, `undo:<video_id>`, `style:<digest>`, `preset:<preset_id>`다.
 - 현재 revision과 직전 revision의 artifact는 hold로 보호한다.
 - uninstall은 `DATA_DIR`과 `MODEL_DIR`을 기본 보존한다.
-- 참고 원본 삭제의 제품 정책은 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다. 기술 제안: 분석 job 종료 때 추출 프레임·전사 원문도 지우고 `ReferenceSummary`와 적용 설정값만 남긴다.
+- 참고 원본 삭제의 제품 정책은 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다. 기술 제안: 분석 job 종료 때 전사 원문과 보내지 않은 프레임도 지운다. 보낸 프레임 중 최대 4장은 긴 쪽 640px PNG로 `p/<pid>/v/<vid>/ref/<rf_id>/`에 남기고 `ReferenceSummary.style`에 팔레트와 파일 이름을 적는다. 새 그림체 요청은 이 파일을 그대로 다시 보낸다.
 
 ### LLM routing
 
