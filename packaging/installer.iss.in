@@ -17,14 +17,16 @@ WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayName=@DISPLAY_NAME@
+UninstallDisplayIcon={app}\app.ico
+SetupIconFile=@BUNDLE_DIR@\app.ico
 CloseApplications=no
 
 [Files]
 Source: "@BUNDLE_DIR@\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs ignoreversion
 
 [Icons]
-Name: "{autoprograms}\@DISPLAY_NAME@"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"
-Name: "{autoprograms}\@DISPLAY_NAME@ 종료"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"" --stop"; WorkingDir: "{app}"
+Name: "{autoprograms}\@DISPLAY_NAME@"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
+Name: "{autoprograms}\@DISPLAY_NAME@ 종료"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"" --stop"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
 
 [Run]
 Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"; Description: "@DISPLAY_NAME@"; Flags: nowait postinstall skipifsilent

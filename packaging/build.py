@@ -716,6 +716,9 @@ def finish_bundle(
         start = bundle / "start.sh"
         shutil.copy2(PACKAGING / "start.sh", start)
         start.chmod(0o755)
+    else:
+        # The installer and its shortcuts point at this file, not at pythonw.exe's icon.
+        shutil.copy2(PACKAGING / "app.ico", bundle / "app.ico")
     (bundle / "dist.json").write_text(
         json.dumps(distribution_settings(args.profile, interpreter), indent=2) + "\n",
         encoding="utf-8",
