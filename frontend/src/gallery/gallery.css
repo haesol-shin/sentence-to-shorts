@@ -17,6 +17,54 @@ body {
 
 /* ---- gallery page ---- */
 
+.gallery-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.gallery-top {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  height: var(--layout-topbar-h);
+  padding: 0 var(--space-24);
+  border-bottom: var(--part-hairline) solid var(--border);
+  background: var(--popover);
+}
+
+.gallery-top__brand {
+  margin-right: var(--space-24);
+  font-size: var(--font-size-title);
+  line-height: var(--line-height-title);
+}
+
+.gallery-top__tabs {
+  display: flex;
+  gap: var(--space-4);
+}
+
+.gallery-top__tabs a {
+  padding: var(--space-8) var(--space-16);
+  border-radius: var(--radius-inset);
+  color: var(--muted-foreground);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  text-decoration: none;
+}
+
+.gallery-top__tabs a:hover {
+  background: var(--state-hover-white);
+}
+
+.gallery-top__tabs a[aria-current='page'] {
+  background: var(--state-selected);
+  color: var(--foreground);
+}
+
 .gallery {
   box-sizing: border-box;
   width: max-content;
@@ -160,6 +208,20 @@ body {
   min-height: 100dvh;
 }
 
+.gallery-page > .gallery-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+.gallery-page .gallery__nav {
+  top: var(--layout-topbar-h);
+  height: calc(100dvh - var(--layout-topbar-h));
+}
+
+.gallery-page > .gallery {
+  flex: 1;
+}
+
 .gallery-shell .gallery {
   flex: 1;
   min-width: 0;
@@ -251,6 +313,7 @@ body {
 /* ---- one case inside its own viewport ---- */
 
 .case-frame {
+  position: relative;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -350,6 +413,43 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-16);
+}
+
+.demo-composer-case {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+}
+
+.demo-composer-case .composer__field {
+  order: 1;
+}
+
+.demo-composer-case .composer__attachments:has(.demo-composer-error) {
+  display: contents;
+}
+
+.demo-composer-case .composer__row {
+  order: 3;
+}
+
+.demo-composer-error {
+  order: 2;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  margin: 0;
+  padding-block: var(--space-4);
+  color: var(--destructive);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+  word-break: keep-all;
+}
+
+.demo-composer-error svg {
+  flex: none;
+  margin-top: var(--space-4);
 }
 
 .demo-dialog-lines {

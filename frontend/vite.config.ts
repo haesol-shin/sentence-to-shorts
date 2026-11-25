@@ -4,8 +4,16 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 
+import { copyIndexPlugin } from './vite-plugins/copy-index';
+import { copySavePlugin } from './vite-plugins/copy-save';
+
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    react(),
+    tailwindcss(),
+    copyIndexPlugin({ edit: process.env.APP_COPY_EDIT === '1' }),
+    copySavePlugin({ edit: process.env.APP_COPY_EDIT === '1' }),
+  ],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
