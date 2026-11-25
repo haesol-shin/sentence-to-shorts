@@ -149,10 +149,19 @@ def test_8_two_candidates_avoid_the_newest_when_both_were_used(service: ProjectS
 
 def test_8_single_candidate_and_locked_values_remain_exact(service: ProjectService) -> None:
     first = project_video(service)
+    current_style = first.settings.visual.art_style.id
+
+    class SingleStyleRegistry(Registry):
+        def list(self, kind, *, video=None):
+            items = super().list(kind, video=video)
+            if kind != "art_style":
+                return items
+            return [item for item in items if item.id == current_style]
+
     first.settings.locks = {key: LockState.locked for key in LockKey}
     first.settings.locks[LockKey.art_style] = LockState.varied
     project = service.projects.get_project(first.project_id)
-    picked = service.pick_varied(project, [first], seed=4)
+    picked = derive.pick_varied(SingleStyleRegistry(), project, [first], seed=4)
     assert picked == first.settings
     picked.extra_instructions.append("Synthetic instruction")
     assert first.settings.extra_instructions == []
