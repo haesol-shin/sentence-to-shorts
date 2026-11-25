@@ -55,7 +55,10 @@ test('test_10a_the_script_step_has_the_document_head_and_one_step_button', async
   await expect(first.getByRole('button', { name: '아래로 옮기기', exact: true })).toBeEnabled();
   await expect(first.getByRole('button', { name: '장면 1 메뉴', exact: true })).toBeVisible();
   await expect(first.getByRole('button', { name: 'AI로 다시 쓰기', exact: true })).toBeVisible();
-  await expect(first.locator('[data-slot="script-line-seconds"]')).toHaveText(/^약 \d+초$/u);
+  // The opening scene keeps two lines, so every line of it carries its own seconds.
+  for (const seconds of await first.locator('[data-slot="script-line-seconds"]').all()) {
+    await expect(seconds).toHaveText(/^약 \d+초$/u);
+  }
 
   await expect(screen.getByRole('button', { name: '이대로 영상 만들기', exact: true })).toHaveCount(1);
   await expect(page.getByRole('button', { name: '이대로 영상 만들기', exact: true })).toHaveCount(1);
@@ -181,7 +184,8 @@ test('test_8a_the_rewrite_review_applies_in_place_and_undoes_once', async ({ pag
   const review = card.locator('[data-slot="script-review"]');
   await expect(review).toBeVisible();
   await expect(page.getByRole('button', { name: '되돌리기', exact: true })).toBeDisabled();
-  await expect(review.locator('del')).toContainText('커피를 고르는 세 가지 기준');
+  // The opening scene keeps two lines, so its rewrite shows both of them struck.
+  await expect(review.locator('del').first()).toContainText('커피를 고르는 세 가지 기준');
   await expect(review).toContainText('다시 말하면, 커피를 고르는 세 가지 기준');
 
   await review.getByRole('button', { name: '적용', exact: true }).click();
@@ -205,9 +209,11 @@ test('test_26_the_tone_field_shows_the_old_and_new_line_and_blocks_the_step', as
   await page.getByRole('option', { name: '~합니다', exact: true }).click();
 
   const previews = screen.locator('[data-slot="script-tone-preview"]');
-  await expect(previews).toHaveCount(4);
-  await expect(previews.first().locator('del').first()).toContainText('길 찾기가 어려워요');
-  await expect(previews.first()).toContainText('길 찾기가 어렵습니다');
+  await expect(previews).toHaveCount(5);
+  // Every scene now keeps a line the tone changes, so the second scene holds this pair.
+  const second = previews.nth(1);
+  await expect(second.locator('del').first()).toContainText('길 찾기가 어려워요');
+  await expect(second).toContainText('길 찾기가 어렵습니다');
   await expect(screen.getByRole('button', { name: '이대로 영상 만들기', exact: true })).toBeDisabled();
   await expect(
     screen.locator('[data-slot="script-footer"]').getByRole('status'),

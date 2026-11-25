@@ -33,7 +33,7 @@ export function PrecheckPanel({
   status,
   report,
   starting,
-  startFailed,
+  startError,
   preparePercent,
   prepareNotice,
   onRetry,
@@ -44,7 +44,8 @@ export function PrecheckPanel({
   status: PrecheckStatus;
   report: PrecheckReport | null;
   starting: boolean;
-  startFailed: boolean;
+  /** Why the last start did not run: a plain failure or one the server refuses to retry. */
+  startError: 'failed' | 'not-retryable' | null;
   /** The percent the voice models are at while the start waits for them. */
   preparePercent: number | null;
   /** The sentence for models that cannot move, with its retry. */
@@ -136,7 +137,8 @@ export function PrecheckPanel({
         </dl>
       )}
       <Notice tone="warning">{t('export.precheck.noGuarantee')}</Notice>
-      {startFailed ? <Notice tone="error">{t('export.start.failed')}</Notice> : null}
+      {startError === 'failed' ? <Notice tone="error">{t('export.start.failed')}</Notice> : null}
+      {startError === 'not-retryable' ? <Notice tone="error">{t('export.generation.notRetryable')}</Notice> : null}
     </section>
   );
 }

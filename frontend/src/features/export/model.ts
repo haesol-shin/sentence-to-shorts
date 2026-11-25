@@ -82,6 +82,17 @@ export function precheckFromJob(job: Job): PrecheckReport | null {
   };
 }
 
+/**
+ * Whether the check found something to look at before making: a statement of
+ * fact the user's material does not back. A video made from one sentence has no
+ * material, so its statements have nothing to be checked against.
+ */
+export function precheckFindsProblem(view: VideoView, report: PrecheckReport): boolean {
+  const { material } = view.video;
+  return material.length > 0 &&
+    report.claims.some((claim) => !material.some((entry) => entry.id === claim.material_id));
+}
+
 export function sceneNumberOf(view: VideoView | null, sceneId: string): number {
   return view === null ? 0 : view.video.scene_order.indexOf(sceneId) + 1;
 }

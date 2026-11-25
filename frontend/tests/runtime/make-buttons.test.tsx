@@ -103,16 +103,16 @@ test('test_21_the_edit_button_stays_pressable_while_the_voice_downloads', async 
   expect(screen.queryByText(/준비 중/)).toBeNull();
 });
 
-test('test_21_a_pressed_edit_button_shows_the_percent_while_the_job_waits', async () => {
+test('test_21_a_pressed_edit_button_keeps_its_stop_name_and_the_percent_stands_beside_it', async () => {
   groups = [group('voice', 'downloading', 42), group('transcribe', 'queued', 0), group('align_en', 'queued', 0)];
   serve();
   renderEdit(queuedApi());
 
   await pressMake('영상 만들기');
 
-  const stop = await screen.findByRole('button', { name: /준비 중 42%/ });
+  const stop = await screen.findByRole('button', { name: '만들기 멈추기' });
   expect(stop.hasAttribute('data-running')).toBe(true);
-  expect(screen.queryByText('만들기 멈추기')).toBeNull();
+  expect(screen.getByText('준비 중 42%')).toBeTruthy();
 });
 
 test('test_21_the_edit_button_goes_back_to_stop_when_the_models_are_ready', async () => {
@@ -133,7 +133,8 @@ test('test_21_an_english_video_counts_the_english_aligner_in_the_percent', async
 
   await pressMake('Make the video');
 
-  expect(await screen.findByRole('button', { name: /Preparing 75%/ })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: 'Stop making' })).toBeTruthy();
+  expect(screen.getByText('Preparing 75%')).toBeTruthy();
 });
 
 test('test_21_a_retrying_download_stops_the_percent_and_asks_for_the_connection', async () => {
@@ -143,7 +144,8 @@ test('test_21_a_retrying_download_stops_the_percent_and_asks_for_the_connection'
 
   await pressMake('영상 만들기');
 
-  expect(await screen.findByRole('button', { name: /준비 중 42%/ })).toBeTruthy();
+  expect(await screen.findByRole('button', { name: '만들기 멈추기' })).toBeTruthy();
+  expect(screen.getByText('준비 중 42%')).toBeTruthy();
   const notice = await waitFor(() => {
     const found = document.querySelector('[data-slot="prepare-notice"][data-state="retrying"]');
     expect(found).not.toBeNull();

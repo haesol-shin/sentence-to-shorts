@@ -107,11 +107,23 @@ async function confirmScript(page: Page): Promise<void> {
   await page.getByRole('button', { name: '이대로 영상 만들기' }).click();
 }
 
-/** The scene dialog on the edit screen, then the precheck panel the export screen opens with. */
-async function confirmScenes(page: Page): Promise<void> {
+/**
+ * The scene dialog on the edit screen; a check that finds nothing starts the
+ * making by itself, so the confirm press is also the make press. Returns the
+ * job the export screen started.
+ */
+async function confirmScenes(page: Page): Promise<string> {
   await page.getByRole('button', { name: '영상 만들기', exact: true }).click();
+  const started = page.waitForResponse((response) => response.url().endsWith('/generate'), { timeout: 240_000 });
   await page.getByRole('dialog').getByRole('button', { name: '영상 만들기' }).click();
-  await expect(page.getByRole('region', { name: '출력 전 확인' })).toBeVisible({ timeout: 120_000 });
+  const response = await started;
+  expect(response.status()).toBe(202);
+  await expect(page.locator('.top-bar-status__trigger')).toBeVisible({ timeout: 120_000 });
+  const body: unknown = await response.json();
+  if (typeof body !== 'object' || body === null || !('id' in body) || typeof body.id !== 'string') {
+    throw new Error('the generate response carries no job id');
+  }
+  return body.id;
 }
 
 async function waitForJob(page: Page, jobId: string): Promise<{ result: { artifacts: { final: string }; rebuilt_scene_ids: string[] } }> {
@@ -126,17 +138,6 @@ async function waitForJob(page: Page, jobId: string): Promise<{ result: { artifa
     )
     .toBe('succeeded');
   return job as never;
-}
-
-/** Presses the export screen's own start button and returns the job it started. */
-async function generate(page: Page): Promise<string> {
-  const start = page.getByRole('button', { name: '영상 만들기', exact: true });
-  await expect(start).toBeEnabled({ timeout: 60_000 });
-  const started = page.waitForResponse((response) => response.url().endsWith('/generate'));
-  await start.click();
-  const response = await started;
-  expect(response.status()).toBe(202);
-  return ((await response.json()) as { id: string }).id;
 }
 
 /** The finished video, shown in the page or in a dialog depending on the width. */
@@ -163,10 +164,11 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
     expect(stored.video.stage).toBe('concept_confirmed');
   });
 
+  let firstJob = '';
   await test.step('the script and the scenes are confirmed', async () => {
     await confirmScript(page);
     await shot(page, 'edit');
-    await confirmScenes(page);
+    firstJob = await confirmScenes(page);
     const stored = await readVideo(page, session.videoId);
     expect(stored.video.stage).toBe('scenes_confirmed');
     expect(stored.video.scene_order.map((id) => stored.video.scenes[id].lines[0].display_text)).toEqual(SCRIPT_LINES);
@@ -174,7 +176,7 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
 
   let firstFinal = '';
   await test.step('the result plays with the captions the server holds', async () => {
-    const first = await waitForJob(page, await generate(page));
+    const first = await waitForJob(page, firstJob);
     firstFinal = first.result.artifacts.final;
     // The button leaves the page on the export screen, which shows the result.
     await expect(resultView(page)).toBeVisible({ timeout: 60_000 });
@@ -232,8 +234,7 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
     const target = applied.video.scene_order[2];
     expect(applied.video.scenes[target].lines.map((entry) => entry.display_text)).toEqual([REWRITTEN_LINE]);
 
-    await confirmScenes(page);
-    const second = await waitForJob(page, await generate(page));
+    const second = await waitForJob(page, await confirmScenes(page));
     expect(second.result.rebuilt_scene_ids).toEqual([target]);
     expect(second.result.artifacts.final).not.toBe(firstFinal);
   });

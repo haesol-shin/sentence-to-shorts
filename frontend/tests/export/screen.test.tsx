@@ -2,6 +2,7 @@ import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/re
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import { configureExport } from '@/features/export/store';
+import { ApiProblemError } from '@/shared/api/client';
 
 import { builtView, FINAL_ID, job, METRICS, REPORT, renderExport, stubApi, unbuiltView } from './fixtures';
 
@@ -42,9 +43,9 @@ test('test_30_the_check_before_output_shows_the_four_items_and_no_guarantee', as
   const claims = document.querySelector<HTMLElement>('[data-slot="precheck-claims"]');
   expect(claims?.textContent).toContain('장면 2');
   expect(claims?.textContent).toContain('물은 93도가 좋다');
-  expect(claims?.textContent).toContain('재료 원문: 물의 온도를 93도로 맞춘다.');
+  expect(claims?.textContent).toContain('자료 원문: 물의 온도를 93도로 맞춘다.');
   expect(claims?.textContent).not.toContain('m_0material');
-  expect(claims?.textContent).toContain('재료에서 찾지 못했어요');
+  expect(claims?.textContent).toContain('올린 자료에서 근거를 찾지 못했어요');
   expect(document.querySelector('[data-slot="precheck-assumptions"]')?.textContent).toContain('장면 1');
   expect(screen.getByText(/사실인지를 검증하거나 보증하지 않아요/)).toBeTruthy();
   expect(api.startPrecheck).toHaveBeenCalledWith(unbuiltView().video.id, 1);
@@ -75,6 +76,58 @@ test('test_30_a_failed_check_can_run_again_and_does_not_block_editing', async ()
   fireEvent.click(screen.getByRole('button', { name: '다시 확인' }));
   expect(await screen.findByText(REPORT.opening_promise)).toBeTruthy();
   expect((screen.getByRole('button', { name: '영상 만들기' }) as HTMLButtonElement).disabled).toBe(false);
+});
+
+test('test_30_a_check_with_nothing_to_look_at_starts_the_making_without_a_second_press', async () => {
+  const view = unbuiltView();
+  view.video.material = [];
+  const onStart = vi.fn(async () => true);
+  const onOpenEdit = vi.fn();
+  renderExport(view, stubApi(), { onStart, onOpenEdit });
+
+  await waitFor(() => expect(onOpenEdit).toHaveBeenCalledTimes(1));
+  expect(onStart).toHaveBeenCalledTimes(1);
+  expect(onStart).toHaveBeenCalledWith(view.video.revision);
+  expect(screen.queryByText(REPORT.opening_promise)).toBeNull();
+  expect(screen.queryByRole('button', { name: '영상 만들기' })).toBeNull();
+});
+
+test('test_30_a_check_with_a_claim_the_material_does_not_back_waits_for_the_press', async () => {
+  const onStart = vi.fn(async () => true);
+  renderExport(unbuiltView(), stubApi(), { onStart });
+  await screen.findByText(REPORT.opening_promise);
+
+  expect(onStart).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: '영상 만들기' })).toBeTruthy();
+});
+
+test('test_30_a_start_the_server_refuses_to_retry_stays_on_the_check_with_its_actions', async () => {
+  const view = unbuiltView();
+  view.video.material = [];
+  const onStart = vi.fn(async () => {
+    throw new ApiProblemError({
+      code: 'job_not_retryable',
+      detail: '',
+      errors: [],
+      instance: '/api/v1/videos/v_0test00000000000000000000/generate',
+      message_key: 'error.job_not_retryable',
+      retryable: false,
+      status: 409,
+      title: 'Conflict',
+      type: 'about:blank',
+    });
+  });
+  const onOpenEdit = vi.fn();
+  renderExport(view, stubApi(), { onStart, onOpenEdit });
+
+  // The check found nothing, so the making starts by itself and the refusal lands here.
+  expect(await screen.findByText('이 작업은 다시 시도할 수 없어요.')).toBeTruthy();
+  expect(onStart).toHaveBeenCalledTimes(1);
+  expect(screen.getByText(REPORT.opening_promise)).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: '영상 만들기' }));
+  await waitFor(() => expect(onStart).toHaveBeenCalledTimes(2));
+  fireEvent.click(screen.getByRole('button', { name: '편집으로' }));
+  expect(onOpenEdit).toHaveBeenCalled();
 });
 
 test('test_30_a_failed_make_request_keeps_the_check_visible', async () => {
@@ -246,6 +299,16 @@ test('test_13_the_save_buttons_download_the_mp4_and_the_caption_file', async () 
   ]);
   const player = document.querySelector<HTMLVideoElement>('[data-slot="result-video"]');
   expect(player?.getAttribute('src')).toBe(`/api/v1/artifacts/${FINAL_ID}`);
+});
+
+test('test_13_saving_the_mp4_says_where_the_file_went', async () => {
+  recordDownloads();
+  renderExport(builtView(), stubApi());
+  const card = await screen.findByRole('dialog');
+
+  fireEvent.click(within(card).getByRole('button', { name: 'mp4 저장' }));
+
+  expect(await screen.findByText('mp4 파일을 저장했어요. 다운로드 폴더를 확인해 주세요.')).toBeTruthy();
 });
 
 test('test_29_the_caption_button_is_named_for_the_file_use_and_srt_stays_out_of_the_page', async () => {

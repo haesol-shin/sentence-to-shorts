@@ -201,6 +201,11 @@
   margin-top: 0;
 }
 
+/* The save notice can come from the open result card, so it rides above the window and its scrim. */
+.toast-surface.export-save-toast {
+  z-index: calc(var(--z-dialog) + 2);
+}
+
 .export-result {
   display: grid;
   grid-template-columns: minmax(0, 382px) minmax(0, 360px);
@@ -213,6 +218,14 @@
   min-width: 0;
   justify-content: center;
   gap: var(--space-16);
+}
+
+/*
+ * The card must fit a short window whole: the title and the close x stay at the
+ * scroll frame's top edge, so the picture gives up the height the window lacks.
+ */
+.export-result-dialog .export-player {
+  width: min(100%, calc((100dvh - var(--layout-topbar-h) - var(--space-48) * 4) * 9 / 16));
 }
 
 .export-result__side {

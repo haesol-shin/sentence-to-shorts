@@ -69,7 +69,6 @@ test('the result plays and saves a video and timed captions', async ({ page }) =
     .getByRole('button', { name: '영상 만들기' })
     .click();
   const stage = page.locator(EXPORT_STAGE);
-  await stage.locator('[data-slot="export-start"]').click();
 
   const card = page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true });
   await expect(card).toBeVisible({ timeout: 20_000 });

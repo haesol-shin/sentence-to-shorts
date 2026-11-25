@@ -194,15 +194,19 @@ function requireSession(): SessionState | null {
   return session;
 }
 
-function markUndo(state: SessionState): void {
+/**
+ * Keep the script before a change, for one undo. Typing on in the same line
+ * keeps the entry from its first key, so undo takes back the whole edit.
+ */
+function markUndo(state: SessionState, line: string | null = null): void {
+  if (line !== null && state.undo?.line === line) {
+    return;
+  }
   state.undo = {
     document: cloneDocument(state.document),
     changedSceneIds: [...state.changedSceneIds],
+    line,
   };
-}
-
-function clearUndo(state: SessionState): void {
-  state.undo = null;
 }
 
 function markChanged(state: SessionState, sceneId: string): void {
@@ -304,12 +308,12 @@ export function setLength(duration: TargetDuration): void {
   if (state === null || structureLocked(state)) {
     return;
   }
+  markUndo(state);
   state.document = withDuration(state.document, duration);
   const count = getScriptSceneCounts()[DURATIONS.indexOf(duration)];
   if (count !== undefined) {
     applySceneCount(state, count);
   }
-  clearUndo(state);
   emit();
 }
 
@@ -318,8 +322,8 @@ export function setSceneCount(count: number): void {
   if (state === null || !getScriptSceneCounts().includes(count) || structureLocked(state)) {
     return;
   }
+  markUndo(state);
   applySceneCount(state, count);
-  clearUndo(state);
   emit();
 }
 
@@ -361,8 +365,8 @@ export function editLine(sceneId: string, lineId: string, text: string): void {
   if (state.rewrite?.sceneId === sceneId) {
     state.rewrite = null;
   }
+  markUndo(state, lineId);
   state.document = withLineText(state.document, sceneId, lineId, text);
-  clearUndo(state);
   emit();
 }
 
@@ -380,6 +384,7 @@ export function addLine(sceneId: string): void {
   if (next === state.document) {
     return;
   }
+  markUndo(state);
   state.document = next;
   state.lineIdMax = Math.max(
     state.lineIdMax,
@@ -389,7 +394,6 @@ export function addLine(sceneId: string): void {
     ),
   );
   state.error = null;
-  clearUndo(state);
   emit();
 }
 
@@ -409,8 +413,8 @@ export function moveScene(sceneId: string, delta: number): void {
     return;
   }
   order.splice(to, 0, moved);
+  markUndo(state);
   state.document = withSceneOrder(state.document, order);
-  clearUndo(state);
   emit();
 }
 
@@ -429,8 +433,8 @@ export function moveSceneTo(sceneId: string, index: number): void {
     return;
   }
   order.splice(index, 0, moved);
+  markUndo(state);
   state.document = withSceneOrder(state.document, order);
-  clearUndo(state);
   emit();
 }
 
@@ -494,6 +498,7 @@ export function stopRewrite(): void {
   rewriteController?.abort();
   rewriteController = null;
   state.workingSceneId = null;
+  state.error = 'script.stopped';
   emit();
 }
 
@@ -559,6 +564,60 @@ export function applyTone(): void {
   }
   state.document = next;
   state.tone = null;
+  emit();
+}
+
+/**
+ * Applies the tone change in one scene and leaves the other scenes' proposals
+ * open, because the canon lets a user decide scene by scene or all at once.
+ */
+export function applyToneScene(sceneId: string): void {
+  const state = requireSession();
+  const proposal = state?.tone ?? null;
+  if (state === null || proposal === null) {
+    return;
+  }
+  const review = proposal.scenes.find((entry) => entry.sceneId === sceneId);
+  if (review === undefined) {
+    return;
+  }
+  const rest = proposal.scenes.filter((entry) => entry.sceneId !== sceneId);
+  const next = cloneDocument(state.document);
+  const scene = next.scenes[sceneId];
+  if (scene === undefined) {
+    state.tone = rest.length === 0 ? null : { ...proposal, scenes: rest };
+    emit();
+    return;
+  }
+  markUndo(state);
+  for (const line of review.lines) {
+    const target = scene.lines.find((entry) => entry.id === line.lineId);
+    if (target !== undefined) {
+      target.display_text = line.after;
+      target.speech_text = line.after;
+    }
+  }
+  next.register = proposal.to;
+  state.document = next;
+  markChanged(state, sceneId);
+  state.tone = rest.length === 0 ? null : { ...proposal, scenes: rest };
+  state.error = null;
+  emit();
+}
+
+/** Drops the tone proposal for one scene and keeps the proposal open for the others. */
+export function dismissToneScene(sceneId: string): void {
+  const state = requireSession();
+  const proposal = state?.tone ?? null;
+  if (state === null || proposal === null) {
+    return;
+  }
+  const rest = proposal.scenes.filter((entry) => entry.sceneId !== sceneId);
+  if (rest.length === proposal.scenes.length) {
+    return;
+  }
+  state.tone = rest.length === 0 ? null : { ...proposal, scenes: rest };
+  state.error = null;
   emit();
 }
 

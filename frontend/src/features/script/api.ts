@@ -1,4 +1,5 @@
 import type { Language } from '@/shared/api/client';
+import { confirmedMockScripts } from '@/shared/api/mock/story';
 
 import { createSyntheticDocument } from './fixture';
 import {
@@ -8,6 +9,7 @@ import {
   hasDuplicateOrder,
   hasEmptyLine,
   isConfirmed,
+  maxEntityNumber,
 } from './model';
 import type { ScriptDocument, ScriptTarget } from './types';
 
@@ -113,6 +115,16 @@ export class MockScriptApi implements ScriptApi {
         new ScriptApiError('script_invalid', 'A line is longer than the contract limit'),
       );
     }
+    // The mock video read lays this over its story, so the edit step opens on
+    // the confirmed order and lines. A session id is `<video id>#<attempt>`, and
+    // a seeded scene's number is its place in the story.
+    confirmedMockScripts.set(
+      document.id.split('#')[0] ?? document.id,
+      document.scene_order.map((sceneId) => ({
+        story: maxEntityNumber([sceneId], 's') - 1,
+        lines: document.scenes[sceneId]?.lines.map((line) => line.display_text) ?? [],
+      })),
+    );
     if (isConfirmed(document)) {
       return Promise.resolve(cloneDocument(document));
     }

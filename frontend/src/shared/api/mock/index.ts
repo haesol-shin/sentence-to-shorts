@@ -10,7 +10,7 @@ import {
   type Video,
   type VideoView,
 } from '../client';
-import { withMockStory, withMockStoryStills } from './story';
+import { confirmedMockScripts, withMockScript, withMockStory, withMockStoryStills } from './story';
 import { editedVideoSettings } from './video-settings';
 
 interface Fixture {
@@ -118,6 +118,7 @@ export function installMockApi(prepare: MockPrepare = mockPrepareFromAddress()):
   const presets = new Map<string, Preset>();
   let sequence = 0;
   editedVideoSettings.clear();
+  confirmedMockScripts.clear();
   const nextId = (prefix: string) => `${prefix}_${(++sequence).toString(32).padStart(25, '0')}`;
   let groups: PrepareGroup[] | null = null;
   let llmMissing = mockLlmMissingFromAddress();
@@ -198,21 +199,27 @@ export function installMockApi(prepare: MockPrepare = mockPrepareFromAddress()):
     }
     if (video !== undefined && request.method === 'GET' && resource === undefined) {
       const template = fixture.body as VideoView;
-      return {
-        ...fixture,
-        body: {
-          ...template,
-          video: video.draftMessage === null ? video.created : {
+      let shown = { video: video.created, build: template.build };
+      if (video.draftMessage !== null) {
+        shown = {
+          video: {
             ...withMockStory(template.video),
             id: video.created.id,
             project_id: video.created.project_id,
             topic: video.draftMessage,
             settings: video.created.settings,
           },
-          build: {
-            ...(video.draftMessage === null ? template.build : withMockStoryStills(template.build, template.video)),
-            video_id: video.created.id,
-          },
+          build: withMockStoryStills(template.build, template.video),
+        };
+        const script = confirmedMockScripts.get(video.created.id);
+        if (script !== undefined) shown = withMockScript(shown.video, shown.build, script);
+      }
+      return {
+        ...fixture,
+        body: {
+          ...template,
+          video: shown.video,
+          build: { ...shown.build, video_id: video.created.id },
         } satisfies VideoView,
       };
     }

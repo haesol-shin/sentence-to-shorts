@@ -40,7 +40,7 @@ async function makeVideo(page: Page): Promise<Locator> {
     .getByRole('dialog', { name: '장면 확인' })
     .getByRole('button', { name: '영상 만들기' })
     .click();
-  await page.locator('[data-slot="export-start"]').click();
+  // The check finds nothing in the mock's own material-free video, so the making starts by itself.
   const card = page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true });
   await expect(card).toBeVisible({ timeout: 20_000 });
   return card;
@@ -77,10 +77,9 @@ eachWidth('test_10a_the_edit_step_stays_usable_while_the_video_is_made_and_the_c
     .getByRole('dialog', { name: '장면 확인' })
     .getByRole('button', { name: '영상 만들기' })
     .click();
-  await expect(page.locator(EXPORT_STAGE).getByRole('heading', { name: '출력 전 확인' })).toBeVisible();
-  await expect(page.locator('.top-bar-status__trigger')).toHaveCount(0);
-  await page.locator('[data-slot="export-start"]').click();
+  // One confirm starts the making: the top bar carries the progress and no second press is asked.
   await expect(page.locator('.top-bar-status__trigger')).toBeVisible({ timeout: 5000 });
+  await expect(page.locator('[data-slot="export-start"]')).toHaveCount(0);
   await expect(page.getByRole('dialog', { name: '영상을 다 만들었어요', exact: true })).toHaveCount(0);
 
   const third = page.locator(SCENE_CARD).nth(2);
@@ -233,28 +232,6 @@ eachWidth('test_10a_the_result_scenes_use_the_24_number_circle_and_a_press_sets_
   await composer.getByRole('button', { name: '보내기' }).click();
   await expect(page.locator('[data-slot="edit-chat"]')).toContainText('이 장면만 줄여 줘');
   await expect(page.locator(EXPORT_STAGE)).toBeVisible();
-});
-
-eachWidth('test_30_before_the_video_exists_the_check_before_output_shows_and_the_save_is_dimmed_with_a_reason', async (page) => {
-  await openEdit(page);
-  await openStage(page, '내보내기');
-  const screen = page.locator(EXPORT_STAGE);
-  await expect(screen.getByRole('heading', { name: '출력 전 확인' })).toBeVisible();
-  for (const label of ['첫 화면의 약속', '끝에서 하는 답', '사실처럼 말하는 곳과 재료', '가정으로 쓴 곳']) {
-    await expect(screen.getByText(label, { exact: true })).toBeVisible({ timeout: 10_000 });
-  }
-  await expect(screen.getByText(/사실인지를 검증하거나 보증하지 않아요/u)).toBeVisible();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-
-  const save = page.locator(TOP_SAVE);
-  await expect(save).toBeDisabled();
-  const box = await save.boundingBox();
-  expect(Math.round(box?.height ?? 0)).toBe(44);
-  await page.locator('[data-slot="next-action-seat"]').hover();
-  await expect(page.getByRole('tooltip')).toHaveText('영상이 만들어지면 저장할 수 있어요.');
-
-  await expect(page.getByRole('progressbar')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /멈추기|취소/u })).toHaveCount(0);
 });
 
 eachWidth('test_23_the_result_screen_fits_the_width_without_a_sideways_scroll', async (page) => {

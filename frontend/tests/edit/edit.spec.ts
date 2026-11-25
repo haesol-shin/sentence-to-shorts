@@ -43,7 +43,8 @@ async function startVideo(page: Page): Promise<void> {
     .getByRole('dialog', { name: '장면 확인' })
     .getByRole('button', { name: '영상 만들기' })
     .click();
-  await page.locator('[data-slot="export-start"]').click();
+  // A check that finds nothing starts the making, so no second press is needed.
+  await expect(page.locator('[data-slot="top-bar"] .top-bar-status__trigger')).toBeVisible({ timeout: 10_000 });
 }
 
 test('test_10a_the_edit_shell_shows_the_scenes_and_the_preview', async ({ page }) => {
@@ -241,25 +242,23 @@ test('test_23_the_video_settings_panel_aligns_to_its_button_at_both_widths', asy
   }
 });
 
-test('test_23_reordering_with_the_buttons_shows_the_scope_and_keeps_the_arrow_size', async ({
+test('test_23_dragging_a_scene_card_elsewhere_asks_first_and_shows_the_new_order', async ({
   page,
 }) => {
   await openEdit(page);
-  const up = page.locator('.reorder-row').nth(0).getByRole('button', { name: /아래로 이동/ });
-  await up.scrollIntoViewIfNeeded();
-  const before = await up.boundingBox();
-  const weight = await up.evaluate((node) => getComputedStyle(node).fontWeight);
-  expect(before).not.toBeNull();
-  if (before === null) return;
-  await page.mouse.move(before.x + before.width / 2, before.y + before.height / 2);
-  await page.mouse.down();
-  const pressed = await up.boundingBox();
-  expect(pressed).not.toBeNull();
-  if (pressed === null) return;
-  expect(pressed.width).toBe(before.width);
-  expect(pressed.height).toBe(before.height);
-  expect(await up.evaluate((node) => getComputedStyle(node).fontWeight)).toBe(weight);
-  await page.mouse.up();
+  const cards = page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`);
+  await expect(cards.first()).toContainText('훅');
+  const dropped = await cards.first().evaluate((node, target) => {
+    const transfer = new DataTransfer();
+    node.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: transfer }));
+    const over = document.querySelectorAll(target)[1];
+    const accepted = over?.dispatchEvent(
+      new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: transfer }),
+    );
+    over?.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: transfer }));
+    return accepted === false;
+  }, `${SCENE_COLUMN} ${SCENE_CARD}`);
+  expect(dropped).toBe(true);
 
   const dialog = page.getByRole('dialog', { name: '장면 순서를 바꿀까요?' });
   await expect(dialog).toBeVisible();
@@ -267,9 +266,9 @@ test('test_23_reordering_with_the_buttons_shows_the_scope_and_keeps_the_arrow_si
   await expect(dialog.locator('[data-slot="order-compare"]')).toContainText('2. 첫 번째');
   await expect(dialog.locator('[data-slot="rebuild-scope"]')).toContainText('최종 영상을 다시 조립해요');
   await expect(dialog).toContainText('장면 흐름이 끊길 수 있어요');
-  await expect(page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`).first()).toContainText('훅');
+  await expect(cards.first()).toContainText('훅');
   await dialog.getByRole('button', { name: '적용' }).click();
-  await expect(page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`).first()).toContainText('첫 번째');
+  await expect(cards.first()).toContainText('첫 번째');
 });
 
 test('test_10a_script_confirmation_starts_at_scene_one_but_regular_navigation_resumes', async ({ page }) => {

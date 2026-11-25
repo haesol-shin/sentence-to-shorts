@@ -4,11 +4,13 @@ import { MockScriptApi, ScriptApiError } from '@/features/script/api';
 import {
   applyRewrite,
   applyTone,
+  applyToneScene,
   clearTarget,
   configureScriptApi,
   confirmScript,
   dismissRewrite,
   dismissTone,
+  dismissToneScene,
   editLine,
   ensureScript,
   focusScene,
@@ -28,6 +30,14 @@ import {
   totalSeconds,
 } from '@/features/script/model';
 import type { ScriptDocument, ScriptSnapshot } from '@/features/script/types';
+import type { VideoView } from '@/shared/api/client';
+import { mockResponse } from '@/shared/api/mock';
+import {
+  confirmedMockScripts,
+  withMockScript,
+  withMockStory,
+  withMockStoryStills,
+} from '@/shared/api/mock/story';
 
 let api: MockScriptApi;
 
@@ -260,6 +270,7 @@ describe('script state', () => {
     expect(snapshot().rewrite).toBeNull();
     expect(snapshot().document.scenes[id]?.lines.map((line) => line.display_text)).toEqual(original);
     expect(api.count('cancel')).toBe(1);
+    expect(snapshot().error).toBe('script.stopped');
   });
 
   test('test_8a_an_applied_rewrite_can_be_undone_once', async () => {
@@ -278,6 +289,48 @@ describe('script state', () => {
     undo();
     expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe(original);
     expect(snapshot().canUndo).toBe(false);
+  });
+
+  test('test_8a_typing_in_a_line_and_a_move_are_each_undone_as_one_step', () => {
+    const id = firstSceneId();
+    const line = snapshot().document.scenes[id]?.lines[0];
+    expect(snapshot().canUndo).toBe(false);
+
+    editLine(id, line!.id, '원');
+    editLine(id, line!.id, '원두 향을 먼저 맡아 봐요');
+    expect(snapshot().canUndo).toBe(true);
+    undo();
+    expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe(FIRST_LINE);
+    expect(snapshot().canUndo).toBe(false);
+
+    const order = [...snapshot().document.scene_order];
+    moveScene(order[2]!, -1);
+    expect(snapshot().document.scene_order).not.toEqual(order);
+    undo();
+    expect(snapshot().document.scene_order).toEqual(order);
+  });
+
+  test('test_2_the_mock_edit_opens_on_the_confirmed_order_and_lines', async () => {
+    const id = firstSceneId();
+    const line = snapshot().document.scenes[id]?.lines[0];
+    editLine(id, line!.id, '원두 향을 먼저 맡아 봐요');
+    const third = snapshot().document.scene_order[2]!;
+    moveScene(third, -1);
+    await confirmScript();
+
+    const script = confirmedMockScripts.get(snapshot().document.id);
+    expect(script?.map((scene) => scene.story)).toEqual([0, 2, 1, 3, 4]);
+    expect(script?.[0]?.lines[0]).toBe('원두 향을 먼저 맡아 봐요');
+
+    // The recorded getVideo answer the mock video read starts from.
+    const template = mockResponse({ method: 'GET', path: '/videos/v_1' }).body as VideoView;
+    const story = withMockStory(template.video);
+    const { video, build } = withMockScript(story, withMockStoryStills(template.build, template.video), script!);
+    expect(video.scene_order).toEqual([0, 2, 1, 3, 4].map((index) => story.scene_order[index]));
+    expect(video.scenes[video.scene_order[0]!]?.lines.map((entry) => entry.display_text)).toEqual(
+      script![0]!.lines,
+    );
+    expect(Object.keys(build.scenes).sort()).toEqual([...video.scene_order].sort());
   });
 
   test('test_8a_stopping_a_later_rewrite_keeps_the_earlier_undo', async () => {
@@ -323,6 +376,41 @@ describe('script state', () => {
       }
     }
     expect(snapshot().document.scenes[firstSceneId()]?.lines[0]?.display_text).toBe(FIRST_LINE);
+  });
+
+  test('test_26_one_scene_takes_the_tone_and_the_other_scenes_stay_asked', () => {
+    setRegister('casual');
+    const id = firstSceneId();
+
+    applyToneScene(id);
+
+    expect(snapshot().tone?.scenes.map((scene) => scene.sceneId)).not.toContain(id);
+    expect(snapshot().tone?.scenes).toHaveLength(4);
+    expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe(CASUAL_FIRST_LINE);
+    expect(snapshot().changedSceneIds).toEqual([id]);
+    expect(snapshot().document.register).toBe('casual');
+
+    // The rest of the proposal still waits for its own decision.
+    expect(snapshot().tone?.scenes).toHaveLength(4);
+    applyTone();
+    expect(snapshot().tone).toBeNull();
+    expect(snapshot().changedSceneIds).toHaveLength(5);
+  });
+
+  test('test_26_one_scene_keeps_its_tone_and_the_others_stay_asked', () => {
+    setRegister('casual');
+    const id = firstSceneId();
+
+    dismissToneScene(id);
+    expect(snapshot().tone?.scenes.map((scene) => scene.sceneId)).not.toContain(id);
+    expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe(FIRST_LINE);
+
+    for (const scene of snapshot().tone?.scenes ?? []) {
+      dismissToneScene(scene.sceneId);
+    }
+    expect(snapshot().tone).toBeNull();
+    expect(snapshot().document.register).toBe('friendly');
+    expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe(FIRST_LINE);
   });
 
   test('test_26_applying_the_tone_marks_scenes_and_recounts_the_length', () => {

@@ -5,6 +5,7 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 import { downloadUrl } from './api';
 import { startDownload } from './download';
 import { srtReady } from './model';
+import { SaveToast } from './save-toast';
 import { useExportState } from './store';
 
 /**
@@ -37,7 +38,8 @@ function CaptionSave({ videoId, ready }: { videoId: string | null; ready: boolea
  * The top bar seat of the export step: the caption file button and a named
  * primary button that saves the mp4. Until a file exists its button stays
  * dimmed and the reason shows on hover and on focus. A result is downloadable
- * only for the current workspace video.
+ * only for the current workspace video. The seat stays for the whole export
+ * step, so it also holds the notice every save button of the step shows.
  */
 export function ExportNextAction({ videoId }: { videoId: string | null }) {
   const { t } = useLocale();
@@ -70,6 +72,7 @@ export function ExportNextAction({ videoId }: { videoId: string | null }) {
           </span>
         </Tooltip>
       )}
+      <SaveToast />
     </>
   );
 }

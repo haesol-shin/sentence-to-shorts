@@ -24,15 +24,19 @@ function topicLine(topic: string): string {
   return `「${trimmed}」 이야기를 확인해요.`;
 }
 
+/** The line the draft adds after a one-line opening, so the first scene has two lines as the story scenes do. */
+const OPENING_LEAD = '하나씩 살펴봐요.';
+
 /** The synthetic scenes after the user's first lines: the shared mock story from its second scene. */
 const SYNTHETIC_TAIL = MOCK_STORY_LINES.slice(1);
 
-/** The user's script opens unchanged; the synthetic draft fills only the rest. */
+/**
+ * The user's lines open unchanged; the synthetic draft fills only the rest. A
+ * one-line opening, such as the sentence the user sent, gets a second line.
+ */
 function seedTexts(topic: string, script: string | null): readonly (readonly string[])[] {
-  if (script !== null && script.trim() !== '') {
-    return [script.split(/\r?\n/u), ...SYNTHETIC_TAIL];
-  }
-  return [[topicLine(topic)], ...SYNTHETIC_TAIL];
+  const opening = script !== null && script.trim() !== '' ? script.split(/\r?\n/u) : [topicLine(topic)];
+  return [opening.length < 2 ? [...opening, OPENING_LEAD] : opening, ...SYNTHETIC_TAIL];
 }
 
 const BEATS = ['훅', '첫 번째', '두 번째', '세 번째', '마무리'] as const;

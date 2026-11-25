@@ -5,7 +5,6 @@ import { Button } from '@/components/Button/Button';
 import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { Notice } from '@/components/Notice/Notice';
-import { ReorderList } from '@/components/ReorderList/ReorderList';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
 import { Tabs } from '@/components/Tabs/Tabs';
@@ -237,10 +236,6 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
     value: id, label: sceneVisualLabel(t, 'expression', id, expressions),
   }));
   const positionItems = POSITION_CHOICES.map((choice) => ({ value: choice.anchor, label: t(choice.labelKey) }));
-  const moveItems = edit.scenes.map((_, index) => ({
-    value: String(index),
-    label: t('edit.scene.number', { number: index + 1 }),
-  }));
 
   const apply = (patch: SceneFieldPatch) => edit.applyField(patch);
   const band = edit.band !== null && edit.band.sceneId === scene.id ? edit.band : null;
@@ -375,38 +370,6 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         )}
         <p className="text-[13px] text-[var(--text-muted)]">{t('edit.scene.sfxLimit')}</p>
       </Swept>
-
-      <section className="flex flex-col gap-3">
-        <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
-          {t('edit.scene.order')}
-        </h3>
-        <ReorderList
-          label={t('edit.scene.order')}
-          labels={{
-            grip: (item) => t('edit.scene.reorderGrip', { label: item }),
-            up: (item) => t('edit.scene.moveUp', { label: item }),
-            down: (item) => t('edit.scene.moveDown', { label: item }),
-          }}
-          items={edit.scenes.map((item, index) => ({
-            id: item.id,
-            label: t('edit.scene.number', { number: index + 1 }),
-          }))}
-          onReorder={(items) => {
-            edit.requestReorder(items.map((item) => item.id));
-          }}
-        />
-        <SettingsRow
-          label={t('edit.scene.moveTo')}
-          control={
-            <ValueField
-              label={t('edit.scene.moveTo')}
-              items={moveItems}
-              value={String(Math.max(0, edit.scenes.findIndex((item) => item.id === scene.id)))}
-              onValueChange={(value) => edit.requestReorderTo(scene.id, Number(value))}
-            />
-          }
-        />
-      </section>
 
       <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
         <span className="text-[15px] text-[var(--text-muted)]">
