@@ -21,18 +21,25 @@ const PUT_PATH = 'PUT /api/v1/credentials/llm';
 
 type Runtime = { profile: string; llm_auth: { adapter: string; state: string } };
 
-/** The runtime the shell routes answer, with the profile and key state swapped in. */
+/** The runtime the shell routes answer, with the profile, adapter and key state swapped in. */
 function routesWith(
   profile: string,
   state: string | (() => string),
   extra: Record<string, RouteHandler> = {},
+  adapter = 'anthropic_api',
 ): Record<string, RouteHandler> {
   const routes = shellRoutes();
   const base = routes['GET /api/v1/runtime'];
   routes['GET /api/v1/runtime'] = async (call) => {
     const answer = await base(call);
     const runtime = answer.body as Runtime;
-    return { ...answer, body: { ...runtime, profile, llm_auth: { adapter: 'anthropic_api', state: typeof state === 'string' ? state : state() } },
+    return {
+      ...answer,
+      body: {
+        ...runtime,
+        profile,
+        llm_auth: { adapter, state: typeof state === 'string' ? state : state() },
+      },
     };
   };
   return { ...routes, ...extra };
@@ -62,10 +69,24 @@ test('test_release_expired_key_shows_the_key_block', async () => {
   expect(await screen.findByLabelText(KEY_LABEL)).toBeTruthy();
 });
 
-test('test_dev_profile_never_shows_the_key_block', async () => {
-  const api = await renderApp(routesWith('dev', 'missing'));
+test('test_dev_on_the_cli_never_shows_the_key_block', async () => {
+  const api = await renderApp(routesWith('dev', 'missing', {}, 'claude_cli'));
 
   await waitFor(() => expect(api.count('GET', '/api/v1/runtime')).toBeGreaterThan(0));
+  await screen.findByRole('button', { name: /딱 3가지만/ });
+  expect(screen.queryByLabelText(KEY_LABEL)).toBeNull();
+});
+
+test('test_dev_on_the_api_shows_the_key_block_when_the_key_is_missing', async () => {
+  await renderApp(routesWith('dev', 'missing'));
+
+  const field = await screen.findByLabelText(KEY_LABEL);
+  expect(field.getAttribute('type')).toBe('password');
+});
+
+test('test_dev_on_the_api_with_a_usable_key_hides_the_key_block', async () => {
+  await renderApp(routesWith('dev', 'ok'));
+
   await screen.findByRole('button', { name: /딱 3가지만/ });
   expect(screen.queryByLabelText(KEY_LABEL)).toBeNull();
 });
@@ -165,7 +186,26 @@ test('test_a_draft_job_that_fails_with_llm_auth_returns_to_the_block', async () 
   );
 });
 
-test('test_dev_profile_keeps_the_header_error_for_a_refused_draft', async () => {
+test('test_dev_on_the_cli_keeps_the_header_error_for_a_refused_draft', async () => {
+  await renderApp(
+    routesWith(
+      'dev',
+      'ok',
+      {
+        [`POST ${DRAFT_VIDEO_PATH}/draft`]: () =>
+          problem(503, 'llm_auth_required', 'error.llm_auth_required'),
+      },
+      'claude_cli',
+    ),
+  );
+
+  sendSentence('커피를 고르는 세 가지 기준');
+
+  expect(await screen.findByText('모델 연결을 먼저 확인해 주세요.')).toBeTruthy();
+  expect(screen.queryByLabelText(KEY_LABEL)).toBeNull();
+});
+
+test('test_a_refused_draft_in_dev_on_the_api_brings_the_block_back', async () => {
   await renderApp(
     routesWith('dev', 'ok', {
       [`POST ${DRAFT_VIDEO_PATH}/draft`]: () =>
@@ -175,8 +215,11 @@ test('test_dev_profile_keeps_the_header_error_for_a_refused_draft', async () => 
 
   sendSentence('커피를 고르는 세 가지 기준');
 
-  expect(await screen.findByText('모델 연결을 먼저 확인해 주세요.')).toBeTruthy();
-  expect(screen.queryByLabelText(KEY_LABEL)).toBeNull();
+  expect(await screen.findByLabelText(KEY_LABEL)).toBeTruthy();
+  expect(screen.getByText('모델 연결을 먼저 확인해 주세요.')).toBeTruthy();
+  expect((screen.getByRole('textbox', { name: COMPOSER_LABEL }) as HTMLTextAreaElement).value).toBe(
+    '커피를 고르는 세 가지 기준',
+  );
 });
 
 test('test_an_unread_runtime_keeps_the_header_error_for_a_refused_draft', async () => {

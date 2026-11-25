@@ -21,9 +21,9 @@ Release 페이지에서 OS에 맞는 파일 하나와 `SHA256SUMS`를 받습니�
 | profile | 사용자 인증 | 용도 |
 | --- | --- | --- |
 | release | 사용자 자신의 API key. 첫 실행 화면에서 입력합니다 | 배포판 |
-| dev | 설치된 공식 Claude CLI의 로그인. `APP_LLM_BASE_URL`을 주면 그 OpenAI 호환 endpoint | 개발 빌드 |
+| dev | 설치된 공식 Claude CLI의 로그인. `APP_LLM_BASE_URL`을 주면 그 OpenAI 호환 endpoint, `APP_LLM_ADAPTER=anthropic_api`를 주면 사용자 자신의 API key | 개발 빌드 |
 
-두 파일은 같은 프로그램이고 `dist.json`의 기본 profile만 다릅니다. 환경변수 `APP_PROFILE`이 있으면 그 값이 우선하며, 제공자도 실제 선택한 profile의 설정을 따릅니다. 두 배포물의 `profile_adapters`는 공통 제공자 표 하나에서 생성하며 dev, release, fixture 설정을 모두 담습니다. release는 `anthropic_api`, fixture는 녹화 응답을 사용합니다. dev는 `APP_LLM_ADAPTER`와 `APP_LLM_BASE_URL`이 모두 없으면 공식 Claude CLI를, `APP_LLM_BASE_URL`만 있으면 `openai_compat`을 쓰고, `APP_LLM_ADAPTER`(`claude_cli` 또는 `openai_compat`)를 주면 그 값이 우선합니다. 실제 선택한 profile이 dev이면 공식 CLI의 설치, 버전, 로그인 상태를 CLI 자신에게 물어보고, 없으면 공식 설치 안내 주소를 보여 줍니다. release profile에는 이 준비 단계가 없습니다. 앱은 CLI의 인증 파일을 읽지 않습니다.
+두 파일은 같은 프로그램이고 `dist.json`의 기본 profile만 다릅니다. 환경변수 `APP_PROFILE`이 있으면 그 값이 우선하며, 제공자도 실제 선택한 profile의 설정을 따릅니다. 두 배포물의 `profile_adapters`는 공통 제공자 표 하나에서 생성하며 dev, release, fixture 설정을 모두 담습니다. release는 `anthropic_api`, fixture는 녹화 응답을 사용합니다. dev는 `APP_LLM_ADAPTER`와 `APP_LLM_BASE_URL`이 모두 없으면 공식 Claude CLI를, `APP_LLM_BASE_URL`만 있으면 `openai_compat`을 쓰고, `APP_LLM_ADAPTER`(`claude_cli`, `openai_compat` 또는 `anthropic_api`)를 주면 그 값이 우선합니다. 실제 선택한 profile이 dev이면 공식 CLI의 설치, 버전, 로그인 상태를 CLI 자신에게 물어보고, 없으면 공식 설치 안내 주소를 보여 줍니다. release profile에는 이 준비 단계가 없습니다. dev에서 `APP_LLM_ADAPTER=anthropic_api`를 주면 release와 같은 key 입력 화면이 첫 실행에 나오고 key는 OS key store에 저장되며, 공식 CLI 준비 단계는 생략합니다. Linux 개발 빌드는 `APP_LLM_ADAPTER=anthropic_api ./start.sh`로 시작합니다. 앱은 CLI의 인증 파일을 읽지 않습니다.
 
 ## 지원 OS와 CPU
 

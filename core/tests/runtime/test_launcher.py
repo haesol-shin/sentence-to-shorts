@@ -64,6 +64,9 @@ def settings_loader(env: dict[str, str], data: Path, preferred: int = 0) -> Call
             data_dir=data,
             runtime_dir=Path(env["APP_RUNTIME_DIR"]),
             log_level="info",
+            providers=SimpleNamespace(
+                adapters={"llm": env.get("APP_LLM_ADAPTER") or "claude_cli"}
+            ),
         )
 
     return load
@@ -404,6 +407,22 @@ def test_launcher_checks_the_official_cli_only_in_the_dev_profile(
     assert "official CLI" in capsys.readouterr().err
 
 
+def test_launcher_skips_the_cli_probe_when_dev_uses_the_api_adapter(tmp_path: Path) -> None:
+    calls: list[tuple[int, int, int]] = []
+
+    def check(minimum: tuple[int, int, int]) -> CliStatus:
+        calls.append(minimum)
+        return CliStatus("missing", None, "install the official CLI from the guide")
+
+    harness = Harness(tmp_path, "dev")
+    harness.env["APP_LLM_ADAPTER"] = "anthropic_api"
+    thread = harness.start(harness.parts(cli_check=check))
+    record = harness.wait_record()
+    harness.finish(thread)
+    assert calls == []
+    assert "claude_cli" not in record
+
+
 def test_launcher_cli_guidance_reaches_the_log_and_the_notice_hook_without_a_console(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -461,6 +480,11 @@ def test_launcher_distribution_selects_the_effective_profile_providers(tmp_path:
         "dev",
         {"APP_LLM_ADAPTER": "openai_compat", "APP_LLM_BASE_URL": ""},
     ) == {"llm": "openai_compat"}
+    assert adapter_choices(
+        dist,
+        "dev",
+        {"APP_LLM_ADAPTER": "anthropic_api", "APP_LLM_BASE_URL": "http://endpoint.invalid/v1"},
+    ) == {"llm": "anthropic_api"}
     assert adapter_choices(dist, "release", {"APP_LLM_ADAPTER": "claude_cli"}) == {
         "llm": "anthropic_api"
     }
