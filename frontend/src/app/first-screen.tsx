@@ -8,6 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import type { LlmKey } from '@/features/runtime/use-runtime-head';
 import { useLoad } from '@/shared/lib/use-load';
+import { Notice } from '@/components/Notice/Notice';
 import { ApiKeyBlock } from './api-key-block';
 import { useDeployment, Composer } from './shell/composer';
 import type { CardPick } from './shell/shell-config';
@@ -72,9 +73,14 @@ export function FirstScreen({
 
   // dev and fixture profiles never ask: they use their own adapter.
   const askKey = llmKey.release && (llmKey.needed || authFailureKey !== null);
+  // The block leaves once the key is stored, so one line says the save went through.
+  const [keySaved, setKeySaved] = useState(false);
   const saveKey = async (apiKey: string) => {
     const state = await llmKey.save(apiKey);
-    if (state === 'ok' || state === 'unknown') onKeySaved();
+    if (state === 'ok' || state === 'unknown') {
+      setKeySaved(true);
+      onKeySaved();
+    }
   };
 
   return (
@@ -91,6 +97,7 @@ export function FirstScreen({
           {t('shell.first.heading')}
         </h1>
         {askKey ? <ApiKeyBlock noticeKey={authFailureKey} onSave={saveKey} /> : null}
+        {keySaved && !askKey ? <Notice>{t('shell.apiKey.saved')}</Notice> : null}
         <Composer
           face="first"
           label={t('shell.first.composerLabel')}

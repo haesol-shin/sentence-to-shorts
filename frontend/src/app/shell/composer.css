@@ -1,0 +1,18 @@
+/*
+ * The composer's language and length picks: the value field at the 36 height
+ * the canon draws in the button row, padded 12 with 8 between its parts. It
+ * may shrink with the row, so a narrow box cuts the value short instead of
+ * pushing the send button out.
+ */
+.field-trigger.composer-field {
+  height: 36px;
+  min-width: 0;
+  max-width: 100%;
+  gap: var(--space-8);
+  padding-inline: var(--space-12);
+  border-radius: var(--radius-capsule);
+}
+
+.composer-field .field-trigger__value {
+  min-width: 0;
+}

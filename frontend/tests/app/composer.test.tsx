@@ -224,7 +224,9 @@ test('test_10a_more_than_five_files_show_a_reason_instead_of_dropping_quietly', 
   );
 
   await waitFor(() => expect(attachmentCount()).toBe(5));
-  expect(screen.getByRole('alert').textContent).toContain('최대 5개');
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain('최대 5개');
+  expect(alert.textContent).toContain('note-6.md');
 });
 
 test('test_10a_a_local_link_needs_the_warning_consent_before_it_is_attached', async () => {
@@ -240,9 +242,12 @@ test('test_10a_a_local_link_needs_the_warning_consent_before_it_is_attached', as
   });
   expect(attach.disabled).toBe(true);
   expect(attachmentCount()).toBe(0);
+  // The shut button's reason is on screen, not behind a hover.
+  expect(screen.getByText('위 동의에 체크하면 링크를 붙일 수 있어요.')).toBeTruthy();
 
   fireEvent.click(screen.getByRole('checkbox'));
   expect(attach.disabled).toBe(false);
+  expect(screen.queryByText('위 동의에 체크하면 링크를 붙일 수 있어요.')).toBeNull();
   fireEvent.click(attach);
 
   expect(attachmentCount()).toBe(1);
@@ -298,7 +303,16 @@ test('test_10a_hosted_links_and_images_are_named_as_unavailable', async () => {
   expect(screen.getByRole('tooltip').textContent).toContain('이미지 입력');
 });
 
-test('test_10a_language_and_duration_are_real_input_values', () => {
+function pickValue(field: string, option: string): void {
+  fireEvent.click(screen.getByRole('combobox', { name: field }));
+  const row = screen.getByRole('option', { name: option });
+  fireEvent.pointerDown(row);
+  fireEvent.pointerUp(row);
+  fireEvent.mouseUp(row);
+  fireEvent.click(row);
+}
+
+test('test_10a_language_and_duration_are_real_input_values', async () => {
   const onLanguageChange = vi.fn();
   const onDurationChange = vi.fn();
   render(
@@ -312,11 +326,10 @@ test('test_10a_language_and_duration_are_real_input_values', () => {
     />,
   );
 
-  fireEvent.change(screen.getByLabelText('영상 언어'), { target: { value: 'en' } });
-  fireEvent.change(screen.getByLabelText('영상 길이'), { target: { value: '120' } });
-
-  expect(onLanguageChange).toHaveBeenCalledWith('en');
-  expect(onDurationChange).toHaveBeenCalledWith(120);
+  pickValue('영상 언어', 'English');
+  await waitFor(() => expect(onLanguageChange).toHaveBeenCalledWith('en'));
+  pickValue('영상 길이', '2분');
+  await waitFor(() => expect(onDurationChange).toHaveBeenCalledWith(120));
 });
 
 
@@ -340,10 +353,22 @@ test('test_10a_dropping_files_highlights_the_whole_box_and_adds_every_file', asy
 test('test_10a_an_image_file_is_refused_with_a_visible_reason', async () => {
   render(<Harness onSubmit={() => undefined} />);
 
-  chooseFiles('text', [new File(['pixels'], 'photo.png', { type: 'image/png' })]);
+  fireEvent.drop(document.querySelector('[data-slot="composer"]') as HTMLElement, {
+    dataTransfer: { files: [new File(['pixels'], 'photo.png', { type: 'image/png' })] },
+  });
 
   const alert = await screen.findByRole('alert');
   expect(alert.textContent).toContain('지원하지 않는 파일');
+  expect(attachmentCount()).toBe(0);
+});
+
+test('test_10a_a_file_picked_through_another_kinds_row_is_refused_by_name', async () => {
+  render(<Harness onSubmit={() => undefined} />);
+
+  chooseFiles('reference', [new File(['slides'], '발표자료.pdf', { type: 'application/pdf' })]);
+
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toBe('발표자료.pdf: 참고 영상 파일이 아니라서 붙이지 않았어요.');
   expect(attachmentCount()).toBe(0);
 });
 

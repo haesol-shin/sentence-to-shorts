@@ -55,13 +55,12 @@ export function prepareOf(groups: readonly PrepareGroup[] | null, language: Lang
   return { state: 'waiting', percent };
 }
 
-/** The wall-clock time of the next attempt, in the screen language. */
+/** The wall-clock time of the next attempt to the minute, in the screen language. */
 export function clockOf(timestamp: string, language: Language): string | null {
   const at = new Date(timestamp);
   if (Number.isNaN(at.getTime())) return null;
   return at.toLocaleTimeString(language === 'ko' ? 'ko-KR' : 'en-US', {
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
   });
 }

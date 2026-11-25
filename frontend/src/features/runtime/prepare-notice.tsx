@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+
 import { Button } from '@/components/Button/Button';
 import { Notice } from '@/components/Notice/Notice';
 import { useLocale } from '@/shared/lib/i18n/locale';
@@ -11,11 +13,28 @@ import type { PrepareStatus } from './use-prepare';
  * move: the connection is down and the download retries (with the time of the
  * next try), or it stopped for a reason named by the server code and the user
  * can start it again. When that retry request itself fails, its own failure
- * sentence replaces the stop reason. Nothing shows while the models download or are ready.
+ * sentence replaces the stop reason. After the user's retry it says the files
+ * download again, with the percent, until they are ready; otherwise nothing
+ * shows while the models download or are ready.
  */
 export function PrepareNotice({ status, className }: { status: PrepareStatus; className?: string }) {
   const { t, language } = useLocale();
   const { view } = status;
+  const [retried, setRetried] = useState(false);
+  useEffect(() => {
+    if (view.state === 'ready') setRetried(false);
+  }, [view.state]);
+
+  if (status.retrying || (retried && view.state === 'waiting')) {
+    return (
+      <div className={className} data-slot="prepare-notice" data-state="retry-sent">
+        <Notice>
+          {t('shell.prepare.retrySent')}
+          {view.state === 'waiting' ? ` ${t('shell.prepare.label', { percent: view.percent })}` : null}
+        </Notice>
+      </div>
+    );
+  }
   if (view.state !== 'retrying' && view.state !== 'failed') return null;
 
   if (view.state === 'retrying') {
@@ -37,7 +56,10 @@ export function PrepareNotice({ status, className }: { status: PrepareStatus; cl
           ? t(`shell.prepare.error.${view.errorCode ?? 'unknown'}`)
           : t(`errors.${status.retryError}`)}
       </Notice>
-      <Button variant="secondary" size="sm" disabled={status.retrying} onClick={status.retry}>
+      <Button variant="secondary" size="sm" disabled={status.retrying} onClick={() => {
+        setRetried(true);
+        status.retry();
+      }}>
         {t('shell.prepare.retry')}
       </Button>
     </div>

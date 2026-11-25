@@ -48,6 +48,7 @@ export function ConversationLog({
     <ChatLog slot="chat-log" label={t('edit.chat.label')}>
       {said}
       {ready ? <ChatAppLine muted>{t(`shell.conversation.${stage}`)}</ChatAppLine> : null}
+      {stage === 'concept' && draftWaiting ? <ChatAppLine muted>{t('shell.conversation.conceptWaiting')}</ChatAppLine> : null}
       {stage === 'script' && script?.tone != null ? (
         <ChatAppLine>
           {/* A line that asks for a choice reads on the 22 line, as the canon's question lines do. */}

@@ -37,7 +37,7 @@ interface VideoBody {
     material: { text: string }[];
     scene_order: string[];
     scenes: Record<string, SceneView>;
-    settings: { visual: { theme_id: string } };
+    settings: { format: { register: string } };
   };
   build: { actual_ms: number | null; final: { state: string; artifact: { id: string } | null } };
 }
@@ -319,11 +319,18 @@ test('test_7_the_concept_screen_saves_a_text_material_and_a_setting_on_the_backe
   const stored = await readVideo(page, session.videoId);
   expect(stored.video.material[0].text).toContain('볶은 날짜');
 
-  await page.getByRole('combobox', { name: '테마' }).selectOption({ label: '달밤' });
+  // A concept value is picked in the canon value field the card holds, not a native list.
+  const tune = page.getByRole('region', { name: '딱 3가지만 세부 조정', exact: true });
+  await page.getByRole('button', { name: '딱 3가지만 세부 조정', exact: true }).click();
+  await expect(tune).toBeVisible();
+  await tune.getByRole('combobox', { name: '말투', exact: true }).click();
+  await page.getByRole('option', { name: '반말', exact: true }).click();
+  await expect(tune.getByRole('combobox', { name: '말투', exact: true })).toContainText('반말');
   await confirmConcept(page);
   const confirmed = await readVideo(page, session.videoId);
   expect(confirmed.video.stage).toBe('concept_confirmed');
-  expect(confirmed.video.settings.visual.theme_id).not.toBe(stored.video.settings.visual.theme_id);
+  expect(confirmed.video.settings.format.register).toBe('casual');
+  expect(confirmed.video.settings.format.register).not.toBe(stored.video.settings.format.register);
   expect(confirmed.video.material).toHaveLength(1);
 });
 

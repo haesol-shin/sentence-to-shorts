@@ -485,6 +485,22 @@ export function setConceptDraft(value: string): void {
   emit();
 }
 
+/**
+ * The concept step's 「그림체 말로 만들기」 lives in the conversation box's menu,
+ * so the art-style row keeps the canon's shape. The count carries each request
+ * to the screen, which owns the entry window.
+ */
+let styleEntryRequests = 0;
+
+export function requestConceptStyleEntry(): void {
+  styleEntryRequests += 1;
+  emit();
+}
+
+export function useConceptStyleEntry(): number {
+  return useSyncExternalStore(subscribe, () => styleEntryRequests, () => styleEntryRequests);
+}
+
 export async function sendConcept(
   text: string,
   attachments: Attachment[] = [],

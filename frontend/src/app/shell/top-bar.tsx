@@ -1,13 +1,10 @@
 import type { ReactNode } from 'react';
 
 import { useConcept } from '@/features/concept/store';
-import { useEditOptional } from '@/features/edit/edit-context';
 import { EditNextAction } from '@/features/edit/next-action';
 import { EditTopBarStatus } from '@/features/edit/top-bar-status';
 import { ExportNextAction } from '@/features/export/next-action';
 import { waitingPercent } from '@/features/runtime/prepare';
-import { PrepareNotice } from '@/features/runtime/prepare-notice';
-import { usePrepare } from '@/features/runtime/use-prepare';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/components/Button/Button';
 import { MenuButton } from '@/components/MenuButton/MenuButton';
@@ -15,6 +12,7 @@ import { Tag } from '@/components/Tag/Tag';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
 import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
 
+import { useEditPrepare } from './edit-prepare';
 import { HistoryButtons } from './history-buttons';
 import { type Stage, type View } from './shell-config';
 import { StageIndicator, StageMenu } from './stage-nav';
@@ -22,21 +20,12 @@ import { VideoSettings } from './video-settings';
 
 /**
  * The edit stage's make-video button with what the voice models are doing. The
- * sentence for a download that cannot move floats under the top bar, so the
- * bar keeps its layout.
+ * sentence for a download that cannot move has its own row under the bar
+ * (`EditPrepareNotice`), so the bar keeps its layout and the tabs stay free.
  */
 function EditAction() {
-  const edit = useEditOptional();
-  const prepare = usePrepare(edit?.video?.settings.language ?? null);
-  return (
-    <>
-      <EditNextAction preparePercent={waitingPercent(prepare.view)} />
-      <PrepareNotice
-        status={prepare}
-        className="absolute top-full right-4 z-[var(--z-panel)] mt-2 w-[360px] max-w-[calc(100vw-32px)] rounded-[var(--radius-surface)] bg-[var(--popover)] p-2 shadow-[var(--shadow-float)]"
-      />
-    </>
-  );
+  const prepare = useEditPrepare();
+  return <EditNextAction preparePercent={waitingPercent(prepare.view)} />;
 }
 
 /**
