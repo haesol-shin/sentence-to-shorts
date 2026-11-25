@@ -237,30 +237,6 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   white-space: nowrap;
 }
 
-/* A coming-soon tile: the picture fades and the tag stays sharp on a white chip
-   16 in from the corner. The 10 side padding is the canon's own value. */
-.concept-card[data-soon] {
-  position: relative;
-  cursor: default;
-}
-
-.concept-card[data-soon] .concept-card__picture {
-  opacity: 0.45;
-}
-
-/* The shared tag keeps its 26 pill; the tile sets it on white in the sub colour. */
-.concept-card .concept-card__tag {
-  position: absolute;
-  top: var(--space-16);
-  right: var(--space-16);
-  gap: 0;
-  padding-inline: 10px;
-  background: var(--surface);
-  color: var(--sub);
-  font-size: var(--font-size-small);
-  font-weight: 700;
-}
-
 .concept-tune-toggle {
   display: flex;
   align-items: center;

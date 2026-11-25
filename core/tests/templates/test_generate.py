@@ -98,13 +98,14 @@ def test_17_sandbox_failure_is_repaired_with_the_traceback(harness: Harness) -> 
 
 
 def test_17_repairs_stop_after_two(harness: Harness) -> None:
+    before = [item.id for item in harness.catalog.list("art_style")]
     harness.llm.queue(*[style_answer(program("crash"))] * 4)
     req = scenarios.style_request(harness, "둥근 머리")
     with pytest.raises(AppError) as failure:
         harness.service.generate_style(req, harness.video(), None, ctx=harness.ctx())
     assert failure.value.code == "sandbox_crashed"
     assert len(harness.llm.requests) == 3
-    assert [item.id for item in harness.catalog.list("art_style")] == ["pixel"]
+    assert [item.id for item in harness.catalog.list("art_style")] == before
 
 
 def test_17_template_with_caption_outside_the_safe_area_needs_a_repair(harness: Harness) -> None:
