@@ -162,7 +162,7 @@
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
   word-break: keep-all;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .status-panel__detail {

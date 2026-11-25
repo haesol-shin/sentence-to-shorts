@@ -141,7 +141,7 @@ export function ChoiceDialog({
                     data-slot="choice-listen"
                     onClick={() => preview.toggle(item.previewKey, item.loadPreview)}
                   >
-                    {sounding ? <Square aria-hidden size={16} fill="currentColor" /> : <Play aria-hidden size={16} fill="currentColor" />}
+                    {sounding ? <Square aria-hidden size={16} fill="currentColor" /> : <Play aria-hidden size={16} fill="currentColor" className="play-glyph" />}
                   </IconButton>
                   <button
                     type="button"

@@ -99,7 +99,15 @@ function measurePills(): PillRow[] {
         });
       }
       for (const svg of el.querySelectorAll('svg')) {
-        if (svg.getBoundingClientRect().width === 0) continue;
+        const svgBox = svg.getBoundingClientRect();
+        if (svgBox.width === 0) continue;
+        // The play and pause glyphs are centered by their box, and the play
+        // glyph moves inside that box for its optical centre, so their pill
+        // spacing is judged on the box, not on the shape ink.
+        if (svg.classList.contains('play-glyph') || svg.classList.contains('pause-glyph')) {
+          marks.push({ kind: 'icon', left: svgBox.left, right: svgBox.right });
+          continue;
+        }
         const matrix = svg.getScreenCTM();
         const scale = matrix === null ? 1 : Math.hypot(matrix.a, matrix.b);
         let left = Infinity;

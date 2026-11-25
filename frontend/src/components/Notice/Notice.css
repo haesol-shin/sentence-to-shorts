@@ -53,9 +53,21 @@
 .notice__body {
   margin: 0;
   word-break: keep-all;
-  text-wrap: balance;
 }
 
 .notice__title {
+  text-wrap: balance;
   font-weight: var(--font-weight-bold);
+}
+
+.notice__body {
+  text-wrap: pretty;
+}
+
+.notice--error .notice__title {
+  color: var(--destructive);
+}
+
+.notice--error .notice__body {
+  color: var(--sub);
 }

@@ -75,7 +75,7 @@
   font-weight: var(--font-weight-bold);
   line-height: var(--line-height-small);
   word-break: keep-all;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .text-field__error svg {

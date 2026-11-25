@@ -111,7 +111,7 @@ export function BgmSection({ edit, preview }: { edit: EditValue; preview: AudioP
                 preview.toggle(trackKey, () => edit.audio.previewUrl('bgm', id));
               }}
             >
-              {sounding ? <Square aria-hidden size={16} fill="currentColor" /> : <Play aria-hidden size={16} fill="currentColor" />}
+              {sounding ? <Square aria-hidden size={16} fill="currentColor" /> : <Play aria-hidden size={16} fill="currentColor" className="play-glyph" />}
             </IconButton>
             <Button variant="ghost" data-slot="bgm-change" disabled={off || !catalogReady} onClick={() => setOpen(true)}>
               {t('audio.bgm.change')}

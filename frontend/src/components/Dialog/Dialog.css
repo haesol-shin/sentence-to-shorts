@@ -110,7 +110,7 @@
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
   word-break: keep-all;
-  text-wrap: balance;
+  text-wrap: pretty;
 }
 
 .dialog__description {

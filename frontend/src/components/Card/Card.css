@@ -35,9 +35,9 @@
 
 /*
  * The scene card is the picture only: 120x116 with a 4px inset, so the
- * picture is 112x108. The scene line is its accessible name. While the card
- * is busy the status line sits over the picture, above the length chip, so
- * the card keeps its size.
+ * picture is 112x108. While the card is busy the spinner and the status text
+ * stack in the middle of the picture; the number keeps the top left and the
+ * length chip keeps the bottom right.
  */
 .card--scene {
   width: var(--part-scene-width);
@@ -59,9 +59,17 @@
 
 .card--scene[data-busy] .card__label {
   position: absolute;
-  right: var(--space-12);
-  bottom: calc(var(--space-24) + var(--space-4));
-  left: var(--space-12);
+  inset: calc(var(--space-4) - var(--part-hairline));
+}
+
+.card--scene[data-busy] .card__status {
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
+}
+
+.card--scene[data-busy] .card__status-text {
+  text-align: center;
 }
 
 .card--scene .card__duration {
@@ -81,6 +89,8 @@
 
 .card--format .card__media {
   aspect-ratio: 4 / 3;
+  /* The outer 24 curve minus the 8 inset keeps the two corners parallel. */
+  border-radius: var(--radius-content);
 }
 
 .card--scene .card__media {

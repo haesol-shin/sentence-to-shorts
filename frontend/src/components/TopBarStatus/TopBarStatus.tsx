@@ -8,6 +8,7 @@ import './TopBarStatus.css';
 
 import { statesOf, type ForceState } from '../force-state';
 import { LabelBox } from '../LabelBox';
+import { SentenceLines } from '../SentenceLines';
 
 export type TopBarStatusTone = 'idle' | 'working' | 'saved' | 'error';
 
@@ -93,7 +94,7 @@ export function TopBarStatus({
           <PopoverPrimitive.Popup className="status-panel" role="dialog" aria-label={title}>
             <PopoverPrimitive.Title className="status-panel__title">{title}</PopoverPrimitive.Title>
             <PopoverPrimitive.Description className="status-panel__description">
-              {description}
+              <SentenceLines>{description}</SentenceLines>
             </PopoverPrimitive.Description>
             {detail === undefined ? null : <div className="status-panel__detail">{detail}</div>}
             {actions === undefined ? null : <div className="status-panel__actions">{actions}</div>}

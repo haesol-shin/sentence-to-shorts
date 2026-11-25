@@ -4,6 +4,8 @@ import { cn } from '@/shared/lib/utils';
 
 import './EmptyState.css';
 
+import { SentenceLines } from '../SentenceLines';
+
 export type EmptyStateTone = 'neutral' | 'error';
 
 export type EmptyStateProps = {
@@ -37,7 +39,9 @@ export function EmptyState({ title, children, tone = 'neutral', icon, actions, c
         )}
         {title}
       </h2>
-      <p className="empty-state__body">{children}</p>
+      <p className="empty-state__body">
+        <SentenceLines>{children}</SentenceLines>
+      </p>
       {actions === undefined ? null : <div className="empty-state__actions">{actions}</div>}
     </section>
   );

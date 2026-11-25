@@ -3,6 +3,8 @@ import { Film } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 
+import { SentenceLines } from '../SentenceLines';
+
 import './VideoPreview.css';
 
 export type VideoPreviewState = 'empty' | 'loading' | 'ready';
@@ -57,7 +59,9 @@ export function VideoPreview({
             />
           )}
           {state !== 'ready' && note !== undefined ? (
-            <span className="video-preview__note" role="status">{note}</span>
+            <span className="video-preview__note" role="status">
+              <SentenceLines>{note}</SentenceLines>
+            </span>
           ) : null}
         </>
       )}

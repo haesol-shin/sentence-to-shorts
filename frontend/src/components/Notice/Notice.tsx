@@ -5,6 +5,8 @@ import { cn } from '@/shared/lib/utils';
 
 import './Notice.css';
 
+import { SentenceLines } from '../SentenceLines';
+
 export type NoticeTone = 'neutral' | 'warning' | 'error';
 
 export type NoticeProps = {
@@ -38,7 +40,9 @@ export function Notice({ tone = 'neutral', title, children, className }: NoticeP
       </span>
       <div className="notice__content">
         {title === undefined ? null : <p className="notice__title">{title}</p>}
-        <p className="notice__body">{children}</p>
+        <p className="notice__body">
+          <SentenceLines>{children}</SentenceLines>
+        </p>
       </div>
     </div>
   );

@@ -27,6 +27,8 @@
   --part-grip: 32px;
   --part-move: 36px;
   --part-play: 40px;
+  /* The play triangle's mass sits left of its box; shift it to its optical centre. */
+  --part-play-shift: calc(var(--part-play) * 0.0375);
   --part-step-dot: 5px;
   --part-new-dot: 6px;
   --part-track: 6px;
@@ -75,6 +77,14 @@
 .focus-ring--inset:focus-visible,
 .focus-ring--inset[data-force-state~='focus-visible'] {
   outline-offset: var(--focus-offset-inset);
+}
+
+/*
+ * A play triangle is centred by its box, but its mass sits left of that box.
+ * Shift the glyph, not its button, so the play mark reads centred.
+ */
+.play-glyph {
+  transform: translateX(var(--part-play-shift));
 }
 
 .label-box {
@@ -129,12 +139,12 @@
 
 .scroll-fade::before {
   top: 0;
-  background: linear-gradient(to bottom, var(--popover), transparent);
+  background: linear-gradient(to bottom, var(--fade-surface, var(--popover)), transparent);
 }
 
 .scroll-fade::after {
   bottom: 0;
-  background: linear-gradient(to bottom, transparent, var(--popover));
+  background: linear-gradient(to bottom, transparent, var(--fade-surface, var(--popover)));
 }
 
 .scroll-fade[data-fade='bottom']::after,

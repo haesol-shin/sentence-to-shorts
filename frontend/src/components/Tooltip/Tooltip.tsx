@@ -4,6 +4,7 @@ import { Tooltip as TooltipPrimitive } from '@base-ui/react/tooltip';
 import { cn } from '@/shared/lib/utils';
 
 import { usePopupContainer } from '../PopupContainer';
+import { SentenceLines } from '../SentenceLines';
 
 import './Tooltip.css';
 
@@ -80,7 +81,7 @@ export function Tooltip({ content, children, side = 'top', forceOpen, className,
             data-lines={lines > 1 ? 2 : 1}
             className={cn('tooltip-surface', 'focus-ring', className)}
           >
-            {content}
+            <SentenceLines>{content}</SentenceLines>
           </TooltipPrimitive.Popup>
         </TooltipPrimitive.Positioner>
       </TooltipPrimitive.Portal>

@@ -40,7 +40,7 @@ export function VoiceSection({ edit, preview }: { edit: EditValue; preview: Audi
                 preview.toggle(key, () => edit.audio.previewUrl('voice', voiceId));
               }}
             >
-              {sounding ? <Square aria-hidden size={16} fill="currentColor" /> : <Play aria-hidden size={16} fill="currentColor" />}
+              {sounding ? <Square aria-hidden size={16} fill="currentColor" /> : <Play aria-hidden size={16} fill="currentColor" className="play-glyph" />}
             </IconButton>
             <Button
               variant="ghost"
