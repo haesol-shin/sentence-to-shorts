@@ -164,7 +164,7 @@ const NOTICE_COPY: Record<'neutral' | 'warning' | 'error' | 'long', { tone: Noti
 const TAG_COPY: Record<string, { variant: TagVariant; label: string }> = {
   neutral: { variant: 'neutral', label: '새 소식' },
   soon: { variant: 'neutral', label: '곧 지원' },
-  new: { variant: 'new', label: '새것' },
+  new: { variant: 'new', label: '새 기능' },
   warning: { variant: 'warning', label: '주의' },
   error: { variant: 'error', label: '오류' },
 };
@@ -673,7 +673,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
       ) : (
         <Dialog
           defaultOpen
-          title="이 영상을 만들까요?"
+          title="이대로 영상을 만들까요?"
           description="만들면 편집 화면으로 넘어가요. 만드는 동안에도 다른 값을 고칠 수 있어요."
           actions={DIALOG_ACTIONS}
         />
@@ -708,7 +708,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           confirmLabel="지우기"
           icon={<AlertCircle />}
         >
-          지운 파일은 되돌릴 수 없어요. 다시 올리려면 파일을 새로 골라야 해요.
+          지운 파일은 되돌릴 수 없어요. 다시 쓰려면 파일을 다시 업로드해 주세요.
         </ConfirmDialog>
       );
     case 'confirm-range':

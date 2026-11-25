@@ -43,11 +43,6 @@
   stroke-width: var(--icon-stroke);
 }
 
-/* The play glyph's ink is wider on its left, so it sits two pixels into its box to read even. */
-.player__control:first-child svg {
-  margin-inline-start: -2px;
-}
-
 .player__control:hover:not(:disabled),
 .player__control[data-force-state~='hover']:not(:disabled) {
   background: var(--state-hover-white);

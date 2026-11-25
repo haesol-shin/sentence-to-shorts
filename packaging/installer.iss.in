@@ -29,7 +29,7 @@ Name: "{autoprograms}\@DISPLAY_NAME@"; Filename: "{app}\python\pythonw.exe"; Par
 Name: "{autoprograms}\@DISPLAY_NAME@ 종료"; Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"" --stop"; WorkingDir: "{app}"; IconFilename: "{app}\app.ico"
 
 [Run]
-Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"; Description: "@DISPLAY_NAME@"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\python\pythonw.exe"; Parameters: """{app}\launch.py"""; WorkingDir: "{app}"; Description: "@DISPLAY_NAME@ 바로 열기"; Flags: nowait postinstall skipifsilent
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\rt"

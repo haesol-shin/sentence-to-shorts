@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { cn } from '@/shared/lib/utils';
 
 import { PopupContainerContext } from '../PopupContainer';
+import { SentenceLines } from '../SentenceLines';
 import { useOverflowFade } from '../use-overflow-fade';
 
 import './BottomSheet.css';
@@ -78,7 +79,7 @@ export function BottomSheet({
                 <div className="sheet-popup__scroll" ref={setScroll}>
                   {description === undefined ? null : (
                     <DialogPrimitive.Description className="sheet-popup__description">
-                      {description}
+                      <SentenceLines>{description}</SentenceLines>
                     </DialogPrimitive.Description>
                   )}
                   {children === undefined ? null : (

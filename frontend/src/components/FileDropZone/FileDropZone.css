@@ -70,16 +70,17 @@
 .file-drop__accept {
   margin: 0;
   word-break: keep-all;
-  text-wrap: balance;
 }
 
 .file-drop__title {
+  text-wrap: balance;
   font-size: var(--font-size-title);
   line-height: var(--line-height-title);
   font-weight: var(--font-weight-bold);
 }
 
 .file-drop__accept {
+  text-wrap: pretty;
   color: var(--sub);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);

@@ -6,6 +6,7 @@ import { cn } from '@/shared/lib/utils';
 
 import './TextField.css';
 
+import { SentenceLines } from '../SentenceLines';
 import { statesOf, type ForceState } from '../force-state';
 
 export type TextFieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, 'aria-label' | 'children'> & {
@@ -50,7 +51,9 @@ export const TextField = forwardRef<HTMLInputElement, TextFieldProps>(function T
       {error === undefined ? null : (
         <p className="text-field__error" id={errorId}>
           <AlertCircle aria-hidden="true" />
-          <span>{error}</span>
+          <span>
+            <SentenceLines>{error}</SentenceLines>
+          </span>
         </p>
       )}
     </div>

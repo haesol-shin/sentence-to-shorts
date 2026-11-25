@@ -80,9 +80,9 @@ export function PlaybackControls({
         onClick={onToggle}
       >
         {playing ? (
-          <Pause aria-hidden="true" fill="currentColor" />
+          <Pause aria-hidden="true" fill="currentColor" className="pause-glyph" />
         ) : (
-          <Play aria-hidden="true" fill="currentColor" />
+          <Play aria-hidden="true" fill="currentColor" className="play-glyph" />
         )}
       </button>
       <span className="player__seek" style={style} data-disabled={isDisabled ? '' : undefined}>

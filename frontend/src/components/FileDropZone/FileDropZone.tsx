@@ -4,6 +4,7 @@ import { Upload } from 'lucide-react';
 
 import { cn } from '@/shared/lib/utils';
 
+import { SentenceLines } from '../SentenceLines';
 import { usePresence } from '../use-presence';
 
 import './FileDropZone.css';
@@ -55,7 +56,9 @@ export function FileDropZone({
           {icon ?? <Upload />}
         </span>
         <p className="file-drop__title">{label}</p>
-        <p className="file-drop__accept">{accept}</p>
+        <p className="file-drop__accept">
+          <SentenceLines>{accept}</SentenceLines>
+        </p>
       </div>
     </div>
   );

@@ -37,6 +37,7 @@
 }
 
 .composer__field {
+  --fade-surface: var(--card);
   flex: none;
   padding: var(--space-4) var(--space-8) 0;
 }

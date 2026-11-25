@@ -3,6 +3,7 @@ import { Dialog as DialogPrimitive } from '@base-ui/react/dialog';
 import { cn } from '@/shared/lib/utils';
 
 import { PopupContainerContext } from '../PopupContainer';
+import { SentenceLines } from '../SentenceLines';
 import { useOverflowFade } from '../use-overflow-fade';
 
 import './Dialog.css';
@@ -115,7 +116,7 @@ export function Dialog({
                   )}
                   {description === undefined ? null : (
                     <DialogPrimitive.Description className="dialog__description">
-                      {description}
+                      <SentenceLines>{description}</SentenceLines>
                     </DialogPrimitive.Description>
                   )}
                   {children === undefined ? null : <div className="dialog__content">{children}</div>}
