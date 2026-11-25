@@ -17,8 +17,10 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 import {
   addLine,
   applyRewrite,
+  applyToneScene,
   confirmScript,
   dismissRewrite,
+  dismissToneScene,
   editLine,
   ensureScript,
   moveScene,
@@ -174,16 +176,13 @@ export function ScriptScreen({
     snapshot.error !== null
       ? t(snapshot.error)
       : confirmed
-        ? t(onNext === undefined ? 'script.confirm.manual' : 'script.confirm.done')
+        ? t('script.confirm.done')
         : snapshot.nextBlockedReason !== null
           ? t(snapshot.nextBlockedReason)
           : t('script.hint');
 
+  // A confirmed script is confirmed again, so lines changed after the first confirmation go along too.
   const goNext = async () => {
-    if (serverVideoId === null && confirmed) {
-      onNext?.();
-      return;
-    }
     if (await confirmScript() && mounted.current) {
       onNext?.();
     }
@@ -427,11 +426,12 @@ export function ScriptScreen({
                         className="script-review"
                       >
                         <ul className="script-review-lines" aria-label={t('script.tone.old')}>
-                          {toneReview.lines.map((line) => (
-                            <li key={line.lineId}>
-                              <del>{line.before}</del>
-                            </li>
-                          ))}
+                          {scene.lines.map((line) => {
+                            const tone = toneReview.lines.find((entry) => entry.lineId === line.id);
+                            return (
+                              <li key={line.id}>{tone === undefined ? line.display_text : <del>{tone.before}</del>}</li>
+                            );
+                          })}
                         </ul>
                         <ul
                           className="script-review-lines script-review-new"
@@ -441,6 +441,25 @@ export function ScriptScreen({
                             <li key={line.lineId}>{line.after}</li>
                           ))}
                         </ul>
+                        <div className="script-review-actions">
+                          <Button
+                            size="36"
+                            variant="ghost"
+                            disabled={snapshot.busy}
+                            iconStart={<X aria-hidden size={16} />}
+                            onClick={() => dismissToneScene(sceneId)}
+                          >
+                            {t('script.review.keep')}
+                          </Button>
+                          <Button
+                            size="36"
+                            disabled={snapshot.busy}
+                            iconStart={<Check aria-hidden size={16} />}
+                            onClick={() => applyToneScene(sceneId)}
+                          >
+                            {t('script.review.apply')}
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="script-lines">

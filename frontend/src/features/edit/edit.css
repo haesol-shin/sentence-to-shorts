@@ -51,12 +51,13 @@
     height: auto;
   }
 
-  /* The expand control sits over the caption row's end, so the title spans the column. */
-  .edit-preview-head > .icon-button {
-    position: absolute;
-    top: 50%;
-    right: 0;
-    transform: translateY(-50%);
+  /*
+   * The control centers itself in the row with the `top-1/2` and `-translate-y-1/2`
+   * utilities, so the row keeps a control's height and the panel's top edge never
+   * cuts the control.
+   */
+  .edit-preview-head {
+    min-height: var(--size-control);
   }
 }
 
@@ -88,14 +89,16 @@
   line-height: 20px;
 }
 
-/* Two values of one group share a row, as the canon scene form draws them. */
+/* Two values of one group share a row, as the canon scene form draws them; a narrow panel stacks them. */
 .edit-field-group .settings-row__control {
+  flex-wrap: wrap;
   gap: var(--space-12);
   margin-inline-start: 0;
 }
 
 .field-trigger.edit-scene-field {
   width: 226px;
+  max-width: 100%;
 }
 
 .edit-scene-field .field-trigger__value {

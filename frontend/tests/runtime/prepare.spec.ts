@@ -26,11 +26,13 @@ async function startVideo(page: Page): Promise<void> {
     .getByRole('dialog', { name: '장면 확인' })
     .getByRole('button', { name: '영상 만들기' })
     .click();
-  await page.locator('[data-slot="export-start"]').click();
+  // A check that finds nothing starts the making, so the press is the only confirm.
   await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
+  await expect(page.locator('[data-slot="top-bar"] .top-bar-status__trigger')).toBeVisible();
 }
 
 const ACTION = '[data-slot="top-bar"] [data-slot="next-action"]';
+const PERCENT = '[data-slot="top-bar"] [data-slot="prepare-percent"]';
 
 test('test_21_a_ready_install_shows_the_make_button_as_before', async ({ page }) => {
   await openEdit(page, 'ready');
@@ -39,14 +41,15 @@ test('test_21_a_ready_install_shows_the_make_button_as_before', async ({ page })
   await expect(page.locator('[data-slot="prepare-notice"]')).toHaveCount(0);
 });
 
-test('test_21_a_press_during_the_download_shows_the_percent_on_the_button', async ({ page }) => {
+test('test_21_a_press_during_the_download_shows_the_percent_beside_the_stop_button', async ({ page }) => {
   await openEdit(page, 'downloading');
   await expect(page.locator(ACTION)).toBeEnabled();
   await expect(page.locator(ACTION)).toContainText('영상 만들기');
 
   await startVideo(page);
 
-  await expect(page.locator(ACTION)).toContainText('준비 중 50%');
+  await expect(page.locator(ACTION)).toContainText('만들기 멈추기');
+  await expect(page.locator(PERCENT)).toContainText('준비 중 50%');
   await expect(page.locator('[data-slot="prepare-notice"]')).toHaveCount(0);
 });
 

@@ -101,15 +101,13 @@ describe('script screen', () => {
     await open();
     const id = firstSceneId();
     const first = document.querySelector('[data-slot="script-scene"]') as HTMLElement;
-    expect(snapshot().document.scenes[id]?.lines).toHaveLength(1);
-
-    fireEvent.click(within(first).getByRole('button', { name: '대사 줄 추가' }));
-    await waitFor(() => expect(snapshot().document.scenes[id]?.lines).toHaveLength(2));
-    const box = within(first).getByRole('textbox', { name: '장면 1 대사 2' });
-    expect((box as HTMLTextAreaElement).value).toBe('');
+    expect(snapshot().document.scenes[id]?.lines).toHaveLength(2);
 
     fireEvent.click(within(first).getByRole('button', { name: '대사 줄 추가' }));
     await waitFor(() => expect(snapshot().document.scenes[id]?.lines).toHaveLength(3));
+    const box = within(first).getByRole('textbox', { name: '장면 1 대사 3' });
+    expect((box as HTMLTextAreaElement).value).toBe('');
+
     fireEvent.click(within(first).getByRole('button', { name: '대사 줄 추가' }));
     await waitFor(() => expect(snapshot().document.scenes[id]?.lines).toHaveLength(4));
     expect(
@@ -315,15 +313,13 @@ describe('script screen', () => {
     expect(api.count('previews')).toBe(0);
   });
 
-  test('test_2_without_a_step_change_the_confirmed_screen_names_the_step_menu', async () => {
+  test('test_2_without_a_step_change_the_confirmed_screen_points_at_no_menu', async () => {
     await open();
 
     fireEvent.click(screen.getByRole('button', { name: '이대로 영상 만들기' }));
 
     await waitFor(() => expect(snapshot().confirmed).toBe(true));
-    await waitFor(() =>
-      expect(screen.getByText('대본을 확인했어요. 단계 메뉴에서 편집으로 넘어가요.')).toBeTruthy(),
-    );
+    await waitFor(() => expect(screen.getByText('대본을 확인했어요.')).toBeTruthy());
     expect(
       (screen.getByRole('button', { name: '이대로 영상 만들기' }) as HTMLButtonElement).disabled,
     ).toBe(true);

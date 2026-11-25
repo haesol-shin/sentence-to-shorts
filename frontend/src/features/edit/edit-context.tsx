@@ -400,7 +400,6 @@ export interface EditValue {
   audio: EditAudio;
   caption: EditCaption;
   cancelChat: () => void;
-  requestReorder: (order: readonly string[]) => void;
   requestReorderTo: (sceneId: string, toIndex: number) => void;
   confirmReorder: () => void;
   dismissReorder: () => void;
@@ -1377,7 +1376,6 @@ export function EditProvider({
       applySettings,
       audio,
       caption,
-      requestReorder,
       requestReorderTo,
       confirmReorder: () => {
         const review = state.reorder;
@@ -1509,7 +1507,6 @@ export const EMPTY_EDIT_VALUE: EditValue = {
     layout: () => Promise.reject(new Error('no video is open')),
     singleLayer: () => Promise.resolve(false),
   },
-  requestReorder: () => undefined,
   requestReorderTo: () => undefined,
   confirmReorder: () => undefined,
   dismissReorder: () => undefined,

@@ -7,7 +7,7 @@ import { ApiProblemError, type Job, type Preset } from '@/shared/api/client';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import { flushActivity } from './activity';
-import { finalArtifactId, hasTokens, jobUsageMetrics } from './model';
+import { finalArtifactId, hasTokens, jobUsageMetrics, precheckFindsProblem } from './model';
 import { PrecheckPanel } from './precheck-panel';
 import { ResultCard } from './result-card';
 import { Attribution, ResultFacts, UsageSection } from './result-facts';
@@ -39,9 +39,12 @@ const GENERATION_STAGES: Partial<Record<NonNullable<Job['progress']['stage']>, s
 
 /**
  * The export step. It reads the video the edit step made: before the mp4
- * exists it shows the check before output, while a job runs it only says so
- * (the progress belongs to the top bar of the edit step) and once the mp4 is
- * there it shows the player, the facts, the time and usage, and the result card.
+ * exists it runs the check before output and shows the check when the check
+ * finds something to look at or a start fails, otherwise it starts the making
+ * by itself;
+ * while a job runs it only says so (the progress belongs to the top bar of the
+ * edit step) and once the mp4 is there it shows the player, the facts, the
+ * time and usage, and the result card.
  */
 export function ExportScreen({
   unseen,
@@ -104,6 +107,24 @@ export function ExportScreen({
         : 'failed');
     }
   };
+
+  /*
+   * The check before output shows when it finds something to look at. A clean
+   * check starts the making itself, once per revision, so the edit step's
+   * confirmation is the only press; a refused start shows the check with its
+   * own sentence and both next actions.
+   */
+  const { precheck } = state;
+  const confirmed = view !== null && view.video.stage === 'scenes_confirmed';
+  const clean = precheck.status === 'done' && precheck.report !== null && view !== null &&
+    !precheckFindsProblem(view, precheck.report);
+  const autoStarted = useRef<number | null>(null);
+  useEffect(() => {
+    if (phase !== 'idle' || !confirmed || !clean || view === null) return;
+    if (autoStarted.current === view.video.revision) return;
+    autoStarted.current = view.video.revision;
+    void submit(() => onStart(view.video.revision));
+  });
 
   const showUsage = () => {
     closeCard();
@@ -190,13 +211,25 @@ export function ExportScreen({
       );
     }
     if (state.phase === 'idle') {
+      const checking = precheck.status === 'idle' || precheck.status === 'running';
+      const startError = submission === 'failed' || submission === 'not-retryable' ? submission : null;
+      if (confirmed && startError === null && (checking || clean)) {
+        return (
+          <>
+            {prepareNotice}
+            <p role="status" className="export-muted">
+              {t(clean ? 'export.start.starting' : 'export.precheck.running')}
+            </p>
+          </>
+        );
+      }
       return (
         <PrecheckPanel
           view={view}
           status={state.precheck.status}
           report={state.precheck.report}
           starting={submission === 'starting'}
-          startFailed={submission === 'failed'}
+          startError={startError}
           preparePercent={preparePercent}
           prepareNotice={prepareNotice}
           onRetry={retryPrecheck}

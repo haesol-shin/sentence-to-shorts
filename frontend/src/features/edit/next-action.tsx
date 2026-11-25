@@ -7,10 +7,10 @@ import { useEdit } from './edit-context';
 import { SceneConfirm } from './scene-confirm';
 
 /**
- * The edit stage confirms the scenes before handing off to the export check.
- * While the voice models are still downloading the button stays pressable: the
- * job it starts waits in the queue, and until the models are ready the stop
- * control shows `preparePercent` where it says "stop making".
+ * The edit stage confirms the scenes before handing off to the making. While
+ * the voice models are still downloading the button stays pressable: the job it
+ * starts waits in the queue, and the preparing percent stands beside the stop
+ * control so the control keeps saying what it stops.
  */
 export function EditNextAction({ preparePercent = null }: { preparePercent?: number | null }) {
   const { t } = useLocale();
@@ -21,11 +21,20 @@ export function EditNextAction({ preparePercent = null }: { preparePercent?: num
 
   return (
     <>
+      {running && preparePercent !== null ? (
+        <span
+          data-slot="prepare-percent"
+          role="status"
+          className="shrink-0 text-[13px] whitespace-nowrap text-[var(--text-muted)]"
+        >
+          {t('shell.prepare.label', { percent: preparePercent })}
+        </span>
+      ) : null}
       <Button
         data-slot="next-action"
         className="min-w-[calc(var(--space-48)*3)] shrink-0 px-4 whitespace-nowrap"
         running={running}
-        stopLabel={preparePercent === null ? t('edit.next.stop') : t('shell.prepare.label', { percent: preparePercent })}
+        stopLabel={t('edit.next.stop')}
         onStop={edit.stopVideo}
         disabled={!running && (!edit.canStartVideo || edit.busy || busy)}
         onClick={() => setConfirmOpen(true)}

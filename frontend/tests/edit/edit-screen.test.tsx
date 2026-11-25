@@ -154,15 +154,9 @@ test('test_23_the_position_change_invalidates_the_still', async () => {
   expect(note.closest('[role="img"]')).toBeNull();
 });
 
-test('test_10a_the_english_edit_screen_names_reorder_and_jump_controls_in_english', async () => {
+test('test_10a_the_english_edit_screen_names_its_jump_control_in_english', async () => {
   wrap(<EditScreen />, createMockEditApi(view), 'en');
   await screen.findByRole('heading', { name: 'Scene 1' });
-
-  const names = within(screen.getByRole('list', { name: 'Scene order' }))
-    .getAllByRole('button')
-    .map((button) => button.getAttribute('aria-label'));
-  expect(names.slice(0, 3)).toEqual(['Reorder: Scene 1', 'Move up: Scene 1', 'Move down: Scene 1']);
-  expect(names.some((name) => /[가-힣]/u.test(name ?? ''))).toBe(false);
 
   const scenes = screen.getByRole('region', { name: 'Scenes' });
   for (const [name, value] of Object.entries({ scrollHeight: 1000, clientHeight: 400, scrollTop: 0 })) {
@@ -181,6 +175,9 @@ test('test_23_adding_a_scene_asks_for_the_server_rebuild_scope', async () => {
   const dialog = await screen.findByRole('dialog', { name: '장면을 추가할까요?' });
   expect(within(dialog).getByText('다시 만들 범위')).toBeTruthy();
   expect(dialog.querySelector('[data-slot="text-compare"]')).not.toBeNull();
+  expect(within(dialog).getByText('장면 1 복제본을 지금 장면 뒤에 넣어요.')).toBeTruthy();
+  expect(dialog.querySelector('[data-slot="rebuild-scope"]')?.textContent).toContain('2. 훅');
+  expect(dialog.textContent).not.toMatch(/\bs_[0-9a-z]{6,}/u);
   await waitFor(() => expect(dialog.querySelector('[data-slot="preview-after"]')).not.toBeNull());
   const previewImage = dialog.querySelector<HTMLImageElement>('img[data-slot="preview-after"]');
   expect(previewImage?.src.startsWith('data:image/png')).toBe(true);
@@ -231,9 +228,9 @@ test('test_23_the_order_warning_precedes_even_an_auto_applied_server_change', as
   };
   wrap(<EditScreen />, api);
   await screen.findByRole('heading', { name: '장면 1' });
-  const moveDown = document.querySelector<HTMLButtonElement>('.reorder-row button[aria-label*="아래로 이동"]');
-  expect(moveDown).not.toBeNull();
-  if (moveDown !== null) fireEvent.click(moveDown);
+  // The scene column is where the edit step reorders; the first card is dropped on the second.
+  const second = document.querySelectorAll<HTMLElement>('[data-slot="scene-column"] [data-slot="scene-card"]')[1]!;
+  fireEvent.drop(second, { dataTransfer: { getData: () => view.video.scene_order[0] } });
   const dialog = await screen.findByRole('dialog', { name: '장면 순서를 바꿀까요?' });
   expect(within(dialog).getByText('장면 흐름이 끊길 수 있어요. 순서를 한 번 더 확인해 주세요.')).toBeTruthy();
   expect(savedOrders).toEqual([]);

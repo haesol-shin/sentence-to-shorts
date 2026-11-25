@@ -75,6 +75,8 @@ export interface RewriteProposal {
 export interface UndoEntry {
   document: ScriptDocument;
   changedSceneIds: string[];
+  /** The line a run of typing changed, or `null` for any other change. */
+  line: string | null;
 }
 
 export interface ScriptSnapshot {

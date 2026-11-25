@@ -10,13 +10,21 @@ import { useLocale, type LocaleValue } from '@/shared/lib/i18n/locale';
 import { artifactUrl, type CatalogItem, type ChangePlan } from './api';
 import { CAPTION_FONT_PATH, CAPTION_MODE_PATH, CAPTION_POSITION_PATH } from './captions/model';
 import type { EditValue } from './edit-context';
-import { breaksFlow, sceneNumber, sceneVisualLabel, stillIsReady, type Line, type Video } from './model';
+import { breaksFlow, insertScene, sceneNumber, sceneVisualLabel, stillIsReady, type Line, type Video } from './model';
 import { BGM_PATH, bgmGainLabel, VOICE_PATH } from './sound/model';
 
-function sceneLabel(video: Video | null, sceneId: string): string {
-  const number = sceneNumber(video, sceneId);
-  const scene = video?.scenes[sceneId];
-  return `${number > 0 ? `${number}. ` : ''}${scene?.beat_label ?? sceneId}`;
+/**
+ * A scene by its number and beat, never by its id. A scene the plan adds is
+ * not in the video yet, so it takes the place the add gives it.
+ */
+function sceneLabel(video: Video | null, sceneId: string, plan: ChangePlan | null = null): string {
+  const added = plan?.ops.find((op) => op.op === 'add_scene' && op.scene.id === sceneId);
+  const addOp = added?.op === 'add_scene' ? added : null;
+  const scene = video?.scenes[sceneId] ?? addOp?.scene;
+  const number = addOp !== null && video !== null
+    ? insertScene(video, addOp.after ?? '', addOp.scene).order.indexOf(sceneId) + 1
+    : sceneNumber(video, sceneId);
+  return [number > 0 ? `${number}.` : '', scene?.beat_label ?? ''].filter((part) => part !== '').join(' ');
 }
 
 function linesOf(value: unknown): Line[] | null {
@@ -280,19 +288,29 @@ function PendingBody({
   const preview = edit.pendingPreview;
   const reorder = plan.ops.find((op) => op.op === 'reorder');
   const labels = (ids: readonly string[]) =>
-    ids.length === 0 ? t('edit.change.none') : ids.map((id) => sceneLabel(edit.video, id)).join(', ');
+    ids.length === 0 ? t('edit.change.none') : ids.map((id) => sceneLabel(edit.video, id, plan)).join(', ');
 
   return (
     <div data-slot="change-review" className="flex flex-col gap-4">
       {newTexts.map(({ sceneId, lines }) => {
         const before = edit.video?.scenes[sceneId]?.lines ?? [];
+        const added = plan.ops.find((op) => op.op === 'add_scene' && op.scene.id === sceneId);
+        const copied = added?.op === 'add_scene' ? added.after : null;
         return (
           <div key={sceneId} data-slot="text-compare" className="flex flex-col gap-2">
-            <p className="text-[15px] font-bold text-[var(--text-strong)]">{sceneLabel(edit.video, sceneId)}</p>
+            <p className="text-[15px] font-bold text-[var(--text-strong)]">{sceneLabel(edit.video, sceneId, plan)}</p>
             <div className="grid grid-cols-2 gap-2 text-[15px]">
               <div className="rounded-[var(--radius-panel)] bg-[var(--surface-muted)] p-2">
                 <p className="text-[13px] text-[var(--text-muted)]">{t('edit.change.before')}</p>
-                {before.map((line) => <p key={line.id}>{line.display_text}</p>)}
+                {added === undefined ? (
+                  before.map((line) => <p key={line.id}>{line.display_text}</p>)
+                ) : (
+                  <p className="text-[var(--text-muted)]">
+                    {copied === null
+                      ? t('edit.change.addBlank')
+                      : t('edit.change.addBody', { number: sceneNumber(edit.video, copied) })}
+                  </p>
+                )}
               </div>
               <div className="rounded-[var(--radius-panel)] bg-[var(--surface-muted)] p-2">
                 <p className="text-[13px] text-[var(--text-muted)]">{t('edit.change.after')}</p>
@@ -358,7 +376,7 @@ function PendingBody({
               const nextStill = removed.has(sceneId) ? undefined : preview.stills[sceneId];
               return (
                 <div key={sceneId} className="flex flex-col gap-1 text-[13px] text-[var(--text-muted)]">
-                  <span className="truncate">{sceneLabel(edit.video, sceneId)}</span>
+                  <span className="truncate">{sceneLabel(edit.video, sceneId, plan)}</span>
                   <div className="grid grid-cols-2 gap-1">
                     <span className="flex aspect-[9/16] items-center justify-center overflow-hidden rounded-[var(--radius-content)] bg-[var(--surface-sunken)]">
                       {oldStill === null || oldStill === undefined ? t('edit.change.beforeEmpty') : (
@@ -407,7 +425,7 @@ function PendingBody({
               {warning.code === 'story_order_broken'
                 ? t('edit.change.warningFlow')
                 : t('edit.change.warningAdjacent', {
-                    scenes: warning.scene_id === null ? '' : sceneLabel(edit.video, warning.scene_id),
+                    scenes: warning.scene_id === null ? '' : sceneLabel(edit.video, warning.scene_id, plan),
                   })}
             </span>
           ))}
