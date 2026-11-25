@@ -18,11 +18,14 @@ from app.caption_layout import (
     PLATE_SIDE_PAD,
     SAFE_TOP,
     inside,
+    place_area,
+    place_box,
     safe_area,
 )
 from app.ports import AppError
 from app.schemas.artifact import Timing
 from app.schemas.common import Box
+from app.schemas.settings import CaptionPlace
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
 from app.services.render.layers import CORNER_CELLS, SKIN_CELL, nine_slice
@@ -320,6 +323,62 @@ def test_29_plate_follows_the_text_through_each_position(studio: Studio) -> None
             plate_rows.append(record["caption"]["plate"][1])
         assert plate_rows == sorted(plate_rows)
         assert plate_rows[0] < plate_rows[-1]
+
+
+def test_29_placed_caption_keeps_its_box_and_a_narrow_width(studio: Studio) -> None:
+    """A reference plate at 0.55 of the frame width keeps both its x and its text."""
+    scene = _caption_scene(ONE_LINE)
+    place = CaptionPlace(x=48, y=600, w=round(0.55 * FRAME_WIDTH))
+    video = studio.video(scene, place=place.model_dump(mode="json"))
+
+    _, record = studio.compose(video, scene["id"])
+
+    caption = record["caption"]
+    block_height = caption["size"] * 5 // 4 * len(caption["lines"])
+    expected = place_box(place, block_height)
+    x, y, w, h = caption["plate"]
+    assert abs(x - expected.x) <= 1
+    assert abs(y - expected.y) <= 1
+    assert abs(w - expected.w) <= 1
+    assert abs(h - expected.h) <= 1
+    assert caption["plate"] == [48, 600, 594, block_height + 8]
+    for line in caption["lines"]:
+        assert inside(_box(line["box"]), _box(caption["plate"]))
+    assert inside(_box(caption["plate"]), place_area())
+
+
+def test_29_placed_caption_keeps_the_side_pad_when_left_aligned(studio: Studio) -> None:
+    scene = _caption_scene(ONE_LINE)
+    place = {"x": 48, "y": 600, "w": 594, "align": "left"}
+    video = studio.video(scene, place=place)
+
+    _, record = studio.compose(video, scene["id"])
+
+    plate = _box(record["caption"]["plate"])
+    for line in record["caption"]["lines"]:
+        box = _box(line["box"])
+        assert box.x >= plate.x + PLATE_SIDE_PAD
+        assert box.x + box.w <= plate.x + plate.w - PLATE_SIDE_PAD + 1
+
+
+def test_29_placed_caption_drops_the_extra_layer_when_nothing_keeps_clear(
+    studio: Studio,
+) -> None:
+    scene = _two_layer_scene(ONE_LINE)
+    extra = {
+        "language": "en",
+        "mode": "sentence",
+        "font_id": studio.registry.pin("font", "galmuri11").model_dump(),
+        "position": "bottom",
+    }
+    place = {"x": 48, "y": 1200, "w": 840, "align": "center"}
+    video = studio.video(scene, extra=extra, place=place)
+
+    _, record = studio.compose(video, scene["id"])
+
+    assert record["caption"]["caption_extra_skipped"] == "no_room"
+    assert "caption_extra" not in record
+    assert inside(_box(record["caption"]["plate"]), place_area())
 
 
 def _caption_scene(text: str) -> dict[str, Any]:

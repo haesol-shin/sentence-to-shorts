@@ -101,6 +101,75 @@ def test_20_equal_or_lower_layout_origin_allows_reference_update(
     assert applied.video.settings.format.layout.id == "dialog_stage"
 
 
+def test_20_reference_caption_place_becomes_one_op(catalog: Registry) -> None:
+    video = draft_video()
+    answer = ReferenceValues(
+        caption_place={
+            "y_top": 0.3,
+            "y_bottom": 0.45,
+            "x_left": 0.2,
+            "x_right": 0.7,
+            "align": "left",
+        }
+    )
+
+    result = build(video, answer, video.settings.format.scene_count, catalog)
+
+    assert [(op.path, op.value) for op in result.ops] == [
+        (
+            "/settings/caption/place",
+            {"y": 572, "x": 216, "w": 540, "align": "left"},
+        )
+    ]
+    applied = state.apply(video, result.ops, Origin.reference)
+    assert applied.video.settings.caption.place is not None
+    assert (applied.video.settings.caption.place.x, applied.video.settings.caption.place.w) == (
+        216,
+        540,
+    )
+
+
+@pytest.mark.parametrize(
+    "ratios",
+    [
+        {"y_top": 1.2, "y_bottom": 0.45, "x_left": 0.2, "x_right": 0.7},
+        {"y_top": 0.3, "y_bottom": 0.45, "x_left": -0.1, "x_right": 0.7},
+        {"y_top": 0.3, "y_bottom": 0.45, "x_left": 0.7, "x_right": 0.2},
+        {"y_top": 0.45, "y_bottom": 0.3, "x_left": 0.2, "x_right": 0.7},
+    ],
+)
+def test_20_reference_discards_a_place_it_cannot_read(
+    catalog: Registry, ratios: dict[str, float]
+) -> None:
+    video = draft_video()
+
+    result = build(
+        video,
+        ReferenceValues(caption_place=ratios),
+        video.settings.format.scene_count,
+        catalog,
+    )
+
+    assert [op for op in result.ops if op.path == "/settings/caption/place"] == []
+
+
+def test_20_reference_place_does_not_override_a_user_value(catalog: Registry) -> None:
+    video = _video("/caption/place", Origin.user)
+    answer = ReferenceValues(
+        caption_place={
+            "y_top": 0.3,
+            "y_bottom": 0.45,
+            "x_left": 0.2,
+            "x_right": 0.7,
+        }
+    )
+
+    result = build(video, answer, video.settings.format.scene_count, catalog)
+
+    assert [op for op in result.ops if op.path == "/settings/caption/place"] == []
+    assert result.kept_user_values == ["/settings/caption/place"]
+
+
 def test_20_shared_rule_returns_only_higher_related_origins_in_restoration_order() -> None:
     origins = {
         "/format/layout/revision": "user",

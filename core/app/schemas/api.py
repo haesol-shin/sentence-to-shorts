@@ -26,7 +26,7 @@ from app.schemas.font_manifest import FontManifest
 from app.schemas.format_card import FormatCard, StoryStructure
 from app.schemas.job import Job
 from app.schemas.preset import Preset
-from app.schemas.settings import CaptionPosition
+from app.schemas.settings import CaptionPlace, CaptionPosition
 from app.schemas.style_manifest import StyleManifest
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import RevisionInfo, Video, VideoBuild
@@ -395,14 +395,15 @@ class VideoView(ContractModel):
 
 
 class CaptionLayoutPair(ContractModel):
-    primary: CaptionPosition
-    extra: CaptionPosition
+    primary: CaptionPosition | None
+    extra: CaptionPosition | None
     fits: bool
 
 
 class CaptionLayout(ContractModel):
     primary_px: int
     extra_px: int | None
+    place: CaptionPlace | None = None
     pairs: list[CaptionLayoutPair]
 
 

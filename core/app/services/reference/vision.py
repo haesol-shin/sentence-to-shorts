@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import yaml
 from pydantic import ConfigDict, Field, ValidationError
@@ -39,6 +39,21 @@ MAX_OUTPUT_TOKENS = 600
 REPAIR_NOTE = "\n\n# Repair\n\nReturn corrected JSON that validates against the schema.\n"
 
 
+class CaptionPlaceRatios(ContractModel):
+    """Where the reference video puts its caption plate, as ratios of the frame.
+
+    Ratios rather than pixels: reference videos have different resolutions, and
+    the app maps these onto the 1080x1920 frame. A value outside 0 to 1, or a
+    plate with no width or height, is dropped before it becomes a place.
+    """
+
+    y_top: float
+    y_bottom: float
+    x_left: float
+    x_right: float
+    align: Literal["left", "center", "right"] | None = None
+
+
 class ReferenceValues(ContractModel):
     """What the model may say about a reference video. ``None`` means it cannot tell."""
 
@@ -49,6 +64,7 @@ class ReferenceValues(ContractModel):
     humor: Humor | None = None
     progress_mode: ProgressMode | None = None
     caption_mode: CaptionMode | None = None
+    caption_place: CaptionPlaceRatios | None = None
     bgm_mood: Mood | None = None
     palette: Annotated[
         list[Annotated[str, Field(pattern=HEX_COLOR_PATTERN)]], Field(max_length=5)

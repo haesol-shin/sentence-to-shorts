@@ -25,6 +25,7 @@ from app.schemas.preset import Preset
 from app.schemas.project import Project
 from app.schemas.settings import (
     CaptionMode,
+    CaptionPlace,
     Humor,
     LockKey,
     LockState,
@@ -573,6 +574,24 @@ def test_13_preset_does_not_store_the_extra_caption_layer(service: ProjectServic
 
     assert "extra" not in preset.model_dump(mode="json")["settings"]["caption"]
     assert preset.settings.caption.mode is CaptionMode.sentence
+
+
+def test_29_preset_place_applies_to_a_video_without_one(
+    service: ProjectService,
+) -> None:
+    project, source = make_project_video(service)
+    place = {"y": 600, "x": 48, "w": 600, "align": "center"}
+    source = commit_ops(
+        service, source, [set_op("/settings/caption/place", place)]
+    )
+    preset = save(service, project, source)
+    target = _full_video(service, project)
+    assert target.settings.caption.place is None
+
+    applied = presets.apply_preset(service, target.id, preset.id, target.revision)
+
+    assert applied.settings.caption.place == CaptionPlace.model_validate(place)
+    assert applied.settings.origins["/caption/place"] is Origin.preset
 
 
 def test_13_applying_a_preset_keeps_the_extra_layer_and_texts(

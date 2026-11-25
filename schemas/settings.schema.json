@@ -84,6 +84,17 @@
         "mode": {
           "$ref": "#/$defs/CaptionMode"
         },
+        "place": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptionPlace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "position": {
           "$ref": "#/$defs/CaptionPosition"
         },
@@ -142,6 +153,44 @@
       ],
       "title": "CaptionMode",
       "type": "string"
+    },
+    "CaptionPlace": {
+      "additionalProperties": false,
+      "description": "A caption plate in frame pixels, read from a reference video or picked by hand.\n\n``y`` is the top of the plate, not of the text. The saved value stays inside\nthe place area; the store clamps a write before this model validates it, so\nthe checks here are the safety net for other write paths.",
+      "properties": {
+        "align": {
+          "default": "center",
+          "enum": [
+            "left",
+            "center",
+            "right"
+          ],
+          "title": "Align",
+          "type": "string"
+        },
+        "w": {
+          "minimum": 120,
+          "title": "W",
+          "type": "integer"
+        },
+        "x": {
+          "minimum": 48,
+          "title": "X",
+          "type": "integer"
+        },
+        "y": {
+          "minimum": 288,
+          "title": "Y",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "y",
+        "x",
+        "w"
+      ],
+      "title": "CaptionPlace",
+      "type": "object"
     },
     "CaptionPosition": {
       "enum": [
@@ -436,6 +485,17 @@
         },
         "mode": {
           "$ref": "#/$defs/CaptionMode"
+        },
+        "place": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptionPlace"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "position": {
           "$ref": "#/$defs/CaptionPosition"

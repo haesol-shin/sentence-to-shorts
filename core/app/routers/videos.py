@@ -397,20 +397,26 @@ def get_caption_layout(
     primary_ref = _pinned_query(font_id) or caption.font_id
     primary = app.catalog.get("font", primary_ref.id, primary_ref.revision)
     primary_px = smallest_caption_size(primary.pixel_size)
+    place = caption.place
     saved_extra = caption.extra[0] if caption.extra else None
     language = extra_language or (saved_extra.language if saved_extra else None)
     if language is None:
-        return CaptionLayout(
-            primary_px=primary_px,
-            extra_px=None,
-            pairs=[
+        if place is not None:
+            fits = [CaptionLayoutPair(primary=None, extra=None, fits=True)]
+        else:
+            fits = [
                 CaptionLayoutPair(
                     primary=position,
                     extra=position,
                     fits=single_caption_fits(template, primary.pixel_size, position),
                 )
                 for position in POSITIONS
-            ],
+            ]
+        return CaptionLayout(
+            primary_px=primary_px,
+            extra_px=None,
+            place=place,
+            pairs=fits,
         )
 
     app.catalog.get("caption_language", language)
@@ -418,10 +424,20 @@ def get_caption_layout(
         saved_extra.font_id if saved_extra else primary_ref
     )
     extra = app.catalog.get("font", extra_ref.id, extra_ref.revision)
-    return CaptionLayout(
-        primary_px=primary_px,
-        extra_px=smallest_caption_size(extra.pixel_size),
-        pairs=[
+    if place is not None:
+        pairs = [
+            CaptionLayoutPair(
+                primary=None,
+                extra=extra_position,
+                fits=caption_pair_fits(
+                    template, primary.pixel_size, caption.position,
+                    extra.pixel_size, extra_position, place,
+                ),
+            )
+            for extra_position in POSITIONS
+        ]
+    else:
+        pairs = [
             CaptionLayoutPair(
                 primary=primary_position,
                 extra=extra_position,
@@ -432,7 +448,12 @@ def get_caption_layout(
             )
             for primary_position in POSITIONS
             for extra_position in POSITIONS
-        ],
+        ]
+    return CaptionLayout(
+        primary_px=primary_px,
+        extra_px=smallest_caption_size(extra.pixel_size),
+        place=place,
+        pairs=pairs,
     )
 
 

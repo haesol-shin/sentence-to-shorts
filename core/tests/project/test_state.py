@@ -26,7 +26,7 @@ from app.schemas.change import ChangeSource, ReorderOp, SetOp, SetScriptOp
 from app.schemas.common import Language, Origin
 from app.schemas.scene import Element, ElementKind, Scene
 from app.schemas.script import Line, Script
-from app.schemas.settings import CaptionPosition, LockKey, LockState, Settings
+from app.schemas.settings import CaptionPlace, CaptionPosition, LockKey, LockState, Settings
 from app.schemas.video import Video, VideoStage
 from app.services.project import state
 from app.services.project.service import ProjectService
@@ -438,12 +438,15 @@ def with_extra(
     texts: bool = True,
     display: str | None = None,
     translated: str = SHORT_EN,
+    place: dict[str, Any] | None = None,
 ) -> Video:
     """The fixture video with one extra caption layer, optionally translated."""
     doc = video.model_dump(mode="json")
     doc["settings"]["format"]["layout"] = catalog.pin("template", layout).model_dump()
     doc["settings"]["caption"]["font_id"] = catalog.pin("font", font).model_dump()
     doc["settings"]["caption"]["position"] = primary_position
+    if place is not None:
+        doc["settings"]["caption"]["place"] = place
     doc["settings"]["caption"]["extra"] = [
         extra_layer(catalog, font=font, position=position, mode=mode)
     ]
@@ -459,16 +462,90 @@ def with_extra(
 
 
 def store_caption_video(
-    client: TestClient, catalog: Registry, *, layout: str = "fixed_stage", extra: bool = True
+    client: TestClient,
+    catalog: Registry,
+    *,
+    layout: str = "fixed_stage",
+    extra: bool = True,
+    place: dict[str, Any] | None = None,
 ) -> Video:
     app = client.app.state.runtime  # type: ignore[attr-defined]
     project = app.services.project.create_project(CreateProjectRequest(title=None, language="ko"))
-    video = with_extra(current_bgm(fixture_video(), catalog), catalog, layout=layout)
+    video = with_extra(current_bgm(fixture_video(), catalog), catalog, layout=layout, place=place)
     if not extra:
         video.settings.caption.extra = []
     return app.project_store.append_revision(
         video.model_copy(update={"project_id": project.id, "revision": 1})
     )
+
+
+def test_29_place_op_clamps_into_the_area_with_one_note() -> None:
+    video = fixture_video()
+    op = set_op(
+        "/settings/caption/place", {"y": 600, "x": 888, "w": 840}, Origin.user
+    )
+
+    applied = state.apply(video, [op], Origin.user)
+
+    assert applied.video.settings.caption.place == CaptionPlace(y=600, x=48, w=840)
+    assert applied.notes == [state.PLACE_CLAMPED[Language.ko]]
+
+
+def test_29_place_below_the_schema_floor_stays_invalid() -> None:
+    video = state.apply(
+        fixture_video(),
+        [
+            set_op(
+                "/settings/caption/place",
+                {"y": 600, "x": 48, "w": 840},
+                Origin.user,
+            )
+        ],
+        Origin.user,
+    ).video
+
+    with pytest.raises(AppError) as raised:
+        state.apply(
+            video,
+            [set_op("/settings/caption/place/w", 100, Origin.user)],
+            Origin.user,
+        )
+
+    assert raised.value.code == "invalid_op"
+
+
+def test_29_caption_layout_with_place_matches_save_check(
+    client: TestClient, catalog: Registry
+) -> None:
+    place = {"y": 1100, "x": 48, "w": 840, "align": "center"}
+    video = store_caption_video(client, catalog, place=place)
+    response = client.get(f"/api/v1/videos/{video.id}/caption-layout")
+    assert response.status_code == 200, response.text
+    result = CaptionLayout.model_validate(response.json())
+    assert result.place == CaptionPlace.model_validate(place)
+    assert len(result.pairs) == len(CaptionPosition)
+    assert {pair.primary for pair in result.pairs} == {None}
+    assert {pair.extra for pair in result.pairs} == set(CaptionPosition)
+    assert {pair.fits for pair in result.pairs} == {False, True}
+    for pair in result.pairs:
+        candidate = video.model_copy(deep=True)
+        candidate.settings.caption.extra[0].position = pair.extra
+        codes = {issue.code for issue in state.validate(candidate, catalog)}
+        assert pair.fits == ("caption_overlap" not in codes), pair
+
+
+def test_29_caption_layout_single_layer_with_place_has_no_preset_pair(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(
+        client, catalog, extra=False, place={"y": 500, "x": 48, "w": 600}
+    )
+    response = client.get(f"/api/v1/videos/{video.id}/caption-layout")
+    assert response.status_code == 200, response.text
+    result = CaptionLayout.model_validate(response.json())
+    assert [(pair.primary, pair.extra, pair.fits) for pair in result.pairs] == [
+        (None, None, True)
+    ]
 
 
 def test_29_caption_layout_matches_save_check_for_every_pair(

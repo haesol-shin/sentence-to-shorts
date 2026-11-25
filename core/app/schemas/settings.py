@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from app.schemas.common import (
     CaptionMode,
@@ -54,6 +54,26 @@ class CaptionPosition(StrEnum):
     middle = "middle"
     lower = "lower"
     bottom = "bottom"
+
+
+class CaptionPlace(ContractModel):
+    """A caption plate in frame pixels, read from a reference video or picked by hand.
+
+    ``y`` is the top of the plate, not of the text. The saved value stays inside
+    the place area; the store clamps a write before this model validates it, so
+    the checks here are the safety net for other write paths.
+    """
+
+    y: Annotated[int, Field(ge=288)]
+    x: Annotated[int, Field(ge=48)]
+    w: Annotated[int, Field(ge=120)]
+    align: Literal["left", "center", "right"] = "center"
+
+    @model_validator(mode="after")
+    def _fits_width(self) -> "CaptionPlace":
+        if self.x + self.w > 888:
+            raise ValueError("place x + w exceeds 888")
+        return self
 
 
 class Format(ContractModel):
@@ -120,6 +140,7 @@ class Caption(ContractModel):
     position: CaptionPosition
     highlight: bool
     typing_sound: PinnedRef | None = None
+    place: CaptionPlace | None = None
     extra: Annotated[list[CaptionLayer], Field(max_length=1)] = Field(
         default_factory=list
     )
@@ -214,6 +235,7 @@ class PresetCaption(ContractModel):
     position: CaptionPosition
     highlight: bool
     typing_sound: PinnedRef | None = None
+    place: CaptionPlace | None = None
 
 
 class PresetSettings(ContractModel):
