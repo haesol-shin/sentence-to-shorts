@@ -51,6 +51,27 @@ def test_packaging_installer_script_takes_every_name_from_the_brand_values(tmp_p
     assert not re.search(r"@[A-Z_]+@", script)
 
 
+def test_packaging_windows_bundle_carries_the_icon_every_installer_entry_names(
+    tmp_path: Path,
+) -> None:
+    bundle = tmp_path / "bundle"
+    (bundle / "core" / "config").mkdir(parents=True)
+    shutil.copy2(REPO / "core" / "config" / "runtime.lock.json", bundle / "core" / "config")
+    args = SimpleNamespace(profile="release", commit="c" * 40, python_dir=None)
+    build.finish_bundle(
+        bundle, args, "windows", "x86_64", "3.11.18", tmp_path / "site", tmp_path / "align",
+        "python/python.exe",
+    )
+    assert (bundle / "app.ico").read_bytes() == (PACKAGING / "app.ico").read_bytes()
+    script = build.render_installer_script(BRAND, "9.8.7", bundle, tmp_path / "out")
+    lines = script.splitlines()
+    assert f"SetupIconFile={bundle}\\app.ico" in lines
+    assert "UninstallDisplayIcon={app}\\app.ico" in lines
+    shortcuts = [line for line in lines if line.startswith('Name: "{autoprograms}')]
+    assert len(shortcuts) == 2
+    assert all(line.endswith('IconFilename: "{app}\\app.ico"') for line in shortcuts)
+
+
 def test_packaging_template_rejects_a_placeholder_nobody_filled() -> None:
     with pytest.raises(build.BuildError):
         build.render_template("Name=@MISSING_NAME@", {"OTHER": "x"})
