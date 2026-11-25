@@ -39,21 +39,21 @@
     },
     {
       "id": "yt-dlp",
-      "version": "2026.10.26",
-      "revision": "f264a6cbd1f630894da0f368df00f8aae50140e0",
+      "version": "2026.11.23",
+      "revision": "6f73a8d1664a58cdef8c25f01ffb5ab9cf730408",
       "install_path": "yt-dlp",
       "license": {
         "spdx": "Unlicense AND ISC AND MIT",
-        "source_url": "https://github.com/yt-dlp/yt-dlp/tree/2026.10.26"
+        "source_url": "https://github.com/yt-dlp/yt-dlp/tree/2026.11.23"
       },
       "files": [
         {
           "os": "any",
           "arch": "wasm32",
           "file": "yt-dlp",
-          "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp",
-          "bytes": 3073072,
-          "sha256": "e51e69e89489f199530f13d32a4342da3ddb2cf34842f364603a066db05afbf3"
+          "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.11.23/yt-dlp",
+          "bytes": 3073120,
+          "sha256": "e8665ed64d6b9172773e812f891fb707a0cb1ee8d9ef4fc1acb00cabee4c5256"
         }
       ]
     },
