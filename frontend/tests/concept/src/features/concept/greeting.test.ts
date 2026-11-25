@@ -36,7 +36,7 @@ test('test_5_the_first_reply_names_values_the_draft_picked', async () => {
   expect(conceptGreeting(value, t)).toBe([
     '이야기 방식은 만약 ~라면?으로 골랐어요.',
     '길이는 30초, 장면은 5개로 했어요.',
-    '그림체는 픽셀으로 골랐어요.',
+    '그림체는 픽셀로 골랐어요.',
     '캐릭터는 기본 몸으로 골랐어요.',
     '바꾸고 싶은 것만 말하거나 눌러 주세요.',
   ].join(' '));
@@ -45,6 +45,6 @@ test('test_5_the_first_reply_names_values_the_draft_picked', async () => {
 test('test_5_the_first_reply_calls_only_the_untouched_value_a_default', async () => {
   const value = await settings();
   value.origins['/visual/art_style'] = 'user';
-  expect(conceptGreeting(value, t)).toContain('그림체는 픽셀으로 골랐어요.');
+  expect(conceptGreeting(value, t)).toContain('그림체는 픽셀로 골랐어요.');
   expect(conceptGreeting(value, t)).toContain('캐릭터는 기본값이에요.');
 });

@@ -6,16 +6,18 @@ import type { Settings } from './types';
 type Translate = (key: string, vars?: Record<string, string | number>) => string;
 
 /**
- * The particle a value takes before 「골랐어요」. A Hangul syllable with a final
- * consonant takes 으로; a value ending in anything else reads as 으로 too,
- * which covers the story labels that end in a question mark.
+ * The particle a value takes before 「골랐어요」. A Hangul syllable takes 로
+ * with no final consonant or a final ㄹ, and 으로 with any other final
+ * consonant. A value ending in anything else reads as 으로 too, which covers
+ * the story labels that end in a question mark.
  */
 function roParticle(value: string): string {
   const last = Array.from(value.trim()).at(-1) ?? '';
   const code = last.codePointAt(0) ?? 0;
   const hangul = code >= 0xac00 && code <= 0xd7a3;
   if (!hangul) return '으로';
-  return (code - 0xac00) % 28 === 0 ? '로' : '으로';
+  const final = (code - 0xac00) % 28;
+  return final === 0 || final === 8 ? '로' : '으로';
 }
 
 /**

@@ -334,7 +334,13 @@ test('test_23_the_last_row_clears_the_floating_step_button_and_the_page_does_not
     // The document keeps enough bottom padding to scroll its last row above
     // the floating action.
     const viewport = screen.locator('.scroll-pane__viewport');
-    await viewport.evaluate((node) => node.scrollTo({ top: node.scrollHeight }));
+    // The pane scrolls smoothly, so jump without animation before measuring.
+    await viewport.evaluate((node) => {
+      node.scrollTo({ top: node.scrollHeight, behavior: 'instant' });
+    });
+    await expect.poll(() => viewport.evaluate(
+      (node) => Math.ceil(node.scrollTop + node.clientHeight) >= Math.ceil(node.scrollHeight),
+    )).toBe(true);
     const lastCard = await cards.last().boundingBox();
     expect(lastCard).not.toBeNull();
     expect(lastCard!.y + lastCard!.height).toBeLessThan(nextBox.y);
