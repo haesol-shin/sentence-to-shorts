@@ -16,7 +16,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const KEY_LABEL = 'API key';
+const KEY_LABEL = 'Claude API key';
 const PUT_PATH = 'PUT /api/v1/credentials/llm';
 
 type Runtime = { profile: string; llm_auth: { adapter: string; state: string } };
@@ -51,7 +51,9 @@ test('test_release_missing_key_shows_the_key_block_with_a_masked_field', async (
   const field = await screen.findByLabelText(KEY_LABEL);
   expect(field.getAttribute('type')).toBe('password');
   expect(screen.getByRole('button', { name: '저장' })).toBeTruthy();
-  expect(screen.getByText('키는 이 컴퓨터의 OS 키 저장소에만 보관돼요.')).toBeTruthy();
+  // The hint names the service and where its key comes from, not only where it is kept.
+  const hint = screen.getByText(/OS 키 저장소에만 보관돼요/u);
+  expect(hint.textContent).toContain('console.anthropic.com');
 });
 
 test('test_release_expired_key_shows_the_key_block', async () => {
@@ -90,6 +92,7 @@ test('test_saving_the_key_sends_it_and_reads_the_runtime_again', async () => {
   fireEvent.click(screen.getByRole('button', { name: '저장' }));
 
   await waitFor(() => expect(screen.queryByLabelText(KEY_LABEL)).toBeNull());
+  expect(screen.getByText('키를 저장했어요. 이제 문장을 보내면 돼요.')).toBeTruthy();
   const put = api.calls.find((call) => call.method === 'PUT' && call.path === '/api/v1/credentials/llm');
   expect(put?.body).toEqual({ api_key: 'sk-test-key' });
   expect(api.count('GET', '/api/v1/runtime')).toBeGreaterThanOrEqual(2);

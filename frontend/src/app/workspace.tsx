@@ -282,7 +282,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
           onSubmit={(_text, attachments, options) => void startFromSentence(attachments, options)}
         />
       ) : view === 'concept' ? (
-        <ConceptRoute />
+        <ConceptRoute onNext={() => setView('script')} />
       ) : view === 'script' ? (
         <ScriptRoute
           key={video?.scriptSessionId}

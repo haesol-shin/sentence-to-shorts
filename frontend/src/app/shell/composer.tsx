@@ -9,15 +9,15 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from 'react';
-import { Check, ChevronDown, FileText, Film, Info, Link2, Music, Plus, X } from 'lucide-react';
+import { AlertTriangle, Check, FileText, Film, Info, Link2, Music, Plus, X } from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
 import { chatProposal } from '@/features/concept/model';
 import {
   applyConceptPlan,
-  chooseConcept,
   getConceptSnapshot,
   loadConceptDeployment,
+  requestConceptStyleEntry,
   sendConcept,
   setConceptDraft,
   useConcept,
@@ -48,8 +48,10 @@ import { IconButton } from '@/components/IconButton/IconButton';
 import { SendButton } from '@/components/SendButton/SendButton';
 import { Tag } from '@/components/Tag/Tag';
 import { Tooltip } from '@/components/Tooltip/Tooltip';
+import { ValueField } from '@/components/ValueField/ValueField';
 import { cn } from '@/shared/lib/utils';
 
+import './composer.css';
 import { useShellView } from './shell-view';
 
 /** One line of the text field; ten of them plus the box padding is the tallest the box may grow. */
@@ -103,6 +105,8 @@ interface ComposerBoxProps {
   onAttachmentsChange?: (attachments: Attachment[]) => void;
   onEditBgm?: (file: File, isAudio: boolean) => void;
   editBgmBusy?: boolean;
+  /** One more row for the `+` menu, for an action that belongs to the open step. */
+  menuAction?: { label: string; onSelect: () => void };
   className?: string;
 }
 
@@ -174,52 +178,52 @@ function AttachmentChip({
   );
 }
 
-/** The native list stays the control; it covers the visible field so a click lands on it. */
-const FIELD_SELECT =
-  'absolute inset-0 size-full cursor-pointer appearance-none opacity-0 disabled:cursor-not-allowed';
+/** A failure sentence in the error red with the warning mark, read out when it appears. */
+function FailureLine({ children, slot, className }: { children: ReactNode; slot?: string; className?: string }) {
+  return (
+    <p
+      role="alert"
+      data-slot={slot}
+      className={cn('flex items-start gap-2 text-[15px] leading-[18px] text-[var(--destructive)]', className)}
+    >
+      <AlertTriangle aria-hidden size={18} className="shrink-0" />
+      <span className="min-w-0">{children}</span>
+    </p>
+  );
+}
 
 /**
- * A pick in the composer's button row: the field name, the chosen value in bold
- * and a chevron, on the grey capsule. The select inside carries the name and the
- * choice for assistive technology.
+ * A pick in the composer's button row: the value field the canon draws, the
+ * field name and the chosen value in bold on the 36 grey capsule, its menu below.
  */
-function ComposerField({
+function ComposerField<Value extends string | number>({
   kind,
   name,
+  label,
   value,
+  items,
   disabled,
-  children,
+  onChange,
 }: {
   kind: 'language' | 'duration';
   name: string;
-  value: string;
+  label: string;
+  value: Value;
+  items: { value: Value; label: string }[];
   disabled: boolean;
-  children: ReactNode;
+  onChange: (value: Value) => void;
 }) {
   return (
-    <span
-      data-slot="composer-action"
-      data-kind={kind}
-      className={cn(
-        'relative inline-flex h-9 min-w-0 shrink items-center gap-2 rounded-[var(--radius-capsule)] bg-[var(--surface-muted)] px-3 text-[15px] leading-[18px] whitespace-nowrap has-[select:focus-visible]:outline-2 has-[select:focus-visible]:outline-offset-2 has-[select:focus-visible]:outline-[var(--ring)]',
-        !disabled && 'hover:bg-[var(--state-hover-gray)]',
-      )}
-    >
-      <span aria-hidden className={disabled ? 'text-[var(--text-disabled)]' : 'text-[var(--text-muted)]'}>
-        {name}
-      </span>
-      <span
-        aria-hidden
-        className={cn('min-w-0 truncate font-bold', disabled ? 'text-[var(--text-disabled)]' : 'text-[var(--text-strong)]')}
-      >
-        {value}
-      </span>
-      <ChevronDown
-        aria-hidden
-        size={20}
-        className={cn('shrink-0', disabled ? 'text-[var(--text-disabled)]' : 'text-[var(--text-muted)]')}
+    <span data-slot="composer-action" data-kind={kind} className="inline-flex min-w-0 shrink">
+      <ValueField<Value>
+        className="composer-field"
+        label={label}
+        name={name}
+        items={items}
+        value={value}
+        disabled={disabled}
+        onValueChange={onChange}
       />
-      {children}
     </span>
   );
 }
@@ -298,6 +302,7 @@ function ComposerBox({
   onAttachmentsChange,
   onEditBgm,
   editBgmBusy = false,
+  menuAction,
   className,
 }: ComposerBoxProps) {
   const { t } = useLocale();
@@ -380,32 +385,35 @@ function ComposerBox({
     };
   }, [linkOpen, menuOpen]);
 
+  /**
+   * A file picked through a menu row must be that row's kind; a dropped file
+   * takes the kind its type names. A refusal names the file and the reason,
+   * and the files left out over the text limit are named together.
+   */
   const addFiles = async (
     files: File[],
-    fallbackKind?: 'reference' | 'bgm' | 'text',
+    pickedKind?: 'reference' | 'bgm' | 'text',
   ): Promise<void> => {
     setError(null);
+    const overLimit: string[] = [];
+    const textCount = () => attachmentsRef.current.filter((attachment) => attachment.kind === 'text').length;
     for (const file of files) {
       const detected = attachmentKindOf(file);
-      if (onEditBgm !== undefined && (fallbackKind === 'bgm' || detected === 'bgm')) {
+      if (onEditBgm !== undefined && (pickedKind === 'bgm' || detected === 'bgm')) {
         onEditBgm(file, detected === 'bgm');
         continue;
       }
-      const kind = detected ?? fallbackKind;
-      if (kind === 'image') {
+      if (pickedKind !== undefined && detected !== pickedKind) {
+        setError(t('concept.composer.fileWrongKind', { name: file.name, kind: t(KIND_LABEL_KEYS[pickedKind]) }));
+        continue;
+      }
+      if (detected === 'image' || detected === null) {
         setError(t('concept.composer.fileUnsupported', { name: file.name }));
         continue;
       }
-      if (kind === undefined || kind === null) {
-        setError(t('concept.composer.fileUnsupported', { name: file.name }));
-        continue;
-      }
-      if (
-        kind === 'text' &&
-        attachmentsRef.current.filter((attachment) => attachment.kind === 'text').length >=
-          MAX_TEXT_ATTACHMENTS
-      ) {
-        setError(t('concept.composer.fileTooMany', { max: MAX_TEXT_ATTACHMENTS }));
+      const kind = detected;
+      if (kind === 'text' && textCount() >= MAX_TEXT_ATTACHMENTS) {
+        overLimit.push(file.name);
         continue;
       }
 
@@ -418,12 +426,8 @@ function ComposerBox({
           continue;
         }
       }
-      if (
-        kind === 'text' &&
-        attachmentsRef.current.filter((attachment) => attachment.kind === 'text').length >=
-          MAX_TEXT_ATTACHMENTS
-      ) {
-        setError(t('concept.composer.fileTooMany', { max: MAX_TEXT_ATTACHMENTS }));
+      if (kind === 'text' && textCount() >= MAX_TEXT_ATTACHMENTS) {
+        overLimit.push(file.name);
         continue;
       }
 
@@ -435,6 +439,9 @@ function ComposerBox({
         ...(kind === 'text' ? { text } : { file }),
       };
       updateAttachments([...attachmentsRef.current, attachment]);
+    }
+    if (overLimit.length > 0) {
+      setError(t('concept.composer.fileTooMany', { max: MAX_TEXT_ATTACHMENTS, names: overLimit.join(', ') }));
     }
   };
 
@@ -621,7 +628,7 @@ function ComposerBox({
       onDrop={onDrop}
       className={cn(
         'relative flex w-full flex-col border border-[var(--border)] bg-[var(--surface)] transition-colors',
-        face === 'first' ? 'rounded-[var(--radius-input)] p-3' : 'rounded-[var(--radius-composer)] p-1.5',
+        face === 'first' ? 'rounded-[var(--radius-input)] p-3' : 'gap-1.5 rounded-[var(--radius-composer)] p-1.5',
         dragging && 'border-dashed border-[var(--text-muted)]',
         targetSeat === null && className,
       )}
@@ -688,6 +695,11 @@ function ComposerBox({
               <span>{t('concept.composer.linkConsent')}</span>
             </label>
           ) : null}
+          {policy.consentRequired && !consent ? (
+            <p data-slot="composer-link-reason" className="text-[var(--text-muted)]">
+              {t('concept.composer.linkConsentNeeded')}
+            </p>
+          ) : null}
           <div className="flex flex-wrap justify-end gap-2">
             <Button
               variant="ghost"
@@ -716,9 +728,9 @@ function ComposerBox({
       ) : null}
 
       {error === null ? null : (
-        <p role="alert" data-slot="composer-error" className="my-2 text-[15px] text-[var(--text)]">
+        <FailureLine slot="composer-error" className="my-2">
           {error}
-        </p>
+        </FailureLine>
       )}
 
       <div
@@ -785,6 +797,15 @@ function ComposerBox({
                 label={t('concept.composer.addText')}
                 onSelect={() => openPicker(textInput.current)}
               />
+              {menuAction === undefined ? null : (
+                <MenuItem
+                  label={menuAction.label}
+                  onSelect={() => {
+                    setMenuOpen(false);
+                    menuAction.onSelect();
+                  }}
+                />
+              )}
             </div>
           ) : null}
         </div>
@@ -801,23 +822,12 @@ function ComposerBox({
           <ComposerField
             kind="language"
             name={t('concept.composer.languageField')}
-            value={languageName(language)}
+            value={language}
+            label={t('concept.composer.languageLabel')}
+            items={LANGUAGES.map((code) => ({ value: code, label: languageName(code) }))}
             disabled={busy}
-          >
-            <select
-              aria-label={t('concept.composer.languageLabel')}
-              value={language}
-              disabled={busy}
-              onChange={(event) => onLanguageChange(event.target.value as Language)}
-              className={FIELD_SELECT}
-            >
-              {LANGUAGES.map((code) => (
-                <option key={code} value={code}>
-                  {languageName(code)}
-                </option>
-              ))}
-            </select>
-          </ComposerField>
+            onChange={onLanguageChange}
+          />
         )}
 
         {duration === undefined ? null : onDurationChange === undefined ? (
@@ -828,23 +838,12 @@ function ComposerBox({
           <ComposerField
             kind="duration"
             name={t('concept.composer.durationField')}
-            value={durationName(duration)}
+            value={duration}
+            label={t('concept.composer.durationLabel')}
+            items={DURATION_VALUES.map((seconds) => ({ value: seconds, label: durationName(seconds) }))}
             disabled={busy}
-          >
-            <select
-              aria-label={t('concept.composer.durationLabel')}
-              value={duration}
-              disabled={busy}
-              onChange={(event) => onDurationChange(Number(event.target.value))}
-              className={FIELD_SELECT}
-            >
-              {DURATION_VALUES.map((seconds) => (
-                <option key={seconds} value={seconds}>
-                  {durationName(seconds)}
-                </option>
-              ))}
-            </select>
-          </ComposerField>
+            onChange={onDurationChange}
+          />
         )}
 
         <div
@@ -978,6 +977,15 @@ function EditComposer({
       setToneFailed(true);
     }
   };
+  // An upload failure belongs to the step it happened in; moving on to the result clears it.
+  const view = useShellView();
+  const shownView = useRef(view);
+  const dismissBgm = edit?.bgmWork.dismiss;
+  useEffect(() => {
+    if (shownView.current === view) return;
+    shownView.current = view;
+    dismissBgm?.();
+  }, [view, dismissBgm]);
   if (edit === null || edit.video === null) {
     return (
       <Tooltip content={reason ?? t('concept.composer.noSession')} side="top">
@@ -1007,9 +1015,9 @@ function EditComposer({
           </div>
         </div>
       )}
-      {toneFailed ? <p role="alert">{t('edit.tone.failed')}</p> : null}
+      {toneFailed ? <FailureLine>{t('edit.tone.failed')}</FailureLine> : null}
       {bgm.error?.kind === 'upload' ? (
-        <p role="alert" data-slot="bgm-upload-error">{t(bgm.error.key)}</p>
+        <FailureLine slot="bgm-upload-error">{t(bgm.error.key)}</FailureLine>
       ) : null}
       {bgm.running === 'upload' ? (
         <Button variant="ghost" disabled={bgm.stopping} onClick={bgm.stop}>
@@ -1031,6 +1039,8 @@ function EditComposer({
         onSubmit={() => {
           const text = value.trim();
           if (text === '') return;
+          // A new request makes an old upload failure history, so it leaves the rail.
+          if (bgm.error?.kind === 'upload') bgm.dismiss();
           const changesTone =
             number === 0 &&
             concept !== null &&
@@ -1057,6 +1067,10 @@ function EditComposer({
   );
 }
 
+/**
+ * The script conversation does not take sentences yet. The reason stays on
+ * screen above the shut box instead of waiting for a hover.
+ */
 function ScriptComposer({
   reason,
   rest,
@@ -1068,22 +1082,23 @@ function ScriptComposer({
   const script = useScript();
   const number = script?.targetSceneId == null ? null : scriptSceneNumber(script.document, script.targetSceneId);
   return (
-    <Tooltip content={reason ?? t('shell.stage.composerReason')} side="top">
-      <div className="w-full">
-        <ComposerBox
-          {...rest}
-          face="chat"
-          value=""
-          disabled
-          placeholder={rest.placeholder}
-          targetChip={number === null ? null : {
-            label: t('edit.chat.target', { number }),
-            removeLabel: t('edit.chat.targetRemove'),
-            onRemove: clearScriptTarget,
-          }}
-        />
-      </div>
-    </Tooltip>
+    <div className="flex w-full flex-col gap-2">
+      <p data-slot="composer-reason" className="px-1 text-[15px] leading-[18px] text-[var(--text-muted)]">
+        {reason ?? t('shell.stage.composerReason')}
+      </p>
+      <ComposerBox
+        {...rest}
+        face="chat"
+        value=""
+        disabled
+        placeholder={rest.placeholder}
+        targetChip={number === null ? null : {
+          label: t('edit.chat.target', { number }),
+          removeLabel: t('edit.chat.targetRemove'),
+          onRemove: clearScriptTarget,
+        }}
+      />
+    </div>
   );
 }
 
@@ -1132,6 +1147,8 @@ export function PlaceholderComposer({
           }[snapshot.job.state],
         );
 
+  // The concept head carries the length, so the rail box stays one row; the step's
+  // one extra action, a style made from words, rides the box's `+` menu.
   return (
     <div className="flex w-full flex-col gap-2">
       {jobLabel === null ? null : (
@@ -1143,11 +1160,7 @@ export function PlaceholderComposer({
           {jobLabel}
         </p>
       )}
-      {snapshot.error === null ? null : (
-        <p role="alert" className="px-1 text-[15px] text-[var(--text)]">
-          {t(snapshot.error)}
-        </p>
-      )}
+      {snapshot.error === null ? null : <FailureLine className="px-1">{t(snapshot.error)}</FailureLine>}
       {snapshot.notes.length === 0 && snapshot.unsupported.length === 0 && snapshot.pending === null ? null : (
         <details className="max-h-48 overflow-y-auto px-1 text-[15px]">
           <summary className="min-h-11 cursor-pointer">{t('concept.results')}</summary>
@@ -1165,11 +1178,10 @@ export function PlaceholderComposer({
         onChange={setConceptDraft}
         onSubmit={(attachments) => sendConcept(snapshot.draft, attachments)}
         disabled={snapshot.busy}
-        language={settings.language}
-        duration={settings.target_duration_s}
-        onLanguageChange={(value) => chooseConcept('/language', value)}
-        onDurationChange={(value) => chooseConcept('/target_duration_s', value)}
         deployment={deployment}
+        menuAction={snapshot.document.confirmed
+          ? undefined
+          : { label: t('concept.entry.style'), onSelect: requestConceptStyleEntry }}
       />
     </div>
   );

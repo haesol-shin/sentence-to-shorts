@@ -1,5 +1,6 @@
 import type { Job } from '@/shared/api/client';
 import { useLocale, type Translate } from '@/shared/lib/i18n/locale';
+import { cn } from '@/shared/lib/utils';
 
 function jobText(t: Translate, job: Job): string {
   switch (job.state) {
@@ -50,14 +51,22 @@ export function JobStatusShort({ job }: { job: Job }) {
   );
 }
 
-/** One line about the running job; the announcer reads its changes. */
+/**
+ * One line about the draft job; the announcer reads its changes. From the
+ * tablet width up the conversation says the wait itself, so the line shows
+ * there only once the job failed or stopped and the screen never shifts for a wait.
+ */
 export function JobBanner({ job }: { job: Job }) {
   const { t } = useLocale();
+  const waiting = job.state === 'queued' || job.state === 'running' || job.state === 'cancelling';
   return (
     <div
       data-slot="job-banner"
       data-state={job.state}
-      className="flex items-center gap-2 bg-[var(--surface-muted)] px-4 py-2 text-[15px] text-[var(--text)]"
+      className={cn(
+        'flex items-center gap-2 bg-[var(--surface-muted)] px-4 py-2 text-[15px] text-[var(--text)]',
+        waiting && 'md:hidden',
+      )}
     >
       <span className="font-bold text-[var(--text-strong)]">{t('shell.job.label')}</span>
       <span>{jobText(t, job)}</span>

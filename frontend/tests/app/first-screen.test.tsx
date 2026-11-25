@@ -72,19 +72,27 @@ test('test_10a_sentence_send_starts_a_draft_job', async () => {
   expect(new Set(keys).size).toBe(3);
 });
 
+function pickValue(field: string, option: string): void {
+  fireEvent.click(screen.getByRole('combobox', { name: field }));
+  const row = screen.getByRole('option', { name: option });
+  fireEvent.pointerDown(row);
+  fireEvent.pointerUp(row);
+  fireEvent.mouseUp(row);
+  fireEvent.click(row);
+}
+
 test('test_10a_first_screen_offers_real_language_and_length_values', async () => {
   await renderApp();
 
-  const language = screen.getByLabelText('영상 언어') as HTMLSelectElement;
-  const duration = screen.getByLabelText('영상 길이') as HTMLSelectElement;
-  expect(language.value).toBe('ko');
-  expect(duration.value).toBe('60');
+  const language = screen.getByRole('combobox', { name: '영상 언어' });
+  const duration = screen.getByRole('combobox', { name: '영상 길이' });
+  expect(language.textContent).toContain('한국어');
+  expect(duration.textContent).toContain('1분');
 
-  fireEvent.change(language, { target: { value: 'en' } });
-  fireEvent.change(duration, { target: { value: '120' } });
-
-  expect(language.value).toBe('en');
-  expect(duration.value).toBe('120');
+  pickValue('영상 언어', 'English');
+  await waitFor(() => expect(language.textContent).toContain('English'));
+  pickValue('영상 길이', '2분');
+  await waitFor(() => expect(duration.textContent).toContain('2분'));
 });
 
 test('test_16_language_switch_turns_the_screen_english', async () => {

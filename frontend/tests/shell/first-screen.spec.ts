@@ -83,6 +83,7 @@ test('test_23_a_sentence_starts_a_video_from_the_mock_answers', async ({ page })
 
   await startVideo(page);
 
-  await expect(page.getByText('차례를 기다리는 중이에요.', { exact: true })).toBeVisible();
+  // The wait is said in the conversation, and the work area keeps its place.
+  await expect(page.getByText('문장으로 컨셉 초안을 쓰고 있어요. 다 쓰면 값이 바뀔 수 있어요.', { exact: true })).toBeVisible();
   await expect(page.locator('main[data-screen="app"]')).toBeVisible();
 });

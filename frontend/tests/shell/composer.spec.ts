@@ -266,13 +266,18 @@ test('test_10a_bgm_files_keep_their_kind_and_all_selected_items', async ({ page 
  */
 async function buttonRowHeight(composer: Locator): Promise<number> {
   return composer.evaluate((root) => {
+    // The first screen carries the two picks; the concept rail's box carries plus and send only.
+    const always = ['[data-slot="composer-plus"]', '[data-slot="composer-send"]'];
+    if (always.some((selector) => root.querySelector(selector) === null)) {
+      throw new Error('a button row part is missing');
+    }
     const parts = [
-      '[data-slot="composer-plus"]',
-      '[data-slot="composer-send"]',
+      ...always,
       '[data-slot="composer-action"][data-kind="language"]',
       '[data-slot="composer-action"][data-kind="duration"]',
-    ].map((selector) => root.querySelector(selector));
-    if (parts.some((part) => part === null)) throw new Error('a button row part is missing');
+    ]
+      .map((selector) => root.querySelector(selector))
+      .filter((part) => part !== null);
     const boxes = parts.map((part) => (part as Element).getBoundingClientRect());
     return Math.max(...boxes.map((box) => box.bottom)) - Math.min(...boxes.map((box) => box.top));
   });

@@ -56,11 +56,13 @@ test('test_21_a_press_during_the_download_shows_the_percent_beside_the_stop_butt
 test('test_21_a_retrying_download_names_the_next_try_and_a_failed_one_offers_a_retry', async ({ page }) => {
   await openEdit(page, 'retrying');
   const notice = page.locator('[data-slot="prepare-notice"]');
-  await expect(notice).toContainText('인터넷 연결을 확인하세요, 다시 시도하는 중');
+  await expect(notice).toContainText('인터넷 연결이 끊겨서 음성 파일을 다시 받으려고 해요.');
   await expect(notice).toContainText('다음 시도');
 
   await openEdit(page, 'failed');
   await expect(notice).toContainText('음성 파일을 받지 못했어요');
   await page.getByRole('button', { name: '다시 시도' }).click();
-  await expect(notice).toHaveCount(0);
+  // The download moves again and the notice says so instead of going quiet.
+  await expect(notice).toContainText('음성 파일을 다시 받는 중이에요.');
+  await expect(page.getByRole('button', { name: '다시 시도' })).toHaveCount(0);
 });

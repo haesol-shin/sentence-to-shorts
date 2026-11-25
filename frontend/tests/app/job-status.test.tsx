@@ -86,7 +86,7 @@ test('test_23_one_job_status_live_region_stays_mounted_across_the_keyboard', asy
   await waitFor(() => expect(jobStatusRegions()).toHaveLength(1));
   const region = jobStatusRegions()[0];
   expect(region?.dataset.slot).toBe('job-live');
-  expect(region?.textContent).toBe('진행 상황 차례를 기다리는 중이에요.');
+  expect(region?.textContent).toBe('컨셉 초안 차례를 기다리는 중이에요.');
 
   act(() => keyboard.open());
   expect(jobStatusRegions()).toHaveLength(1);
@@ -134,7 +134,7 @@ test('test_23_a_status_change_with_a_keyboard_toggle_lands_in_the_same_live_regi
   render(<Harness />);
   expect(jobStatusRegions()).toHaveLength(1);
   const region = jobStatusRegions()[0];
-  expect(region?.textContent).toBe('진행 상황 차례를 기다리는 중이에요.');
+  expect(region?.textContent).toBe('컨셉 초안 차례를 기다리는 중이에요.');
 
   act(() => {
     setJob({ ...draftJob, state: 'running' } as Job);
@@ -142,7 +142,7 @@ test('test_23_a_status_change_with_a_keyboard_toggle_lands_in_the_same_live_regi
   });
   expect(jobStatusRegions()).toHaveLength(1);
   expect(jobStatusRegions()[0]).toBe(region);
-  expect(region?.textContent).toBe('진행 상황 만드는 중이에요.');
+  expect(region?.textContent).toBe('컨셉 초안 만드는 중이에요.');
 
   act(() => {
     setJob({ ...draftJob, state: 'succeeded' } as Job);
@@ -150,5 +150,5 @@ test('test_23_a_status_change_with_a_keyboard_toggle_lands_in_the_same_live_regi
   });
   expect(jobStatusRegions()).toHaveLength(1);
   expect(jobStatusRegions()[0]).toBe(region);
-  expect(region?.textContent).toBe('진행 상황 다 됐어요.');
+  expect(region?.textContent).toBe('컨셉 초안 다 됐어요.');
 });

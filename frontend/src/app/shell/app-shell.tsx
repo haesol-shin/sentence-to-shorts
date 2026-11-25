@@ -10,6 +10,7 @@ import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
 import { ConversationLog } from './conversation';
 import { EditBridge } from './edit-bridge';
+import { EditPrepareNotice, EditPrepareProvider } from './edit-prepare';
 import { ShellViewProvider } from './shell-view';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
@@ -121,13 +122,16 @@ export function AppShell({
           {announcer}
           <Sidebar view={view} onNewVideo={onNewVideo} brand={brand} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <TopBar
-              view={view}
-              videoId={videoId}
-              onStage={onStage}
-              onNewVideo={onNewVideo}
-              status={keyboardOpen ? jobStatus : null}
-            />
+            <EditPrepareProvider active={view === 'edit'}>
+              <TopBar
+                view={view}
+                videoId={videoId}
+                onStage={onStage}
+                onNewVideo={onNewVideo}
+                status={keyboardOpen ? jobStatus : null}
+              />
+              {view === 'edit' && !keyboardOpen ? <EditPrepareNotice /> : null}
+            </EditPrepareProvider>
             {/* While the keys are up the phone shows the sheet: step, panel and input. */}
             {keyboardOpen ? null : header}
             {/*
