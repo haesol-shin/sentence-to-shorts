@@ -130,6 +130,14 @@ class Layout:
             raise ValueError(f"invalid revision: {revision}")
         return self.project_dir(project_id) / "v" / check_id(video_id) / "r" / f"{revision}.json"
 
+    def reference_root(self, project_id: str, video_id: str) -> Path:
+        """All kept-frame folders of one video."""
+        return self.project_dir(project_id) / "v" / check_id(video_id) / "ref"
+
+    def reference_dir(self, project_id: str, video_id: str, reference_id: str) -> Path:
+        """Kept frames of one analyzed reference, next to the video's revisions."""
+        return self.reference_root(project_id, video_id) / check_id(reference_id)
+
     def output_dir(self, video_id: str) -> Path:
         return self.data / "o" / check_id(video_id)
 

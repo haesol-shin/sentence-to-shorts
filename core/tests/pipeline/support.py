@@ -24,6 +24,7 @@ from app.ports import (
     JobContext,
     Proposal,
     ReferenceOutcome,
+    StyleFrames,
     Usage,
 )
 from app.schemas.api import CreateProjectRequest, PrecheckReport
@@ -410,6 +411,7 @@ class FakeTemplates:
         self.parts = FakePartsBuilder()
         self.layers = FakeLayerDrawer()
         self.style_calls: list[str] = []
+        self.style_hints: list[Any] = []
         self.template_calls: list[str] = []
         self.bgm_calls: list[str] = []
 
@@ -423,11 +425,12 @@ class FakeTemplates:
         self,
         req: Any,
         video: Video,
-        hints: dict[str, Any] | None,
+        hints: StyleFrames | None,
         *,
         ctx: JobContext,
     ) -> PinnedRef:
         self.style_calls.append(req.instruction)
+        self.style_hints.append(hints)
         return self.catalog.pin("art_style", video.settings.visual.art_style.id)
 
     def generate_template(
@@ -562,6 +565,9 @@ class FakeReference:
         self.ingest_calls: list[str | None] = []
         self.analyze_calls: list[str] = []
         self.outcome: ReferenceOutcome | None = None
+        self.frame_calls: list[str] = []
+        self.frames: list[bytes] = []
+        self.prune_calls: list[str | None] = []
 
     def ingest(self, upload: Path | None, url: str | None, *, ctx: JobContext) -> Path:
         self.ingest_calls.append(url)
@@ -577,6 +583,14 @@ class FakeReference:
         if self.outcome is None:
             return ReferenceOutcome(change_id=None, reference=None)
         return self.outcome
+
+    def kept_frames(self, video: Video) -> list[bytes]:
+        self.frame_calls.append(video.id)
+        return list(self.frames)
+
+    def prune_frames(self, video: Video) -> None:
+        reference = video.reference
+        self.prune_calls.append(None if reference is None else reference.id)
 
 
 @dataclass

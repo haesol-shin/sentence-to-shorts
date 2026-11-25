@@ -1,6 +1,6 @@
 ---
 route: reference_vision
-version: 1
+version: 2
 data_variables: [transcript, allowed]
 schema_ref: app.services.reference.vision.ReferenceValues
 basis:
@@ -34,6 +34,7 @@ basis:
 - `caption_mode`는 한 문장이 한꺼번에 나오면 sentence, 구절이 말에 맞춰 바뀌면 phrase, 글자가 한 자씩 찍히면 typewriter다.
 - `bgm_mood`는 대사 뒤에 깔린 분위기가 아니라 화면의 색과 속도에서 읽는다. 말소리 외에 음악 정보가 없으므로 확신이 없으면 비운다.
 - `palette`는 화면을 가장 많이 채우는 색을 `#rrggbb` 소문자나 대문자 16진수로 5개까지 적는다.
+- `subject_frames`는 보낸 프레임 중 말하는 캐릭터나 주 대상이 잘 보이는 프레임 번호다. 첫 프레임이 1번이고, 없으면 빈 목록이다. 나중에 그림체를 만들 때 이 프레임을 다시 보기 때문이다.
 - 판단 근거가 약한 값은 null로 둔다. 틀린 값을 채우면 사용자의 기본값을 덮기 때문이다.
 
 # Data policy
@@ -45,4 +46,4 @@ basis:
 
 # Output
 
-필드는 story_structure, layout, character_role, register, humor, progress_mode, caption_mode, bgm_mood, palette다. 값이 없으면 null이고 palette는 빈 목록이다.
+필드는 story_structure, layout, character_role, register, humor, progress_mode, caption_mode, bgm_mood, palette, subject_frames다. 값이 없으면 null이고 palette와 subject_frames는 빈 목록이다.

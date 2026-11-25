@@ -149,9 +149,9 @@ class ScriptedLlm:
         return "ok"
 
     def data(self, index: int) -> dict[str, Any]:
-        text = self.requests[index].parts[0].text
-        assert text is not None
-        return json.loads(text)
+        texts = [part.text for part in self.requests[index].parts if part.kind == "text"]
+        assert texts and texts[-1] is not None
+        return json.loads(texts[-1])
 
 
 def _png(image: Any, max_side: int) -> str:

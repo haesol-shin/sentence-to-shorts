@@ -132,6 +132,14 @@ class LlmPart:
     png: bytes | None = None
 
 
+@dataclass(frozen=True)
+class StyleFrames:
+    """The palette and kept frames a style request sends as reference data."""
+
+    palette: list[str]
+    frames: list[bytes]
+
+
 class LlmTask(StrEnum):
     draft = "draft"
     script = "script"
@@ -416,6 +424,30 @@ class DownloaderPort(Protocol):
     ) -> Path: ...
 
 
+class ReferenceFrameStore(Protocol):
+    """Kept reference frames in the video's project storage.
+
+    The frames outlive the analysis: a later style request sends the same PNGs
+    to the model. ``put`` replaces whatever the reference id held before.
+    """
+
+    def put(
+        self, project_id: str, video_id: str, reference_id: str, frames: list[bytes]
+    ) -> list[str]:
+        """Write the frames in order and return their stored file names."""
+        ...
+
+    def get(
+        self, project_id: str, video_id: str, reference_id: str, names: list[str]
+    ) -> list[bytes]:
+        """The frames still present, in the given order; a missing file is skipped."""
+        ...
+
+    def prune(self, project_id: str, video_id: str, keep: str | None) -> None:
+        """Delete every kept-frame folder of the video except ``keep``."""
+        ...
+
+
 class ProjectStore(Protocol):
     def new_id(self, prefix: str) -> str: ...
 
@@ -670,6 +702,7 @@ class ServiceDeps:
     project_store: ProjectStore
     artifact_store: ArtifactStore
     job_store: JobStore
+    reference_frames: ReferenceFrameStore
     catalog: CatalogPort
     llm: LlmPort
     tts: TtsPort

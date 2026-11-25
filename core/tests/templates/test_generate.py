@@ -24,6 +24,18 @@ def test_6_shape_change_is_ready(harness: Harness) -> None:
     scenarios.shape_change_is_ready(harness)
 
 
+def test_6_reference_frames_travel_with_the_style_request(harness: Harness) -> None:
+    scenarios.reference_frames_travel_with_the_style_request(harness)
+
+
+def test_6_style_repair_keeps_the_reference_frames(harness: Harness) -> None:
+    scenarios.style_repair_keeps_the_reference_frames(harness)
+
+
+def test_6_style_without_reference_sends_no_frames(harness: Harness) -> None:
+    scenarios.style_without_reference_sends_no_frames(harness)
+
+
 def test_6_color_only_change_is_rejected(harness: Harness) -> None:
     scenarios.color_only_is_rejected(harness)
 

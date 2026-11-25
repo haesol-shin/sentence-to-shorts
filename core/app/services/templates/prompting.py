@@ -4,13 +4,14 @@ Prompt files live next to the routes they serve: ``prompts/<route>/prompt.md``
 with ``style-fixtures.jsonl`` review inputs beside them. The loader strips the
 front matter, checks that the data variables match the declaration and returns
 only the trusted body as the system prompt. Request text, reference hints,
-earlier code and failure text travel as one data part, never inside system.
+earlier code and failure text travel as one data part, never inside system. The
+kept reference frames travel as ``png`` parts before that data part.
 """
 
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Generic, TypeVar
@@ -90,10 +91,14 @@ def complete_json(
     data: Mapping[str, Any],
     max_output_tokens: int,
     ctx: JobContext,
+    images: Sequence[bytes] = (),
 ) -> CodeAnswer[ModelT]:
     """Call the model once, repair an invalid output once, then fail with llm_invalid_output."""
     system = load_prompt(route, data)
-    parts = [LlmPart(kind="text", text=_data_text(data))]
+    parts = [
+        *(LlmPart(kind="png", png=image) for image in images),
+        LlmPart(kind="text", text=_data_text(data)),
+    ]
     schema = model.model_json_schema()
     request = LlmRequest(
         task=task,

@@ -1958,13 +1958,23 @@ export interface components {
          */
         ReferenceKind: "file" | "link";
         /**
+         * ReferenceLook
+         * @description The look kept from a reference so a later style request can copy it.
+         */
+        ReferenceLook: {
+            /** Frames */
+            frames: string[];
+            /** Palette */
+            palette: components["schemas"]["HexColor"][];
+        };
+        /**
          * ReferenceStatus
          * @enum {string}
          */
         ReferenceStatus: "analyzed" | "failed";
         /**
          * ReferenceSummary
-         * @description Kept after the source file is deleted. Holds no URL, no frames and no transcript.
+         * @description Kept after the source file is deleted. Holds no URL, no frame bytes and no transcript.
          */
         ReferenceSummary: {
             host: components["schemas"]["ReferenceHost"] | null;
@@ -1974,7 +1984,7 @@ export interface components {
             /** Source Deleted */
             source_deleted: boolean;
             status: components["schemas"]["ReferenceStatus"];
-            style: components["schemas"]["PinnedRef"] | null;
+            style: components["schemas"]["ReferenceLook"] | null;
         };
         /**
          * Regions

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.ports import AppError, JobContext
+from app.ports import AppError, JobContext, StyleFrames
 from app.schemas.api import (
     BgmCodeRequest,
     DraftRequest,
@@ -32,7 +32,7 @@ from app.schemas.change import (
 )
 from app.schemas.common import Mood, Origin
 from app.schemas.job import Job
-from app.schemas.video import CreatedBy, Video
+from app.schemas.video import CreatedBy, ReferenceSummary, Video
 from app.services.pipeline.dependencies import plan_change
 from app.services.pipeline.run_state import check_alive
 from app.services.pipeline.types import Services
@@ -61,6 +61,8 @@ def run_reference_job(
     job: Job, ctx: JobContext, services: Services
 ) -> dict[str, object]:
     video = load_change_video(job, services)
+    # A cancelled or failed attempt can leave frames no revision points to.
+    services.reference.prune_frames(services.project.view(video.id))
     body = ctx.input
     url = body.get("url")
     if url is not None:
@@ -121,20 +123,25 @@ def _settle_reference_plan(
     return settle_plan(plan, video if saved is None else saved, services)
 
 
-def _store_reference(video: Video, summary: Any, services: Services) -> Video | None:
+def _store_reference(
+    video: Video, summary: ReferenceSummary | None, services: Services
+) -> Video | None:
     """Append the summary only while the analyzed revision is still the head.
 
     ``append_revision`` checks that the new revision is head + 1, so a writer
     that advances the head between the read and the write wins: the conflict is
-    swallowed and this stale job output is not stored.
+    swallowed and this stale job output is not stored. Every path prunes the
+    frames to the reference the resulting head points to, so an attempt that is
+    not stored and a replaced reference leave no folder behind.
     """
     if summary is None:
         return None
     head = services.project.view(video.id)
     if head.revision != video.revision:
+        services.reference.prune_frames(head)
         return None
     try:
-        return services.project.projects.append_revision(
+        saved = services.project.projects.append_revision(
             revision.next_revision(
                 video.model_copy(update={"reference": summary}),
                 head,
@@ -142,9 +149,12 @@ def _store_reference(video: Video, summary: Any, services: Services) -> Video | 
             )
         )
     except AppError as error:
-        if error.code == "revision_conflict":
-            return None
-        raise
+        if error.code != "revision_conflict":
+            raise
+        services.reference.prune_frames(services.project.view(video.id))
+        return None
+    services.reference.prune_frames(saved)
+    return saved
 
 
 def run_bgm_code(body: dict[str, Any], ctx: JobContext, services: Services) -> dict[str, object]:
@@ -285,7 +295,10 @@ def _chat(
 def _style(
     video: Video, request: StyleRequest, ctx: JobContext, services: Services
 ) -> dict[str, object]:
-    hints = _style_hints(video, request.use_reference)
+    head = services.project.view(video.id)
+    if head.revision == video.revision:
+        services.reference.prune_frames(head)
+    hints = _style_hints(video, request.use_reference, services)
     ref = services.templates.generate_style(request, video, hints, ctx=ctx)
     op = SetOp(
         op="set",
@@ -450,10 +463,29 @@ def _only_scene(ops: list[Op], scene_id: str) -> None:
             raise AppError("invalid_op", detail={"op": op.op, "scene_id": scene_id})
 
 
-def _style_hints(video: Video, use_reference: bool) -> dict[str, Any] | None:
+def _style_hints(
+    video: Video, use_reference: bool, services: Services
+) -> StyleFrames | None:
+    """The kept palette and frames of the reference, when the request asks for them.
+
+    A reference that records frames but no longer has all of them would make a
+    style that does not copy the look while looking successful, so the request
+    fails instead. An older reference can lose its folder to a later analysis.
+    """
     if not use_reference or video.reference is None or video.reference.style is None:
         return None
-    return {"style": video.reference.style.model_dump(mode="json")}
+    look = video.reference.style
+    frames = services.reference.kept_frames(video)
+    if len(frames) != len(look.frames):
+        raise AppError(
+            "internal",
+            detail={
+                "reason": "reference_frames_missing",
+                "kept": len(frames),
+                "expected": len(look.frames),
+            },
+        )
+    return StyleFrames(palette=list(look.palette), frames=frames)
 
 
 def _upload_path(ctx: JobContext) -> Any:

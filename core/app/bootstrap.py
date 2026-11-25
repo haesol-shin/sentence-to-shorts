@@ -80,6 +80,7 @@ from app.storage.credentials import SqliteCredentialStore
 from app.storage.job_inputs import create_job_input_store
 from app.storage.paths import Layout
 from app.storage.projects import SqliteProjectStore, new_typeid
+from app.storage.reference import FileReferenceFrames
 from app.storage.sqlite import Database
 from app.storage.usage import PriceTable, SqliteUsageReader
 from app.tools.align import adapter as align_adapter
@@ -676,6 +677,7 @@ def build_runtime(settings: Settings | None = None) -> AppRuntime:
         project_store=project_store,
         artifact_store=artifact_store,
         job_store=job_store,
+        reference_frames=FileReferenceFrames(layout),
         catalog=catalog,
         llm=cast(LlmPort, llm),
         tts=tts,

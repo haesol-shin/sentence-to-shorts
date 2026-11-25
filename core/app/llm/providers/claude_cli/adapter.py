@@ -8,11 +8,13 @@ system text is a separate content block from every data part, and no prompt or
 schema is placed in argv. The verified help has no stdin or file channel for a
 system prompt, so a separate first content block is the available boundary.
 
-The verified help does not document image input without tools, so image and
-``reference_vision`` requests fail with ``llm_refused`` before any process runs.
-There is also no safe non-generating login probe, so ``auth_state`` reports
-``missing`` when the executable is absent and otherwise caches the outcome
-observed by ``complete``; it starts as ``unknown``.
+``png`` parts travel as ``image`` content blocks in the same stream-json user
+message, the shape the official Agent SDK documents for a follow-up message with
+an image. They are data, never instructions; the shared layer already refuses
+more than eight frames per call (CONTRACTS 10.4). There is also no safe
+non-generating login probe, so ``auth_state`` reports ``missing`` when the
+executable is absent and otherwise caches the outcome observed by ``complete``;
+it starts as ``unknown``.
 
 The verified help has no max-output-token flag and no verified environment
 control for one. The provider therefore sends the request budget as a trusted
@@ -23,6 +25,7 @@ cannot be enforced and only the instruction remains.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -46,7 +49,7 @@ from app.llm.common import (
 )
 from app.llm.providers.claude_cli.process import CliProcessResult, run
 from app.llm.schema_prompt import schema_instruction
-from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest, LlmTask
+from app.ports import AppSettings, CancelToken, CredentialResolver, LlmRequest
 
 PROVIDER = "claude_cli"
 MINIMUM_VERSION = (2, 1, 325)
@@ -195,17 +198,12 @@ class ClaudeCliLlm(BaseLlm):
         deadline: float,
         key: str | None,
     ) -> ProviderReply:
-        if req.task is LlmTask.reference_vision or any(
-            part.kind == "png" for part in req.parts
-        ):
-            # The verified help does not promise image input without tools.
-            raise ProviderError("llm_refused")
         call_deadline = min(deadline, time.monotonic() + timeout)
+        payload = _stdin_payload(req)
         self._ensure_probe(cancel=cancel, deadline=call_deadline)
         executable = _resolve_executable(self.executable)
         if executable is None:
             raise ProviderError("llm_auth")
-        payload = _stdin_payload(req)
         argv = _argv(executable, route)
         try:
             with _private_workdir(self.settings.cache_dir) as cwd:
@@ -403,15 +401,30 @@ def _argv(executable: str, route: ResolvedRoute) -> list[str]:
 
 
 def _stdin_payload(req: LlmRequest) -> bytes:
-    content: list[dict[str, str]] = [{"type": "text", "text": req.system}]
+    content: list[dict[str, Any]] = [{"type": "text", "text": req.system}]
     constraints = [f"Keep the response within {req.max_output_tokens} output tokens."]
     if req.output_schema is not None:
         constraints.append(schema_instruction(req.output_schema))
     content.append({"type": "text", "text": "\n".join(constraints)})
     for part in req.parts:
-        if part.kind != "text":
+        if part.kind == "png":
+            if not part.png:
+                # Frames are the only image data (CONTRACTS 10.1).
+                raise ProviderError("llm_refused")
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": base64.b64encode(part.png).decode("ascii"),
+                    },
+                }
+            )
+        elif part.kind == "text":
+            content.append({"type": "text", "text": part.text or ""})
+        else:
             raise ProviderError("llm_refused")
-        content.append({"type": "text", "text": part.text or ""})
     message = {"type": "user", "message": {"role": "user", "content": content}}
     return (json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n").encode(
         "utf-8"

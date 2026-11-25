@@ -53,6 +53,10 @@ class ReferenceValues(ContractModel):
     palette: Annotated[
         list[Annotated[str, Field(pattern=HEX_COLOR_PATTERN)]], Field(max_length=5)
     ] = Field(default_factory=list)
+    # One-based positions of the sent frames that show the character or subject.
+    subject_frames: Annotated[
+        list[Annotated[int, Field(ge=1, le=MAX_FRAMES)]], Field(max_length=MAX_FRAMES)
+    ] = Field(default_factory=list)
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 

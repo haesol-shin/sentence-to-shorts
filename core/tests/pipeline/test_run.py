@@ -11,17 +11,27 @@ from __future__ import annotations
 import hashlib
 from dataclasses import replace
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
-from app.ports import AppError, Cancelled, ReferenceOutcome, Usage
+from app.ports import AppError, Cancelled, ReferenceOutcome, StyleFrames, Usage
 from app.schemas.artifact import ArtifactKind
 from app.schemas.change import SetOp, SetScriptOp, Target
 from app.schemas.common import PERSONAL_OWNER_ID, Mood, Origin
 from app.schemas.job import Effort, JobKind, Stage, StageRecord
 from app.schemas.script import Script, ScriptSource
 from app.schemas.settings import LockKey, LockState
-from app.schemas.video import ArtifactState, VideoStage
+from app.schemas.video import (
+    ArtifactState,
+    Measured,
+    ReferenceKind,
+    ReferenceLook,
+    ReferenceStatus,
+    ReferenceSummary,
+    VideoStage,
+)
 from app.services.pipeline.build import run_generate
 from app.services.pipeline.cache_keys import Graph
 from app.services.pipeline.dependencies import build_view, plan_change
@@ -823,6 +833,127 @@ def test_4_1_style_and_template_create_plans_without_rendering(harness: Harness)
     assert template_plan.requires_confirmation
     assert template_plan.status.value == "proposed"
     assert _all_calls(harness) == []
+
+
+def _look(harness: Harness, **updates: Any) -> ReferenceSummary:
+    summary = ReferenceSummary(
+        id=harness.projects.new_id("rf"),
+        kind=ReferenceKind.file,
+        host=None,
+        status=ReferenceStatus.analyzed,
+        source_deleted=True,
+        measured=Measured(duration_ms=3000, scene_count=3, silence_ratio=0.2, has_bgm=False),
+        style=ReferenceLook(palette=["#112233"], frames=["frame_0.png"]),
+    )
+    return summary.model_copy(update=updates)
+
+
+def test_4_1_style_sends_the_kept_reference_frames_only_when_asked(
+    harness: Harness,
+) -> None:
+    summary = _look(harness)
+    video = harness.revise(harness.video, reference=summary)
+    harness.reference.frames = [b"\x89PNG synthetic"]
+
+    with_frames, _ = _run(
+        harness,
+        JobKind.style,
+        video=video,
+        input={
+            "video_id": video.id,
+            "base_revision": video.revision,
+            "instruction": "참고 그림체",
+            "base_style": None,
+            "use_reference": True,
+        },
+    )
+
+    assert harness.templates.style_hints[-1] == StyleFrames(
+        palette=["#112233"], frames=[b"\x89PNG synthetic"]
+    )
+    assert with_frames["change_id"] is not None
+
+    _run(
+        harness,
+        JobKind.style,
+        video=video,
+        input={
+            "video_id": video.id,
+            "base_revision": video.revision,
+            "instruction": "참고 없이",
+            "base_style": None,
+            "use_reference": False,
+        },
+    )
+    assert harness.templates.style_hints[-1] is None
+
+
+def test_4_1_style_fails_when_the_kept_reference_frames_are_gone(
+    harness: Harness,
+) -> None:
+    summary = _look(harness)
+    video = harness.revise(harness.video, reference=summary)
+    harness.reference.frames = []
+
+    with pytest.raises(AppError) as raised:
+        _run(
+            harness,
+            JobKind.style,
+            video=video,
+            input={
+                "video_id": video.id,
+                "base_revision": video.revision,
+                "instruction": "참고 그림체",
+                "base_style": None,
+                "use_reference": True,
+            },
+        )
+
+    assert raised.value.code == "internal"
+    assert raised.value.detail["reason"] == "reference_frames_missing"
+    assert raised.value.detail["expected"] == 1 and raised.value.detail["kept"] == 0
+    assert harness.templates.style_calls == []
+
+
+def test_20_storing_a_new_reference_prunes_the_previous_frames(harness: Harness) -> None:
+    previous = _look(harness)
+    video = harness.revise(harness.video, reference=previous)
+    fresh = _look(harness)
+    harness.reference.outcome = ReferenceOutcome(
+        change_id=None,
+        reference=SimpleNamespace(summary=fresh, style_hints=None, kept_user_values=[]),
+    )
+
+    _run(
+        harness,
+        JobKind.reference,
+        video=video,
+        input={"base_revision": video.revision, "url": "https://example.invalid/ref"},
+    )
+
+    assert harness.reference.prune_calls == [previous.id, fresh.id]
+    stored = harness.projects.get_video(video.id)
+    assert stored.reference is not None and stored.reference.id == fresh.id
+
+
+def test_20_a_stale_reference_result_prunes_its_kept_frames(harness: Harness) -> None:
+    video = harness.video
+    stale = _look(harness)
+    harness.reference.outcome = ReferenceOutcome(
+        change_id=None,
+        reference=SimpleNamespace(summary=stale, style_hints=None, kept_user_values=[]),
+    )
+    harness.revise(video, topic="A newer synthetic topic")
+
+    _run(
+        harness,
+        JobKind.reference,
+        video=video,
+        input={"base_revision": video.revision, "url": "https://example.invalid/ref"},
+    )
+
+    assert harness.reference.prune_calls == [None, None]
+    assert harness.projects.get_video(video.id).reference is None
 
 
 def test_4_1_reference_applies_existing_change_when_it_needs_no_confirmation(

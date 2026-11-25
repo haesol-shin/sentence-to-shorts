@@ -1292,6 +1292,10 @@
       "title": "Health",
       "type": "object"
     },
+    "HexColor": {
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "type": "string"
+    },
     "Humor": {
       "enum": [
         "none",
@@ -2724,6 +2728,35 @@
       "title": "ReferenceKind",
       "type": "string"
     },
+    "ReferenceLook": {
+      "additionalProperties": false,
+      "description": "The look kept from a reference so a later style request can copy it.",
+      "properties": {
+        "frames": {
+          "items": {
+            "pattern": "^frame_[0-3]\\.png$",
+            "type": "string"
+          },
+          "maxItems": 4,
+          "title": "Frames",
+          "type": "array"
+        },
+        "palette": {
+          "items": {
+            "$ref": "#/$defs/HexColor"
+          },
+          "maxItems": 5,
+          "title": "Palette",
+          "type": "array"
+        }
+      },
+      "required": [
+        "palette",
+        "frames"
+      ],
+      "title": "ReferenceLook",
+      "type": "object"
+    },
     "ReferenceStatus": {
       "enum": [
         "analyzed",
@@ -2734,7 +2767,7 @@
     },
     "ReferenceSummary": {
       "additionalProperties": false,
-      "description": "Kept after the source file is deleted. Holds no URL, no frames and no transcript.",
+      "description": "Kept after the source file is deleted. Holds no URL, no frame bytes and no transcript.",
       "properties": {
         "host": {
           "anyOf": [
@@ -2772,7 +2805,7 @@
         "style": {
           "anyOf": [
             {
-              "$ref": "#/$defs/PinnedRef"
+              "$ref": "#/$defs/ReferenceLook"
             },
             {
               "type": "null"

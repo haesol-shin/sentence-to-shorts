@@ -12,7 +12,7 @@ import hashlib
 import json
 import re
 import shutil
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -30,6 +30,7 @@ from app.ports import (
     PartsBuilder,
     SandboxPort,
     ServiceDeps,
+    StyleFrames,
     UnknownCatalogId,
     ValidatedOutput,
     canonical_digest,
@@ -194,8 +195,13 @@ class TemplatesService:
         max_output_tokens: int,
         run: Callable[[AnswerT], ValidatedOutput],
         ctx: JobContext,
+        images: Sequence[bytes] = (),
     ) -> tuple[CodeAnswer[AnswerT], ValidatedOutput]:
-        """Ask for code, run it, and send a failure back for at most two repairs."""
+        """Ask for code, run it, and send a failure back for at most two repairs.
+
+        ``images`` are the same reference frames on every attempt; a repair keeps
+        the data it was given and only adds the failure.
+        """
         request = {**data, "previous_code": None, "failure": None}
         for attempt in range(MAX_REPAIRS + 1):
             answer = complete_json(
@@ -206,6 +212,7 @@ class TemplatesService:
                 data=request,
                 max_output_tokens=max_output_tokens,
                 ctx=ctx,
+                images=images,
             )
             try:
                 with ctx.stage(Stage.sandbox):
@@ -361,7 +368,7 @@ class TemplatesService:
         self,
         req: StyleRequest,
         video: Video,
-        hints: dict[str, object] | None,
+        hints: StyleFrames | None,
         *,
         ctx: JobContext,
     ) -> PinnedRef:
@@ -373,8 +380,20 @@ class TemplatesService:
         request_digest = canonical_digest(req.model_dump(mode="json"))
         seed = _seed(request_digest)
         reference = hints if req.use_reference and hints else None
+        images = list(reference.frames) if reference is not None else []
+        reference_hints = (
+            {"palette": list(reference.palette)} if reference is not None else None
+        )
         reference_digest = (
-            _sha256(json.dumps(reference, sort_keys=True, default=str).encode("utf-8"))
+            _sha256(
+                json.dumps(
+                    {
+                        "palette": reference.palette,
+                        "frames": [_sha256(frame) for frame in images],
+                    },
+                    sort_keys=True,
+                ).encode("utf-8")
+            )
             if reference is not None
             else None
         )
@@ -404,7 +423,7 @@ class TemplatesService:
             "spec": spec,
             "test_character": character_data,
             "parent_program": parent_program,
-            "reference_hints": reference,
+            "reference_hints": reference_hints,
         }
         answer, output = self._write_and_run(
             task=LlmTask.style_code,
@@ -413,6 +432,7 @@ class TemplatesService:
             max_output_tokens=STYLE_TOKENS,
             run=lambda value: self._style_run(value, spec, character_data, canvas, seed, ctx),
             ctx=ctx,
+            images=images,
         )
         with ctx.stage(Stage.validate):
             # The stored grids are what later videos draw, so the checks use them.
