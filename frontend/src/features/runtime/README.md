@@ -12,7 +12,7 @@
 
 ## API key on the first screen
 
-`useRuntimeHead(ready)` reads the display name, `profile` and `llm_auth.state` with one `GET /runtime`. Only the release profile with `missing` or `expired` asks for the user's own key: the first screen shows a masked field and a save button above the composer. Saving calls `PUT /credentials/llm`, reads `/runtime` again, and the block goes away on `ok` or `unknown`. A 400 `validation_failed` shows a field error and a 403 `loopback_only` says the key is entered only on this computer. dev and fixture never show the block.
+`useRuntimeHead(ready)` reads the display name, `profile` and `llm_auth` with one `GET /runtime`. The key block belongs to an adapter that uses the user's own key: release, or dev on `anthropic_api`, with `missing` or `expired`: the first screen shows a masked field and a save button above the composer. Saving calls `PUT /credentials/llm`, reads `/runtime` again, and the block goes away on `ok` or `unknown`. A 400 `validation_failed` shows a field error and a 403 `loopback_only` says the key is entered only on this computer. dev on `claude_cli` and fixture never show the block.
 
 A draft request refused with `llm_auth_required`, or a draft job that failed with `llm_auth`, shows the block again with the existing error text and keeps the typed sentence in the composer, so a wrong key can be replaced.
 

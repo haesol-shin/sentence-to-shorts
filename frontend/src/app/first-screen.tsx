@@ -71,8 +71,8 @@ export function FirstScreen({
     await onSubmit(draft, attachments, { language: chosenLanguage, duration });
   };
 
-  // dev and fixture profiles never ask: they use their own adapter.
-  const askKey = llmKey.release && (llmKey.needed || authFailureKey !== null);
+  // Only an adapter that uses the user's own key asks: release, or dev on the API adapter.
+  const askKey = llmKey.ownKey && (llmKey.needed || authFailureKey !== null);
   // The block leaves once the key is stored, so one line says the save went through.
   const [keySaved, setKeySaved] = useState(false);
   const saveKey = async (apiKey: string) => {

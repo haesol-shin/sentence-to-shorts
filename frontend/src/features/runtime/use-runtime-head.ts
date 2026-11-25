@@ -5,8 +5,8 @@ import { getJson, saveLlmCredential, type RuntimeStatus } from '@/shared/api/cli
 type LlmAuthState = RuntimeStatus['llm_auth']['state'];
 
 export interface LlmKey {
-  /** The release profile asks the user for their own key; dev and fixture never do. */
-  release: boolean;
+  /** The profile and adapter use the user's own key: release, or dev on the API adapter. */
+  ownKey: boolean;
   /** The server holds no usable key: `missing` or `expired`. */
   needed: boolean;
   /** Stores the key, reads `/runtime` again and answers the state that read shows. */
@@ -20,12 +20,18 @@ export interface RuntimeHead {
 
 interface Reading {
   brand: RuntimeStatus['brand'];
-  release: boolean;
+  ownKey: boolean;
   state: LlmAuthState;
 }
 
 function readingOf(runtime: RuntimeStatus): Reading {
-  return { brand: runtime.brand, release: runtime.profile === 'release', state: runtime.llm_auth.state };
+  return {
+    brand: runtime.brand,
+    ownKey:
+      runtime.profile === 'release' ||
+      (runtime.profile === 'dev' && runtime.llm_auth.adapter === 'anthropic_api'),
+    state: runtime.llm_auth.state,
+  };
 }
 
 /**
@@ -57,7 +63,7 @@ export function useRuntimeHead(ready: boolean): RuntimeHead {
   return {
     brand: reading?.brand ?? null,
     llmKey: {
-      release: reading?.release ?? false,
+      ownKey: reading?.ownKey ?? false,
       needed: reading !== null && (reading.state === 'missing' || reading.state === 'expired'),
       save,
     },

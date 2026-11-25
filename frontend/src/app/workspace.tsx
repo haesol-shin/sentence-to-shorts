@@ -91,7 +91,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const [card, setCard] = useState<CardPick | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [actionErrorKey, setActionErrorKey] = useState<string | null>(null);
-  // In the release profile an `llm_auth` failure asks for the key again on the first screen; other profiles keep the header notice.
+  // When the profile uses the user's own key an `llm_auth` failure asks for the key again on the first screen; other profiles keep the header notice.
   const [authFailureKey, setAuthFailureKey] = useState<string | null>(null);
   const job = useJob(jobId);
   const draftJob = job.job?.id === jobId ? job.job : null;
@@ -152,7 +152,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       setView('concept');
     } catch (error) {
       if (
-        runtimeHead.llmKey.release &&
+        runtimeHead.llmKey.ownKey &&
         error instanceof ApiProblemError &&
         error.code === 'llm_auth_required'
       ) {
@@ -180,9 +180,9 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
 
   // The job started with no usable key: back to the first screen with the
   // sentence the user typed, so the key can be replaced and the sentence sent again.
-  // Only where the key block renders; dev and an unread runtime keep the job banner.
+  // Only where the key block renders; dev on the CLI and an unread runtime keep the job banner.
   const authFailed =
-    runtimeHead.llmKey.release && draftJob?.state === 'failed' && draftJob.error?.code === 'llm_auth';
+    runtimeHead.llmKey.ownKey && draftJob?.state === 'failed' && draftJob.error?.code === 'llm_auth';
   const typedSentence = video?.topic ?? null;
   useEffect(() => {
     if (!authFailed || typedSentence === null) return;

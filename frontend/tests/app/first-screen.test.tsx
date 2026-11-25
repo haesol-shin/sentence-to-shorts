@@ -117,7 +117,7 @@ function FirstScreenHarness({
         card={null}
         submitting={false}
         ready={false}
-        llmKey={{ release: false, needed: false, save: async () => 'ok' }}
+        llmKey={{ ownKey: false, needed: false, save: async () => 'ok' }}
         authFailureKey={null}
         onKeySaved={() => undefined}
         onDraftChange={setDraft}

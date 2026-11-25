@@ -50,6 +50,10 @@ LOG_NAME = "launcher.log"
 log = logging.getLogger("launcher")
 
 
+class AdapterTable(Protocol):
+    adapters: Mapping[str, str]
+
+
 class LaunchSettings(Protocol):
     profile: str
     deployment: str
@@ -59,6 +63,7 @@ class LaunchSettings(Protocol):
     data_dir: Path
     runtime_dir: Path
     log_level: str
+    providers: AdapterTable
 
 
 Opener = Callable[[str], bool]
@@ -127,10 +132,10 @@ def adapter_choices(
     """Select providers for the effective profile, including an environment override.
 
     Both distributions carry all profile choices. Only the default profile differs.
-    The developer profile reads `APP_LLM_ADAPTER` (`openai_compat` or `claude_cli`).
-    Without it, an `APP_LLM_BASE_URL` keeps `openai_compat` and no endpoint selects the
-    official CLI, so a build started from a menu needs no environment variable.
-    Release never inherits either.
+    The developer profile reads `APP_LLM_ADAPTER` (`openai_compat`, `claude_cli` or
+    `anthropic_api`). Without it, an `APP_LLM_BASE_URL` keeps `openai_compat` and no
+    endpoint selects the official CLI, so a build started from a menu needs no
+    environment variable. Release never inherits either.
     """
     if dist is None:
         return {}
@@ -140,7 +145,7 @@ def adapter_choices(
     if profile != "dev":
         return chosen
     requested = environ.get("APP_LLM_ADAPTER")
-    if requested in ("openai_compat", "claude_cli"):
+    if requested in ("openai_compat", "claude_cli", "anthropic_api"):
         chosen["llm"] = requested
     elif not requested and not environ.get("APP_LLM_BASE_URL"):
         chosen["llm"] = "claude_cli"
@@ -440,7 +445,12 @@ def _run_locked(
         sock = instance.bind_free_socket(base.bind_host, base.port)
         settings = parts.load_settings(int(sock.getsockname()[1]))
         cli: CliStatus | None = None
-        if settings.profile == "dev" and parts.claude_minimum is not None:
+        # The API adapter uses the user's stored key, so the CLI probe has nothing to say.
+        if (
+            settings.profile == "dev"
+            and settings.providers.adapters.get("llm") != "anthropic_api"
+            and parts.claude_minimum is not None
+        ):
             cli = parts.cli_check(parts.claude_minimum)
             log.info("claude cli: %s", cli.state)
             if cli.state != "ok":
