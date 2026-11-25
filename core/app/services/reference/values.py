@@ -12,10 +12,13 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from pydantic import ValidationError
+
+from app.caption_layout import FRAME_HEIGHT, FRAME_WIDTH, clamp_place
 from app.ports import CatalogPort, UnknownCatalogId
 from app.schemas.change import SetOp
 from app.schemas.common import CaptionMode, CharacterRole, Origin
-from app.schemas.settings import LockKey, LockState, higher_origin_pointers
+from app.schemas.settings import CaptionPlace, LockKey, LockState, higher_origin_pointers
 from app.schemas.video import STAGE_ORDER, Video, VideoStage
 from app.services.reference.vision import ReferenceValues
 
@@ -134,7 +137,43 @@ def build(video: Video, values: ReferenceValues, scene_count: int, catalog: Cata
             built.ops.append(op(pointer, min(MAX_SCENES, max(MIN_SCENES, scene_count))))
 
     _layout_and_captions(video, values, catalog, style, built, allowed, op)
+    _caption_place(video, values, built, allowed, op)
     return built
+
+
+def _caption_place(
+    video: Video, values: ReferenceValues, built: Built, allowed: Any, op: Any
+) -> None:
+    """The reference caption plate as one place op, when it reads cleanly.
+
+    Ratios outside 0 to 1, a plate with no width or height and a plate the store
+    would refuse are dropped: a weak reading must not fail the whole analysis.
+    """
+    ratios = values.caption_place
+    if ratios is None:
+        return
+    numbers = (ratios.y_top, ratios.y_bottom, ratios.x_left, ratios.x_right)
+    if any(not 0.0 <= value <= 1.0 for value in numbers):
+        return
+    if ratios.x_right <= ratios.x_left or ratios.y_bottom <= ratios.y_top:
+        return
+    raw: dict[str, Any] = {
+        "y": round(ratios.y_top * FRAME_HEIGHT) - 4,
+        "x": round(ratios.x_left * FRAME_WIDTH),
+        "w": round((ratios.x_right - ratios.x_left) * FRAME_WIDTH),
+        "align": ratios.align or "center",
+    }
+    clamped, _ = clamp_place(raw)
+    try:
+        place = CaptionPlace.model_validate(clamped)
+    except ValidationError:
+        return
+    if place == video.settings.caption.place:
+        return
+    pointer = "/settings/caption/place"
+    if not allowed(pointer, None):
+        return
+    built.ops.append(op(pointer, place.model_dump(mode="json")))
 
 
 def _layout_and_captions(

@@ -58,6 +58,7 @@ class Studio:
         base: str = "video_ko_just_three.json",
         font: str | None = None,
         extra: dict[str, Any] | None = None,
+        place: dict[str, Any] | None = None,
     ) -> Video:
         raw = load(base)
         settings = raw["settings"]
@@ -70,6 +71,8 @@ class Studio:
             settings["caption"]["font_id"] = self.registry.pin("font", font).model_dump()
         if extra is not None:
             settings["caption"]["extra"] = [extra]
+        if place is not None:
+            settings["caption"]["place"] = place
         if scene is not None:
             raw["scenes"] = {scene["id"]: scene}
             raw["scene_order"] = [scene["id"]]

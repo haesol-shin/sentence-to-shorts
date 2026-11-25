@@ -123,6 +123,13 @@ def _region_leaves(name: str, value: dict[str, Any]) -> Iterator[tuple[str, Any]
         yield "/settings/audio/bgm", value["bgm"]
         yield "/settings/audio/sfx_enabled", value["sfx_enabled"]
         return
+    if name == "caption":
+        # The place moves between null and an object, so it is one value. Split
+        # leaves would write x before w and fail on a null parent.
+        yield "/settings/caption/place", value["place"]
+        for key in ("mode", "font_id", "position", "highlight", "typing_sound"):
+            yield from _leaves(f"/settings/caption/{key}", value[key])
+        return
     yield from _leaves(f"/settings/{name}", value)
 
 
@@ -227,6 +234,7 @@ def apply_preset(
     ops = _ops(preset)
     # Pure preview: report the values the guards keep, without confirming them.
     kept = state.apply(head, ops, state.SOURCE_ORIGIN[ChangeSource.direct])
+    moved = kept.video.settings.caption.place != head.settings.caption.place
     plan = ChangePlan(
         schema_version=2,
         id=service.projects.new_id("c"),
@@ -250,7 +258,7 @@ def apply_preset(
         confirmation_reasons=[],
         warnings=[],
         unsupported=[],
-        notes=[],
+        notes=list(kept.notes) if moved else [],
         status=ChangeStatus.proposed,
         applied_revision=None,
     )

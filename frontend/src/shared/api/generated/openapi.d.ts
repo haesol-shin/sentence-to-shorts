@@ -1031,6 +1031,7 @@ export interface components {
             /** Highlight */
             highlight: boolean;
             mode: components["schemas"]["CaptionMode"];
+            place?: components["schemas"]["CaptionPlace"] | null;
             position: components["schemas"]["CaptionPosition"];
             typing_sound?: components["schemas"]["PinnedRef"] | null;
         };
@@ -1064,21 +1065,44 @@ export interface components {
             extra_px: number | null;
             /** Pairs */
             pairs: components["schemas"]["CaptionLayoutPair"][];
+            place?: components["schemas"]["CaptionPlace"] | null;
             /** Primary Px */
             primary_px: number;
         };
         /** CaptionLayoutPair */
         CaptionLayoutPair: {
-            extra: components["schemas"]["CaptionPosition"];
+            extra: components["schemas"]["CaptionPosition"] | null;
             /** Fits */
             fits: boolean;
-            primary: components["schemas"]["CaptionPosition"];
+            primary: components["schemas"]["CaptionPosition"] | null;
         };
         /**
          * CaptionMode
          * @enum {string}
          */
         CaptionMode: "sentence" | "phrase" | "typewriter";
+        /**
+         * CaptionPlace
+         * @description A caption plate in frame pixels, read from a reference video or picked by hand.
+         *
+         *     ``y`` is the top of the plate, not of the text. The saved value stays inside
+         *     the place area; the store clamps a write before this model validates it, so
+         *     the checks here are the safety net for other write paths.
+         */
+        CaptionPlace: {
+            /**
+             * Align
+             * @default center
+             * @enum {string}
+             */
+            align: "left" | "center" | "right";
+            /** W */
+            w: number;
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /**
          * CaptionPosition
          * @enum {string}
@@ -1816,6 +1840,7 @@ export interface components {
             /** Highlight */
             highlight: boolean;
             mode: components["schemas"]["CaptionMode"];
+            place?: components["schemas"]["CaptionPlace"] | null;
             position: components["schemas"]["CaptionPosition"];
             typing_sound?: components["schemas"]["PinnedRef"] | null;
         };

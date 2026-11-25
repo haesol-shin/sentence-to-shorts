@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import app.services.render as render_package
+from app import caption_layout
 from app.ports import AppError, UnknownCatalogId, canonical_json
 from app.schemas.artifact import ArtifactKind
 from app.schemas.common import PinnedRef
@@ -121,6 +122,12 @@ def _implementation_digest(value: object) -> str:
 
 
 @lru_cache(maxsize=1)
+def _caption_layout_digest() -> str:
+    """Digest of the caption geometry module, which decides where plates go."""
+    return digest_file(Path(caption_layout.__file__).resolve())
+
+
+@lru_cache(maxsize=1)
 def _renderer_revision() -> str:
     """Digest of the installed renderer implementation, its cache revision."""
     root = Path(render_package.__file__).resolve().parent
@@ -130,6 +137,9 @@ def _renderer_revision() -> str:
         revision.update(b"\0")
         revision.update(digest_file(path).encode())
         revision.update(b"\0")
+    revision.update(b"caption_layout\0")
+    revision.update(_caption_layout_digest().encode())
+    revision.update(b"\0")
     return revision.hexdigest()
 
 
@@ -478,6 +488,8 @@ class Graph:
         extra = caption.extra[0] if caption.extra else None
         caption_inputs = _model(caption)
         caption_inputs.pop("typing_sound", None)
+        if caption_inputs.get("place") is None:
+            caption_inputs.pop("place", None)
         if extra is None:
             caption_inputs.pop("extra", None)
         highlight = bool(caption.highlight)
@@ -503,6 +515,7 @@ class Graph:
                 "ref": _ref(caption.font_id),
                 "sha256": font.sha256,
             },
+            "geometry": _caption_layout_digest(),
             "layer": self._dependency(layer),
             "layout": {
                 "dialog_box": template.dialog_box,

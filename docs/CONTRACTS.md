@@ -69,10 +69,10 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 | `caption_text_missing` | `Caption.extra`의 언어에 해당하는 `Line.extra_texts` 글이 없음 |
 | `caption_mode_language` | `Caption.extra[].mode`가 문장형 base가 아님 |
 | `caption_layer_unsupported` | dialog 상자나 sandbox template에 자막 layer 두 개를 둠 |
-| `caption_overlap` | 두 layer의 가장 작은 두 줄 상자가 안전 영역에 함께 들어가지 않거나 고른 위치에서 겹침. 실제 글 상자가 겹치면 renderer도 같은 code로 거절한다 |
+| `caption_overlap` | 두 layer의 가장 작은 두 줄 상자가 안전 영역에 함께 들어가지 않거나 고른 위치에서 겹침. `caption.place`가 있으면 그 상자를 기준으로 같은 판정을 한다. 실제 글 상자가 겹치면 renderer도 같은 code로 거절한다. place가 있으면 실제 겹칠 때 두 번째 layer를 빼고 기록만 한다 |
 | `revision_conflict` | 요청의 base_revision이 head가 아님 (HTTP 409 problem으로 응답하고 `current_revision` 확장 멤버를 함께 돌려준다) |
 
-`getCaptionLayout`은 영상의 현재 설정으로 저장 전에 자막 위치 조합을 조회한다. `font_id`와 `extra_font_id`는 JSON으로 인코딩한 `PinnedRef`, `extra_language`는 `CatalogId`이며, 지정한 값은 조회에서만 적용한다. 저장된 보조 layer가 없으면 `extra_language`로 추가할 수 있고, 보조 글꼴도 생략하면 조회의 주 글꼴을 쓴다. 보조 언어가 없으면 `extra_font_id`만으로 layer를 추가하지 않는다. `primary_px`와 `extra_px`는 판정에 쓰는 최소 글자 크기(px)이며 실제 렌더 크기는 글에 따라 달라진다. 한 layer는 `extra_px: null`과 `primary == extra`인 다섯 위치의 안전 영역 판정을 돌려준다. 두 layer는 25개 조합에 저장 검사의 위치 판정을 적용하며, dialog 상자나 sandbox template는 모두 `fits: false`다. 번역 유무는 위치 조회와 별도로 저장할 때 검사한다.
+`getCaptionLayout`은 영상의 현재 설정으로 저장 전에 자막 위치 조합을 조회한다. `font_id`와 `extra_font_id`는 JSON으로 인코딩한 `PinnedRef`, `extra_language`는 `CatalogId`이며, 지정한 값은 조회에서만 적용한다. 저장된 보조 layer가 없으면 `extra_language`로 추가할 수 있고, 보조 글꼴도 생략하면 조회의 주 글꼴을 쓴다. 보조 언어가 없으면 `extra_font_id`만으로 layer를 추가하지 않는다. `primary_px`와 `extra_px`는 판정에 쓰는 최소 글자 크기(px)이며 실제 렌더 크기는 글에 따라 달라진다. 한 layer는 `extra_px: null`과 `primary == extra`인 다섯 위치의 안전 영역 판정을 돌려준다. 두 layer는 25개 조합에 저장 검사의 위치 판정을 적용하며, dialog 상자나 sandbox template는 모두 `fits: false`다. 번역 유무는 위치 조회와 별도로 저장할 때 검사한다. 영상에 `caption.place`가 있으면 `place`를 그대로 돌려주고, 주 layer 자리는 `primary: null`이다. 한 layer는 `(null, null, true)` 한 항목이고, 두 layer는 두 번째 layer의 다섯 위치에 `fits`를 붙여 저장 검사와 같은 함수로 판정한다.
 
 ## 2. 버전과 migration
 
@@ -81,6 +81,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - manifest는 추가로 `api_version`을 갖는다. 렌더러 계약 버전이다.
 - 기존 문서를 무효로 만들거나 뜻을 바꾸는 변경은 `schema_version`을 올린다.
 - 기본값이 있는 선택 필드 추가는 버전을 올리지 않는다. `Caption.typing_sound`가 그렇다.
+- `Caption.place`와 `PresetCaption.place`도 기본값이 있는 선택 필드라 schema_version을 올리지 않는다. null이면 지금처럼 `position` 프리셋을 쓴다. 새 문서를 옛 빌드가 읽으면 `extra="forbid"` 때문에 검증에서 거절하므로 호환은 한 방향이다.
 - `Caption.extra`와 `Line.extra_texts`도 기본값이 있는 빈 목록이라 video와 change schema version을 올리지 않는다. `PresetSettings.caption`은 `extra`가 없는 `PresetCaption`이다.
 - caption mode는 MVP에서 닫힌 enum 셋이다. mode catalog 행은 후속 작업이다.
 - caption mode를 typewriter에서 다른 mode로 바꾸는 변경은 같은 변경에 `typing_sound: null`을 넣는다. 남기면 `typing_sound_mode`로 거절한다.
@@ -238,8 +239,8 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 | `timing_json` | 줄별 tts digest, speech_text, display_text, language, 요청 caption mode, aligner runtime digest | 색, 글꼴, BGM |
 | `part_png` | style PinnedRef, CharacterSpec, expression, pose, canvas, seed, sandbox runtime digest | 장면 글 |
 | `layer_png` | template PinnedRef, 장면 visual, 장면 lines의 display_text, regions, canvas, 입력 part digest, seed | BGM, 순서 |
-| `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정(`typing_sound` 제외), 두 번째 layer의 언어·mode·위치·font digest와 줄별 번역문, layout, progress 문구, 해상도 | BGM, 순서, 다른 장면 |
-| `clip_mp4` | still 입력 전체, timing digest, motion, fps, renderer revision | BGM, 순서, 다른 장면 |
+| `still_png` | 장면 visual과 lines, resolved theme, part digest, layer digest, font digest, caption 설정(`typing_sound` 제외, `place`가 null이면 제외), 두 번째 layer의 언어·mode·위치·font digest와 줄별 번역문, layout, progress 문구, 해상도, 자막 기하 digest | BGM, 순서, 다른 장면 |
+| `clip_mp4` | still 입력 전체, timing digest, motion, fps, renderer revision(자막 기하 모듈 digest 포함) | BGM, 순서, 다른 장면 |
 | `mix_wav` | 순서 있는 timing digest와 tts digest, BGM entry digest, `gain_db_x10`, `ducking_db_x10`, `audio.sfx_enabled`, SFX digest와 시점, `caption.typing_sound` PinnedRef, 소리를 내는 typewriter 구간 목록(line id와 `start_char`), 음량 목표 `loudness_lufs_x10` | 영상 화면 |
 | `final_mp4` | 순서 있는 clip digest, mix digest, encoder 설정 | UI 상태 |
 | `srt` | 순서 있는 timing digest, 주 언어 `display_text` | BGM, 두 번째 layer 글 |
@@ -836,7 +837,10 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 - 기술 설계: 정지 미리보기는 대본 확인 뒤 구도 검수용이다. TTS 전 길이는 예상값이다. 확정 음성 뒤 preview와 mp4는 같은 timing artifact를 읽는다. 글·font·style·revision 변경 뒤 오래된 preview를 완료로 표시하지 않는다.
 - 한영 font 파일·digest·원본 라이선스를 동봉한다. 실제 glyph와 픽셀 폭으로 줄바꿈하며 OS 기본 font로 조용히 대체하지 않는다. 긴 한글·영문 식별자·숫자·괄호·혼합문자·누락 glyph·자모 분리·타자 효과 fixture를 시험한다.
 - 두 자막 layer는 같은 안전 영역에서 크기를 함께 고른다. 각 layer의 크기 후보에서 합, 큰 쪽, 주 layer 순서로 조합을 올리며 두 상자가 간격 8px로 들어가는 첫 조합을 쓴다. 조합이 없으면 `caption_overlap`이다. dialog 상자와 sandbox template는 상자를 고정하므로 layer 두 개를 받지 않는다. layout record는 주 layer 상자를 `caption`에, 두 번째 layer 상자를 `caption_extra`에 남긴다.
-- project 의미 검사는 글 크기를 재지 않고 각 layer의 가장 작은 두 줄 상자로 위치 조합이 가능한지만 본다. 그래서 한 줄 자막도 middle 조합은 `caption_overlap`이 될 수 있고, renderer는 실제 글에서 들어가는 조합을 더 그릴 수 있다. 화면은 저장 전 판정을 따른다. 실제 글에서도 겹치면 renderer가 `caption_overlap`으로 거절한다.
+- `Caption.place`는 1080x1920 픽셀의 자막 상자다. `x`는 48 이상, `w`는 120 이상, `x + w`는 888 이하, `y`는 288 이상이고 상자 아래는 1248을 넘지 않는다. 값이 있으면 `position` 프리셋보다 우선하고 글 줄바꿈 폭은 `place.w - 2 * PLATE_SIDE_PAD`이며 `align`은 상자 안 정렬이다. 저장 경로는 set op를 쓴 직후 검증 전에 `clamp_place()`로 값을 자르고, 값이 움직이면 변경 계획 note를 하나 더한다. 스키마 하한과 `x + w` 검사는 clamp를 지나지 않는 경로의 안전망이다.
+- render는 `place`가 있으면 `place_box` 자리에 plate를 그리고, 두 번째 layer가 그 상자와 8px를 지키는 자리가 없으면 두 번째 layer를 빼고 layout record에 `caption_extra_skipped`를 남긴다. place 상자가 들어가지 않거나 글자가 어떤 크기로도 안 들어가면 기본 띠로 되돌리고 `caption_fallback`을 남긴다. 어느 경우에도 렌더를 세우지 않는다.
+- 참고 분석은 자막 상자를 프레임 비율 `y_top`, `y_bottom`, `x_left`, `x_right`와 `align`으로 읽는다. 0~1 밖 비율, 폭이나 높이가 0 이하인 값, 저장 검사를 통과하지 못하는 값은 버리고 잠금과 상위 origin 값은 덮지 않는다. 상자가 보이지 않으면 op를 만들지 않는다.
+- project 의미 검사는 글 크기를 재지 않고 각 layer의 가장 작은 두 줄 상자로 위치 조합이 가능한지만 본다. 그래서 한 줄 자막도 middle 조합은 `caption_overlap`이 될 수 있고, renderer는 실제 글에서 들어가는 조합을 더 그릴 수 있다. 화면은 저장 전 판정을 따른다. place가 없으면 실제 글에서도 겹칠 때 renderer가 `caption_overlap`으로 거절한다.
 - 코드 BGM은 9절 sandbox와 별도 WAV 검증기를 쓴다. host sound 서비스가 반복과 영상 길이를 처리한다. code/runtime digest·seed·설정으로 WAV를 재사용한다. 고정 WAV·잘못된 header·초과 길이·stdout flood·무한 계산·cache hit를 시험한다. BGM 교체 때 renderer 호출은 0이다.
 - 업로드 BGM은 job 전용 ID로 저장하고 고정 decoder로 제한한 내부 오디오로 변환한다. 손상·초과 bytes·길이는 거절한다. 보존 기간은 아래 저장 제안을 따른다.
 

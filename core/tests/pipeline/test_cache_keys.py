@@ -314,16 +314,46 @@ def test_08_cache_key_rejects_float_and_formats_speed(registry: Registry, video:
         assert all(character in "0123456789abcdef" for character in key)
 
 
+def test_08_caption_geometry_digest_matches_the_module_file() -> None:
+    path = Path(__file__).resolve().parents[2] / "app" / "caption_layout.py"
+    assert (
+        cache_keys._caption_layout_digest()
+        == hashlib.sha256(path.read_bytes()).hexdigest()
+    )
+
+
+def test_08_caption_geometry_change_moves_still_and_clip_keys(
+    registry: Registry, video: Video, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def graph(digest: str) -> Graph:
+        monkeypatch.setattr(cache_keys, "_caption_layout_digest", lambda: digest)
+        cache_keys._renderer_revision.cache_clear()
+        return Graph(video, _services(registry, MemoryStore()), symbolic=True)
+
+    try:
+        before = graph("a" * 64)
+        after = graph("b" * 64)
+        for scene_id in video.scene_order:
+            assert before.scenes[scene_id].still != after.scenes[scene_id].still
+            assert before.scenes[scene_id].clip != after.scenes[scene_id].clip
+    finally:
+        cache_keys._renderer_revision.cache_clear()
+
+
 def test_08_renderer_revision_digests_the_render_package(
     registry: Registry, video: Video
 ) -> None:
     render_root = Path(__file__).resolve().parents[2] / "app" / "services" / "render"
+    geometry = Path(__file__).resolve().parents[2] / "app" / "caption_layout.py"
     expected = hashlib.sha256()
     for path in sorted(render_root.glob("*.py")):
         expected.update(path.name.encode())
         expected.update(b"\0")
         expected.update(hashlib.sha256(path.read_bytes()).hexdigest().encode())
         expected.update(b"\0")
+    expected.update(b"caption_layout\0")
+    expected.update(hashlib.sha256(geometry.read_bytes()).hexdigest().encode())
+    expected.update(b"\0")
     revision = expected.hexdigest()
 
     def graph(renderer_revision: str | None) -> Graph:

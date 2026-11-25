@@ -20,7 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.caption_layout import caption_pair_fits, supports_caption_pair
+from app.caption_layout import caption_pair_fits, clamp_place, supports_caption_pair
 from app.ports import AppError, CatalogPort, Issue, UnknownCatalogId
 from app.schemas.bgm_entry import SfxEntry, SfxKind, TypingSoundEntry
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
@@ -319,6 +319,8 @@ class Applied:
     overwrites_user_values: list[str] = field(default_factory=list)
     locked_keys: list[LockKey] = field(default_factory=list)
     concept_changes: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+    """User-facing explanations of values the store adjusted, such as a clamped place."""
 
 
 def effective_origin(origin: Origin, ceiling: Origin) -> Origin:
@@ -532,6 +534,27 @@ def _validated(doc: dict[str, Any]) -> Video:
         raise AppError("invalid_op", detail={"errors": error.error_count()}) from error
 
 
+PLACE_CLAMPED = {
+    Language.ko: "자막 상자가 안전 영역을 벗어나 안쪽으로 옮겼어요.",
+    Language.en: "The caption box went outside the safe area, so it moved inside.",
+}
+"""Plan note a clamp adds, in the video's language."""
+
+
+def _clamp_caption_place(doc: dict[str, Any], result: Applied) -> None:
+    """Cut a written place into the place area before validation, and tell the plan."""
+    pointer = f"{SETTINGS}/caption/place"
+    current = _get(doc, pointer)
+    if not isinstance(current, dict):
+        return
+    clamped, moved = clamp_place(current)
+    if not moved:
+        return
+    _put(doc, pointer, clamped)
+    language = Language(doc["settings"]["language"])
+    _append_once(result.notes, PLACE_CLAMPED[language])
+
+
 def apply(
     video: Video,
     ops: Iterable[Op],
@@ -558,6 +581,8 @@ def apply(
             if op.path.startswith("/scenes/"):
                 _scene_index(step.after, _parts(op.path)[1])
             _put(step.after, op.path, copy.deepcopy(op.value))
+            if op.path.startswith(f"{SETTINGS}/caption/place"):
+                _clamp_caption_place(step.after, result)
             attempted |= _concept_writes(start, step.after)
             if op.path.startswith(SETTINGS + "/"):
                 step.origins(op.path, origin)
@@ -688,6 +713,7 @@ class _Checker:
             self.video.settings.caption.position,
             extra.extra_font.pixel_size,
             extra.layer.position,
+            self.video.settings.caption.place,
         ):
             self.add(pointer, "caption_overlap")
 

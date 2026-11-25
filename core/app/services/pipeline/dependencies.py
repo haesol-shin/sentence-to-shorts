@@ -39,11 +39,12 @@ def _pointer(document: dict[str, Any], pointer: str) -> Any:
 
 def _candidate(
     video: Video, ops: list[Op], source: ChangeSource, services: Services
-) -> tuple[Video, list[LockKey], list[str]]:
+) -> tuple[Video, list[LockKey], list[str], list[str]]:
     """Preview guarded edits with the confirmations applying this plan would give."""
     origin = state.SOURCE_ORIGIN[source]
     candidate = services.project.apply_ops(video, ops, origin)
     guarded = state.apply(video, ops, origin)
+    preview = guarded
     if guarded.concept_changes:
         raise AppError("concept_locked")
     overwritten = list(guarded.overwrites_user_values)
@@ -55,10 +56,11 @@ def _candidate(
         )
         locks = list(dict.fromkeys([*locks, *unlocked_origins.locked_keys]))
     if locks or overwritten:
-        candidate = state.apply(
+        preview = state.apply(
             video, ops, origin,
             state.Confirmed(locks=frozenset(locks), overwrites=frozenset(overwritten)),
-        ).video
+        )
+        candidate = preview.video
     before = video.model_dump(mode="json", by_alias=True)
     after = candidate.model_dump(mode="json", by_alias=True)
     for pointer, previous_origin in video.settings.origins.items():
@@ -69,7 +71,9 @@ def _candidate(
     for key in LockKey:
         if video.settings.locks.get(key) != candidate.settings.locks.get(key) and key not in locks:
             locks.append(key)
-    return candidate, locks, overwritten
+    moved = candidate.settings.caption.place != video.settings.caption.place
+    notes = list(preview.notes) if moved else []
+    return candidate, locks, overwritten, notes
 
 
 def stale_wording_in_neighbors(video: Video, changed: Video) -> list[PlanWarning]:
@@ -110,7 +114,7 @@ def plan_change(
     services: Services,
 ) -> ChangePlan:
     source_kind = ChangeSource(source)
-    changed, locks, overwritten = _candidate(video, ops, source_kind, services)
+    changed, locks, overwritten, notes = _candidate(video, ops, source_kind, services)
     before = Graph(video, services, symbolic=True)
     after = Graph(changed, services, symbolic=True)
     scene_ids = list(dict.fromkeys([*video.scene_order, *changed.scene_order]))
@@ -167,7 +171,7 @@ def plan_change(
         confirmation_reasons=reasons,
         warnings=stale_wording_in_neighbors(video, changed),
         unsupported=[],
-        notes=[],
+        notes=notes,
         status=ChangeStatus.proposed,
         applied_revision=None,
     )
