@@ -1,6 +1,8 @@
 import { Check, X } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
+import { conceptGreeting } from '@/features/concept/greeting';
+import { useConcept } from '@/features/concept/store';
 import { ChatAppLine, ChatLog, ChatUserLine, EditChatHistory } from '@/features/edit/chat-history';
 import { useEditOptional } from '@/features/edit/edit-context';
 import { applyTone, dismissTone, useScript } from '@/features/script/store';
@@ -26,6 +28,7 @@ export function ConversationLog({
   const { t } = useLocale();
   const edit = useEditOptional();
   const script = useScript();
+  const concept = useConcept();
   const said = sentence === null || sentence.trim() === '' ? null : <ChatUserLine>{sentence}</ChatUserLine>;
 
   if (stage === 'edit' || stage === 'export') {
@@ -47,7 +50,15 @@ export function ConversationLog({
   return (
     <ChatLog slot="chat-log" label={t('edit.chat.label')}>
       {said}
-      {ready ? <ChatAppLine muted>{t(`shell.conversation.${stage}`)}</ChatAppLine> : null}
+      {ready ? (
+        <ChatAppLine muted>
+          {stage === 'concept'
+            ? concept === null
+              ? t('shell.conversation.conceptWaiting')
+              : conceptGreeting(concept.opening, t)
+            : t(`shell.conversation.${stage}`)}
+        </ChatAppLine>
+      ) : null}
       {stage === 'concept' && draftWaiting ? <ChatAppLine muted>{t('shell.conversation.conceptWaiting')}</ChatAppLine> : null}
       {stage === 'script' && script?.tone != null ? (
         <ChatAppLine>

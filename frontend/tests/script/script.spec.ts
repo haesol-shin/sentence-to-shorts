@@ -64,6 +64,19 @@ test('test_10a_the_script_step_has_the_document_head_and_one_step_button', async
   await expect(page.getByRole('button', { name: '이대로 영상 만들기', exact: true })).toHaveCount(1);
 });
 
+test('test_10a_the_script_action_floats_over_the_document_without_a_band', async ({ page }) => {
+  const screen = await openScript(page);
+  const footer = screen.locator('[data-slot="script-footer"]');
+  expect(await footer.evaluate((node) => getComputedStyle(node).backgroundColor))
+    .toBe('rgba(0, 0, 0, 0)');
+  const next = screen.getByRole('button', { name: '이대로 영상 만들기', exact: true });
+  expect(await next.evaluate((node) => getComputedStyle(node).boxShadow))
+    .toContain('0px 4px 14px');
+  const scenes = screen.locator('[data-slot="script-scenes"]');
+  expect(parseFloat(await scenes.evaluate((node) => getComputedStyle(node).paddingBottom)))
+    .toBeGreaterThanOrEqual(116);
+});
+
 test('test_2_the_confirmed_step_opens_edit_and_a_new_video_starts_clean', async ({ page }) => {
   const screen = await openScript(page);
   const first = firstLine(sceneCards(screen).first());
@@ -279,7 +292,7 @@ test('test_10a_the_document_scrolls_by_the_jump_control_without_a_scrollbar', as
   }
 });
 
-test('test_23_the_inputs_and_buttons_do_not_overlap_and_the_step_button_sits_bottom_right', async ({
+test('test_23_the_last_row_clears_the_floating_step_button_and_the_page_does_not_overflow', async ({
   page,
 }) => {
   for (const size of WIDTHS) {
@@ -315,9 +328,16 @@ test('test_23_the_inputs_and_buttons_do_not_overlap_and_the_step_button_sits_bot
           box.y < action.y + action.height &&
           action.y < box.y + box.height;
         expect(overlap).toBe(false);
-        expect(box.y + box.height).toBeLessThan(nextBox.y);
       }
     }
+
+    // The document keeps enough bottom padding to scroll its last row above
+    // the floating action.
+    const viewport = screen.locator('.scroll-pane__viewport');
+    await viewport.evaluate((node) => node.scrollTo({ top: node.scrollHeight }));
+    const lastCard = await cards.last().boundingBox();
+    expect(lastCard).not.toBeNull();
+    expect(lastCard!.y + lastCard!.height).toBeLessThan(nextBox.y);
 
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth > document.documentElement.clientWidth,

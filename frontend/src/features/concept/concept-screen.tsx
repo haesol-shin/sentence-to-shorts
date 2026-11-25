@@ -8,6 +8,7 @@ import { ValueField } from '@/components/ValueField/ValueField';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, STORY_CARD_ORDER, visibleCardCount } from './cards';
+import { valueLabel } from './labels';
 import { cardIdForSettings, originOf, SHORT_OPTIONS } from './model';
 import {
   analyzeConceptReference, applyConceptPlan, chooseCardTune, chooseConcept,
@@ -35,17 +36,6 @@ function read(settings: Settings, path: string): unknown {
   return path.split('/').filter(Boolean).reduce<unknown>((value, key) =>
     value !== null && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined,
   settings);
-}
-
-function valueLabel(value: unknown, t: (key: string) => string): string {
-  if (value === null || value === undefined) return t('concept.value.none');
-  if (typeof value === 'object') {
-    if ('id' in value) return valueLabel(value.id, t);
-    return Object.entries(value).map(([key, part]) => `${key}: ${valueLabel(part, t)}`).join(', ');
-  }
-  const key = `concept.value.${String(value)}`;
-  const label = t(key);
-  return label === key ? String(value) : label;
 }
 
 /** A modal window: title, the caller's body, then cancel and the caller's actions on the right. */
@@ -116,12 +106,13 @@ function CardGrid({ children }: { children: ReactNode }) {
  * A picture card. A story card's body sits bare inside its slot, which carries
  * the face; a tile (art style) is its own 216 face.
  */
-function PictureCard({ title, description, selected, disabled, onClick, tile = false }: {
-  title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void; tile?: boolean;
+function PictureCard({ title, description, selected, disabled, onClick, changed = false, tile = false }: {
+  title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void;
+  changed?: boolean; tile?: boolean;
 }) {
   return (
     <button type="button" className={tile ? 'concept-card concept-card--tile' : 'concept-card'} aria-label={title} title={title}
-      aria-pressed={selected} disabled={disabled} onClick={onClick}>
+      aria-pressed={selected} data-changed={changed ? 'true' : undefined} disabled={disabled} onClick={onClick}>
       <span className="concept-card__picture"><Image aria-hidden size={32} /></span>
       <span className="concept-card__title">{clampCardText(title)}</span>
       <span className="concept-card__description">{clampCardText(description ?? '', CARD_DESCRIPTION_LIMIT)}</span>
@@ -137,14 +128,15 @@ function styleDescription(id: string, builtin: boolean, t: (key: string) => stri
 }
 
 /** A card with a fine-tune toggle under it; the board opens below the card row. */
-function TunedCard({ id, title, description, selected, disabled, open, onPick, onToggle, panel, tile = false }: {
+function TunedCard({ id, title, description, selected, disabled, open, onPick, onToggle, panel, changed = false, tile = false }: {
   id: string; title: string; description: string; selected: boolean; disabled: boolean;
-  open: boolean; onPick: () => void; onToggle: () => void; panel: ReactNode; tile?: boolean;
+  open: boolean; onPick: () => void; onToggle: () => void; panel: ReactNode;
+  changed?: boolean; tile?: boolean;
 }) {
   const { t } = useLocale();
   return (
     <div className={tile ? 'concept-card-slot concept-card-slot--tile' : 'concept-card-slot'}
-      data-card={id} data-selected={!tile && selected ? '' : undefined}>
+      data-card={id} data-selected={!tile && selected ? '' : undefined} data-changed={changed ? 'true' : undefined}>
       <PictureCard title={title} description={description} selected={selected} disabled={disabled} onClick={onPick} tile={tile} />
       <button type="button" className="concept-tune-toggle" aria-expanded={open}
         aria-label={`${title} ${t('concept.tune')}`} aria-controls={`concept-tune-${id}`}
@@ -159,20 +151,22 @@ function TunedCard({ id, title, description, selected, disabled, open, onPick, o
 }
 
 /** A value pick in the value field the canon draws: name, bold value and chevron, its menu below. */
-function TuneField({ name, label, path, options, value, disabled, className }: {
+function TuneField({ name, label, path, options, value, disabled, changed = false, className }: {
   name: string; label?: string; path: string; options: { value: unknown; label: string }[]; value: unknown;
-  disabled: boolean; className?: string;
+  disabled: boolean; changed?: boolean; className?: string;
 }) {
   const { t } = useLocale();
   const index = options.findIndex((option) => JSON.stringify(option.value) === JSON.stringify(value));
   return (
-    <ValueField<number> className={className} label={name} name={label ?? name}
-      placeholder={valueLabel(value, t)} disabled={disabled}
-      items={options.map((option, i) => ({ value: i, label: option.label }))}
-      value={index} onValueChange={(i) => {
-        const option = options[i];
-        if (option !== undefined) chooseConcept(path, option.value);
-      }} />
+    <span className="concept-tune-slot" data-changed={changed ? 'true' : undefined}>
+      <ValueField<number> className={className} label={name} name={label ?? name}
+        placeholder={valueLabel(value, t)} disabled={disabled}
+        items={options.map((option, i) => ({ value: i, label: option.label }))}
+        value={index} onValueChange={(i) => {
+          const option = options[i];
+          if (option !== undefined) chooseConcept(path, option.value);
+        }} />
+    </span>
   );
 }
 
@@ -276,6 +270,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
   if (snapshot === null) return <p role="status">{t('concept.loading')}</p>;
   const { document: doc, catalog } = snapshot;
   const settings = doc.settings;
+  const changed = new Set(snapshot.draftChanged);
   const style = catalog?.styles.find((item) => item.ref.id === settings.visual.art_style.id)?.manifest;
   const frozen = doc.confirmed || snapshot.busy || catalog === null;
   const choices = (values: readonly unknown[]) => values.map((value) => ({ value, label: valueLabel(value, t) }));
@@ -336,9 +331,12 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
     <>
       {panelHead(t(`concept.card.${id}`), t(tuneSummary))}
       <div className="concept-tune-panel__grid">
-        <TuneField className="concept-tune-field" name={t('concept.field.format.layout')} path="/format/layout" options={layoutOptions} value={settings.format.layout} disabled={frozen} />
-        <TuneField className="concept-tune-field" name={t('concept.field.format.register')} path="/format/register" options={registerOptions} value={settings.format.register} disabled={frozen} />
-        <TuneField className="concept-tune-field" name={t('concept.field.format.humor')} path="/format/humor" options={humorOptions} value={settings.format.humor} disabled={frozen} />
+        <TuneField className="concept-tune-field" name={t('concept.field.format.layout')} path="/format/layout"
+          options={layoutOptions} value={settings.format.layout} disabled={frozen} changed={changed.has('/format/layout')} />
+        <TuneField className="concept-tune-field" name={t('concept.field.format.register')} path="/format/register"
+          options={registerOptions} value={settings.format.register} disabled={frozen} changed={changed.has('/format/register')} />
+        <TuneField className="concept-tune-field" name={t('concept.field.format.humor')} path="/format/humor"
+          options={humorOptions} value={settings.format.humor} disabled={frozen} changed={changed.has('/format/humor')} />
       </div>
     </>
   );
@@ -349,6 +347,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
         {PARTS.map((slot) => (
           <TuneField key={slot} className="concept-tune-field" name={t(`concept.slot.${slot}`)}
             path={`/visual/character/slots/${slot}`} value={character?.slots[slot] ?? null} disabled={characterFrozen}
+            changed={changed.has('/visual/character')}
             options={choices([...(slot === 'face' ? [] : [null]), ...(style?.rig.slots[slot] ?? [])])} />
         ))}
       </div>
@@ -360,13 +359,14 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
         <header className="concept-head">
           {/* The video's name rides the top bar, so the head carries only the step. */}
           <div className="concept-head__names"><h1>{t('concept.title')}</h1>
-            <p className="concept-head__scope">{t(doc.confirmed ? 'concept.confirmed' : 'concept.intro')}</p></div>
+            {doc.confirmed ? <p className="concept-head__scope">{t('concept.confirmed')}</p> : null}</div>
           <div className="concept-head__fields">
             <TuneField name={t('concept.field.target_duration_s')} label={t('concept.head.duration')}
-              path="/target_duration_s" options={choices([30, 60, 120])} value={settings.target_duration_s} disabled={frozen} />
+              path="/target_duration_s" options={choices([30, 60, 120])} value={settings.target_duration_s}
+              disabled={frozen} changed={changed.has('/target_duration_s')} />
             <TuneField name={t('concept.field.format.scene_count')} label={t('concept.head.sceneCount')}
               path="/format/scene_count" options={[5, 8, 11].map((count) => ({ value: count, label: t('concept.head.sceneCountValue', { count }) }))}
-              value={settings.format.scene_count} disabled={frozen} />
+              value={settings.format.scene_count} disabled={frozen} changed={changed.has('/format/scene_count')} />
           </div>
         </header>
         {snapshot.error === null ? null : <div role="alert" className="concept-review">
@@ -384,12 +384,13 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
         </button>
         <section aria-labelledby="concept-story-title" className="concept-group">
           <h2 id="concept-story-title" className="concept-group__title">
-            <span>{t('concept.story')}<small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+            <span>{t('concept.story')}</span>
           </h2>
           <CardGrid>
             {STORIES.map((id) => (
               <TunedCard key={id} id={id} title={t(`concept.card.${id}`)} description={t(`concept.example.${id}`)}
                 selected={activeCardId === id} disabled={frozen}
+                changed={activeCardId === id && (changed.has('/format/story_structure') || changed.has('/format/card_id'))}
                 open={openCardId === id} onPick={() => onCard(id)} onToggle={() => toggleTune(id)}
                 panel={openCardId === id ? tunePanel(id) : null} />
             ))}
@@ -399,20 +400,21 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
           {/* The canon row is the title and the cards only; a style made from words
               opens from the conversation box's `+` menu. */}
           <h2 id="concept-style-title" className="concept-group__title">
-            <span>{t('concept.style')}<small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+            <span>{t('concept.style')}</span>
           </h2>
           <CardGrid>
             {(catalog?.styles ?? []).map((item) => (
               <PictureCard key={item.ref.id} tile title={item.manifest.label[language]}
                 description={styleDescription(item.ref.id, item.manifest.origin === 'builtin', t)}
                 selected={settings.visual.art_style.id === item.ref.id} disabled={frozen}
+                changed={settings.visual.art_style.id === item.ref.id && changed.has('/visual/art_style')}
                 onClick={() => chooseConcept('/visual/art_style', item.ref)} />
             ))}
           </CardGrid>
         </section>
         <section aria-labelledby="concept-character-title" className="concept-group">
           <h2 id="concept-character-title" className="concept-group__title">
-            <span>{t('concept.character')}<small aria-hidden="true">{t('concept.chooseOne')}</small></span>
+            <span>{t('concept.character')}</span>
           </h2>
           <CardGrid>
             {(style?.rig.slots.body ?? []).map((body) => {
@@ -420,6 +422,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
               return (
                 <TunedCard key={id} id={id} title={valueLabel(body, t)} description=""
                   selected={activeCharacterId === id} disabled={characterFrozen} tile
+                  changed={activeCharacterId === id && changed.has('/visual/character')}
                   open={openCardId === id} onPick={() => onCharacter(body)} onToggle={() => toggleCharacter(body)}
                   panel={openCardId === id ? characterPanel(body) : null} />
               );

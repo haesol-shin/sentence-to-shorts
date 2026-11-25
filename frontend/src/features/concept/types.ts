@@ -80,4 +80,8 @@ export interface ConceptSnapshot {
   canUndo: boolean;
   /** Values remembered for the cards that are not selected. */
   cardTunes: Record<string, CardTune>;
+  /** The values the first concept reply names, frozen before the user edits. */
+  opening: Settings;
+  /** Settings paths the draft filled, for the one-time changed highlight. */
+  draftChanged: string[];
 }
