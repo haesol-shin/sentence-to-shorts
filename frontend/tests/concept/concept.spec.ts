@@ -46,27 +46,38 @@ async function openTune(concept: Locator, title: string): Promise<Locator> {
   return panel;
 }
 
-test('test_3_cards_show_origins_and_locks', async ({ page }) => {
+/** Opens a value field and picks one row from its menu. */
+async function pick(scope: Locator, name: string, option: string): Promise<void> {
+  await scope.getByRole('combobox', { name, exact: true }).click();
+  await scope.page().getByRole('option', { name: option, exact: true }).click();
+}
+
+test('test_3_fine_tune_values_are_picked_in_value_fields', async ({ page }) => {
   const concept = await start(page);
   const tune = await openTune(concept, '만약 ~라면?');
-  const register = tune.getByRole('combobox', { name: '말투', exact: true });
-  await register.selectOption({ label: '설명체' });
+  await pick(tune, '말투', '설명체');
   await applyIfNeeded(concept);
-  await expect(register.locator('option:checked')).toHaveText('설명체');
-  await concept.getByText('세부 설정', { exact: true }).click();
-  const row = concept.locator('[data-field="/format/register"]');
-  await expect(row.getByText('직접', { exact: true })).toBeVisible();
-  await row.getByRole('button', { name: /말투: 변화/ }).click();
-  await applyIfNeeded(concept);
-  await expect(row.getByRole('button', { name: /말투: 고정/ })).toHaveAttribute('aria-pressed', 'true');
+  await expect(tune.getByRole('combobox', { name: '말투', exact: true })).toContainText('설명체');
+  await expect(tune).toContainText('직접 바꾼 값');
+  // The canon draws no native lists and no origin, lock or reset rows on the concept.
+  expect(await concept.locator('select').count()).toBe(0);
+  for (const word of ['기본값으로', '추천', '변화', '세부 설정', '예시 자리']) {
+    await expect(concept.getByText(word, { exact: true })).toHaveCount(0);
+  }
 });
 
-test('test_4_invalid_combinations_block', async ({ page }) => {
+test('test_3_character_cards_pick_the_body_and_their_board_holds_the_parts', async ({ page }) => {
   const concept = await start(page);
-  await concept.getByText('세부 설정', { exact: true }).click();
-  await concept.getByRole('combobox', { name: '자막 방식', exact: true }).selectOption({ label: '대화창 타자' });
-  await expect(concept.getByRole('alert')).toBeVisible();
-  await expect(concept.getByRole('combobox', { name: '자막 방식', exact: true }).locator('option:checked')).not.toHaveText('대화창 타자');
+  const group = concept.getByRole('region', { name: '캐릭터', exact: true });
+  await expect(group.getByRole('heading', { name: '캐릭터', exact: true })).toBeVisible();
+  // One card per body the picked style offers; this catalog offers the default body.
+  const cards = group.locator('.concept-card-grid > .concept-card-slot');
+  await expect(cards).toHaveCount(1);
+  const board = await openTune(concept, '기본 몸');
+  for (const part of ['얼굴', '머리', '모자', '옷', '소품']) {
+    await expect(board.getByRole('combobox', { name: part, exact: true })).toBeVisible();
+  }
+  await expect(board.getByRole('combobox', { name: '몸', exact: true })).toHaveCount(0);
 });
 
 test('test_4_fine_tune_panel_attached_to_selected_card_and_values_stay_separate', async ({ page }) => {
@@ -84,24 +95,23 @@ test('test_4_fine_tune_panel_attached_to_selected_card_and_values_stay_separate'
   // The board hangs 6 below the selected card's face.
   expect(Math.round(panelBox!.y - (cardBox!.y + cardBox!.height))).toBe(6);
 
-  const humor = panel.getByRole('combobox', { name: '유머', exact: true });
-  await humor.selectOption({ label: '없음' });
+  await pick(panel, '유머', '없음');
   await applyIfNeeded(concept);
-  await expect(humor.locator('option:checked')).toHaveText('없음');
+  await expect(panel.getByRole('combobox', { name: '유머', exact: true })).toContainText('없음');
 
   await whatIf.click();
   const switched = concept.getByRole('region', { name: '만약 ~라면? 세부 조정', exact: true });
-  await expect(switched.getByRole('combobox', { name: '유머', exact: true }).locator('option:checked')).toHaveText('가볍게');
+  await expect(switched.getByRole('combobox', { name: '유머', exact: true })).toContainText('가볍게');
 
   await move(page, '편집');
   await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
   await move(page, '컨셉');
   const back = await openTune(concept, '○○로 치면');
-  await expect(back.getByRole('combobox', { name: '유머', exact: true }).locator('option:checked')).toHaveText('없음');
+  await expect(back.getByRole('combobox', { name: '유머', exact: true })).toContainText('없음');
 
   await concept.getByRole('button', { name: '딱 3가지만', exact: true }).click();
   const first = concept.getByRole('region', { name: '딱 3가지만 세부 조정', exact: true });
-  await expect(first.getByRole('combobox', { name: '유머', exact: true }).locator('option:checked')).toHaveText('없음');
+  await expect(first.getByRole('combobox', { name: '유머', exact: true })).toContainText('없음');
 });
 
 test('test_4_every_fine_tune_panel_keeps_the_card_row_edges', async ({ page }) => {
@@ -138,13 +148,6 @@ test('test_5_terms_come_from_concept_json_without_old_terms', async ({ page }) =
   expect(text).not.toContain('화면 틀');
 });
 
-test('test_10a_the_character_preview_values_are_exposed_as_text', async ({ page }) => {
-  const concept = await start(page);
-  const preview = concept.locator('.concept-example');
-  const values = await preview.locator('span').last().innerText();
-  expect(await preview.ariaSnapshot()).toContain(values);
-});
-
 test('test_5_reference_band_sits_above_the_groups_and_opens_the_reference_screen', async ({ page }) => {
   const concept = await start(page);
   const band = concept.getByRole('button', { name: '참고 영상으로 채우기', exact: true });
@@ -164,7 +167,7 @@ test('test_7_chat_values_survive_steps_and_confirmation', async ({ page }) => {
   await input.getByRole('textbox').fill('농담 빼기');
   await input.getByRole('button', { name: '보내기', exact: true }).click();
   const tune = await openTune(concept, '딱 3가지만');
-  await expect(tune.getByRole('combobox', { name: '유머', exact: true }).locator('option:checked')).toHaveText('없음');
+  await expect(tune.getByRole('combobox', { name: '유머', exact: true })).toContainText('없음');
   await move(page, '편집');
   await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
   await expect(input.locator('[data-slot="composer-target"]')).toContainText('장면 1');
@@ -176,22 +179,28 @@ test('test_7_chat_values_survive_steps_and_confirmation', async ({ page }) => {
   concept = page.locator('[data-slot="concept-screen"]');
   await applyIfNeeded(concept);
   const back = await openTune(concept, '딱 3가지만');
-  await expect(back.getByRole('combobox', { name: '말투', exact: true }).locator('option:checked')).toHaveText('설명체');
+  await expect(back.getByRole('combobox', { name: '말투', exact: true })).toContainText('설명체');
   await concept.getByRole('button', { name: '정하고 대본 만들기', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '이 컨셉으로 정할까요?' });
   await expect(dialog.getByRole('button', { name: '취소', exact: true })).toBeFocused();
   await dialog.getByRole('button', { name: '정하고 대본 만들기', exact: true }).click();
-  await expect(concept.getByText('컨셉은 이 영상을 만들 때 정했어요.', { exact: true })).toBeVisible();
-  await move(page, '편집');
+  // The confirm keeps its word: the script step opens.
+  await expect(page.locator('[data-slot="stage-indicator"] [aria-current="step"]')).toHaveText('대본');
   await move(page, '컨셉');
+  await expect(concept.getByText('컨셉은 이 영상을 만들 때 정했어요.', { exact: true })).toBeVisible();
+  await expect(concept.getByText(/단계 메뉴/u)).toHaveCount(0);
   const locked = await openTune(concept, '딱 3가지만');
   await expect(locked.getByRole('combobox', { name: '말투', exact: true })).toBeDisabled();
-  await expect(locked.getByRole('combobox', { name: '말투', exact: true }).locator('option:checked')).toHaveText('설명체');
+  await expect(locked.getByRole('combobox', { name: '말투', exact: true })).toContainText('설명체');
 });
 
 test('test_6_style_jobs_review_values_without_confirming_concept', async ({ page }) => {
   const concept = await start(page);
-  await concept.getByRole('button', { name: '말로 만들기', exact: true }).click();
+  // The art-style row keeps the canon's shape; this entry rides the box's + menu.
+  await expect(concept.getByRole('button', { name: '말로 만들기', exact: true })).toHaveCount(0);
+  const box = composer(page).getByRole('button', { name: '파일이나 링크 더하기', exact: true });
+  await box.click();
+  await page.getByRole('menuitem', { name: '말로 만들기', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: '말로 만들기' });
   await dialog.getByRole('textbox').fill('눈을 가늘게');
   await dialog.getByRole('button', { name: '작업 시작', exact: true }).click();
@@ -201,8 +210,24 @@ test('test_6_style_jobs_review_values_without_confirming_concept', async ({ page
   await expect(review).toContainText('확정 상태는 바뀌지 않아요.');
   await review.getByRole('button', { name: '적용', exact: true }).click();
   await expect(review).toHaveCount(0);
-  await expect(concept.getByRole('combobox', { name: '그림체', exact: true }).locator('option:checked')).not.toHaveText('픽셀');
+  await expect(concept.getByRole('button', { name: '픽셀', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await expect(concept.getByRole('button', { name: '정하고 대본 만들기', exact: true })).toBeEnabled();
+});
+
+test('test_6b_the_style_entry_does_not_reopen_after_a_stage_round_trip', async ({ page }) => {
+  await start(page);
+  await composer(page).getByRole('button', { name: '파일이나 링크 더하기', exact: true }).click();
+  await page.getByRole('menuitem', { name: '말로 만들기', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: '말로 만들기' });
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await move(page, '편집');
+  await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
+  await move(page, '컨셉');
+  await expect(page.locator('[data-slot="concept-screen"]')).toBeVisible();
+  // The ask was answered once; a later visit must not reopen the window.
+  await expect(dialog).toHaveCount(0);
 });
 
 test('test_7_unsupported_requests_remain_visible_without_a_change', async ({ page }) => {
@@ -288,6 +313,8 @@ test('test_23_captures_synthetic_concept_at_each_supported_width', async ({ page
   await page.emulateMedia({ reducedMotion: 'reduce' });
   for (const [width, height] of [[1280, 800], [1920, 1080]] as const) {
     await page.setViewportSize({ width, height });
+    // The pointer keeps the last width's place, and a resting one would paint a hover band.
+    await page.mouse.move(0, 0);
     const concept = await start(page);
     await expect(concept.getByRole('button', { name: '아래로 넘기기', exact: true })).toBeVisible();
     await capture(page, testInfo, `tests/concept/screens/concept-${width}.png`);

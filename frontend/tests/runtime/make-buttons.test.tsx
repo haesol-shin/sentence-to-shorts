@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import { afterEach, expect, test, vi } from 'vitest';
 
 import { ExportRoute } from '@/app/routes/export';
+import { EditPrepareNotice, EditPrepareProvider } from '@/app/shell/edit-prepare';
 import { TopBar } from '@/app/shell/top-bar';
 import { createMockEditApi, type EditApi } from '@/features/edit/api';
 import { EditProvider, useEdit } from '@/features/edit/edit-context';
@@ -70,7 +71,10 @@ function renderEdit(api: EditApi, language: Language = 'ko') {
   return render(
     <LocaleProvider language={language} setLanguage={() => undefined}>
       <EditProvider active videoId="v_test" api={api}>
-        <TopBar view="edit" videoId="v_test" onStage={() => undefined} />
+        <EditPrepareProvider active>
+          <TopBar view="edit" videoId="v_test" onStage={() => undefined} />
+          <EditPrepareNotice />
+        </EditPrepareProvider>
         <StartVideo />
       </EditProvider>
     </LocaleProvider>,
@@ -151,8 +155,8 @@ test('test_21_a_retrying_download_stops_the_percent_and_asks_for_the_connection'
     expect(found).not.toBeNull();
     return found as HTMLElement;
   });
-  expect(notice.textContent).toContain('인터넷 연결을 확인하세요, 다시 시도하는 중');
-  expect(notice.textContent).toMatch(/다음 시도 .*\d{1,2}:\d{2}:\d{2}/u);
+  expect(notice.textContent).toContain('인터넷 연결이 끊겨서 음성 파일을 다시 받으려고 해요.');
+  expect(notice.textContent).toMatch(/다음 시도 .*\d{1,2}:\d{2}$/u);
 });
 
 test.each([
@@ -253,7 +257,7 @@ test('test_21_the_output_check_shows_the_retry_sentence_while_the_connection_is_
     expect(found).not.toBeNull();
     return found as HTMLElement;
   });
-  expect(notice.textContent).toContain('인터넷 연결을 확인하세요, 다시 시도하는 중');
+  expect(notice.textContent).toContain('인터넷 연결이 끊겨서 음성 파일을 다시 받으려고 해요.');
 });
 
 test('test_21_a_failed_retry_replaces_the_stop_reason_with_one_sentence_until_the_next_try', async () => {
@@ -296,4 +300,11 @@ test('test_21_a_failed_retry_replaces_the_stop_reason_with_one_sentence_until_th
   down = false;
   fireEvent.click(screen.getByRole('button', { name: '다시 시도' }));
   await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  // The download moves again, and the notice says so instead of going quiet.
+  const sent = await waitFor(() => {
+    const found = document.querySelector('[data-slot="prepare-notice"][data-state="retry-sent"]');
+    expect(found).not.toBeNull();
+    return found as HTMLElement;
+  });
+  expect(sent.textContent).toContain('음성 파일을 다시 받는 중이에요.');
 });

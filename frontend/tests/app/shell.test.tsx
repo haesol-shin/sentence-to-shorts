@@ -99,11 +99,29 @@ test('test_10a_the_conversation_opens_with_the_sent_sentence', async () => {
   expect(said?.textContent).toBe('커피를 고르는 세 가지 기준');
   // The concept line waits for the draft, so the step never claims a pick it has not made.
   expect(conversation.textContent).not.toContain('문장에 어울리는 컨셉을 골랐어요.');
+  // The wait is said in the conversation, so the work area never shifts for a banner.
+  expect(conversation.textContent).toContain('문장으로 컨셉 초안을 쓰고 있어요.');
 
   state = 'succeeded';
   await waitFor(() => expect(conversation.textContent).toContain('문장에 어울리는 컨셉을 골랐어요.'), {
     timeout: 5000,
   });
+  expect(conversation.textContent).not.toContain('문장으로 컨셉 초안을 쓰고 있어요.');
+});
+
+test('test_10a_confirming_the_concept_opens_the_script_step', async () => {
+  await renderApp();
+  sendSentence('커피를 고르는 세 가지 기준');
+  await screen.findByRole('heading', { name: '컨셉' });
+
+  const footer = () => document.querySelector<HTMLElement>('footer.concept-footer')!;
+  await waitFor(() => expect(within(footer()).getByRole<HTMLButtonElement>('button', { name: '정하고 대본 만들기' }).disabled).toBe(false));
+  fireEvent.click(within(footer()).getByRole('button', { name: '정하고 대본 만들기' }));
+  const dialog = document.querySelector<HTMLElement>('dialog.concept-dialog')!;
+  fireEvent.click(within(dialog).getByRole('button', { name: '정하고 대본 만들기', hidden: true }));
+
+  const tabs = screen.getByRole('navigation', { name: '단계' });
+  await waitFor(() => expect(tabs.querySelector('[aria-current="step"]')?.textContent).toBe('대본'));
 });
 
 test('test_10a_brand_name_comes_from_the_runtime_answer', async () => {

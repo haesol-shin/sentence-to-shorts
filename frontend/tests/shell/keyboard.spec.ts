@@ -127,14 +127,14 @@ test('test_23_captures_the_job_status_in_the_top_bar_while_typing', async ({ pag
   await page.getByRole('textbox', { name: '만들고 싶은 영상을 한 문장으로 적어 주세요' }).fill('커피를 고르는 세 가지 기준');
   await page.getByRole('button', { name: '보내기' }).click();
   await expect(page.getByRole('heading', { name: '컨셉' })).toBeVisible();
-  await expect(page.locator('[data-slot="job-banner"]')).toBeVisible();
-
-  // A desktop has no soft keyboard: the header and the full status line stay.
+  // The conversation says the wait; a phone keeps the banner, since its rail is hidden.
   if (width >= 768) {
+    await expect(page.locator('[data-slot="job-banner"]')).toBeHidden();
     await expect(page.locator('[data-slot="top-bar"] [data-slot="job-status"]')).toHaveCount(0);
     await capture(page, testInfo, `tests/screens/keyboard-status-${width}.png`);
     return;
   }
+  await expect(page.locator('[data-slot="job-banner"]')).toBeVisible();
 
   const barBefore = await page.locator('[data-slot="top-bar"]').boundingBox();
 
