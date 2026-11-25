@@ -79,6 +79,24 @@ const FONTS: PinnedRef[] = [
   },
 ];
 
+/**
+ * The built-in rows the real catalog returns. The mock keeps one fixture
+ * manifest as the stand-in art for every built-in row, so the concept screen
+ * shows the same card list in a mock run.
+ */
+const BUILTIN_LABELS = {
+  flat: { ko: '플랫', en: 'Flat' },
+  cutout: { ko: '컷아웃', en: 'Cutout' },
+} as const;
+
+const MOCK_BUILTIN_STYLES: { ref: PinnedRef; manifest: StyleManifest }[] = [
+  { ref: PIXEL_REF, manifest: PIXEL_MANIFEST },
+  ...(Object.keys(BUILTIN_LABELS) as (keyof typeof BUILTIN_LABELS)[]).map((id) => ({
+    ref: { id, revision: syntheticDigest(`builtin:${id}`) },
+    manifest: { ...PIXEL_MANIFEST, id, label: BUILTIN_LABELS[id] },
+  })),
+];
+
 export const ORIGIN_PATHS = [
   '/language',
   '/target_duration_s',
@@ -371,7 +389,7 @@ export class MockConceptApi implements ConceptApi {
       : LAYOUT_REFS.full_stage;
     const catalog: ConceptCatalog = {
       styles: [
-        { ref: PIXEL_REF, manifest: PIXEL_MANIFEST },
+        ...MOCK_BUILTIN_STYLES,
         ...this.generatedStyles,
       ],
       layouts: [

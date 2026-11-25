@@ -4,7 +4,6 @@ import { Check, ChevronDown, ChevronRight, Image, Video, X } from 'lucide-react'
 import { Button } from '@/components/Button/Button';
 import { Chip } from '@/components/Chip/Chip';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
-import { Tag } from '@/components/Tag/Tag';
 import { ValueField } from '@/components/ValueField/ValueField';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
@@ -21,8 +20,6 @@ import './concept.css';
 const STORIES = STORY_CARD_ORDER;
 // A character card is its body; the other parts live in that card's fine-tune board.
 const PARTS: Slot[] = ['face', 'hair', 'hat', 'outfit', 'prop'];
-// Art styles the canon shows as coming soon beside the built-in one; they cannot be picked yet.
-const SOON_STYLES = ['cutout', 'sketch'] as const;
 
 export interface EntryComposerProps {
   label: string;
@@ -117,22 +114,26 @@ function CardGrid({ children }: { children: ReactNode }) {
 
 /**
  * A picture card. A story card's body sits bare inside its slot, which carries
- * the face; a tile (art style) is its own 216 face. A `tag` marks a tile that
- * cannot be picked yet.
+ * the face; a tile (art style) is its own 216 face.
  */
-function PictureCard({ title, description, selected, disabled, onClick, tile = false, tag }: {
+function PictureCard({ title, description, selected, disabled, onClick, tile = false }: {
   title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void; tile?: boolean;
-  tag?: string;
 }) {
   return (
     <button type="button" className={tile ? 'concept-card concept-card--tile' : 'concept-card'} aria-label={title} title={title}
-      aria-pressed={selected} disabled={disabled} onClick={onClick} data-soon={tag === undefined ? undefined : ''}>
+      aria-pressed={selected} disabled={disabled} onClick={onClick}>
       <span className="concept-card__picture"><Image aria-hidden size={32} /></span>
-      {tag === undefined ? null : <Tag className="concept-card__tag">{tag}</Tag>}
       <span className="concept-card__title">{clampCardText(title)}</span>
       <span className="concept-card__description">{clampCardText(description ?? '', CARD_DESCRIPTION_LIMIT)}</span>
     </button>
   );
+}
+
+/** The style's own one line when the locale has it, otherwise where the style came from. */
+function styleDescription(id: string, builtin: boolean, t: (key: string) => string): string {
+  const key = `concept.style.description.${id}`;
+  const own = t(key);
+  return own === key ? t(builtin ? 'concept.style.builtin' : 'concept.style.mine') : own;
 }
 
 /** A card with a fine-tune toggle under it; the board opens below the card row. */
@@ -403,14 +404,9 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
           <CardGrid>
             {(catalog?.styles ?? []).map((item) => (
               <PictureCard key={item.ref.id} tile title={item.manifest.label[language]}
-                description={t(item.manifest.origin === 'builtin' ? 'concept.style.builtin' : 'concept.style.mine')}
+                description={styleDescription(item.ref.id, item.manifest.origin === 'builtin', t)}
                 selected={settings.visual.art_style.id === item.ref.id} disabled={frozen}
                 onClick={() => chooseConcept('/visual/art_style', item.ref)} />
-            ))}
-            {SOON_STYLES.map((id) => (
-              <PictureCard key={id} tile title={t(`concept.style.soon.${id}`)}
-                description={t(`concept.style.soon.${id}.description`)} tag={t('concept.style.soon')}
-                selected={false} disabled onClick={() => undefined} />
             ))}
           </CardGrid>
         </section>

@@ -1,0 +1,3 @@
+Apache License 2.0. The repository LICENSE file is the license text for the
+style data in this package. The sprite grid format is part of the
+application contract.

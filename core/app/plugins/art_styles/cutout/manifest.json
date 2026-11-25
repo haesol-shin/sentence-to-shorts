@@ -1,0 +1,399 @@
+{
+  "schema_version": 1,
+  "api_version": 1,
+  "id": "cutout",
+  "version": "1.0.0",
+  "label": {
+    "ko": "컷아웃",
+    "en": "Cutout"
+  },
+  "origin": "builtin",
+  "status": "ready",
+  "extends": null,
+  "renderer": {
+    "kind": "sandbox",
+    "program": "program.py",
+    "program_digest": "1ce04232e4d897fe4b9528bf3fb24cdcb5dda9f4ec75b09d4a286cfc876cfe3f",
+    "runtime_digest": "e25045c7afcd28726694ba244e3cb2de14472e10f910253d5b50bacd00038ad6",
+    "entry": "build_assets"
+  },
+  "canvas": {
+    "width": 1080,
+    "height": 1920,
+    "scale": "smooth"
+  },
+  "rig": {
+    "slots": {
+      "body": [
+        "body_hero",
+        "body_round"
+      ],
+      "face": [
+        "face_neutral",
+        "face_glasses"
+      ],
+      "hair": [
+        "hair_short",
+        "hair_long"
+      ],
+      "hat": [
+        "hat_cap",
+        "hat_crown"
+      ],
+      "outfit": [
+        "outfit_tie",
+        "outfit_scarf"
+      ],
+      "prop": [
+        "prop_book",
+        "prop_mug"
+      ]
+    },
+    "expressions": [
+      "expr_happy",
+      "expr_surprised"
+    ],
+    "poses": [
+      "pose_idle",
+      "pose_wave"
+    ],
+    "compat": []
+  },
+  "themes": [
+    {
+      "id": "day",
+      "label": {
+        "ko": "낮",
+        "en": "Day"
+      },
+      "palette": {
+        "bg": "#F4E9D8",
+        "ink": "#3B2F25",
+        "accent": "#E86F4C",
+        "caption_text": "#3B2F25",
+        "caption_box": "#FFFBF2"
+      },
+      "skin_id": "skin_plain",
+      "backgrounds": [
+        "bg_village",
+        "bg_stars",
+        "bg_park",
+        "bg_classroom"
+      ]
+    },
+    {
+      "id": "moonlight",
+      "label": {
+        "ko": "달밤",
+        "en": "Moonlight"
+      },
+      "palette": {
+        "bg": "#232A3A",
+        "ink": "#F3E7D3",
+        "accent": "#E8A87C",
+        "caption_text": "#F3E7D3",
+        "caption_box": "#3A3226"
+      },
+      "skin_id": "skin_round",
+      "backgrounds": [
+        "bg_city_night",
+        "bg_moon_hill",
+        "bg_bedroom_night"
+      ]
+    },
+    {
+      "id": "arcade",
+      "label": {
+        "ko": "오락실",
+        "en": "Arcade"
+      },
+      "palette": {
+        "bg": "#2E1A1A",
+        "ink": "#FFE8D6",
+        "accent": "#F2A03D",
+        "caption_text": "#FFE8D6",
+        "caption_box": "#4A2E24"
+      },
+      "skin_id": "skin_bevel",
+      "backgrounds": [
+        "bg_arcade_grid",
+        "bg_castle",
+        "bg_space"
+      ]
+    }
+  ],
+  "assets": [
+    {
+      "id": "body_hero",
+      "kind": "part",
+      "slot": "body",
+      "file": "sprites/body_hero.json",
+      "sha256": "a1d5ab6cc3c51814049ee4cfc0d2b9e33deafd1c4a6e4354fcd7f0b8e9f4798d",
+      "license_id": "apache"
+    },
+    {
+      "id": "body_round",
+      "kind": "part",
+      "slot": "body",
+      "file": "sprites/body_round.json",
+      "sha256": "84879162edd9561841856deb1d6566347e92e95c90e088b0666620d6293b3f70",
+      "license_id": "apache"
+    },
+    {
+      "id": "face_neutral",
+      "kind": "part",
+      "slot": "face",
+      "file": "sprites/face_neutral.json",
+      "sha256": "3945554062253e762f286bed30690f017451ba7a830f921839a3b709728030e1",
+      "license_id": "apache"
+    },
+    {
+      "id": "face_glasses",
+      "kind": "part",
+      "slot": "face",
+      "file": "sprites/face_glasses.json",
+      "sha256": "61aa94e9f359ca47e63d901aadcd2faf303a0217f6af18c58d3c19182d75a9bf",
+      "license_id": "apache"
+    },
+    {
+      "id": "hair_short",
+      "kind": "part",
+      "slot": "hair",
+      "file": "sprites/hair_short.json",
+      "sha256": "1928171b92562da4699762329aaed911ab5da7d48247a1097e6d136eb4f954f3",
+      "license_id": "apache"
+    },
+    {
+      "id": "hair_long",
+      "kind": "part",
+      "slot": "hair",
+      "file": "sprites/hair_long.json",
+      "sha256": "1e118be62c793987ffb3871882d050247e98cee92795a1bc44a73087dad56dbf",
+      "license_id": "apache"
+    },
+    {
+      "id": "hat_cap",
+      "kind": "part",
+      "slot": "hat",
+      "file": "sprites/hat_cap.json",
+      "sha256": "3c9aabaee02b512cd27cbc41de5f331a408719f59b4f66ed1eecc1b64c9b9497",
+      "license_id": "apache"
+    },
+    {
+      "id": "hat_crown",
+      "kind": "part",
+      "slot": "hat",
+      "file": "sprites/hat_crown.json",
+      "sha256": "5b5b123e5bdeeb3dcd72b33f1ecdf5995584929af1be3454e8cd1cdac3631dfa",
+      "license_id": "apache"
+    },
+    {
+      "id": "outfit_tie",
+      "kind": "part",
+      "slot": "outfit",
+      "file": "sprites/outfit_tie.json",
+      "sha256": "060209317303ba78e3b7b3423616d1fc1ab300b47c635bc50084fb643a78747b",
+      "license_id": "apache"
+    },
+    {
+      "id": "outfit_scarf",
+      "kind": "part",
+      "slot": "outfit",
+      "file": "sprites/outfit_scarf.json",
+      "sha256": "567dab05636bc1e596e6021923261672d2d9c875ad0b09941056e6dc8f255fdc",
+      "license_id": "apache"
+    },
+    {
+      "id": "prop_book",
+      "kind": "part",
+      "slot": "prop",
+      "file": "sprites/prop_book.json",
+      "sha256": "df5a5b04c0f173a4ad6fa113850c937fb48274ff54264c0a6d0d198b80299993",
+      "license_id": "apache"
+    },
+    {
+      "id": "prop_mug",
+      "kind": "part",
+      "slot": "prop",
+      "file": "sprites/prop_mug.json",
+      "sha256": "05d2861cc7c97496cac6d5fa9f72869af023bc58a0559b14f4578282fd1b4e7b",
+      "license_id": "apache"
+    },
+    {
+      "id": "expr_happy",
+      "kind": "expression",
+      "slot": null,
+      "file": "sprites/expr_happy.json",
+      "sha256": "da68e937e15ce4322d9aed55b5865504e753a82b74092dd9b7177fec65dfb0b4",
+      "license_id": "apache"
+    },
+    {
+      "id": "expr_surprised",
+      "kind": "expression",
+      "slot": null,
+      "file": "sprites/expr_surprised.json",
+      "sha256": "92b254b21635b8a8fcb34e87e79ba87222e4d7a511496fd18fcecb018493ae73",
+      "license_id": "apache"
+    },
+    {
+      "id": "pose_idle",
+      "kind": "pose",
+      "slot": null,
+      "file": "sprites/pose_idle.json",
+      "sha256": "7e50f02fc6c1cd9d83434df9f0581567a2903436557db9eb2beb3007ffeb79ae",
+      "license_id": "apache"
+    },
+    {
+      "id": "pose_wave",
+      "kind": "pose",
+      "slot": null,
+      "file": "sprites/pose_wave.json",
+      "sha256": "9a911ad33230b912b9c5d55a064b50c25511e3e4c331aa804924e13b77dcdab4",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_village",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_village.json",
+      "sha256": "f6be75b07c785d2a2d1cba077084071ef6f5749dfb4528d80204593d6d00d6bc",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_stars",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_stars.json",
+      "sha256": "b3cb6ca338bbafad5cb14103290b26ecceeec167e0d63af8e37fa7cfda5cd10c",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_park",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_park.json",
+      "sha256": "02edf047fb6324307bb19a63b91f9256f2e9a35e18c403df4dedf3984627c75a",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_classroom",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_classroom.json",
+      "sha256": "b33a728e49f9da0b76c4326cf16e6bf28e6290c39e921586fdcf80af988aa08c",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_city_night",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_city_night.json",
+      "sha256": "6f21a935a11ddd0f7b40d4f0836c44c7318f57bdb36691cd82d7fe6995836563",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_moon_hill",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_moon_hill.json",
+      "sha256": "62bfc19b398c9688e3afcf507f0950afd3bc7292b1465ae2d7704ce0c238cc68",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_bedroom_night",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_bedroom_night.json",
+      "sha256": "586d65e5739223687bdb6afa4c7b38605798e24f267025ae37c6a8e437d2ca0d",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_arcade_grid",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_arcade_grid.json",
+      "sha256": "e94c378ba4956f831f66eee5d6ffeac4e41dd18b5114e53dd3cf81682f954a3e",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_castle",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_castle.json",
+      "sha256": "b405d16888cb50806a4b2ba31b2bf9136903010b302bfb3cdab1e94570c79b83",
+      "license_id": "apache"
+    },
+    {
+      "id": "bg_space",
+      "kind": "background",
+      "slot": null,
+      "file": "sprites/bg_space.json",
+      "sha256": "9e3dfcec9810ca0871fbe05b841693a61496e510805e3ea11544bbb73bc7538d",
+      "license_id": "apache"
+    },
+    {
+      "id": "skin_plain",
+      "kind": "skin",
+      "slot": null,
+      "file": "sprites/skin_plain.json",
+      "sha256": "54721f7bf72e88e2dd86c1e0f8a03d7138d1741e806ab3fea664c76d24eed264",
+      "license_id": "apache"
+    },
+    {
+      "id": "skin_round",
+      "kind": "skin",
+      "slot": null,
+      "file": "sprites/skin_round.json",
+      "sha256": "3e5cb477bbdcd2d2668b6d97fdb1b1359c597c2eea92cf273ae0bea3921efd11",
+      "license_id": "apache"
+    },
+    {
+      "id": "skin_bevel",
+      "kind": "skin",
+      "slot": null,
+      "file": "sprites/skin_bevel.json",
+      "sha256": "b6372d779963122df2b997adbf05bf5ad38a162d64da3cd9d68d31b43c9379b0",
+      "license_id": "apache"
+    },
+    {
+      "id": "icon_arrow",
+      "kind": "icon",
+      "slot": null,
+      "file": "sprites/icon_arrow.json",
+      "sha256": "c5728f2cdb0df35ca3ad19417eb3042e6e8047998c161dd741640a644b27de73",
+      "license_id": "apache"
+    }
+  ],
+  "fonts": [
+    "galmuri11",
+    "galmuri14"
+  ],
+  "capabilities": {
+    "layouts": [
+      "fixed_stage",
+      "full_stage",
+      "dialog_stage"
+    ],
+    "caption_modes": [
+      "sentence",
+      "phrase",
+      "typewriter"
+    ],
+    "character_roles": [
+      "presenter",
+      "subject"
+    ]
+  },
+  "licenses": {
+    "apache": {
+      "spdx": "Apache-2.0",
+      "source_url": "https://www.apache.org/licenses/LICENSE-2.0",
+      "author": "Project authors",
+      "commercial_ok": true,
+      "attribution": null,
+      "license_file": "LICENSE.txt"
+    }
+  },
+  "provenance": null,
+  "preview": null
+}
