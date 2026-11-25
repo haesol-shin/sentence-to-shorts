@@ -1007,7 +1007,7 @@ CACHE_DIR/
 | `state.db` | `storage` | migration 백업만 남긴다 |
 | `p/` | `storage` (project 서비스 요청) | 프로젝트 삭제 때 해당 프로젝트만 지운다 |
 | `p/<pid>/u/` | `storage` (sound 서비스 요청) | 프로젝트가 참조하는 동안 보존한다 |
-| `p/<pid>/v/<vid>/ref/` | `storage` (reference 서비스 요청) | 참고를 바꾸거나 지울 때 그 참고 폴더를 지운다. 프로젝트 삭제는 `p/`와 함께 지운다 |
+| `p/<pid>/v/<vid>/ref/` | `storage` (reference 서비스 요청) | 참고 job을 시작할 때, 요약을 저장한 뒤, 또는 head가 분석 중에 바뀌어 요약을 버릴 때만 지운다. 어느 경우에도 head가 가리키는 참고 폴더는 남긴다. 그림체 job은 지우지 않는다. 프로젝트 삭제는 `p/`와 함께 지운다 |
 | `staging/bgm/` | `storage` (sound 서비스 요청) | job 입력이 가리키는 동안 보존하고 job terminal 상태와 시작 복구에서 지운다 |
 | `o/` | `storage` (assemble 결과 공개) | 영상이나 프로젝트 삭제 때만 지운다 |
 | `s/` | `plugins/registry` (templates 서비스 요청) | 참조하는 revision, 프리셋, catalog 항목이 없을 때만 지운다 |
