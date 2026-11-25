@@ -13,6 +13,7 @@ import {
   changeCardTune,
   changeConceptValue,
   cloneSettings,
+  getSettingsValue,
   isConceptLockedPath,
   isStyleInstruction,
   normalizePointer,
@@ -26,6 +27,7 @@ import {
   ConceptApiError,
   createMockConceptApi,
   MockConceptApi,
+  ORIGIN_PATHS,
   type ConceptApi,
   type ConceptStartInput,
 } from './api';
@@ -82,6 +84,8 @@ interface SessionState {
   catalogRequest: number;
   applyingPlanId: string | null;
   cardTunes: Record<string, CardTune>;
+  opening: Settings;
+  draftChanged: string[];
 }
 
 let api: ConceptApi = createMockConceptApi();
@@ -174,6 +178,8 @@ function buildSnapshot(): ConceptSnapshot | null {
     draft: session.draft,
     canUndo: session.undo.length > 0,
     cardTunes: session.cardTunes,
+    opening: session.opening,
+    draftChanged: session.draftChanged,
   };
 }
 
@@ -212,6 +218,8 @@ function createSession(document: ConceptDocument): SessionState {
     catalogRequest: 0,
     applyingPlanId: null,
     cardTunes: {},
+    opening: cloneSettings(document.settings),
+    draftChanged: [],
   };
 }
 
@@ -441,6 +449,17 @@ export async function reloadConcept(videoId: string): Promise<void> {
     return;
   }
   const keep = session.dirty || editedAfter(session, generation);
+  if (!keep) {
+    // The draft writes its picks before the user edits, so this read is the
+    // opening the first reply names and the one-time changed highlight follows.
+    const previous = session.document.settings;
+    session.opening = cloneSettings(loaded.settings);
+    session.draftChanged = ORIGIN_PATHS.filter((path) => {
+      if (previous.origins[path] !== 'default' || loaded.settings.origins[path] !== 'llm') return false;
+      return JSON.stringify(getSettingsValue(previous, path)) !==
+        JSON.stringify(getSettingsValue(loaded.settings, path));
+    });
+  }
   session.document = {
     ...loaded,
     settings: keep ? session.document.settings : loaded.settings,

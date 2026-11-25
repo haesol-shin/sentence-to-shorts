@@ -487,3 +487,28 @@ test('test_failed_reread_after_draft_keeps_materials_shows_error_and_still_start
   await attachConceptExtras([reference()]);
   expect(api.requests.some((request) => request.method === 'message' && request.kind === 'reference')).toBe(true);
 });
+
+test('test_5_the_draft_reload_freezes_the_first_reply_and_marks_filled_values', async () => {
+  await beginConcept({ topic: '초안', language: 'ko', duration: 30 });
+  const videoId = current().document.id;
+  expect(current().opening.format.story_structure).toBe('numbered_three');
+  expect(current().draftChanged).toEqual([]);
+
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.format.story_structure = 'hypothetical';
+  stored.settings.format.card_id = 'what_if';
+  stored.settings.origins['/format/story_structure'] = 'llm';
+  stored.settings.origins['/format/card_id'] = 'llm';
+  await reloadConcept(videoId);
+
+  expect(current().opening.format.story_structure).toBe('hypothetical');
+  expect(current().draftChanged).toContain('/format/story_structure');
+  expect(current().draftChanged).not.toContain('/visual/art_style');
+
+  chooseConcept('/format/register', 'casual');
+  stored.settings.format.story_structure = 'numbered_three';
+  stored.settings.origins['/format/story_structure'] = 'llm';
+  await reloadConcept(videoId);
+  expect(current().opening.format.story_structure).toBe('hypothetical');
+});

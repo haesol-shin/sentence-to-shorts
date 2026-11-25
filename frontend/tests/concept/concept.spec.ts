@@ -306,6 +306,41 @@ test('test_23_keyboard_cards_and_docked_action_have_no_horizontal_overflow', asy
   await expect(page.locator('[data-slot="top-bar"] [data-slot="next-action"]')).toBeHidden();
 });
 
+test('test_4_the_concept_column_is_900_and_the_cards_keep_four_216_columns', async ({ page }) => {
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  const concept = await start(page);
+  const content = concept.locator('.scroll-pane__content');
+  const contentBox = await content.boundingBox();
+  expect(contentBox).not.toBeNull();
+  expect(Math.round(contentBox!.width)).toBe(956);
+
+  const grid = concept.locator('.concept-card-grid').first();
+  const gridBox = await grid.boundingBox();
+  expect(gridBox).not.toBeNull();
+  expect(Math.round(gridBox!.width)).toBe(900);
+  expect(await grid.evaluate((node) => getComputedStyle(node).gridTemplateColumns))
+    .toBe('216px 216px 216px 216px');
+
+  const cards = grid.locator('.concept-card-slot');
+  await expect(cards).toHaveCount(3);
+  const tops = await cards.evaluateAll((nodes) =>
+    nodes.map((node) => Math.round(node.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
+  expect(await cards.first().evaluate((node) => getComputedStyle(node).width)).toBe('216px');
+  const card = concept.getByRole('button', { name: '딱 3가지만', exact: true });
+  expect(await card.evaluate((node) => getComputedStyle(node).textAlign)).toBe('left');
+
+  await expect(concept.getByText('이 영상을 만들 때 정해요', { exact: true })).toHaveCount(0);
+  await expect(concept.getByText('하나를 골라요', { exact: true })).toHaveCount(0);
+
+  const footer = concept.locator('.concept-footer');
+  expect(await footer.evaluate((node) => getComputedStyle(node).backgroundColor))
+    .toBe('rgba(0, 0, 0, 0)');
+  const confirm = concept.getByRole('button', { name: '정하고 대본 만들기', exact: true });
+  expect(await confirm.evaluate((node) => getComputedStyle(node).boxShadow))
+    .toContain('0px 4px 14px');
+});
+
 test('test_23_captures_synthetic_concept_at_each_supported_width', async ({ page }, testInfo) => {
   // The capture writes one file per width; mobile is out of MVP scope and
   // WebKit would overwrite the Chromium pixels with a different rendering.
@@ -317,6 +352,8 @@ test('test_23_captures_synthetic_concept_at_each_supported_width', async ({ page
     await page.mouse.move(0, 0);
     const concept = await start(page);
     await expect(concept.getByRole('button', { name: '아래로 넘기기', exact: true })).toBeVisible();
+    // The draft settles into the first reply that names the picks.
+    await expect(page.getByText(/이야기 방식은 .+ 골랐어요\./u)).toBeVisible({ timeout: 10_000 });
     await capture(page, testInfo, `tests/concept/screens/concept-${width}.png`);
     const tune = await openTune(concept, '만약 ~라면?');
     await tune.scrollIntoViewIfNeeded();

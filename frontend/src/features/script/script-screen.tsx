@@ -179,7 +179,7 @@ export function ScriptScreen({
         ? t('script.confirm.done')
         : snapshot.nextBlockedReason !== null
           ? t(snapshot.nextBlockedReason)
-          : t('script.hint');
+          : null;
 
   // A confirmed script is confirmed again, so lines changed after the first confirmation go along too.
   const goNext = async () => {
@@ -537,9 +537,11 @@ export function ScriptScreen({
       </div>
 
       <footer className="script-footer" data-slot="script-footer">
-        <p id={noteId} role="status" className="script-footer-note">
-          {note}
-        </p>
+        {note === null ? null : (
+          <p id={noteId} role="status" className="script-footer-note">
+            {note}
+          </p>
+        )}
         <Button
           data-slot="script-next"
           disabled={
@@ -547,7 +549,7 @@ export function ScriptScreen({
             snapshot.nextBlockedReason !== null ||
             (confirmed && onNext === undefined)
           }
-          aria-describedby={noteId}
+          aria-describedby={note === null ? undefined : noteId}
           onClick={() => void goNext()}
         >
           {t('script.next')}

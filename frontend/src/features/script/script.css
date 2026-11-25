@@ -4,6 +4,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 }
 
 .script-screen {
+  position: relative;
   /* The dialogue line box height of the approved script picture; no token holds it. */
   --script-line-h: 37px;
   /* Lines and their buttons start under the scene name, past the grip. */
@@ -49,7 +50,8 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 }
 
 .script-document-pane .scroll-pane__jump {
-  bottom: var(--space-8);
+  bottom: calc(var(--size-control) + var(--space-48));
+  z-index: var(--z-picker);
 }
 
 /*
@@ -121,8 +123,9 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   flex-direction: column;
   gap: var(--space-12);
   margin: 0;
-  /* The first card starts 82 below the panel top, as the picture places it. */
-  padding: 22px var(--layout-gutter) var(--space-36);
+  /* The first card starts 82 below the panel top, as the picture places it.
+     The bottom clears the floating step action. */
+  padding: 22px var(--layout-gutter) calc(var(--size-control) + var(--space-48) + var(--space-24));
   list-style: none;
 }
 
@@ -424,15 +427,29 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   }
 }
 
+/* The step action floats over the document with no band, as the canon draws it. */
 .script-footer {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: var(--z-picker);
   display: flex;
-  flex: none;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-8);
   padding: var(--space-16) var(--layout-gutter) var(--space-24);
-  background: var(--surface);
+  background: transparent;
+  pointer-events: none;
+}
+
+.script-footer > * {
+  pointer-events: auto;
+}
+
+/* Tokens hold no 18% black shadow, so the dark scrim colour carries the canon's
+   tight 4/14 shadow without a colour value in a screen file. */
+.script-footer .button:not(.button--ghost) {
+  box-shadow: 0 4px 14px var(--overlay-dialog-scrim);
 }
 
 .script-footer-note {

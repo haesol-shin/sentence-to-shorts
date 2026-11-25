@@ -1,4 +1,5 @@
 .concept-screen {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -22,12 +23,18 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   min-height: 0;
 }
 
-/* Between groups the canon keeps 18; the title row keeps 24 above the band. */
+/* The canon keeps one 900 column centred in the work panel. Its own 28 side
+   gutters ride outside that column, and the bottom clears the floating actions. */
 .concept-content .scroll-pane__content {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 22px 28px;
+  width: 100%;
+  max-width: calc(900px + var(--layout-gutter) * 2);
+  margin: 0 auto;
+  padding: 22px var(--layout-gutter) calc(var(--size-control) + var(--space-48) + var(--space-24));
+  container-type: inline-size;
 }
 
 .concept-head {
@@ -66,17 +73,10 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   margin-top: -7px;
 }
 
-/* One 672 line: the title row, the reference band, the card rows and the
-   fine-tune board share the card row's left and right edge. */
-.concept-content .scroll-pane__content > * {
-  box-sizing: border-box;
-  width: 672px;
-  max-width: 100%;
-}
-
-/* The jump control sits 8 above the footer and flat, as the canon draws it. */
+/* The jump control sits above the floating actions, as the canon draws it. */
 .concept-content .scroll-pane__jump {
-  bottom: var(--space-8);
+  bottom: calc(var(--size-control) + var(--space-48));
+  z-index: var(--z-picker);
 }
 
 .concept-group {
@@ -93,27 +93,39 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   font-weight: 700;
 }
 
-.concept-group__title small {
-  margin-inline-start: 4px;
-  color: var(--sub);
-  font-size: var(--font-size-small);
-  line-height: 18px;
-  font-weight: 400;
-}
-
+/* The canon's four 216 columns with the row's 12 gap; the column narrows to
+   keep whole cards as the work panel shrinks, and the story row leaves the
+   fourth slot empty. */
 .concept-card-grid {
   position: relative;
-  container-type: inline-size;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
+  display: grid;
+  grid-template-columns: repeat(4, 216px);
+  justify-content: start;
+  align-items: start;
   gap: 12px;
+}
+
+@container (max-width: 899px) {
+  .concept-card-grid {
+    grid-template-columns: repeat(3, 216px);
+  }
+}
+
+@container (max-width: 671px) {
+  .concept-card-grid {
+    grid-template-columns: repeat(2, 216px);
+  }
+}
+
+@container (max-width: 443px) {
+  .concept-card-grid {
+    grid-template-columns: 216px;
+  }
 }
 
 /* A story card is a 216 x 266 face: the 200 x 200 body (150 picture, name, example) and the fine-tune toggle. */
 .concept-card-slot {
   box-sizing: border-box;
-  flex: 0 0 216px;
   width: 216px;
   height: 266px;
   padding: 8px;
@@ -153,7 +165,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   border-radius: 0;
   background: transparent;
   color: var(--text);
-  text-align: start;
+  text-align: left;
   cursor: pointer;
   transition: background-color var(--motion-state-duration) var(--motion-ease);
 }
@@ -180,6 +192,26 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 .concept-reference-band:focus-visible {
   outline: 2px solid var(--text-strong);
   outline-offset: 2px;
+}
+
+/* A value the draft filled lights once, as the edit and script screens mark
+   their just-changed cells. */
+.concept-card[data-changed] .concept-card__picture,
+.concept-card-slot[data-changed] .concept-card__picture,
+.concept-tune-slot[data-changed] .field-trigger {
+  animation: concept-changed 0.6s ease-out 1;
+}
+
+@keyframes concept-changed {
+  from {
+    outline: 2px solid var(--emphasis);
+    outline-offset: 2px;
+  }
+
+  to {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
 }
 
 .concept-card:disabled,
@@ -331,6 +363,11 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   gap: 8px 16px;
 }
 
+/* The wrapper only carries the changed mark; the field keeps its grid cell. */
+.concept-tune-slot {
+  display: contents;
+}
+
 /* A board's value field spans its column: name at the left, bold value at the right. */
 .field-trigger.concept-tune-field {
   width: 100%;
@@ -410,15 +447,29 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   overflow-wrap: anywhere;
 }
 
+/* The step action floats over the document with no band, as the canon draws it. */
 .concept-footer {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: var(--z-picker);
   display: flex;
-  flex-shrink: 0;
   flex-wrap: wrap;
   justify-content: flex-end;
   align-items: center;
   gap: 8px;
   padding: 16px var(--layout-gutter) 24px;
-  background: var(--surface);
+  background: transparent;
+  pointer-events: none;
+}
+
+.concept-footer > * {
+  pointer-events: auto;
+}
+
+/* Tokens hold no 18% black shadow, so the dark scrim colour carries the canon's
+   tight 4/14 shadow without a colour value in a screen file. */
+.concept-footer .button:not(.button--ghost) {
+  box-shadow: 0 4px 14px var(--overlay-dialog-scrim);
 }
 
 .concept-dialog {
@@ -525,6 +576,12 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   .concept-tune-toggle svg {
     transition: none;
   }
+
+  .concept-card[data-changed] .concept-card__picture,
+  .concept-card-slot[data-changed] .concept-card__picture,
+  .concept-tune-slot[data-changed] .field-trigger {
+    animation: none;
+  }
 }
 
 @media (max-width: 767px) {
@@ -535,13 +592,12 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
 
   /* One card per row: the board takes its own row so the next card stays pressable. */
   .concept-card-grid {
-    flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .concept-card-slot {
     width: 100%;
     height: auto;
-    flex-basis: 100%;
   }
 
   .concept-tune-panel {
