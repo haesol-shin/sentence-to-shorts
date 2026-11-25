@@ -295,9 +295,6 @@ def _chat(
 def _style(
     video: Video, request: StyleRequest, ctx: JobContext, services: Services
 ) -> dict[str, object]:
-    head = services.project.view(video.id)
-    if head.revision == video.revision:
-        services.reference.prune_frames(head)
     hints = _style_hints(video, request.use_reference, services)
     ref = services.templates.generate_style(request, video, hints, ctx=ctx)
     op = SetOp(
