@@ -1,0 +1,158 @@
+name: Real main path
+
+# Manual only. The real provider path is too slow and too costly for push or
+# pull request runs, so a person starts it on the ref they want to judge.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Branch, tag or commit to test"
+        type: string
+        default: main
+      tests:
+        description: "Space separated pytest node ids, relative to core/"
+        type: string
+        default: "tests/e2e/test_real_main_path.py::test_1_real_main_path_records_mp4_digest_and_usage tests/e2e/test_real_main_path.py::test_20_allowed_public_link_analysis_succeeds"
+      os:
+        description: "Runner image"
+        type: choice
+        options:
+          - windows-latest
+          - ubuntu-latest
+        default: windows-latest
+
+permissions:
+  contents: read
+
+concurrency:
+  group: real-path
+  cancel-in-progress: false
+
+jobs:
+  real-path:
+    name: "test | real main path"
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 150
+    env:
+      APP_PROFILE: dev
+      APP_DEVICE: cpu
+      APP_MODEL_DIR: ${{ github.workspace }}/.local/models
+      APP_RUNTIME_DIR: ${{ github.workspace }}/.local/rt
+      POETRY_VIRTUALENVS_IN_PROJECT: "true"
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+      - name: Install the official Claude CLI
+        shell: bash
+        run: |
+          npm install --global @anthropic-ai/claude-code
+          claude --version
+      - name: Install Poetry and the locked core environment
+        shell: bash
+        working-directory: core
+        run: |
+          python -m pip install poetry==2.5.1
+          python -m poetry install
+      # The same preparation a developer runs: pinned runtime files, both Poetry
+      # environments, the speech wheel and the model files.
+      - name: Prepare runtime, environments and models
+        shell: bash
+        working-directory: core
+        run: python -m poetry run python ../scripts/dev_setup.py --runtime --models
+      # Only this step sees the token. The adapter drops it from the CLI child
+      # unless APP_CLAUDE_CLI_PASS_OAUTH is 1, and then passes that one variable.
+      - name: Run the real path tests
+        shell: bash
+        working-directory: core
+        env:
+          TESTS: ${{ inputs.tests }}
+          APP_LLM_ADAPTER: claude_cli
+          APP_CLAUDE_CLI_PASS_OAUTH: "1"
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          E2E_EVIDENCE_DIR: ${{ runner.temp }}/real-path-evidence
+          E2E_ALLOWED_REFERENCE_URL: https://www.youtube.com/watch?v=VWB4D8UOtsU
+          E2E_BLOCKED_REFERENCE_URL: https://www.youtube.com/watch?v=Tq92D6wQ1mg
+          E2E_SKIP_BLOCKED_ALLOWED_LINK: "1"
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::The repository secret CLAUDE_CODE_OAUTH_TOKEN is empty or missing."
+            exit 1
+          fi
+          read -r -a targets <<< "$TESTS"
+          python -m poetry run pytest "${targets[@]}" -m realllm -q -rA \
+            --timeout=3000 -p no:cacheprovider \
+            --junitxml="$RUNNER_TEMP/real-path-junit.xml" \
+            --log-file="$RUNNER_TEMP/real-path-app.log" --log-file-level=INFO \
+            2>&1 | tee "$RUNNER_TEMP/real-path-pytest.log"
+      - name: Write the job summary
+        if: always()
+        shell: bash
+        env:
+          JUNIT: ${{ runner.temp }}/real-path-junit.xml
+          EVIDENCE: ${{ runner.temp }}/real-path-evidence/events.jsonl
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json
+          import os
+          import xml.etree.ElementTree as ET
+
+          print("## Real main path")
+          print()
+          print("| Test | Result | Seconds |")
+          print("|---|---|---|")
+          try:
+              cases = ET.parse(os.environ["JUNIT"]).getroot().iter("testcase")
+              for case in cases:
+                  state = "pass"
+                  for child in case:
+                      if child.tag in ("failure", "error"):
+                          state = "fail"
+                      elif child.tag == "skipped":
+                          state = "skip: " + (child.get("message") or "no reason")
+                  print(f"| {case.get('classname')}::{case.get('name')} | {state} | {case.get('time')} |")
+          except (OSError, ET.ParseError):
+              print("| no pytest result file | fail | |")
+
+          jobs = {}
+          try:
+              with open(os.environ["EVIDENCE"], encoding="utf-8") as handle:
+                  for line in handle:
+                      event = json.loads(line)
+                      if event.get("kind") == "job":
+                          jobs[event["id"]] = event
+          except OSError:
+              pass
+          print()
+          print("| Job | Stage | Milliseconds |")
+          print("|---|---|---|")
+          for job in jobs.values():
+              for stage in job["stages"]:
+                  ended, started = stage["ended_ms"], stage["started_ms"]
+                  elapsed = "" if ended is None or started is None else ended - started
+                  print(f"| {job['job_kind']} | {stage['stage']} | {elapsed} |")
+          records = [usage for job in jobs.values() for usage in job["usage"]]
+          retries = sum(usage.get("retries") or 0 for usage in records)
+          print()
+          print(f"LLM calls: {len(records)} usage records, {retries} retries, "
+                f"{len(jobs)} jobs")
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: real-path-${{ runner.os }}
+          path: |
+            ${{ runner.temp }}/real-path-evidence/
+            ${{ runner.temp }}/real-path-pytest.log
+            ${{ runner.temp }}/real-path-app.log
+            ${{ runner.temp }}/real-path-junit.xml
+          if-no-files-found: warn
+          retention-days: 7

@@ -32,6 +32,22 @@ APP_PROFILE=dev poetry run pytest tests/e2e -m realllm -q
 
 x64 media 실행과 실제 endpoint 실행은 각각 해당 실행 환경에서 확인한다. 문법 검사나 오프라인 회귀 시험 통과를 실제 공급자 수락 통과로 합치지 않는다.
 
+## GitHub 러너에서 실행
+
+이 호스트에서 끝낼 수 없는 실제 경로 시험(TTS가 문장마다 120초를 넘긴다)은 `Real main path` workflow가 GitHub 러너에서 돌린다. `workflow_dispatch`로만 시작하며 push와 PR에서는 돌지 않는다.
+
+```sh
+gh workflow run real-path.yml --ref main -f ref=main -f os=windows-latest
+```
+
+- 입력 `ref`는 시험할 브랜치·태그·커밋(기본 `main`), `os`는 `windows-latest`(기본) 또는 `ubuntu-latest`다. `tests`는 `core/` 기준 pytest node id를 공백으로 나눈 목록이며 기본값은 주 경로 시험과 허용 링크 시험이다.
+- 러너는 개발자와 같은 방법(`scripts/dev_setup.py --runtime --models`)으로 런타임·환경·모델을 준비하고 공식 Claude CLI를 설치한 뒤 `APP_PROFILE=dev`, `APP_LLM_ADAPTER=claude_cli`로 `-m realllm` 시험을 실행한다.
+- 저장소 secret `CLAUDE_CODE_OAUTH_TOKEN`이 필요하다. 어댑터는 CLI 자식 프로세스에서 이름에 TOKEN·CLAUDE·OAUTH가 든 변수를 모두 지우는 것이 기본이다. workflow가 `APP_CLAUDE_CLI_PASS_OAUTH=1`을 주면 `CLAUDE_CODE_OAUTH_TOKEN` 하나만 통과한다. 로컬에서는 이 변수를 쓰지 않고 CLI 자신의 로그인을 쓴다.
+- 비용은 구독 한도에서 나간다. 시험 한 번이 한국어·영어 초안 생성과 참고 분석의 LLM 호출을 모두 쓴다.
+- `E2E_ALLOWED_REFERENCE_URL`과 `E2E_BLOCKED_REFERENCE_URL`은 workflow에 고정돼 있다. 링크 호스트가 러너를 막으면(`download_blocked`) 허용 링크 시험은 통과가 아니라 건너뜀으로 기록된다. 이 처리는 `E2E_SKIP_BLOCKED_ALLOWED_LINK=1`일 때만 켜진다.
+- 참고 파일 시험(`test_20_synthetic_file_analysis_preserves_user_origins`)은 `E2E_REFERENCE_MP4`가 필요한데 workflow가 파일을 주지 않으므로 기본 `tests`에 넣지 않았다.
+- job summary에 시험별 통과·실패·건너뜀과 시간, 단계별 경과 시간, LLM 호출 수가 나온다. 증거 폴더, pytest 로그, 앱 로그는 artifact `real-path-<OS>`로 7일 보관된다. 증거의 mp4는 합성 재료로만 만들어지며 PR에 첨부하지 않는다.
+
 ## 검증 범위
 
 - 한국어·영어 한 문장과 합성 재료에서 초안 생성, 직접 입력과 추천 출처, 재료의 고유 사실 반영, 대본 확인 전 preview 금지, 장면 확인 전 generate 금지, 명시 확인 뒤 실제 mp4 다운로드와 digest 검사
