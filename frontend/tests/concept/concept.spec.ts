@@ -337,8 +337,13 @@ test('test_4_the_concept_column_is_900_and_the_cards_keep_four_216_columns', asy
   expect(await footer.evaluate((node) => getComputedStyle(node).backgroundColor))
     .toBe('rgba(0, 0, 0, 0)');
   const confirm = concept.getByRole('button', { name: '정하고 대본 만들기', exact: true });
-  expect(await confirm.evaluate((node) => getComputedStyle(node).boxShadow))
-    .toContain('0px 4px 14px');
+  // The canon's 18% black shadow is the button's own layer: 55% black at 18/55 opacity.
+  const shadow = await confirm.evaluate((node) => {
+    const layer = getComputedStyle(node, '::before');
+    return { boxShadow: layer.boxShadow, opacity: Number(layer.opacity) };
+  });
+  expect(shadow.boxShadow).toContain('0px 4px 14px');
+  expect(shadow.opacity).toBeCloseTo(0.18 / 0.55, 3);
 });
 
 test('test_23_captures_synthetic_concept_at_each_supported_width', async ({ page }, testInfo) => {

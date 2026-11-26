@@ -14,6 +14,7 @@ import {
   configureConceptApi,
   createConceptStyle,
   getConceptSnapshot,
+  acknowledgeConceptChanged,
   loadConceptDeployment,
   reloadConcept,
   reloadConceptCatalog,
@@ -25,7 +26,7 @@ import {
   undoConcept,
   useConcept,
 } from '@/features/concept/store';
-import type { Attachment, ConceptSnapshot } from '@/features/concept/types';
+import type { Attachment, ConceptSnapshot, Settings } from '@/features/concept/types';
 
 let api: MockConceptApi;
 
@@ -43,6 +44,11 @@ function current(): ConceptSnapshot {
     throw new Error('No active concept session');
   }
   return snapshot;
+}
+
+/** The marked paths, without the per-change counts. */
+function changedPathList(): string[] {
+  return current().changedPaths.map((entry) => entry.path);
 }
 
 function text(id: string, content: string, name = `${id}.txt`): Attachment {
@@ -473,6 +479,7 @@ test('test_explicit_chat_values_take_priority_over_attached_reference_suggestion
   await applyConceptPlan();
   expect(current().document.settings.format.story_structure).toBe('hypothetical');
   expect(current().document.settings.origins['/format/story_structure']).toBe('user');
+  expect(changedPathList()).toContain('/format/story_structure');
 });
 
 test('test_failed_reread_after_draft_keeps_materials_shows_error_and_still_starts_held_back_files', async () => {
@@ -481,18 +488,21 @@ test('test_failed_reread_after_draft_keeps_materials_shows_error_and_still_start
   api.load = () => Promise.reject(new ConceptApiError('internal', 500, 'Read failed'));
 
   await reloadConcept(videoId);
-  expect(current().error).toBe('concept.error.jobFailed');
+  expect(current().readError).toBe('concept.error.jobFailed');
+  expect(current().readState).toBe('failed');
   expect(current().document.attachments.map((attachment) => attachment.id)).toContain('t1');
 
   await attachConceptExtras([reference()]);
   expect(api.requests.some((request) => request.method === 'message' && request.kind === 'reference')).toBe(true);
+  // An attachment job may clear the general error, never the failed read.
+  expect(current().readError).toBe('concept.error.jobFailed');
 });
 
 test('test_5_the_draft_reload_freezes_the_first_reply_and_marks_filled_values', async () => {
   await beginConcept({ topic: '초안', language: 'ko', duration: 30 });
   const videoId = current().document.id;
   expect(current().opening.format.story_structure).toBe('numbered_three');
-  expect(current().draftChanged).toEqual([]);
+  expect(current().changedPaths).toEqual([]);
 
   const stored = api.sessions.get(videoId);
   if (stored === undefined) throw new Error('The mock session is missing');
@@ -503,12 +513,317 @@ test('test_5_the_draft_reload_freezes_the_first_reply_and_marks_filled_values', 
   await reloadConcept(videoId);
 
   expect(current().opening.format.story_structure).toBe('hypothetical');
-  expect(current().draftChanged).toContain('/format/story_structure');
-  expect(current().draftChanged).not.toContain('/visual/art_style');
+  expect(changedPathList()).toContain('/format/story_structure');
+  expect(changedPathList()).not.toContain('/visual/art_style');
+
+  // One user pick clears the draft's mark for that value and adds none.
+  chooseConcept('/format/story_structure', 'numbered_three');
+  expect(changedPathList()).not.toContain('/format/story_structure');
+  expect(changedPathList()).toContain('/format/card_id');
 
   chooseConcept('/format/register', 'casual');
   stored.settings.format.story_structure = 'numbered_three';
   stored.settings.origins['/format/story_structure'] = 'llm';
   await reloadConcept(videoId);
   expect(current().opening.format.story_structure).toBe('hypothetical');
+});
+
+test('test_5_a_chat_change_marks_the_value_until_the_screen_acknowledges_it', async () => {
+  await beginConcept({ topic: '대화', language: 'ko' });
+  await sendConcept('만약 별이 사라진다면');
+
+  expect(changedPathList()).toContain('/format/story_structure');
+  acknowledgeConceptChanged();
+  expect(current().changedPaths).toEqual([]);
+});
+
+test('test_5_the_draft_reload_marks_a_value_quoted_from_the_sentence', async () => {
+  await beginConcept({ topic: '2분', language: 'ko', duration: 30 });
+  const videoId = current().document.id;
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.target_duration_s = 120;
+  stored.settings.origins['/target_duration_s'] = 'user';
+
+  await reloadConcept(videoId);
+
+  expect(current().document.settings.target_duration_s).toBe(120);
+  expect(current().readState).toBe('ready');
+  // The server calls a value quoted from the sentence `user`; the highlight
+  // follows the actual change, not the origin label.
+  expect(changedPathList()).toContain('/target_duration_s');
+});
+
+test('test_5_the_draft_reload_keeps_directly_picked_values_valid', async () => {
+  await beginConcept({ topic: '구성', language: 'ko', duration: 30 });
+  await reloadConceptCatalog();
+  const videoId = current().document.id;
+  chooseConcept('/format/layout', 'full_stage');
+  expect(current().document.settings.format.layout.id).toBe('full_stage');
+
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.format.layout = { ...stored.settings.format.layout, id: 'dialog_stage' };
+  stored.settings.caption.mode = 'typewriter';
+  stored.settings.origins['/caption/mode'] = 'llm';
+
+  await reloadConcept(videoId);
+
+  // The direct pick and the caption that constrains it stay together, so the
+  // merged pair never becomes the invalid full-stage typewriter.
+  expect(current().document.settings.format.layout.id).toBe('full_stage');
+  expect(current().document.settings.caption.mode).toBe('sentence');
+  expect(current().readState).toBe('ready');
+  await confirmConcept();
+  expect(current().document.confirmed).toBe(true);
+});
+
+test('test_5_an_unapplied_draft_does_not_become_the_first_reply', async () => {
+  await beginConcept({ topic: '제안', language: 'ko', duration: 30 });
+  const videoId = current().document.id;
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.target_duration_s = 120;
+
+  await reloadConcept(videoId, false);
+
+  expect(current().document.settings.target_duration_s).toBe(120);
+  expect(current().readState).toBe('failed');
+  expect(current().opening.target_duration_s).toBe(30);
+});
+
+test('test_5_a_new_video_starts_with_no_concept_read', async () => {
+  await beginConcept({ topic: '첫 영상', language: 'ko' });
+  const firstId = current().document.id;
+  await reloadConcept(firstId);
+  expect(current().readState).toBe('ready');
+
+  await beginConcept({ topic: '둘째 영상', language: 'ko' });
+
+  expect(current().document.id).not.toBe(firstId);
+  expect(current().readState).toBe('idle');
+});
+
+test('test_5_undo_forgets_the_paths_it_restored', async () => {
+  await beginConcept({ topic: '대화', language: 'ko' });
+  await sendConcept('2분으로 해 줘');
+  if (current().pending !== null) await applyConceptPlan();
+  expect(changedPathList()).toContain('/target_duration_s');
+  const before = current().forgotten?.version ?? 0;
+
+  undoConcept();
+
+  expect(changedPathList()).not.toContain('/target_duration_s');
+  expect(current().forgotten?.version).toBeGreaterThan(before);
+  expect(current().forgotten?.paths).toContain('/target_duration_s');
+});
+
+test('test_5_a_direct_style_pick_does_not_hide_the_draft_role', async () => {
+  await beginConcept({ topic: '그림체', language: 'ko' });
+  await reloadConceptCatalog();
+  const videoId = current().document.id;
+  const flat = api.catalogValue().styles[1]?.ref;
+  if (flat === undefined) throw new Error('The mock catalog has no second style');
+  chooseConcept('/visual/art_style', flat);
+  if (current().pending !== null) await applyConceptPlan();
+  expect(current().document.settings.visual.art_style.id).toBe(flat.id);
+
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.format.character_role = 'subject';
+  stored.settings.origins['/format/character_role'] = 'llm';
+
+  await reloadConcept(videoId);
+
+  // The style pick changed only the style; the draft's role still applies.
+  expect(current().document.settings.visual.art_style.id).toBe(flat.id);
+  expect(current().document.settings.format.character_role).toBe('subject');
+  expect(current().readState).toBe('ready');
+});
+
+test('test_5_a_direct_duration_keeps_its_calculated_scene_count', async () => {
+  await beginConcept({ topic: '길이', language: 'ko', duration: 30 });
+  const videoId = current().document.id;
+  chooseConcept('/target_duration_s', 120);
+  expect(current().document.settings.target_duration_s).toBe(120);
+  expect(current().document.settings.format.scene_count).toBe(11);
+
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.target_duration_s = 30;
+  stored.settings.format.scene_count = 5;
+  stored.settings.origins['/target_duration_s'] = 'llm';
+  stored.settings.origins['/format/scene_count'] = 'llm';
+
+  await reloadConcept(videoId);
+
+  // Both values the direct pick actually wrote survive the draft's 30-second values.
+  expect(current().document.settings.target_duration_s).toBe(120);
+  expect(current().document.settings.format.scene_count).toBe(11);
+  expect(current().readState).toBe('ready');
+});
+
+test('test_5_a_character_slot_change_marks_only_that_slot', async () => {
+  await beginConcept({ topic: '모자', language: 'ko' });
+  await reloadConceptCatalog();
+  const videoId = current().document.id;
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  const character = stored.settings.visual.character;
+  if (character === null) throw new Error('The mock session has no character');
+  const catalog = current().catalog;
+  if (catalog === null) throw new Error('The mock catalog is missing');
+  const style = catalog.styles.find(
+    (entry) => entry.ref.id === stored.settings.visual.art_style.id,
+  );
+  if (style === undefined) throw new Error('The mock style is missing');
+  const template = style.manifest.assets.find((entry) => entry.kind === 'part');
+  if (template === undefined) throw new Error('The mock style has no part asset');
+  // The fixture has one asset per body and face; add a distinct usable hat so
+  // the catalog can validate a slot-only change.
+  style.manifest.assets.push({ ...template, id: 'hat_test', slot: 'hat' });
+  style.manifest.rig.slots.hat.push('hat_test');
+  character.slots.hat = 'hat_test';
+  stored.settings.origins['/visual/character/slots/hat'] = 'llm';
+
+  await reloadConcept(videoId);
+
+  const marked = changedPathList();
+  expect(marked).toContain('/visual/character/slots/hat');
+  for (const name of ['body', 'face', 'hair', 'outfit', 'prop']) {
+    expect(marked).not.toContain(`/visual/character/slots/${name}`);
+  }
+  expect(marked).not.toContain('/visual/character');
+});
+
+test('test_5_a_successful_reread_clears_the_read_error', async () => {
+  await beginConcept({ topic: '재읽기', language: 'ko' });
+  const videoId = current().document.id;
+  const load = api.load.bind(api);
+  api.load = () => Promise.reject(new ConceptApiError('internal', 500, 'Read failed'));
+  await reloadConcept(videoId);
+  expect(current().readError).toBe('concept.error.jobFailed');
+
+  api.load = load;
+  await reloadConcept(videoId);
+
+  expect(current().readError).toBeNull();
+  expect(current().readState).toBe('ready');
+});
+test('test_5_an_unapplied_draft_retry_does_not_write_the_success_reply', async () => {
+  await beginConcept({ topic: '제안', language: 'ko', duration: 30 });
+  const videoId = current().document.id;
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.target_duration_s = 120;
+  const load = api.load.bind(api);
+  api.load = () => Promise.reject(new ConceptApiError('internal', 500, 'Read failed'));
+  await reloadConcept(videoId, false);
+  expect(current().readError).toBe('concept.error.jobFailed');
+
+  api.load = load;
+  await reloadConcept(videoId);
+
+  // The document read succeeded, but the draft still did not apply.
+  expect(current().readError).toBeNull();
+  expect(current().readState).toBe('failed');
+  expect(current().opening.target_duration_s).toBe(30);
+  expect(current().document.settings.target_duration_s).toBe(120);
+});
+
+test('test_5_a_layout_conflict_does_not_restore_the_draft_role', async () => {
+  await beginConcept({ topic: '역할', language: 'ko' });
+  await reloadConceptCatalog();
+  const videoId = current().document.id;
+  const catalog = current().catalog;
+  if (catalog === null) throw new Error('The mock catalog is missing');
+  const style = catalog.styles.find((entry) => entry.ref.id === current().document.settings.visual.art_style.id);
+  if (style === undefined) throw new Error('The mock style is missing');
+  const template = style.manifest.assets.find((entry) => entry.kind === 'part');
+  if (template === undefined) throw new Error('The mock style has no part asset');
+  style.manifest.assets.push({ ...template, id: 'hat_test', slot: 'hat' });
+  style.manifest.rig.slots.hat.push('hat_test');
+  chooseConcept('/format/layout', 'full_stage');
+  chooseConcept('/visual/character/slots/hat', 'hat_test');
+  expect(current().document.settings.visual.character?.slots.hat).toBe('hat_test');
+
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.format.layout = { ...stored.settings.format.layout, id: 'dialog_stage' };
+  stored.settings.caption.mode = 'typewriter';
+  stored.settings.format.character_role = 'subject';
+  stored.settings.origins['/format/layout'] = 'llm';
+  stored.settings.origins['/caption/mode'] = 'llm';
+  stored.settings.origins['/format/character_role'] = 'llm';
+
+  await reloadConcept(videoId);
+
+  // Only the failing layout/caption pair is restored; the draft's role stays.
+  expect(current().document.settings.format.layout.id).toBe('full_stage');
+  expect(current().document.settings.caption.mode).toBe('sentence');
+  expect(current().document.settings.format.character_role).toBe('subject');
+  expect(current().readState).toBe('ready');
+});
+
+test('test_5_a_created_character_marks_its_body_slot', async () => {
+  const create = api.create.bind(api);
+  let draftCharacter: Settings['visual']['character'] = null;
+  api.create = async (input) => {
+    const document = await create(input);
+    draftCharacter = document.settings.visual.character;
+    document.settings.format.character_role = 'none';
+    document.settings.visual.character = null;
+    return document;
+  };
+  await beginConcept({ topic: '캐릭터', language: 'ko' });
+  const videoId = current().document.id;
+  expect(current().document.settings.visual.character).toBeNull();
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.format.character_role = 'subject';
+  stored.settings.visual.character = draftCharacter;
+
+  await reloadConcept(videoId);
+
+  const marked = changedPathList();
+  expect(marked).toContain('/visual/character/slots/body');
+  expect(marked).not.toContain('/visual/character');
+  expect(current().readState).toBe('ready');
+});
+
+test('test_5_a_unfit_hat_pick_keeps_the_draft_role_and_length', async () => {
+  await beginConcept({ topic: '모자', language: 'ko' });
+  await reloadConceptCatalog();
+  const videoId = current().document.id;
+  const catalog = current().catalog;
+  if (catalog === null) throw new Error('The mock catalog is missing');
+  const own = catalog.styles[0];
+  const other = catalog.styles[1];
+  if (own === undefined || other === undefined) throw new Error('The mock catalog needs two styles');
+  const template = own.manifest.assets.find((entry) => entry.kind === 'part');
+  if (template === undefined) throw new Error('The mock style has no part asset');
+  // A hat that only the current style offers.
+  own.manifest.assets.push({ ...template, id: 'hat_only_here', slot: 'hat' });
+  own.manifest.rig.slots.hat.push('hat_only_here');
+  chooseConcept('/visual/character/slots/hat', 'hat_only_here');
+  if (current().pending !== null) await applyConceptPlan();
+  expect(current().document.settings.visual.character?.slots.hat).toBe('hat_only_here');
+
+  const stored = api.sessions.get(videoId);
+  if (stored === undefined) throw new Error('The mock session is missing');
+  stored.settings.visual.art_style = other.ref;
+  stored.settings.visual.theme_id = other.manifest.themes[0]?.id ?? stored.settings.visual.theme_id;
+  stored.settings.format.character_role = 'subject';
+  stored.settings.target_duration_s = 120;
+  stored.settings.origins['/format/character_role'] = 'llm';
+  stored.settings.origins['/target_duration_s'] = 'llm';
+
+  await reloadConcept(videoId);
+
+  const settings = current().document.settings;
+  expect(settings.visual.art_style.id).toBe(other.ref.id);
+  expect(settings.visual.character?.slots.hat).not.toBe('hat_only_here');
+  expect(settings.format.character_role).toBe('subject');
+  expect(settings.target_duration_s).toBe(120);
+  expect(current().readNotice).toBe('concept.reason.user_value_overwrite');
 });

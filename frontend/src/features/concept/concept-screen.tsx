@@ -11,16 +11,19 @@ import { CARD_DESCRIPTION_LIMIT, clampCardText, cardColumns, STORY_CARD_ORDER, v
 import { valueLabel } from './labels';
 import { cardIdForSettings, originOf, SHORT_OPTIONS } from './model';
 import {
-  analyzeConceptReference, applyConceptPlan, chooseCardTune, chooseConcept,
-  confirmConcept, conceptApiIsMock, createConceptStyle, ensureConcept, rejectConceptPlan,
-  reloadConceptCatalog, undoConcept, useConcept, useConceptStyleEntry,
+  acknowledgeConceptChanged, analyzeConceptReference, applyConceptPlan, chooseCardTune, chooseConcept,
+  conceptPathTouches, confirmConcept, conceptApiIsMock, consumeConceptChanged, createConceptStyle, ensureConcept,
+  rejectConceptPlan, reloadConcept, reloadConceptCatalog, undoConcept, useConcept, useConceptStyleEntry,
 } from './store';
-import type { Attachment, Plan, Settings, Slot } from './types';
+import type { Attachment, ConceptChange, Plan, Settings, Slot } from './types';
 import './concept.css';
 
 const STORIES = STORY_CARD_ORDER;
 // A character card is its body; the other parts live in that card's fine-tune board.
 const PARTS: Slot[] = ['face', 'hair', 'hat', 'outfit', 'prop'];
+/** One animation of the canon's one-time changed mark. */
+const CHANGED_HIGHLIGHT_MS = 700;
+const NO_CHANGED_PATHS: ConceptChange[] = [];
 
 export interface EntryComposerProps {
   label: string;
@@ -106,13 +109,14 @@ function CardGrid({ children }: { children: ReactNode }) {
  * A picture card. A story card's body sits bare inside its slot, which carries
  * the face; a tile (art style) is its own 216 face.
  */
-function PictureCard({ title, description, selected, disabled, onClick, changed = false, tile = false }: {
+function PictureCard({ title, description, selected, disabled, onClick, changed, tile = false }: {
   title: string; description?: string; selected: boolean; disabled: boolean; onClick: () => void;
-  changed?: boolean; tile?: boolean;
+  changed?: number; tile?: boolean;
 }) {
   return (
     <button type="button" className={tile ? 'concept-card concept-card--tile' : 'concept-card'} aria-label={title} title={title}
-      aria-pressed={selected} data-changed={changed ? 'true' : undefined} disabled={disabled} onClick={onClick}>
+      aria-pressed={selected} data-changed={changed === undefined ? undefined : String(changed % 2)}
+      disabled={disabled} onClick={onClick}>
       <span className="concept-card__picture"><Image aria-hidden size={32} /></span>
       <span className="concept-card__title">{clampCardText(title)}</span>
       <span className="concept-card__description">{clampCardText(description ?? '', CARD_DESCRIPTION_LIMIT)}</span>
@@ -127,16 +131,44 @@ function styleDescription(id: string, builtin: boolean, t: (key: string) => stri
   return own === key ? t(builtin ? 'concept.style.builtin' : 'concept.style.mine') : own;
 }
 
+/**
+ * A detail panel consumes only the mark versions it actually showed, once it
+ * leaves the screen. The microtask lets StrictMode's test unmount cancel it.
+ */
+function TunePanel({ videoId, entries, children }: {
+  videoId: string; entries: ConceptChange[]; children: ReactNode;
+}) {
+  const latest = useRef(entries);
+  latest.current = entries;
+  const pending = useRef<number | null>(null);
+  useEffect(() => {
+    if (pending.current !== null) {
+      window.clearTimeout(pending.current);
+      pending.current = null;
+    }
+    return () => {
+      const shown = latest.current;
+      if (shown.length === 0) return;
+      pending.current = window.setTimeout(() => {
+        pending.current = null;
+        consumeConceptChanged(videoId, shown);
+      }, 0);
+    };
+  }, [videoId]);
+  return <>{children}</>;
+}
+
 /** A card with a fine-tune toggle under it; the board opens below the card row. */
-function TunedCard({ id, title, description, selected, disabled, open, onPick, onToggle, panel, changed = false, tile = false }: {
+function TunedCard({ id, title, description, selected, disabled, open, onPick, onToggle, panel, changed, tile = false }: {
   id: string; title: string; description: string; selected: boolean; disabled: boolean;
   open: boolean; onPick: () => void; onToggle: () => void; panel: ReactNode;
-  changed?: boolean; tile?: boolean;
+  changed?: number; tile?: boolean;
 }) {
   const { t } = useLocale();
   return (
     <div className={tile ? 'concept-card-slot concept-card-slot--tile' : 'concept-card-slot'}
-      data-card={id} data-selected={!tile && selected ? '' : undefined} data-changed={changed ? 'true' : undefined}>
+      data-card={id} data-selected={!tile && selected ? '' : undefined}
+      data-changed={changed === undefined ? undefined : String(changed % 2)}>
       <PictureCard title={title} description={description} selected={selected} disabled={disabled} onClick={onPick} tile={tile} />
       <button type="button" className="concept-tune-toggle" aria-expanded={open}
         aria-label={`${title} ${t('concept.tune')}`} aria-controls={`concept-tune-${id}`}
@@ -151,14 +183,14 @@ function TunedCard({ id, title, description, selected, disabled, open, onPick, o
 }
 
 /** A value pick in the value field the canon draws: name, bold value and chevron, its menu below. */
-function TuneField({ name, label, path, options, value, disabled, changed = false, className }: {
+function TuneField({ name, label, path, options, value, disabled, changed, className }: {
   name: string; label?: string; path: string; options: { value: unknown; label: string }[]; value: unknown;
-  disabled: boolean; changed?: boolean; className?: string;
+  disabled: boolean; changed?: number; className?: string;
 }) {
   const { t } = useLocale();
   const index = options.findIndex((option) => JSON.stringify(option.value) === JSON.stringify(value));
   return (
-    <span className="concept-tune-slot" data-changed={changed ? 'true' : undefined}>
+    <span className="concept-tune-slot" data-changed={changed === undefined ? undefined : String(changed % 2)}>
       <ValueField<number> className={className} label={name} name={label ?? name}
         placeholder={valueLabel(value, t)} disabled={disabled}
         items={options.map((option, i) => ({ value: i, label: option.label }))}
@@ -267,10 +299,50 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
       setEntry('style');
     }
   }, [styleEntry]);
+  const pendingChanged = snapshot?.changedPaths ?? NO_CHANGED_PATHS;
+  const [changed, setChanged] = useState<ReadonlyMap<string, number>>(
+    () => new Map(pendingChanged.map((entry) => [entry.path, entry.version])),
+  );
+  // The store holds each mark until the screen shows it, so a remount never replays.
+  useEffect(() => {
+    if (pendingChanged.length === 0) return;
+    setChanged((previous) => {
+      const next = new Map(previous);
+      for (const entry of pendingChanged) next.set(entry.path, entry.version);
+      return next;
+    });
+    acknowledgeConceptChanged();
+  }, [pendingChanged]);
+  // The canon marks a value once; the attribute goes so the next change animates again.
+  useEffect(() => {
+    if (changed.size === 0) return undefined;
+    const timer = window.setTimeout(() => setChanged(new Map()), CHANGED_HIGHLIGHT_MS);
+    return () => window.clearTimeout(timer);
+  }, [changed]);
+  // The store is the one place that invalidates a mark; the screen follows it.
+  const forgotten = snapshot?.forgotten ?? null;
+  useEffect(() => {
+    if (forgotten === null) return;
+    setChanged((previous) => {
+      const next = new Map(previous);
+      if (forgotten.changes !== undefined) {
+        for (const change of forgotten.changes) {
+          const shown = next.get(change.path);
+          if (shown !== undefined && shown <= change.version) next.delete(change.path);
+        }
+      } else {
+        for (const mark of previous.keys()) {
+          if (forgotten.paths.some((path) => conceptPathTouches(mark, path))) {
+            next.delete(mark);
+          }
+        }
+      }
+      return next.size === previous.size ? previous : next;
+    });
+  }, [forgotten]);
   if (snapshot === null) return <p role="status">{t('concept.loading')}</p>;
   const { document: doc, catalog } = snapshot;
   const settings = doc.settings;
-  const changed = new Set(snapshot.draftChanged);
   const style = catalog?.styles.find((item) => item.ref.id === settings.visual.art_style.id)?.manifest;
   const frozen = doc.confirmed || snapshot.busy || catalog === null;
   const choices = (values: readonly unknown[]) => values.map((value) => ({ value, label: valueLabel(value, t) }));
@@ -278,6 +350,23 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
   const character = settings.visual.character;
   const activeCharacterId = character === null ? '' : `character-${character.slots.body}`;
   const characterFrozen = frozen || character === null;
+  const versionOf = (...paths: string[]): number | undefined => paths.reduce<number | undefined>(
+    (latest, path) => {
+      const version = changed.get(path);
+      if (version === undefined) return latest;
+      return latest === undefined ? version : Math.max(latest, version);
+    },
+    undefined,
+  );
+  const tunePanelEntries = ['/format/layout', '/format/register', '/format/humor'].flatMap((path) => {
+    const version = changed.get(path);
+    return version === undefined ? [] : [{ path, version }];
+  });
+  const characterPanelEntries = PARTS.flatMap((slot) => {
+    const path = `/visual/character/slots/${slot}`;
+    const version = changed.get(path);
+    return version === undefined ? [] : [{ path, version }];
+  });
   const pickCard = (id: string) => {
     if (frozen || id === activeCardId) return;
     chooseCardTune(id);
@@ -296,19 +385,27 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
     if (openTune?.startsWith('character-')) setOpenTune(`character-${body}`);
   };
   const toggleTune = (id: string) => {
+    if (openTune === id) {
+      setOpenTune(null);
+      return;
+    }
     if (id !== activeCardId) {
       if (frozen) return;
       pickCard(id);
     }
-    setOpenTune((open) => open === id ? null : id);
+    setOpenTune(id);
   };
   const toggleCharacter = (body: string) => {
     const id = `character-${body}`;
+    if (openTune === id) {
+      setOpenTune(null);
+      return;
+    }
     if (id !== activeCharacterId) {
       if (characterFrozen) return;
       pickCharacter(body);
     }
-    setOpenTune((open) => open === id ? null : id);
+    setOpenTune(id);
   };
   const openCardId = openTune !== null && (openTune === activeCardId || openTune === activeCharacterId) ? openTune : null;
   const tuneOrigins = ['/format/layout', '/format/register', '/format/humor']
@@ -332,11 +429,14 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
       {panelHead(t(`concept.card.${id}`), t(tuneSummary))}
       <div className="concept-tune-panel__grid">
         <TuneField className="concept-tune-field" name={t('concept.field.format.layout')} path="/format/layout"
-          options={layoutOptions} value={settings.format.layout} disabled={frozen} changed={changed.has('/format/layout')} />
+          options={layoutOptions} value={settings.format.layout} disabled={frozen}
+          changed={changed.get('/format/layout')} />
         <TuneField className="concept-tune-field" name={t('concept.field.format.register')} path="/format/register"
-          options={registerOptions} value={settings.format.register} disabled={frozen} changed={changed.has('/format/register')} />
+          options={registerOptions} value={settings.format.register} disabled={frozen}
+          changed={changed.get('/format/register')} />
         <TuneField className="concept-tune-field" name={t('concept.field.format.humor')} path="/format/humor"
-          options={humorOptions} value={settings.format.humor} disabled={frozen} changed={changed.has('/format/humor')} />
+          options={humorOptions} value={settings.format.humor} disabled={frozen}
+          changed={changed.get('/format/humor')} />
       </div>
     </>
   );
@@ -347,7 +447,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
         {PARTS.map((slot) => (
           <TuneField key={slot} className="concept-tune-field" name={t(`concept.slot.${slot}`)}
             path={`/visual/character/slots/${slot}`} value={character?.slots[slot] ?? null} disabled={characterFrozen}
-            changed={changed.has('/visual/character')}
+            changed={changed.get(`/visual/character/slots/${slot}`)}
             options={choices([...(slot === 'face' ? [] : [null]), ...(style?.rig.slots[slot] ?? [])])} />
         ))}
       </div>
@@ -363,15 +463,25 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
           <div className="concept-head__fields">
             <TuneField name={t('concept.field.target_duration_s')} label={t('concept.head.duration')}
               path="/target_duration_s" options={choices([30, 60, 120])} value={settings.target_duration_s}
-              disabled={frozen} changed={changed.has('/target_duration_s')} />
+              disabled={frozen} changed={changed.get('/target_duration_s')} />
             <TuneField name={t('concept.field.format.scene_count')} label={t('concept.head.sceneCount')}
               path="/format/scene_count" options={[5, 8, 11].map((count) => ({ value: count, label: t('concept.head.sceneCountValue', { count }) }))}
-              value={settings.format.scene_count} disabled={frozen} changed={changed.has('/format/scene_count')} />
+              value={settings.format.scene_count} disabled={frozen} changed={changed.get('/format/scene_count')} />
           </div>
         </header>
+        {snapshot.readError === null ? null : <div role="alert" className="concept-review">
+          <p>{snapshot.readError.startsWith('concept.') ? t(snapshot.readError) : snapshot.readError}</p>
+          <Button variant="ghost" disabled={snapshot.busy || snapshot.readState === 'waiting'}
+            onClick={() => void reloadConcept(doc.id)}>
+            {t('shell.prepare.retry')}
+          </Button>
+        </div>}
+        {snapshot.readNotice === null ? null : <p role="status">{t(snapshot.readNotice)}</p>}
         {snapshot.error === null ? null : <div role="alert" className="concept-review">
           <p>{snapshot.error.startsWith('concept.') ? t(snapshot.error) : snapshot.error}</p>
-          <Button variant="ghost" disabled={snapshot.loading} onClick={() => void reloadConceptCatalog()}>{t('concept.retryCatalog')}</Button>
+          <Button variant="ghost" disabled={snapshot.loading} onClick={() => void reloadConceptCatalog()}>
+            {t('concept.retryCatalog')}
+          </Button>
         </div>}
         {snapshot.loading ? <p role="status">{t('concept.loading')}</p> : null}
         <button type="button" className="concept-reference-band" aria-label={t('concept.reference')}
@@ -390,9 +500,11 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
             {STORIES.map((id) => (
               <TunedCard key={id} id={id} title={t(`concept.card.${id}`)} description={t(`concept.example.${id}`)}
                 selected={activeCardId === id} disabled={frozen}
-                changed={activeCardId === id && (changed.has('/format/story_structure') || changed.has('/format/card_id'))}
+                changed={activeCardId === id
+                  ? versionOf('/format/story_structure', '/format/card_id')
+                  : undefined}
                 open={openCardId === id} onPick={() => onCard(id)} onToggle={() => toggleTune(id)}
-                panel={openCardId === id ? tunePanel(id) : null} />
+                panel={openCardId === id ? <TunePanel videoId={doc.id} entries={tunePanelEntries}>{tunePanel(id)}</TunePanel> : null} />
             ))}
           </CardGrid>
         </section>
@@ -407,8 +519,12 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
               <PictureCard key={item.ref.id} tile title={item.manifest.label[language]}
                 description={styleDescription(item.ref.id, item.manifest.origin === 'builtin', t)}
                 selected={settings.visual.art_style.id === item.ref.id} disabled={frozen}
-                changed={settings.visual.art_style.id === item.ref.id && changed.has('/visual/art_style')}
-                onClick={() => chooseConcept('/visual/art_style', item.ref)} />
+                changed={settings.visual.art_style.id === item.ref.id
+                  ? changed.get('/visual/art_style')
+                  : undefined}
+                onClick={() => {
+                  chooseConcept('/visual/art_style', item.ref);
+                }} />
             ))}
           </CardGrid>
         </section>
@@ -422,9 +538,9 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
               return (
                 <TunedCard key={id} id={id} title={valueLabel(body, t)} description=""
                   selected={activeCharacterId === id} disabled={characterFrozen} tile
-                  changed={activeCharacterId === id && changed.has('/visual/character')}
+                  changed={activeCharacterId === id ? changed.get('/visual/character/slots/body') : undefined}
                   open={openCardId === id} onPick={() => onCharacter(body)} onToggle={() => toggleCharacter(body)}
-                  panel={openCardId === id ? characterPanel(body) : null} />
+                  panel={openCardId === id ? <TunePanel videoId={doc.id} entries={characterPanelEntries}>{characterPanel(body)}</TunePanel> : null} />
               );
             })}
           </CardGrid>

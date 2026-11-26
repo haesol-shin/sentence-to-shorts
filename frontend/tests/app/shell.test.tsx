@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, expect, test, vi } from 'vitest';
 
-import { DRAFT_JOB_PATH, draftJob, shellRoutes } from '../support/api';
+import { DRAFT_JOB_PATH, draftAnswer, shellRoutes } from '../support/api';
 import { renderApp, sendSentence } from '../support/render';
 
 afterEach(() => {
@@ -89,7 +89,7 @@ test('test_10a_top_bar_names_the_video_and_its_menu_starts_a_new_one', async () 
 test('test_10a_the_conversation_opens_with_the_sent_sentence', async () => {
   const routes = shellRoutes();
   let state = 'queued';
-  routes[`GET ${DRAFT_JOB_PATH}`] = () => ({ status: 200, body: { ...draftJob, state } });
+  routes[`GET ${DRAFT_JOB_PATH}`] = () => ({ status: 200, body: draftAnswer(state) });
   await renderApp(routes);
   sendSentence('커피를 고르는 세 가지 기준');
   await screen.findByRole('heading', { name: '컨셉' });

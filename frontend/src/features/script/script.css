@@ -1,3 +1,5 @@
+@import '../concept/step-actions.css';
+
 /* The screen keeps its own scroll column, so the step button can stay fixed. */
 main:has(.script-screen) [data-slot='stage-scroll'] {
   overflow: hidden;
@@ -442,14 +444,9 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   pointer-events: none;
 }
 
+/* The canon floats the step action on 18% black; the shared rule owns it. */
 .script-footer > * {
   pointer-events: auto;
-}
-
-/* Tokens hold no 18% black shadow, so the dark scrim colour carries the canon's
-   tight 4/14 shadow without a colour value in a screen file. */
-.script-footer .button:not(.button--ghost) {
-  box-shadow: 0 4px 14px var(--overlay-dialog-scrim);
 }
 
 .script-footer-note {

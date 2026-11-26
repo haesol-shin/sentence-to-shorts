@@ -70,8 +70,13 @@ test('test_10a_the_script_action_floats_over_the_document_without_a_band', async
   expect(await footer.evaluate((node) => getComputedStyle(node).backgroundColor))
     .toBe('rgba(0, 0, 0, 0)');
   const next = screen.getByRole('button', { name: '이대로 영상 만들기', exact: true });
-  expect(await next.evaluate((node) => getComputedStyle(node).boxShadow))
-    .toContain('0px 4px 14px');
+  // The canon's 18% black shadow is the button's own layer: 55% black at 18/55 opacity.
+  const shadow = await next.evaluate((node) => {
+    const layer = getComputedStyle(node, '::before');
+    return { boxShadow: layer.boxShadow, opacity: Number(layer.opacity) };
+  });
+  expect(shadow.boxShadow).toContain('0px 4px 14px');
+  expect(shadow.opacity).toBeCloseTo(0.18 / 0.55, 3);
   const scenes = screen.locator('[data-slot="script-scenes"]');
   expect(parseFloat(await scenes.evaluate((node) => getComputedStyle(node).paddingBottom)))
     .toBeGreaterThanOrEqual(116);

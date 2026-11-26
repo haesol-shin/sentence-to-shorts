@@ -66,6 +66,22 @@ export interface ConceptJob {
   result?: ConceptResult;
 }
 
+/** One settings path the draft or a chat changed, with the mark's change count. */
+export interface ConceptChange {
+  path: string;
+  version: number;
+}
+
+/** Paths the screen has just cleared, so its local marks can follow. */
+export interface ConceptForget {
+  paths: string[];
+  version: number;
+  /** The exact versions a shown panel consumed, when the clear is per field. */
+  changes?: ConceptChange[];
+}
+
+export type ConceptReadState = 'idle' | 'waiting' | 'ready' | 'failed';
+
 export interface ConceptSnapshot {
   document: ConceptDocument;
   catalog: ConceptCatalog | null;
@@ -82,6 +98,13 @@ export interface ConceptSnapshot {
   cardTunes: Record<string, CardTune>;
   /** The values the first concept reply names, frozen before the user edits. */
   opening: Settings;
-  /** Settings paths the draft filled, for the one-time changed highlight. */
-  draftChanged: string[];
+  /** Whether this video's draft was applied and the concept document was read. */
+  readState: ConceptReadState;
+  /** The concept read's own error, cleared only by a successful read. */
+  readError: string | null;
+  readNotice: string | null;
+  /** Settings paths the draft or a chat set, for the one-time changed highlight. */
+  changedPaths: ConceptChange[];
+  /** The latest invalidation, so the screen drops marks the store dropped. */
+  forgotten: ConceptForget | null;
 }
