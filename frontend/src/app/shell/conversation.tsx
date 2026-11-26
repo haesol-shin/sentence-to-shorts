@@ -46,16 +46,16 @@ export function ConversationLog({
   }
 
   const ready =
-    stage === 'concept' ? !draftWaiting : script !== null && script.document.scene_order.length > 0;
+    stage === 'concept'
+      ? !draftWaiting && concept !== null && concept.readState === 'ready'
+      : script !== null && script.document.scene_order.length > 0;
   return (
     <ChatLog slot="chat-log" label={t('edit.chat.label')}>
       {said}
       {ready ? (
         <ChatAppLine muted>
           {stage === 'concept'
-            ? concept === null
-              ? t('shell.conversation.conceptWaiting')
-              : conceptGreeting(concept.opening, t)
+            ? concept === null ? null : conceptGreeting(concept.opening, t)
             : t(`shell.conversation.${stage}`)}
         </ChatAppLine>
       ) : null}

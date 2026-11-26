@@ -87,6 +87,9 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const sessionSeq = useRef(0);
   const pendingExtras = useRef<Attachment[]>([]);
   const [jobId, setJobId] = useState<string | null>(null);
+  // The concept reload after a finished draft lands after the job state; the
+  // first reply waits for it so it never reads the pre-draft defaults.
+  const [draftRead, setDraftRead] = useState<'idle' | 'waiting' | 'done' | 'failed'>('idle');
   const [draft, setDraft] = useState('');
   const [card, setCard] = useState<CardPick | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -138,6 +141,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
         card_id: card?.id ?? null,
       });
       if (nextPreset.current === preset) nextPreset.current = null;
+      setDraftRead('waiting');
       setJobId(started.id);
       sessionSeq.current += 1;
       setVideo({
@@ -166,6 +170,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   };
 
   const draftWritten = draftJob?.state === 'succeeded' ? draftJob.id : null;
+  const draftApplied = draftJob?.result?.status === 'applied';
   const openVideoId = video?.id ?? null;
   // The draft job writes the concept values, so the screen reads the video
   // again before it starts the files and links held back at the start.
@@ -173,10 +178,23 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     if (draftWritten === null || openVideoId === null) return;
     const extras = pendingExtras.current;
     pendingExtras.current = [];
-    void reloadConcept(openVideoId)
-      .then(() => attachConceptExtras(extras))
-      .catch(() => undefined);
-  }, [draftWritten, openVideoId]);
+    let cancelled = false;
+    void reloadConcept(openVideoId, draftApplied)
+      .then((ok) => {
+        if (!cancelled) setDraftRead(ok ? 'done' : 'failed');
+      })
+      .catch(() => {
+        if (!cancelled) setDraftRead('failed');
+      })
+      .finally(() => {
+        // The reply state is settled above; the held files and links start on
+        // their own so a slow upload never keeps the first reply waiting.
+        if (!cancelled) void attachConceptExtras(extras).catch(() => undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [draftApplied, draftWritten, openVideoId]);
 
   // The job started with no usable key: back to the first screen with the
   // sentence the user typed, so the key can be replaced and the sentence sent again.
@@ -197,6 +215,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     setView('first');
     setVideo(null);
     setJobId(null);
+    setDraftRead('idle');
     setDraft('');
     setCard(null);
     setActionErrorKey(null);
@@ -251,7 +270,8 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
       onNewVideo={openNewVideo}
       onStage={setView}
       draftWaiting={draftJob === null ? jobId !== null : (
-        draftJob.state === 'queued' || draftJob.state === 'running' || draftJob.state === 'cancelling'
+        draftJob.state === 'queued' || draftJob.state === 'running' || draftJob.state === 'cancelling' ||
+        (draftJob.state === 'succeeded' && draftRead === 'waiting')
       )}
       header={header}
       jobStatus={job.job === null ? null : <JobStatusShort job={job.job} />}

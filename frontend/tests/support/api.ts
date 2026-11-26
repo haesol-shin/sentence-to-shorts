@@ -85,6 +85,15 @@ export const draftJob = {
   progress: { stage: null, done: 0, total: 0, waiting_on: null },
 };
 
+/** A draft job answer in `state`; a done job carries the result it applied. */
+export function draftAnswer(state: string, status: 'applied' | 'proposed' = 'applied') {
+  return {
+    ...draftJob,
+    state,
+    ...(state === 'succeeded' ? { result: { status } } : {}),
+  };
+}
+
 export const draftVideo = {
   id: DRAFT_VIDEO,
   project_id: 'p_06pxfteaw88hs93kkckw5j51ng',

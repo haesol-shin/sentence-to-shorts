@@ -1,3 +1,5 @@
+@import './step-actions.css';
+
 .concept-screen {
   position: relative;
   display: flex;
@@ -194,15 +196,33 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   outline-offset: 2px;
 }
 
-/* A value the draft filled lights once, as the edit and script screens mark
-   their just-changed cells. */
-.concept-card[data-changed] .concept-card__picture,
-.concept-card-slot[data-changed] .concept-card__picture,
-.concept-tune-slot[data-changed] .field-trigger {
-  animation: concept-changed 0.6s ease-out 1;
+/* A value the draft or a chat set lights once per change. The two names flip
+   so a second change on the same value restarts the animation. */
+.concept-card[data-changed='0'] .concept-card__picture,
+.concept-card-slot[data-changed='0'] .concept-card__picture,
+.concept-tune-slot[data-changed='0'] .field-trigger {
+  animation: concept-changed-a 0.6s ease-out 1;
 }
 
-@keyframes concept-changed {
+.concept-card[data-changed='1'] .concept-card__picture,
+.concept-card-slot[data-changed='1'] .concept-card__picture,
+.concept-tune-slot[data-changed='1'] .field-trigger {
+  animation: concept-changed-b 0.6s ease-out 1;
+}
+
+@keyframes concept-changed-a {
+  from {
+    outline: 2px solid var(--emphasis);
+    outline-offset: 2px;
+  }
+
+  to {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+  }
+}
+
+@keyframes concept-changed-b {
   from {
     outline: 2px solid var(--emphasis);
     outline-offset: 2px;
@@ -462,14 +482,9 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   pointer-events: none;
 }
 
+/* The canon floats the step action on 18% black; the shared rule owns it. */
 .concept-footer > * {
   pointer-events: auto;
-}
-
-/* Tokens hold no 18% black shadow, so the dark scrim colour carries the canon's
-   tight 4/14 shadow without a colour value in a screen file. */
-.concept-footer .button:not(.button--ghost) {
-  box-shadow: 0 4px 14px var(--overlay-dialog-scrim);
 }
 
 .concept-dialog {
