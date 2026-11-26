@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, NamedTuple
 
 from jsonschema import SchemaError
 from jsonschema.exceptions import ValidationError
@@ -58,9 +58,24 @@ class ProviderReply:
     cache_write_tokens: int | None = None
 
 
+class ProviderUsage(NamedTuple):
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+
+
 class ProviderError(AppError):
-    def __init__(self, code: str, *, retry_after: float | None = None) -> None:
-        super().__init__(code)
+    def __init__(
+        self,
+        code: str,
+        *,
+        retry_after: float | None = None,
+        detail: Mapping[str, Any] | None = None,
+        usage: ProviderUsage = ProviderUsage(),
+    ) -> None:
+        super().__init__(code, detail=detail)
+        self.usage = usage
         self.retry_after = retry_after
 
 
@@ -266,8 +281,10 @@ class BaseLlm(ABC):
                 _report(on_request, ProviderRequest(
                     try_index=try_index, stage=stage, provider=self.provider,
                     model=route.model, credential_id=credential_id,
-                    input_tokens=None, output_tokens=None,
-                    cache_read_tokens=None, cache_write_tokens=None,
+                    input_tokens=error.usage.input_tokens,
+                    output_tokens=error.usage.output_tokens,
+                    cache_read_tokens=error.usage.cache_read_tokens,
+                    cache_write_tokens=error.usage.cache_write_tokens,
                     outcome="failed",
                 ))
                 check_active(cancel, deadline)
@@ -280,7 +297,7 @@ class BaseLlm(ABC):
                 used = failures.get(error.code, 0)
                 # A mixed sequence cannot escape the configured retry budget.
                 if used >= cap or sum(failures.values()) >= min(route.retries, 2):
-                    raise AppError(error.code) from None
+                    raise AppError(error.code, detail=error.detail) from None
                 failures[error.code] = used + 1
                 delay = error.retry_after
                 wait_active(delay if delay is not None else 2.0 ** used,

@@ -17,10 +17,9 @@ executable is absent and otherwise caches the outcome observed by ``complete``;
 it starts as ``unknown``.
 
 The verified help has no max-output-token flag and no verified environment
-control for one. The provider therefore sends the request budget as a trusted
-instruction and fails with ``llm_invalid_output`` when the CLI reports more
-output tokens than that budget. When the CLI omits output usage, the budget
-cannot be enforced and only the instruction remains.
+control for one. The request budget stays in the prompt. The reported output
+count can include more than the reply text, so only a separate runaway limit
+rejects a reply by count. The stdout byte limit also applies without usage.
 
 A runner without an interactive login can set ``APP_CLAUDE_CLI_PASS_OAUTH=1``;
 the child then also receives ``CLAUDE_CODE_OAUTH_TOKEN`` and no other secret.
@@ -38,6 +37,7 @@ import threading
 import time
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +45,7 @@ from app.llm.common import (
     BaseLlm,
     ProviderError,
     ProviderReply,
+    ProviderUsage,
     ResolvedRoute,
     check_active,
     settings_options,
@@ -59,6 +60,7 @@ MINIMUM_VERSION = (2, 1, 325)
 PROBE_TIMEOUT_S = 20.0
 MAX_STDOUT_BYTES = 8 * 1024 * 1024
 MAX_STDERR_BYTES = 64 * 1024
+OUTPUT_TOKEN_LIMIT_FACTOR = 4
 
 # Every flag below is needed to remove a capability. Permission bypass flags are
 # deliberately absent. The exact expected list belongs to the test evidence.
@@ -166,6 +168,26 @@ USAGE_MARKERS = ("requires", "unknown option", "invalid option", "error: option"
 VERSION_PATTERN = re.compile(r"(?<!\d)(\d+)\.(\d+)\.(\d+)(?!\d)")
 
 
+class InvalidOutputReason(StrEnum):
+    STDOUT_EMPTY = "stdout_empty"
+    STDOUT_NOT_JSON = "stdout_not_json"
+    NO_RESULT_EVENT = "no_result_event"
+    TOOL_ACTIVITY = "tool_activity"
+    STDOUT_TRUNCATED = "stdout_truncated"
+    NONZERO_EXIT = "nonzero_exit"
+    RESULT_ERROR = "result_error"
+    RESULT_INVALID = "result_invalid"
+    OUTPUT_OVER_CAP = "output_over_cap"
+
+
+def _invalid_output(
+    reason: InvalidOutputReason, usage: ProviderUsage, **numbers: int
+) -> ProviderError:
+    return ProviderError(
+        "llm_invalid_output", detail={"reason": reason.value, **numbers}, usage=usage
+    )
+
+
 class ClaudeCliLlm(BaseLlm):
     provider = PROVIDER
 
@@ -238,33 +260,20 @@ class ClaudeCliLlm(BaseLlm):
         if result.cancelled:
             cancel.raise_if_set()
             raise ProviderError("llm_timeout")
-        if result.timed_out:
-            raise ProviderError("llm_timeout")
-        check_active(cancel, deadline)
-        if result.output_limited or result.stdout_truncated:
-            raise ProviderError("llm_invalid_output")
-        if result.returncode != 0:
-            try:
-                payload = _parse_stdout(result.stdout)
-            except ProviderError as error:
-                if error.code != "llm_invalid_output":
-                    raise
-                raise ProviderError(
-                    _classify_failure("", "", _decode(result.stderr))
-                ) from None
-            raise ProviderError(
-                _classify_failure(
-                    _result_text(payload), _subtype(payload), _decode(result.stderr)
-                )
-            )
-        reply = _reply(_parse_stdout(result.stdout), route)
+        if not result.timed_out:
+            check_active(cancel, deadline)
+        payload, usage = _read_result(result)
+        text = _output_text(payload)
+        if text is None:
+            raise _invalid_output(InvalidOutputReason.RESULT_INVALID, usage)
         self._auth = "ok"
-        if (
-            reply.output_tokens is not None
-            and reply.output_tokens > req.max_output_tokens
-        ):
-            raise ProviderError("llm_invalid_output")
-        return reply
+        cap = OUTPUT_TOKEN_LIMIT_FACTOR * req.max_output_tokens
+        if usage.output_tokens is not None and usage.output_tokens > cap:
+            raise _invalid_output(
+                InvalidOutputReason.OUTPUT_OVER_CAP, usage,
+                output_tokens=usage.output_tokens, cap=cap,
+            )
+        return ProviderReply(text, _actual_model(payload, route.model), *usage)
 
     def _ensure_probe(self, *, cancel: CancelToken, deadline: float) -> None:
         if self._probe_ready:
@@ -448,38 +457,72 @@ def _decode(raw: bytes) -> str:
     return raw.decode("utf-8", "replace")
 
 
-def _parse_stdout(raw: bytes) -> dict[str, Any]:
-    """Read the stream-json event lines and return the final result event.
+def _read_result(result: CliProcessResult) -> tuple[dict[str, Any], ProviderUsage]:
+    payload, reason = _parse_stdout(result.stdout)
+    usage = _usage(payload) if payload is not None else ProviderUsage()
+    if result.timed_out:
+        raise ProviderError("llm_timeout", usage=usage)
+    if result.output_limited or result.stdout_truncated:
+        raise _invalid_output(InvalidOutputReason.STDOUT_TRUNCATED, usage)
+    if reason == InvalidOutputReason.TOOL_ACTIVITY:
+        raise _invalid_output(reason, usage)
+    if result.returncode != 0:
+        code = None
+        if payload is not None and _is_error(payload):
+            code = _classify_failure(_result_text(payload), _subtype(payload), "")
+        if code is None:
+            code = _classify_failure("", "", _decode(result.stderr))
+        if code not in (None, "llm_invalid_output"):
+            raise ProviderError(code, usage=usage)
+        raise _invalid_output(
+            InvalidOutputReason.NONZERO_EXIT, usage, returncode=result.returncode
+        )
+    if reason is not None:
+        raise _invalid_output(reason, usage)
+    assert payload is not None
+    if _is_error(payload):
+        code = _classify_failure(_result_text(payload), _subtype(payload), "")
+        if code == "llm_invalid_output":
+            raise _invalid_output(InvalidOutputReason.RESULT_ERROR, usage)
+        raise ProviderError(code or "llm_connection", usage=usage)
+    return payload, usage
 
-    Every event is checked for tool activity, not only the result, because tool
-    calls appear in intermediate assistant and user events.
-    """
+
+def _parse_stdout(
+    raw: bytes,
+) -> tuple[dict[str, Any] | None, InvalidOutputReason | None]:
+    """Find the last result for usage, even if a stream error makes it unusable."""
     text = _decode(raw).strip()
     if not text:
-        raise ProviderError("llm_invalid_output")
-    events: list[dict[str, Any]] = []
+        return None, InvalidOutputReason.STDOUT_EMPTY
+    payload = None
+    malformed = False
+    tools = False
     for line in text.splitlines():
-        line = line.strip()
-        if not line:
+        if not line.strip():
             continue
         try:
             event = json.loads(line)
-        except ValueError:
-            raise ProviderError("llm_invalid_output") from None
+        except (ValueError, RecursionError):
+            malformed = True
+            continue
         if not isinstance(event, dict):
-            raise ProviderError("llm_invalid_output")
-        events.append(event)
-    results = [event for event in events if event.get("type") == "result"]
-    if not results:
-        raise ProviderError("llm_invalid_output")
-    payload = results[-1]
-    if _is_error(payload):
-        raise ProviderError(
-            _classify_failure(_result_text(payload), _subtype(payload), "")
-        )
-    if any(_has_tool_activity(event) for event in events):
-        raise ProviderError("llm_invalid_output")
-    return payload
+            malformed = True
+            continue
+        if event.get("type") == "result":
+            payload = event
+        if not tools:
+            try:
+                tools = _has_tool_activity(event)
+            except RecursionError:
+                malformed = True
+    if tools:
+        return payload, InvalidOutputReason.TOOL_ACTIVITY
+    if malformed:
+        return payload, InvalidOutputReason.STDOUT_NOT_JSON
+    if payload is None:
+        return None, InvalidOutputReason.NO_RESULT_EVENT
+    return payload, None
 
 
 def _is_error(payload: Mapping[str, Any]) -> bool:
@@ -511,7 +554,7 @@ def _result_text(payload: Mapping[str, Any]) -> str:
     return ""
 
 
-def _classify_failure(text: str, subtype: str, stderr: str) -> str:
+def _classify_failure(text: str, subtype: str, stderr: str) -> str | None:
     haystack = f" {subtype} {text} {stderr} ".casefold()
     if "max_budget" in subtype:
         return "llm_quota"
@@ -537,7 +580,7 @@ def _classify_failure(text: str, subtype: str, stderr: str) -> str:
         return "llm_connection"
     if any(marker in haystack for marker in USAGE_MARKERS):
         return "llm_invalid_output"
-    return "llm_connection"
+    return None
 
 
 def _has_tool_activity(value: Any) -> bool:
@@ -554,22 +597,6 @@ def _has_tool_activity(value: Any) -> bool:
     return False
 
 
-def _reply(payload: Mapping[str, Any], route: ResolvedRoute) -> ProviderReply:
-    text = _output_text(payload)
-    if text is None:
-        raise ProviderError("llm_invalid_output")
-    model = _actual_model(payload, route.model)
-    input_tokens, output_tokens, cache_read_tokens, cache_write_tokens = _usage(payload)
-    return ProviderReply(
-        text=text,
-        model=model,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        cache_read_tokens=cache_read_tokens,
-        cache_write_tokens=cache_write_tokens,
-    )
-
-
 def _output_text(payload: Mapping[str, Any]) -> str | None:
     structured = payload.get("structured_output")
     if structured is not None:
@@ -577,7 +604,7 @@ def _output_text(payload: Mapping[str, Any]) -> str | None:
             return json.dumps(structured, ensure_ascii=False, separators=(",", ":"))
         if isinstance(structured, str):
             return structured
-        raise ProviderError("llm_invalid_output")
+        return None
     result = payload.get("result")
     if isinstance(result, str):
         return result
@@ -622,10 +649,10 @@ def _model_output_tokens(entry: Any) -> int:
     return value if value is not None else 0
 
 
-def _usage(payload: Mapping[str, Any]) -> tuple[int | None, int | None, int | None, int | None]:
+def _usage(payload: Mapping[str, Any]) -> ProviderUsage:
     usage = payload.get("usage")
     if isinstance(usage, Mapping):
-        direct = (
+        direct = ProviderUsage(
             _token(usage, ("input_tokens", "inputTokens")),
             _token(usage, ("output_tokens", "outputTokens")),
             _token(usage, ("cache_read_input_tokens", "cacheReadInputTokens")),
@@ -634,7 +661,7 @@ def _usage(payload: Mapping[str, Any]) -> tuple[int | None, int | None, int | No
         if all(value is not None for value in direct):
             return direct
     else:
-        direct = (None, None, None, None)
+        direct = ProviderUsage()
     model_usage = payload.get("modelUsage")
     if not isinstance(model_usage, Mapping):
         return direct
@@ -665,7 +692,7 @@ def _usage(payload: Mapping[str, Any]) -> tuple[int | None, int | None, int | No
             if value is not None:
                 total = value if total is None else total + value
         totals.append(total)
-    return totals[0], totals[1], totals[2], totals[3]
+    return ProviderUsage(*totals)
 
 
 def _token(usage: Mapping[str, Any], names: tuple[str, str]) -> int | None:
