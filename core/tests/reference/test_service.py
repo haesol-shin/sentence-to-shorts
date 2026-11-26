@@ -229,7 +229,9 @@ def test_20_analysis_measures_the_file_and_keeps_the_summary_with_frames(
 def test_20_analysis_keeps_four_subject_frames_and_deletes_the_rest(
     registry: Registry, tmp_path: Path
 ) -> None:
-    long_clip = make_reference(tmp_path / "long.mp4", seconds=6, with_audio=False)
+    long_clip = make_reference(
+        tmp_path / "long.mp4", seconds=6, with_audio=False, size="1440x2560"
+    )
     llm = ScriptedLlm({**ANSWER, "subject_frames": [1, 8]})
     service = _service(registry, tmp_path, llm)
     video = draft_video()
@@ -247,9 +249,12 @@ def test_20_analysis_keeps_four_subject_frames_and_deletes_the_rest(
     assert all(frame in sent for frame in stored)
     assert stored[0] == sent[0] and stored[-1] == sent[-1]
     assert len(list(folder.iterdir())) == 4
+    for frame in sent:
+        with Image.open(io.BytesIO(frame)) as image:
+            assert max(image.size) == 1280
     for frame in stored:
         with Image.open(io.BytesIO(frame)) as image:
-            assert max(image.size) <= 640
+            assert max(image.size) == 1280
     assert not _work(tmp_path).exists()
 
 

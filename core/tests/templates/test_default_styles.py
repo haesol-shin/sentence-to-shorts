@@ -12,14 +12,16 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.plugins.registry import Registry
-from app.schemas.style_manifest import RenderScale, StyleManifest
+from app.schemas.style_manifest import MAX_SPRITE_GRID, RenderScale, StyleManifest
 from app.schemas.video import Video
 from app.services.render import (
     BUILTIN_LAYER_DRAWERS,
     BUILTIN_PARTS_BUILDERS,
     RenderService,
 )
+from app.services.render import sprites as render_sprites
 from app.services.render.sprites import load_sprite, rasterize
+from app.services.templates import sprites as template_sprites
 from app.services.templates.service import TemplatesService
 
 STYLES = ("flat", "cutout")
@@ -203,6 +205,25 @@ def test_6_default_style_stores_every_asset_as_a_readable_grid(
     for asset in manifest.assets:
         image = rasterize(load_sprite(root / asset.file, asset.id))
         assert image.getbbox() is not None, asset.id
+
+
+def test_6_style_and_render_share_the_sprite_grid_cap() -> None:
+    assert MAX_SPRITE_GRID == 512
+    assert template_sprites.MAX_GRID == MAX_SPRITE_GRID
+    assert render_sprites.MAX_GRID == MAX_SPRITE_GRID
+
+
+def test_6_renderer_opens_a_grid_at_the_slow_canvas_size(tmp_path: Path) -> None:
+    image = Image.new("RGBA", (180, 320), (20, 40, 60, 255))
+    path = tmp_path / "bg_tall.json"
+    path.write_bytes(template_sprites.encode(image, "bg_tall"))
+
+    sprite = load_sprite(path, "bg_tall")
+
+    assert (sprite.width, sprite.height, sprite.scale) == (180, 320, 1)
+    drawn = rasterize(sprite)
+    assert drawn.size == (180, 320)
+    assert drawn.getbbox() is not None
 
 
 def test_6_catalog_lists_the_default_styles(client: TestClient) -> None:

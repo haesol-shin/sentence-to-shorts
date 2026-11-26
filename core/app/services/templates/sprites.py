@@ -2,9 +2,9 @@
 
 The renderer opens every style asset as a JSON sprite grid: rows of one-character
 palette keys, ``.`` for transparent cells, drawn at ``scale`` pixels per cell, at
-most 128 cells a side. A generated PNG is turned into that grid once, when the
-style is accepted; the shape checks then run on the grid drawn back, so the
-stored package is exactly what was checked.
+most ``MAX_SPRITE_GRID`` cells a side. A generated PNG is turned into that grid
+once, when the style is accepted; the shape checks then run on the grid drawn
+back, so the stored package is exactly what was checked.
 """
 
 from __future__ import annotations
@@ -16,8 +16,9 @@ import string
 from PIL import Image
 
 from app.ports import AppError
+from app.schemas.style_manifest import MAX_SPRITE_GRID
 
-MAX_GRID = 128
+MAX_GRID = MAX_SPRITE_GRID
 MAX_SCALE = 32
 TRANSPARENT = "."
 ALPHA_CUTOFF = 128

@@ -18,7 +18,7 @@ import traceback
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 from PIL import Image
@@ -29,7 +29,11 @@ from app.ports import LlmRequest, LlmResult
 from app.schemas.common import PinnedRef
 from app.schemas.job import Stage, Usage
 from app.schemas.video import Video
-from app.services.render import BUILTIN_LAYER_DRAWERS, BUILTIN_PARTS_BUILDERS
+from app.services.render import (
+    BUILTIN_LAYER_DRAWERS,
+    BUILTIN_PARTS_BUILDERS,
+    RenderService,
+)
 from app.services.templates.service import TemplatesService
 from app.tools import process
 from app.tools.sandbox.adapter import SandboxAdapter, SandboxConfig
@@ -119,6 +123,7 @@ class ScriptedLlm:
     def __init__(self) -> None:
         self.answers: list[dict[str, Any]] = []
         self.requests: list[LlmRequest] = []
+        self.deadlines: list[float] = []
 
     def queue(self, *answers: dict[str, Any]) -> None:
         self.answers.extend(answers)
@@ -128,6 +133,7 @@ class ScriptedLlm:
         on_request: Any = None,
     ) -> LlmResult:
         self.requests.append(req)
+        self.deadlines.append(deadline)
         if not self.answers:
             raise AssertionError(f"no answer queued for {req.route}")
         answer = self.answers.pop(0)
@@ -257,15 +263,17 @@ class Harness:
     launcher: CountingLauncher
     root: Path
     usages: list[Usage] = field(default_factory=list)
+    progress: list[tuple[int, int]] = field(default_factory=list)
     jobs: Iterator[str] = field(default_factory=lambda: iter(JOB_IDS))
 
-    def ctx(self) -> LocalJobContext:
+    def ctx(self, *, deadline: float | None = None) -> LocalJobContext:
         job_dir = self.root / "cache" / "j" / next(self.jobs)
         job_dir.mkdir(parents=True)
         return LocalJobContext(
             cancel_token=CancelFlag(),
-            deadline=time.monotonic() + 600,
+            deadline=time.monotonic() + 600 if deadline is None else deadline,
             job_dir=job_dir,
+            on_progress=lambda done, total, waiting: self.progress.append((done, total)),
             on_usage=self.usages.append,
         )
 
@@ -302,6 +310,9 @@ def build_harness(
         llm,
         adapter,
         catalog,
+        render_factory=lambda catalog: RenderService(
+            cast(Any, None), cast(Any, None), catalog
+        ),
         builtin_parts=BUILTIN_PARTS_BUILDERS,
         builtin_layers=BUILTIN_LAYER_DRAWERS,
     )

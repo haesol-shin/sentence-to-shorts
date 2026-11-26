@@ -334,7 +334,7 @@ class LlmTask(StrEnum):
 class LlmPart:
     kind: Literal["text", "png"]
     text: str | None = None
-    png: bytes | None = None          # reference frames only, max 8 per call; style_code sends at most 4 kept frames
+    png: bytes | None = None          # PNG frames, max 8 per call; what each task sends is in 10.4
 
 @dataclass(frozen=True)
 class LlmRequest:
@@ -392,7 +392,7 @@ class LlmPort(Protocol):
 
 ### 10.4 보안 규칙
 
-- 외부 LLM 전송 목록의 원본: 재료 글, 대본, 대화 문장(chat text), 참고 영상에서 추출한 프레임과 받아쓴 대사뿐이다. 분석이 남긴 참고 프레임(최대 4장)은 새 그림체 요청에서 다시 보내는 같은 자료다. 최초 안내는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다.
+- 외부 LLM 전송 목록의 원본: 재료 글, 대본, 대화 문장(chat text), 참고 영상에서 추출한 프레임과 받아쓴 대사, 그림체 회차가 만든 합성 프레임뿐이다. 분석이 남긴 참고 프레임(최대 4장)은 새 그림체 요청의 1회차에 다시 보내는 같은 자료다. 2·3회차에는 같은 프레임, 직전 회차 합성 프레임 1장, 그 프레임을 그린 직전 회차 코드(`frame_code`)를 보낸다. 합성 프레임은 회차 사이에만 쓰고 저장하지 않는다. 최초 안내는 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다.
 - 참고 자료와 사용자 글은 데이터 part로만 보낸다. system prompt나 설정 파일에 넣지 않는다.
 - LLM 출력은 typed patch와 코드 문자열로만 받는다. 서버가 허용 필드, scene ID, base revision, lock, catalog ID를 다시 검사한다.
 - LLM이 URL, 실행 명령, dependency, host 경로를 등록하지 못한다.
@@ -1022,7 +1022,7 @@ CACHE_DIR/
 - hold 주체는 `rev:<video_id>:<revision>`, `undo:<video_id>`, `style:<digest>`, `preset:<preset_id>`다.
 - 현재 revision과 직전 revision의 artifact는 hold로 보호한다.
 - uninstall은 `DATA_DIR`과 `MODEL_DIR`을 기본 보존한다.
-- 참고 원본 삭제의 제품 정책은 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다. 기술 제안: 분석 job 종료 때 전사 원문과 보내지 않은 프레임도 지운다. 보낸 프레임 중 최대 4장은 긴 쪽 640px PNG로 `p/<pid>/v/<vid>/ref/<rf_id>/`에 남기고 `ReferenceSummary.style`에 팔레트와 파일 이름을 적는다. 새 그림체 요청은 이 파일을 그대로 다시 보낸다.
+- 참고 원본 삭제의 제품 정책은 [SPEC 8b](SPEC.md#8b-참고-영상-자동-분석-reference-analysis)를 따른다. 기술 제안: 분석 job 종료 때 전사 원문과 보내지 않은 프레임도 지운다. 보낸 프레임 중 최대 4장은 새 분석부터 긴 쪽이 1280px를 넘지 않는 PNG로 `p/<pid>/v/<vid>/ref/<rf_id>/`에 남기고 `ReferenceSummary.style`에 팔레트와 파일 이름을 적는다. 새 그림체 요청이 보내는 내용은 [10.4](#104-보안-규칙)를 따른다.
 
 ### LLM routing
 

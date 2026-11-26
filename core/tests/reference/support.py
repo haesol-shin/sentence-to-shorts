@@ -110,14 +110,16 @@ def draft_video() -> Video:
     return Video.model_validate(raw)
 
 
-def make_reference(path: Path, *, with_audio: bool = True, seconds: int = 3) -> Path:
+def make_reference(
+    path: Path, *, with_audio: bool = True, seconds: int = 3, size: str = "160x288"
+) -> Path:
     """A synthetic mp4: a new colour every second and, optionally, a steady tone."""
     executable = ffmpeg.find_ffmpeg()
     assert executable is not None
     colors = ["red", "blue", "green", "yellow", "white", "black"][:seconds]
     args: list[str] = [str(executable), "-nostdin", "-hide_banner", "-loglevel", "error", "-y"]
     for color in colors:
-        args += ["-f", "lavfi", "-i", f"color=c={color}:s=160x288:r=10:d=1"]
+        args += ["-f", "lavfi", "-i", f"color=c={color}:s={size}:r=10:d=1"]
     if with_audio:
         args += ["-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=16000:duration={seconds}"]
     chain = "".join(f"[{index}:v]" for index in range(len(colors)))

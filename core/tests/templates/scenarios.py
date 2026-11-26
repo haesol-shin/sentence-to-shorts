@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
+import errno
 import io
 import json
+import time
 from typing import Any
 
 import pytest
 from PIL import Image
 
 from app.plugins.registry import file_list_revision
-from app.ports import AppError, StyleFrames
+from app.ports import AppError, Cancelled, StyleFrames
 from app.schemas.api import BgmCodeRequest, StyleRequest, TemplateRequest
-from app.schemas.common import PinnedRef
+from app.schemas.common import CharacterRole, PinnedRef
+from app.schemas.settings import CaptionLayer, CaptionMode, CaptionPosition
 from app.schemas.style_manifest import StyleManifest
 from app.schemas.template_manifest import TemplateManifest
 from app.services.render import BuiltinLayerDrawer, PixelPartsBuilder, RenderService
@@ -46,7 +49,8 @@ def style_request(
 
 
 def new_style(harness: Harness, code: str | None = None) -> PinnedRef:
-    harness.llm.queue(style_answer(code or program("round_style")))
+    style = code or program("round_style")
+    harness.llm.queue(style_answer(style), style_answer(style), style_answer(style))
     req = style_request(harness, "머리는 작고 둥글게, 몸은 길고 가늘게")
     return harness.service.generate_style(req, harness.video(), None, ctx=harness.ctx())
 
@@ -74,20 +78,32 @@ def _frame(color: str) -> bytes:
 
 
 def reference_frames_travel_with_the_style_request(harness: Harness) -> None:
-    frames = [_frame("#112233"), _frame("#445566")]
+    frames = [_frame(color) for color in ("#112233", "#445566", "#778899", "#aabbcc")]
     hints = StyleFrames(palette=["#112233", "#445566"], frames=frames)
-    harness.llm.queue(style_answer(program("round_style")))
+    harness.llm.queue(*(style_answer(program("round_style")) for _ in range(3)))
     req = style_request(harness, "참고 영상의 그림체로").model_copy(
         update={"use_reference": True}
     )
 
     ref = harness.service.generate_style(req, harness.video(), hints, ctx=harness.ctx())
 
-    request = harness.llm.requests[0]
-    assert [part.kind for part in request.parts] == ["png", "png", "text"]
-    assert [part.png for part in request.parts if part.kind == "png"] == frames
-    data = harness.llm.data(0)
+    first = harness.llm.requests[0]
+    assert [part.kind for part in first.parts] == ["png", "png", "png", "png", "text"]
+    assert [part.png for part in first.parts if part.kind == "png"] == frames
+    second = harness.llm.requests[1]
+    assert [part.kind for part in second.parts] == ["png", "png", "png", "png", "png", "text"]
+    images = [part.png for part in second.parts if part.kind == "png"]
+    assert images[:4] == frames
+    assert images[4] is not None
+    with Image.open(io.BytesIO(images[4])) as composed:
+        assert composed.size == (1080, 1920)
+    data = harness.llm.data(1)
+    assert data["frame_code"] == program("round_style")
+    assert data["previous_code"] is None and data["failure"] is None
     assert data["reference_hints"] == {"palette": ["#112233", "#445566"]}
+    assert len(harness.llm.requests) == 3
+    assert harness.progress[-1] == (3, 3)
+    assert {total for _, total in harness.progress} == {3}
     assert str(harness.root) not in json.dumps(data)
     manifest = harness.catalog.get("art_style", ref.id, ref.revision)
     assert isinstance(manifest, StyleManifest) and manifest.provenance is not None
@@ -97,25 +113,236 @@ def reference_frames_travel_with_the_style_request(harness: Harness) -> None:
 def style_repair_keeps_the_reference_frames(harness: Harness) -> None:
     frames = [_frame("#112233")]
     hints = StyleFrames(palette=["#112233"], frames=frames)
-    harness.llm.queue(style_answer(program("crash")), style_answer(program("round_style")))
+    harness.llm.queue(
+        style_answer(program("crash")),
+        style_answer(program("round_style")),
+        style_answer(program("round_style")),
+        style_answer(program("round_style")),
+    )
     req = style_request(harness, "참고 영상의 그림체로").model_copy(
         update={"use_reference": True}
     )
 
     harness.service.generate_style(req, harness.video(), hints, ctx=harness.ctx())
 
-    assert len(harness.llm.requests) == 2
+    assert len(harness.llm.requests) == 4
     for request in harness.llm.requests:
         assert request.parts[0].kind == "png" and request.parts[0].png == frames[0]
     assert harness.llm.data(1)["reference_hints"] == {"palette": ["#112233"]}
+    assert harness.llm.data(1)["previous_code"] == program("crash")
+    assert harness.llm.data(1)["failure"]["code"] == "sandbox_crashed"
+    assert harness.llm.data(2)["frame_code"] == program("round_style")
+    assert harness.llm.data(2)["previous_code"] is None
+    assert harness.llm.data(2)["failure"] is None
 
 
 def style_without_reference_sends_no_frames(harness: Harness) -> None:
     new_style(harness)
 
-    request = harness.llm.requests[0]
-    assert [part.kind for part in request.parts] == ["text"]
+    first = harness.llm.requests[0]
+    assert [part.kind for part in first.parts] == ["text"]
     assert harness.llm.data(0)["reference_hints"] is None
+    second = harness.llm.requests[1]
+    assert [part.kind for part in second.parts] == ["png", "text"]
+    assert harness.llm.data(1)["frame_code"] == program("round_style")
+    assert "Self view" not in first.system
+    assert "Self view" in second.system
+
+
+def later_rounds_get_an_earlier_deadline(harness: Harness) -> None:
+    deadline = time.monotonic() + 300
+    harness.llm.queue(*(style_answer(program("round_style")) for _ in range(3)))
+
+    harness.service.generate_style(
+        style_request(harness, "둥근 머리"),
+        harness.video(),
+        None,
+        ctx=harness.ctx(deadline=deadline),
+    )
+
+    assert harness.llm.deadlines[0] == deadline
+    assert harness.llm.deadlines[1] <= deadline - 120
+    assert harness.llm.deadlines[2] <= deadline - 120
+
+
+def later_rounds_are_skipped_when_the_reserve_is_gone(harness: Harness) -> None:
+    harness.llm.queue(style_answer(program("round_style")))
+
+    ref = harness.service.generate_style(
+        style_request(harness, "둥근 머리"),
+        harness.video(),
+        None,
+        ctx=harness.ctx(deadline=time.monotonic() + 5),
+    )
+
+    assert len(harness.llm.requests) == 1
+    assert harness.progress[-1] == (1, 3)
+    folder = harness.catalog.package_dir("art_style", ref)
+    assert (folder / "program.py").read_text(encoding="utf-8") == program("round_style")
+
+
+def composed_frame_ignores_the_original_script(harness: Harness) -> None:
+    frames: list[bytes] = []
+    for title in ("첫 번째 제목", "두 번째 제목"):
+        video = harness.video()
+        assert video.script is not None
+        video.script.title = title
+        harness.llm.queue(*(style_answer(program("round_style")) for _ in range(3)))
+        harness.service.generate_style(
+            style_request(harness, "둥근 머리"), video, None, ctx=harness.ctx()
+        )
+        round_two = harness.llm.requests[-2]
+        images = [part.png for part in round_two.parts if part.kind == "png"]
+        assert len(images) == 1 and images[0] is not None
+        frames.append(images[0])
+    assert frames[0] == frames[1]
+
+
+def composed_frame_drops_unusable_video_settings(harness: Harness) -> None:
+    video = harness.video()
+    video.settings.format.character_role = CharacterRole.none
+    video.settings.caption.extra = [
+        CaptionLayer(
+            language="en",
+            mode=CaptionMode.sentence,
+            font_id=video.settings.caption.font_id,
+            position=CaptionPosition.bottom,
+        )
+    ]
+    harness.llm.queue(*(style_answer(program("round_style")) for _ in range(3)))
+
+    harness.service.generate_style(
+        style_request(harness, "둥근 머리"), video, None, ctx=harness.ctx()
+    )
+
+    assert len(harness.llm.requests) == 3
+    assert harness.progress[-1] == (3, 3)
+
+
+def compose_failure_in_a_later_round_keeps_the_last_good(harness: Harness) -> None:
+    first = program("round_style")
+    second = narrow_eyes(first)
+    original = harness.service.render_factory
+    calls = 0
+
+    def factory(catalog: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 3:
+            raise AppError("render_failed")
+        assert original is not None
+        return original(catalog)
+
+    harness.service.render_factory = factory
+    harness.llm.queue(style_answer(first), style_answer(second), style_answer(first))
+
+    ref = harness.service.generate_style(
+        style_request(harness, "둥근 머리"), harness.video(), None, ctx=harness.ctx()
+    )
+
+    folder = harness.catalog.package_dir("art_style", ref)
+    assert (folder / "program.py").read_text(encoding="utf-8") == second
+    assert calls == 3
+    assert harness.progress[-1] == (2, 3)
+
+
+def style_failure_in_later_round_keeps_the_last_good(harness: Harness) -> None:
+    first = program("round_style")
+    second = narrow_eyes(first)
+    harness.llm.queue(
+        style_answer(first),
+        style_answer(second),
+        *[style_answer(program("crash")) for _ in range(3)],
+    )
+    req = style_request(harness, "둥근 머리")
+    frames: list[bytes] = []
+    compose = harness.service._compose_style_frame
+
+    def record(*args: Any, **kwargs: Any) -> bytes:
+        frames.append(compose(*args, **kwargs))
+        return frames[-1]
+
+    harness.service._compose_style_frame = record  # type: ignore[method-assign]
+
+    ref = harness.service.generate_style(req, harness.video(), None, ctx=harness.ctx())
+
+    manifests = harness.catalog.list("art_style")
+    generated = [item for item in manifests if item.id == ref.id]
+    assert len(generated) == 1
+    folder = harness.catalog.package_dir("art_style", ref)
+    assert (folder / "program.py").read_text(encoding="utf-8") == second
+    checks = json.loads((folder / "checks.json").read_text(encoding="utf-8"))
+    assert checks["shape"]["passed"]
+    assert harness.llm.data(2)["frame_code"] == second
+    assert harness.llm.data(2)["previous_code"] is None
+    assert harness.llm.data(2)["failure"] is None
+    images = [
+        [part.png for part in request.parts if part.kind == "png"]
+        for request in harness.llm.requests
+    ]
+    assert len(images[2]) == 1 and images[2][0] == frames[1]
+    assert frames[0] != frames[1]
+    for repair in (3, 4):
+        data = harness.llm.data(repair)
+        assert data["frame_code"] == second
+        assert data["previous_code"] == program("crash")
+        assert data["failure"]["code"] == "sandbox_crashed"
+        assert images[repair] == images[2]
+    with Image.open(io.BytesIO(frames[1])) as composed:
+        assert composed.size == (1080, 1920)
+    assert len(harness.llm.requests) == 5
+    assert harness.progress[-1] == (2, 3)
+
+
+def package_write_failure_in_a_later_round_keeps_the_last_good(harness: Harness) -> None:
+    first = program("round_style")
+    harness.llm.queue(style_answer(first), style_answer(narrow_eyes(first)))
+    original = harness.service._style_package
+    calls = 0
+
+    def write(*args: Any, **kwargs: Any) -> Any:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError(errno.ENOSPC, "no space")
+        return original(*args, **kwargs)
+
+    harness.service._style_package = write  # type: ignore[method-assign]
+
+    ref = harness.service.generate_style(
+        style_request(harness, "둥근 머리"), harness.video(), None, ctx=harness.ctx()
+    )
+
+    folder = harness.catalog.package_dir("art_style", ref)
+    assert (folder / "program.py").read_text(encoding="utf-8") == first
+    assert len(harness.llm.requests) == 2
+    assert harness.progress[-1] == (1, 3)
+
+
+def cancel_during_the_last_compose_registers_nothing(harness: Harness) -> None:
+    harness.llm.queue(*(style_answer(program("round_style")) for _ in range(3)))
+    before = [item.id for item in harness.catalog.list("art_style")]
+    ctx = harness.ctx()
+    original = harness.service._compose_style_frame
+    calls = 0
+
+    def compose(*args: Any, **kwargs: Any) -> bytes:
+        nonlocal calls
+        calls += 1
+        frame = original(*args, **kwargs)
+        if calls == 3:
+            ctx.cancel.cancel()  # type: ignore[attr-defined]
+        return frame
+
+    harness.service._compose_style_frame = compose  # type: ignore[method-assign]
+
+    with pytest.raises(Cancelled):
+        harness.service.generate_style(
+            style_request(harness, "둥근 머리"), harness.video(), None, ctx=ctx
+        )
+
+    assert calls == 3
+    assert [item.id for item in harness.catalog.list("art_style")] == before
 
 
 def color_only_is_rejected(harness: Harness) -> None:
@@ -131,7 +358,8 @@ def color_only_is_rejected(harness: Harness) -> None:
 
 def narrow_eyes_changes_the_face(harness: Harness) -> None:
     parent = new_style(harness)
-    harness.llm.queue(style_answer(narrow_eyes(program("round_style"))))
+    child_code = narrow_eyes(program("round_style"))
+    harness.llm.queue(*(style_answer(child_code) for _ in range(3)))
     req = style_request(harness, "눈을 가늘게", base=parent)
     child = harness.service.generate_style(req, harness.video(parent), None, ctx=harness.ctx())
     manifest = harness.catalog.get("art_style", child.id, child.revision)
@@ -139,7 +367,7 @@ def narrow_eyes_changes_the_face(harness: Harness) -> None:
     folder = harness.catalog.package_dir("art_style", child)
     shape = json.loads((folder / "checks.json").read_text(encoding="utf-8"))["shape"]
     assert shape["mode"] == "modify" and shape["face_changed_pixels"] > 0
-    assert harness.llm.data(1)["parent_program"] == program("round_style")
+    assert harness.llm.data(3)["parent_program"] == program("round_style")
 
     harness.llm.queue(style_answer(program("round_style")))
     with pytest.raises(AppError) as failure:

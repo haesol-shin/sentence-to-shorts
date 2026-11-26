@@ -606,17 +606,22 @@ def _build_adapter(name: str, settings: Settings, **options: Any) -> Built:
 
 def _build_services(settings: Settings, deps: ServiceDeps) -> Services:
     sound = sound_service.create(settings, deps)
+    render = render_service.create(settings, deps)
     return Services(
         project=project_service.create(settings, deps),
         story=ConnectedStory(deps.llm, deps.catalog, sound),
         reference=reference_service.create(settings, deps),
-        render=render_service.create(settings, deps),
+        render=render,
         voice=voice_service.create(settings, deps),
         sound=sound,
         assemble=assemble_service.create(settings, deps),
         templates=templates_service.create(
             settings,
             deps,
+            # Templates may not import render; the composition root hands it a factory.
+            render_factory=lambda catalog: render_service.RenderService(
+                render.media, render.artifacts, catalog
+            ),
             builtin_parts=BUILTIN_PARTS_BUILDERS,
             builtin_layers=BUILTIN_LAYER_DRAWERS,
         ),
