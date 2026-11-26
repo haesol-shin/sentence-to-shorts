@@ -15,10 +15,11 @@ from typing import Any
 from PIL import Image
 
 from app.ports import AppError
+from app.schemas.style_manifest import MAX_SPRITE_GRID
 
 TRANSPARENT = "."
 ERASE = "_"
-MAX_GRID = 128
+MAX_GRID = MAX_SPRITE_GRID
 MAX_SCALE = 32
 
 

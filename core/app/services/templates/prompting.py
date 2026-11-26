@@ -43,7 +43,10 @@ def _split_front_matter(text: str) -> tuple[dict[str, Any], str]:
 
 
 def load_prompt(route: str, data: Mapping[str, Any]) -> str:
-    """Return the trusted system body; reject undeclared or missing data variables."""
+    """Return the trusted system body; reject undeclared or missing data variables.
+
+    ``optional_variables`` may be absent from ``data``; any other mismatch is rejected.
+    """
     path = PROMPT_ROOT / route / "prompt.md"
     if not path.is_file():
         raise AppError("internal", detail={"prompt": route, "problem": "missing"})
@@ -52,15 +55,34 @@ def load_prompt(route: str, data: Mapping[str, Any]) -> str:
     except ValueError as error:
         raise AppError("internal", detail={"prompt": route, "problem": "front_matter"}) from error
     declared = matter.get("data_variables")
+    optional = matter.get("optional_variables", [])
     version = matter.get("version")
     if matter.get("route") != route:
         raise AppError("internal", detail={"prompt": route, "problem": "route"})
     if not isinstance(version, int) or isinstance(version, bool) or version < 1:
         raise AppError("internal", detail={"prompt": route, "problem": "version"})
-    if not isinstance(declared, list) or set(declared) != set(data):
+    if (
+        not isinstance(declared, list)
+        or not isinstance(optional, list)
+        or not set(declared) <= set(data) <= set(declared) | set(optional)
+    ):
         raise AppError("internal", detail={"prompt": route, "problem": "variables"})
     if not body:
         raise AppError("internal", detail={"prompt": route, "problem": "body"})
+    return body + "\n"
+
+
+def load_prompt_note(route: str, name: str) -> str:
+    """A trusted extra instruction appended only to the rounds that need it."""
+    path = PROMPT_ROOT / route / f"{name}.md"
+    try:
+        body = path.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise AppError(
+            "internal", detail={"prompt": f"{route}/{name}", "problem": "missing"}
+        ) from error
+    if not body:
+        raise AppError("internal", detail={"prompt": f"{route}/{name}", "problem": "body"})
     return body + "\n"
 
 
@@ -92,9 +114,12 @@ def complete_json(
     max_output_tokens: int,
     ctx: JobContext,
     images: Sequence[bytes] = (),
+    system_suffix: str = "",
 ) -> CodeAnswer[ModelT]:
     """Call the model once, repair an invalid output once, then fail with llm_invalid_output."""
     system = load_prompt(route, data)
+    if system_suffix:
+        system += "\n" + system_suffix
     parts = [
         *(LlmPart(kind="png", png=image) for image in images),
         LlmPart(kind="text", text=_data_text(data)),

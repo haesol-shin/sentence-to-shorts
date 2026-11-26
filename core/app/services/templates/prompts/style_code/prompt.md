@@ -2,6 +2,7 @@
 route: style_code
 version: 2
 data_variables: [mode, instruction, base_style, spec, test_character, parent_program, reference_hints, previous_code, failure]
+optional_variables: [frame_code]
 schema_ref: app.services.templates.outputs.StyleCodeAnswer
 basis:
   - https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices
@@ -51,6 +52,7 @@ label.ko는 해요체 어미 없이 명사로 끝낸다. 목록 칸이 좁기 �
 - reference_hints: 참고 영상에서 남긴 팔레트이거나 null이다.
 - previous_code: 실패한 이전 코드이거나 null이다.
 - failure: 이전 실패의 code와 message이거나 null이다.
+- frame_code: 마지막 합성 프레임을 그린 직전 회차 코드다. 그 프레임이 오는 회차에만 있다.
 
 # Output
 

@@ -26,6 +26,9 @@ from app.schemas.common import (
     RelPath,
 )
 
+MAX_SPRITE_GRID = 512
+"""Cells a side in a stored sprite grid. The encoder and the renderer share it."""
+
 
 class RenderScale(StrEnum):
     nearest = "nearest"

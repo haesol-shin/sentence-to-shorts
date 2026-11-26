@@ -36,6 +36,40 @@ def test_6_style_without_reference_sends_no_frames(harness: Harness) -> None:
     scenarios.style_without_reference_sends_no_frames(harness)
 
 
+def test_6_later_rounds_get_an_earlier_deadline(harness: Harness) -> None:
+    scenarios.later_rounds_get_an_earlier_deadline(harness)
+
+
+def test_6_later_rounds_are_skipped_when_the_reserve_is_gone(harness: Harness) -> None:
+    scenarios.later_rounds_are_skipped_when_the_reserve_is_gone(harness)
+
+
+def test_6_composed_frame_ignores_the_original_script(harness: Harness) -> None:
+    scenarios.composed_frame_ignores_the_original_script(harness)
+
+
+def test_6_composed_frame_drops_unusable_video_settings(harness: Harness) -> None:
+    scenarios.composed_frame_drops_unusable_video_settings(harness)
+
+
+def test_6_compose_failure_in_a_later_round_keeps_the_last_good(harness: Harness) -> None:
+    scenarios.compose_failure_in_a_later_round_keeps_the_last_good(harness)
+
+
+def test_6_style_failure_in_later_round_keeps_the_last_good(harness: Harness) -> None:
+    scenarios.style_failure_in_later_round_keeps_the_last_good(harness)
+
+
+def test_6_package_write_failure_in_a_later_round_keeps_the_last_good(
+    harness: Harness,
+) -> None:
+    scenarios.package_write_failure_in_a_later_round_keeps_the_last_good(harness)
+
+
+def test_6_cancel_during_the_last_compose_registers_nothing(harness: Harness) -> None:
+    scenarios.cancel_during_the_last_compose_registers_nothing(harness)
+
+
 def test_6_color_only_change_is_rejected(harness: Harness) -> None:
     scenarios.color_only_is_rejected(harness)
 
@@ -87,7 +121,12 @@ def test_bgm_code_failure_keeps_the_previous_bgm(harness: Harness) -> None:
 
 
 def test_17_sandbox_failure_is_repaired_with_the_traceback(harness: Harness) -> None:
-    harness.llm.queue(style_answer(program("crash")), style_answer(program("round_style")))
+    harness.llm.queue(
+        style_answer(program("crash")),
+        style_answer(program("round_style")),
+        style_answer(program("round_style")),
+        style_answer(program("round_style")),
+    )
     req = scenarios.style_request(harness, "둥근 머리")
     harness.service.generate_style(req, harness.video(), None, ctx=harness.ctx())
     first, second = harness.llm.data(0), harness.llm.data(1)
@@ -95,6 +134,9 @@ def test_17_sandbox_failure_is_repaired_with_the_traceback(harness: Harness) -> 
     assert second["previous_code"] == program("crash")
     assert second["failure"]["code"] == "sandbox_crashed"
     assert "head radius is negative" in second["failure"]["message"]
+    assert harness.llm.data(2)["frame_code"] == program("round_style")
+    assert harness.llm.data(2)["previous_code"] is None
+    assert harness.llm.data(2)["failure"] is None
 
 
 def test_17_repairs_stop_after_two(harness: Harness) -> None:
