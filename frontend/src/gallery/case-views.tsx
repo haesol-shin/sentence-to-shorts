@@ -46,8 +46,123 @@ import { TopBarItem } from '@/components/TopBarItem/TopBarItem';
 import { TopBarStatus } from '@/components/TopBarStatus/TopBarStatus';
 import { ValueField, type ValueFieldItem } from '@/components/ValueField/ValueField';
 import { VideoPreview } from '@/components/VideoPreview/VideoPreview';
+import { translate } from '@/shared/lib/i18n/catalog';
+
+import { COMPOSER_COPY_KEYS } from './copy/case-map';
+import type { CopyPreview } from './copy/model';
+import { interpolateCopy } from './copy/rules';
 import { GalleryToast } from './gallery-toast';
 import type { GalleryCase } from './items';
+
+
+type CopyVars = Record<string, string | number>;
+
+/** Sample values that replace placeholders in a preview, so the sentence reads as it would. */
+const SAMPLE_COPY_VARS: CopyVars = {
+  name: '메모4.txt',
+  names: '메모4.txt, 메모5.txt',
+  max: 3,
+  count: 3,
+  value: '친근한',
+  particle: '를',
+  seconds: 12,
+  target: 30,
+  scenes: 4,
+  number: 2,
+  db: -6,
+  scene: 1,
+  line: 2,
+  kind: '영상',
+  format: 'mp4',
+  size: '12MB',
+  language: '한국어',
+  length: '1분',
+  topic: '인터넷이 하루 멈춘다면?',
+  first: '친근한',
+  second: '차분한',
+};
+
+function FailureLine({ children }: { children: ReactNode }): ReactNode {
+  return (
+    <p role="alert" data-slot="composer-error" className="demo-composer-error">
+      <AlertTriangle aria-hidden size={18} />
+      <span>{children}</span>
+    </p>
+  );
+}
+
+function isCopyFrame(): boolean {
+  return new URLSearchParams(window.location.search).get('copy') === '1';
+}
+
+function ComposerCase({
+  entry,
+  state,
+  preview,
+}: {
+  entry: GalleryCase;
+  state: string;
+  preview: CopyPreview | null;
+}): ReactNode {
+  const long = entry.slug === 'long';
+  const copyText =
+    preview === null ? null : preview.language === 'en' ? preview.en : preview.ko;
+  const sendLabel =
+    preview?.key === COMPOSER_COPY_KEYS.send && copyText !== null
+      ? copyText
+      : translate('ko', COMPOSER_COPY_KEYS.send);
+  const removeLabel =
+    preview?.key === COMPOSER_COPY_KEYS.remove && copyText !== null
+      ? interpolateCopy(copyText, { name: '참고_영상.mp4' })
+      : '파일 지우기';
+  const errorText =
+    preview?.key === COMPOSER_COPY_KEYS.error && copyText !== null
+      ? interpolateCopy(copyText, SAMPLE_COPY_VARS)
+      : entry.slug === 'attachments' && isCopyFrame()
+        ? translate('ko', COMPOSER_COPY_KEYS.error, SAMPLE_COPY_VARS)
+        : null;
+  const hasAttachments = entry.slug === 'attachments' || errorText !== null;
+  const attachments = (
+    <>
+      {entry.slug === 'attachments' ? (
+        <FileChip
+          name="참고_영상.mp4"
+          detail="영상 · 0:12"
+          remove={<CloseButton label={removeLabel} size="sm" />}
+        />
+      ) : null}
+      {errorText === null ? null : <FailureLine>{errorText}</FailureLine>}
+    </>
+  );
+  return (
+    <div className="demo-composer-case">
+      <Composer
+        label="메시지 입력"
+        sendLabel={sendLabel}
+        stopLabel="멈추기"
+        attachLabel="파일 넣기"
+        placeholder={entry.slug === 'drop' ? '여기에 놓으면 올라가요' : '어떤 영상을 만들까요?'}
+        defaultValue={long ? COMPOSER_LONG : entry.slug === 'filled' ? '차분한 다큐멘터리로 만들어 줘.' : undefined}
+        dropActive={entry.slug === 'drop'}
+        disabled={state === 'disabled'}
+        forceState={state === 'focus-visible' ? 'focus-visible' : undefined}
+        chips={
+          entry.slug === 'chips' ? (
+            <>
+              <Button variant="ghost" size="sm" className="composer-chip">
+                한국어
+              </Button>
+              <Button variant="ghost" size="sm" className="composer-chip">
+                1분
+              </Button>
+            </>
+          ) : undefined
+        }
+        attachments={hasAttachments ? attachments : undefined}
+      />
+    </div>
+  );
+}
 
 const SOON_TAG = (
   <Tag variant="neutral" icon={<Info aria-hidden="true" />}>
@@ -97,7 +212,15 @@ const TIGHT_VOICES: readonly ValueFieldItem[] = [
   { value: 'robot', label: '로봇 목소리', unavailable: true, unavailableName: '로봇 목소리 곧 지원', tag: SOON_TAG },
 ];
 
-function menuItems(slug: string): readonly MenuItemSpec[] {
+function menuCopy(preview: CopyPreview | null, key: string): string {
+  if (preview?.key === key) {
+    const text = preview.language === 'en' ? preview.en : preview.ko;
+    if (text.trim() !== '') return text;
+  }
+  return translate('ko', key);
+}
+
+function menuItems(slug: string, preview: CopyPreview | null): readonly MenuItemSpec[] {
   if (slug === 'open-long') {
     return [
       { value: 'upload', label: '참고 영상 올리기' },
@@ -112,8 +235,12 @@ function menuItems(slug: string): readonly MenuItemSpec[] {
   const selected = slug === 'open' || slug === 'item-selected';
   return [
     { value: 'upload', label: '참고 영상 올리기' },
-    { value: 'link', label: '영상 링크 붙여넣기', disabled: slug === 'item-disabled' },
-    { value: 'bgm', label: 'BGM 올리기', selected },
+    {
+      value: 'link',
+      label: menuCopy(preview, COMPOSER_COPY_KEYS.addLink),
+      disabled: slug === 'item-disabled',
+    },
+    { value: 'bgm', label: menuCopy(preview, COMPOSER_COPY_KEYS.addBgm), selected },
     { value: 'image', label: '이미지 올리기', unavailable: true, unavailableName: '이미지 올리기 곧 지원', tag: SOON_TAG },
     { value: 'text', label: '글 파일 올리기 (.md, .txt)' },
   ];
@@ -351,7 +478,11 @@ function ScrollPaneCase({ atEnd, short }: { atEnd: boolean; short: boolean }) {
 
 
 /** One case of a part. The label is drawn here so every screenshot carries it. */
-export function renderCase(partId: string, entry: GalleryCase): ReactNode {
+export function renderCase(
+  partId: string,
+  entry: GalleryCase,
+  preview: CopyPreview | null = null,
+): ReactNode {
   const state = entry.state;
 
   switch (partId) {
@@ -490,7 +621,7 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
           trigger={menuTrigger(isOpen ? undefined : state)}
           label="파일 넣기"
           heading="올릴 파일"
-          items={menuItems(entry.slug)}
+          items={menuItems(entry.slug, preview)}
           note={SOON_NOTE}
           defaultOpen={isOpen ? true : undefined}
           forceItemValue={forced?.value}
@@ -567,43 +698,8 @@ export function renderCase(partId: string, entry: GalleryCase): ReactNode {
     }
     case 'send-button':
       return <SendButton label="보내기" stopLabel="멈추기" forceState={state} loading={state === 'loading'} />;
-    case 'composer': {
-      const long = entry.slug === 'long';
-      return (
-        <Composer
-          label="메시지 입력"
-          sendLabel="보내기"
-          stopLabel="멈추기"
-          attachLabel="파일 넣기"
-          placeholder={entry.slug === 'drop' ? '여기에 놓으면 올라가요' : '어떤 영상을 만들까요?'}
-          defaultValue={long ? COMPOSER_LONG : entry.slug === 'filled' ? '차분한 다큐멘터리로 만들어 줘.' : undefined}
-          dropActive={entry.slug === 'drop'}
-          disabled={state === 'disabled'}
-          forceState={state === 'focus-visible' ? 'focus-visible' : undefined}
-          chips={
-            entry.slug === 'chips' ? (
-              <>
-                <Button variant="ghost" size="sm" className="composer-chip">
-                  한국어
-                </Button>
-                <Button variant="ghost" size="sm" className="composer-chip">
-                  1분
-                </Button>
-              </>
-            ) : undefined
-          }
-          attachments={
-            entry.slug === 'attachments' ? (
-              <FileChip
-                name="참고_영상.mp4"
-                detail="영상 · 0:12"
-                remove={<CloseButton label="파일 지우기" size="sm" />}
-              />
-            ) : undefined
-          }
-        />
-      );
-    }
+    case 'composer':
+      return <ComposerCase entry={entry} state={state} preview={preview} />;
     case 'file-chip': {
       const errored = state === 'error';
       return (

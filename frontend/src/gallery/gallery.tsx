@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react';
 
 import './gallery.css';
 import {
@@ -13,10 +13,31 @@ import {
   type GalleryPart,
 } from './items';
 import { renderCase } from './case-views';
+import type { CopyPreview } from './copy/model';
+import { isRecord } from './copy/guard';
+import { GalleryTop } from './gallery-top';
 import { ProbePage } from './probe';
+
+// The copy view scans every source file, so a case frame loads it only when asked.
+const CopyPage = lazy(() =>
+  import('./copy/copy-view').then((module) => ({ default: module.CopyPage })),
+);
 
 const WIDTHS = [390, 1920] as const;
 const BATCHES = [1, 2, 3] as const;
+
+function readPreview(value: unknown): CopyPreview | null {
+  if (
+    !isRecord(value) ||
+    typeof value.key !== 'string' ||
+    typeof value.ko !== 'string' ||
+    typeof value.en !== 'string' ||
+    (value.language !== 'ko' && value.language !== 'en')
+  ) {
+    return null;
+  }
+  return { key: value.key, ko: value.ko, en: value.en, language: value.language };
+}
 
 /**
  * Every part lists its states top to bottom in this one order, so the same state sits in the
@@ -73,7 +94,17 @@ function displayOrder(part: GalleryPart): Map<string, number> {
   return order;
 }
 
-function CaseBody({ part, entry, order }: { part: GalleryPart; entry: GalleryCase; order?: number }) {
+function CaseBody({
+  part,
+  entry,
+  order,
+  preview = null,
+}: {
+  part: GalleryPart;
+  entry: GalleryCase;
+  order?: number;
+  preview?: CopyPreview | null;
+}) {
   const style = { '--case-width': `${entry.width ?? 420}px` } as CSSProperties;
   const surface = BARE_PARTS[part.id] === true ? 'bare' : entry.surface;
   return (
@@ -89,7 +120,7 @@ function CaseBody({ part, entry, order }: { part: GalleryPart; entry: GalleryCas
         {entry.note === undefined ? null : <span className="case__note"> · {entry.note}</span>}
       </span>
       <div className="case__stage" style={style}>
-        {renderCase(part.id, entry)}
+        {renderCase(part.id, entry, preview)}
       </div>
     </div>
   );
@@ -106,7 +137,15 @@ const BARE_PARTS: Record<string, true> = {
   'result-card': true,
 };
 
-function CaseFrame({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {
+function CaseFrame({
+  part,
+  entry,
+  preview,
+}: {
+  part: GalleryPart;
+  entry: GalleryCase;
+  preview: CopyPreview | null;
+}) {
   return (
     <div
       className="case-frame"
@@ -114,7 +153,7 @@ function CaseFrame({ part, entry }: { part: GalleryPart; entry: GalleryCase }) {
       data-part-id={part.id}
       data-portal={entry.portal ? '' : undefined}
     >
-      <CaseBody part={part} entry={entry} />
+      <CaseBody part={part} entry={entry} preview={preview} />
     </div>
   );
 }
@@ -496,11 +535,14 @@ function PartNav({ batch, current }: { batch: number; current: string }) {
 /** One part at a time, chosen in the left list. Only that part's frames load. */
 function PartPage({ batch, part }: { batch: number; part: GalleryPart }) {
   return (
-    <div className="gallery-shell">
-      <PartNav batch={batch} current={part.id} />
-      <main className="gallery gallery--single">
-        <PartSection key={part.id} part={part} scaled />
-      </main>
+    <div className="gallery-page">
+      <GalleryTop tab="cases" batch={batch} />
+      <div className="gallery-shell">
+        <PartNav batch={batch} current={part.id} />
+        <main className="gallery gallery--single">
+          <PartSection key={part.id} part={part} scaled />
+        </main>
+      </div>
     </div>
   );
 }
@@ -508,33 +550,36 @@ function PartPage({ batch, part }: { batch: number; part: GalleryPart }) {
 /** Every part of the batch on one page, at real size, for the tests and the screenshot sheets. */
 function AllPartsPage({ batch, parts }: { batch: number; parts: readonly GalleryPart[] }) {
   return (
-    <main className="gallery">
-      <header className="gallery__head">
-        <h1>부품 갤러리 · 묶음 {batch}</h1>
-        <p>
-          숫자 라벨은 상태 목록에서 만든다. 부품과 사례는 뒤에만 붙이고, 한 사례는 자기 폭의 실제
-          viewport 안에서 그린다.
-        </p>
-        <p>
-          부품 {parts.length}개 · 사례 {parts.reduce((sum, part) => sum + part.cases.length, 0)}개 ·{' '}
-          <a href={link({ batch: String(batch) })}>부품 하나씩 보기</a>
-        </p>
-      </header>
-      {galleryRanges.map((range) => {
-        const rangeParts = range.parts.filter((part) => parts.includes(part));
-        if (rangeParts.length === 0) return null;
-        return (
-          <section className="range" key={range.id} data-range={range.id}>
-            <h2 className="range__title">
-              번호 {range.id} · {rangeParts.length}개 부품
-            </h2>
-            {rangeParts.map((part) => (
-              <PartSection key={part.id} part={part} scaled={false} />
-            ))}
-          </section>
-        );
-      })}
-    </main>
+    <div className="gallery-page">
+      <GalleryTop tab="cases" batch={batch} />
+      <main className="gallery">
+        <header className="gallery__head">
+          <h1>부품 갤러리 · 묶음 {batch}</h1>
+          <p>
+            숫자 라벨은 상태 목록에서 만든다. 부품과 사례는 뒤에만 붙이고, 한 사례는 자기 폭의 실제
+            viewport 안에서 그린다.
+          </p>
+          <p>
+            부품 {parts.length}개 · 사례 {parts.reduce((sum, part) => sum + part.cases.length, 0)}개 ·{' '}
+            <a href={link({ batch: String(batch) })}>부품 하나씩 보기</a>
+          </p>
+        </header>
+        {galleryRanges.map((range) => {
+          const rangeParts = range.parts.filter((part) => parts.includes(part));
+          if (rangeParts.length === 0) return null;
+          return (
+            <section className="range" key={range.id} data-range={range.id}>
+              <h2 className="range__title">
+                번호 {range.id} · {rangeParts.length}개 부품
+              </h2>
+              {rangeParts.map((part) => (
+                <PartSection key={part.id} part={part} scaled={false} />
+              ))}
+            </section>
+          );
+        })}
+      </main>
+    </div>
   );
 }
 
@@ -554,17 +599,19 @@ function QueryPage({
   batch,
   partId,
   all,
+  preview,
 }: {
   caseLabel: string | null;
   groupId: string | null;
   batch: number;
   partId: string | null;
   all: boolean;
+  preview: CopyPreview | null;
 }) {
   if (caseLabel !== null) {
     const found = findCase(caseLabel);
     if (found === undefined) return <p className="gallery__error">그런 사례가 없다: {caseLabel}</p>;
-    return <CaseFrame part={found.part} entry={found.entry} />;
+    return <CaseFrame part={found.part} entry={found.entry} preview={preview} />;
   }
   if (groupId !== null) {
     const part = findPart(groupId);
@@ -574,9 +621,16 @@ function QueryPage({
   return <GalleryPage batch={batch} partId={partId} all={all} />;
 }
 
-function query(): ReactNode {
+function query(preview: CopyPreview | null): ReactNode {
   const params = new URLSearchParams(window.location.search);
   if (params.get('probe') !== null) return <ProbePage />;
+  if (params.get('tab') === 'copy') {
+    return (
+      <Suspense fallback={<p className="gallery__error">문구를 불러오는 중이에요.</p>}>
+        <CopyPage initialFile={params.get('file')} />
+      </Suspense>
+    );
+  }
   const batchText = params.get('batch') ?? '1';
   const batch = Number.parseInt(batchText, 10);
   return (
@@ -586,11 +640,28 @@ function query(): ReactNode {
       batch={Number.isNaN(batch) ? 1 : batch}
       partId={params.get('part')}
       all={params.get('view') === 'all'}
+      preview={preview}
     />
   );
 }
 
-/** The dev gallery root. `main.tsx` mounts it outside the app entry. */
+/**
+ * The dev gallery root. `main.tsx` mounts it outside the app entry.
+ *
+ * A preview frame follows the copy editor through `postMessage`, so typing
+ * does not reload the frame.
+ */
 export function Gallery(): ReactNode {
-  return query();
+  const [preview, setPreview] = useState<CopyPreview | null>(null);
+  useEffect(() => {
+    const onMessage = (event: MessageEvent<unknown>) => {
+      if (event.origin !== window.location.origin) return;
+      const data: unknown = event.data;
+      if (!isRecord(data) || data.type !== 'gallery-copy-preview') return;
+      setPreview(readPreview(data.preview));
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+  return query(preview);
 }

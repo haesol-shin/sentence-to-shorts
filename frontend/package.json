@@ -7,7 +7,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "node vite-plugins/dev.mjs",
+    "copy": "node vite-plugins/dev.mjs --open /src/gallery/index.html?tab=copy",
+    "gallery:build": "node vite-plugins/build-gallery.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
