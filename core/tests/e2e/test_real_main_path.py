@@ -26,13 +26,21 @@ from app.main import create_app
 from app.schemas.video import Video
 from app.settings import CONFIG_DIR, Settings
 from tests.conftest import browser_client, pair
-from tests.e2e.real_support import Evidence, LiveApi
+from tests.e2e.real_support import CaseSkipped, Evidence, LiveApi
 from tests.e2e.support import CORE, Studio
 
 pytestmark = [pytest.mark.realllm, pytest.mark.usefixtures("selected_aligner")]
 
 
 REAL_ADAPTER_KINDS = ("llm", "aligner", "transcriber", "media", "downloader")
+LLM_ADAPTERS = ("openai_compat", "claude_cli")
+
+
+def _llm_adapter() -> str:
+    """The dev LLM provider under test: the endpoint by default, the official CLI on request."""
+    selected = os.environ.get("APP_LLM_ADAPTER") or "openai_compat"
+    assert selected in LLM_ADAPTERS, f"APP_LLM_ADAPTER must be one of {LLM_ADAPTERS}"
+    return selected
 
 
 @dataclass
@@ -48,21 +56,30 @@ def live_settings(request: pytest.FixtureRequest) -> Settings:
     if request.config.getoption("markexpr").strip() != "realllm":
         pytest.skip("live calls require explicit -m realllm selection")
     assert os.environ.get("APP_PROFILE") == "dev", "real acceptance requires APP_PROFILE=dev"
-    assert os.environ.get("APP_LLM_BASE_URL"), "configure APP_LLM_BASE_URL before live acceptance"
+    llm = _llm_adapter()
+    if llm == "openai_compat":
+        assert os.environ.get("APP_LLM_BASE_URL"), (
+            "configure APP_LLM_BASE_URL before live acceptance"
+        )
     root = CORE.parent / ".local" / "real-e2e" / uuid.uuid4().hex
     settings = Settings(data_dir=root / "data", cache_dir=root / "cache")
     assert settings.profile == "dev", "APP_PROFILE=dev must select the dev profile"
     assert settings.deployment == "local", "reference link acceptance requires local deployment"
     with (CONFIG_DIR / "app.yaml").open(encoding="utf-8") as handle:
         expected = yaml.safe_load(handle)["providers"]["adapters"]
+    if llm != expected["llm"]:
+        app = settings.app.model_copy(deep=True)
+        app.providers.adapters["llm"] = llm
+        settings = Settings(data_dir=root / "data", cache_dir=root / "cache", app=app)
     adapters = settings.providers.adapters
-    assert adapters["llm"] == "openai_compat", "dev provider table changed; do not substitute"
-    for kind in REAL_ADAPTER_KINDS:
+    assert adapters["llm"] == llm, "the selected LLM provider did not reach the settings"
+    for kind in REAL_ADAPTER_KINDS[1:]:
         assert adapters[kind] == expected[kind], f"real acceptance needs the {kind} adapter"
-    for alias in ("haiku", "sonnet"):
-        assert settings.models.models[alias]["openai_compat"], (
-            f"configure APP_LLM_MODEL_{alias.upper()}"
-        )
+    if llm == "openai_compat":
+        for alias in ("haiku", "sonnet"):
+            assert settings.models.models[alias]["openai_compat"], (
+                f"configure APP_LLM_MODEL_{alias.upper()}"
+            )
     return settings
 
 
@@ -142,7 +159,7 @@ def _set(run: LiveRun, video: dict[str, Any], path: str, value: Any) -> dict[str
 def _real_usage(job: dict[str, Any]) -> None:
     assert job["usage"], "a real LLM job must report provider/model usage"
     for usage in job["usage"]:
-        assert usage["provider"] == "openai_compat"
+        assert usage["provider"] == _llm_adapter()
         assert usage["model"].strip() and usage["model"] not in {"fixture", "recorded"}
         assert usage["wall_ms"] >= 0
     assert job["stages"], "stage timings must be recorded"
@@ -405,14 +422,26 @@ def test_20_synthetic_file_analysis_preserves_user_origins(live_run: LiveRun) ->
 
 
 def test_20_allowed_public_link_analysis_succeeds(live_run: LiveRun) -> None:
-    with live_run.evidence.case("reference-allowed-link"):
-        url = os.environ.get("E2E_ALLOWED_REFERENCE_URL")
-        assert url, "supply one authorized public reference link via E2E_ALLOWED_REFERENCE_URL"
-        video = _set(live_run, _new(live_run), "/settings/format/register", "neutral")
-        job = live_run.api.wait_job(live_run.api.post(f"/videos/{video['id']}/references/link", {
-            "base_revision": video["revision"], "url": url,
-        }, expect=202))
-        _reference_result(live_run, video, job, "link")
+    try:
+        with live_run.evidence.case("reference-allowed-link"):
+            url = os.environ.get("E2E_ALLOWED_REFERENCE_URL")
+            assert url, "supply one authorized public reference link via E2E_ALLOWED_REFERENCE_URL"
+            video = _set(live_run, _new(live_run), "/settings/format/register", "neutral")
+            submitted = live_run.api.post(f"/videos/{video['id']}/references/link", {
+                "base_revision": video["revision"], "url": url,
+            }, expect=202)
+            job = live_run.api.wait_terminal(submitted)
+            code = (job["error"] or {}).get("code")
+            if job["state"] == "failed" and code == "download_blocked" and (
+                os.environ.get("E2E_SKIP_BLOCKED_ALLOWED_LINK") == "1"
+            ):
+                live_run.evidence.record({"kind": "reference", "source": "link",
+                                          "state": "skipped", "reason": "download_blocked"})
+                raise CaseSkipped("the link host refused this runner (download_blocked)")
+            assert job["state"] == "succeeded", (job["kind"], job["state"], code)
+            _reference_result(live_run, video, job, "link")
+    except CaseSkipped as skipped:
+        pytest.skip(str(skipped))
 
 
 def test_20_login_required_link_returns_download_blocked(live_run: LiveRun) -> None:

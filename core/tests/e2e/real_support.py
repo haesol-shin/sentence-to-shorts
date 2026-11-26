@@ -15,6 +15,10 @@ from fastapi.testclient import TestClient
 from tests.e2e.support import TERMINAL, Api
 
 
+class CaseSkipped(Exception):
+    """A case that cannot judge its subject here; the evidence says skipped, not passed."""
+
+
 class Evidence:
     """Use a new private directory per run; preserve completed work on any later failure."""
 
@@ -46,6 +50,9 @@ class Evidence:
         self.record({"kind": "case", "name": name, "state": "running"})
         try:
             yield
+        except CaseSkipped:
+            self.record({"kind": "case", "name": name, "state": "skipped"})
+            raise
         except BaseException:
             self.record({"kind": "case", "name": name, "state": "failed"})
             raise

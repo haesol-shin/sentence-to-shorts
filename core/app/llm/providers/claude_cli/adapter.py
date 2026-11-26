@@ -21,6 +21,9 @@ control for one. The provider therefore sends the request budget as a trusted
 instruction and fails with ``llm_invalid_output`` when the CLI reports more
 output tokens than that budget. When the CLI omits output usage, the budget
 cannot be enforced and only the instruction remains.
+
+A runner without an interactive login can set ``APP_CLAUDE_CLI_PASS_OAUTH=1``;
+the child then also receives ``CLAUDE_CODE_OAUTH_TOKEN`` and no other secret.
 """
 
 from __future__ import annotations
@@ -76,7 +79,8 @@ REQUIRED_FLAGS = (
 )
 
 # HOME and USERPROFILE are kept so the CLI can find its own login; API key,
-# OAuth and cloud credential variables are never included.
+# OAuth and cloud credential variables are never included, except the one
+# explicit opt-in below.
 ENV_ALLOWLIST = frozenset(
     {
         "PATH",
@@ -96,6 +100,11 @@ ENV_ALLOWLIST = frozenset(
         "NO_COLOR",
     }
 )
+# Opt-in for a runner that has no interactive login: with PASS_OAUTH_ENV set to
+# "1" the child also gets OAUTH_TOKEN_ENV, and nothing else that the markers
+# below would remove.
+PASS_OAUTH_ENV = "APP_CLAUDE_CLI_PASS_OAUTH"
+OAUTH_TOKEN_ENV = "CLAUDE_CODE_OAUTH_TOKEN"
 SECRET_ENV_MARKERS = (
     "ANTHROPIC",
     "CLAUDE",
@@ -347,6 +356,10 @@ def _child_env() -> dict[str, str]:
         if any(marker in upper for marker in SECRET_ENV_MARKERS):
             continue
         env[name] = value
+    if os.environ.get(PASS_OAUTH_ENV) == "1":
+        token = os.environ.get(OAUTH_TOKEN_ENV)
+        if token:
+            env[OAUTH_TOKEN_ENV] = token
     return env
 
 

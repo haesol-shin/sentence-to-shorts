@@ -463,6 +463,31 @@ def test_9a_cli_uses_verified_flags_and_private_empty_cwd(
     assert "--allow-dangerously-skip-permissions" not in generation["argv"]
 
 
+def test_9a_child_env_strips_every_secret_unless_oauth_opt_in_is_exactly_one(
+    monkeypatch,
+) -> None:
+    for name, value in SECRET_ENV.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("HOME", "synthetic-home")
+    monkeypatch.delenv(claude_cli.PASS_OAUTH_ENV, raising=False)
+
+    assert not set(claude_cli._child_env()) & set(SECRET_ENV)
+
+    for other in ("0", "true", ""):
+        monkeypatch.setenv(claude_cli.PASS_OAUTH_ENV, other)
+        assert not set(claude_cli._child_env()) & set(SECRET_ENV)
+
+    monkeypatch.setenv(claude_cli.PASS_OAUTH_ENV, "1")
+    env = claude_cli._child_env()
+    assert env["CLAUDE_CODE_OAUTH_TOKEN"] == SECRET_ENV["CLAUDE_CODE_OAUTH_TOKEN"]
+    assert set(env) & set(SECRET_ENV) == {"CLAUDE_CODE_OAUTH_TOKEN"}
+    assert env["HOME"] == "synthetic-home"
+    assert claude_cli.PASS_OAUTH_ENV not in env
+
+    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN")
+    assert "CLAUDE_CODE_OAUTH_TOKEN" not in claude_cli._child_env()
+
+
 def test_9a_structured_output_and_model_usage_become_the_reply(
     settings, request_data, cancel, tmp_path
 ) -> None:
