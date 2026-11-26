@@ -50,6 +50,35 @@ def test_10_evidence_records_usage_and_timings_without_private_content(tmp_path:
     assert "llm_quota" in rendered
 
 
+@pytest.mark.parametrize(("detail", "expected"), [
+    (
+        {"reason": "output_over_cap", "output_tokens": 41, "cap": 40,
+         "returncode": False, "other": 123, "message": "private-payload"},
+        {"reason": "output_over_cap", "output_tokens": 41, "cap": 40},
+    ),
+    (
+        {"validation_rule": "required", "reason": "private-payload"},
+        {"validation_rule": "required"},
+    ),
+    (
+        {"reason": "nonzero_exit", "returncode": 7, "validation_rule": "private-payload"},
+        {"reason": "nonzero_exit", "returncode": 7},
+    ),
+])
+def test_10_evidence_keeps_only_safe_llm_diagnostics(tmp_path: Path, detail, expected) -> None:
+    job = _job()
+    job["error"] = {"code": "llm_invalid_output", "detail": detail}
+    evidence = Evidence(tmp_path / "evidence")
+
+    evidence.job(job)
+
+    line = (evidence.root / "events.jsonl").read_text().splitlines()[-1]
+    summary = (evidence.root / "summary.md").read_text()
+    assert json.loads(line)["error_detail"] == expected
+    assert "private-payload" not in line + summary
+    assert f"detail={json.dumps(json.loads(line)['error_detail'])}" in summary
+
+
 def test_1_later_failure_preserves_completed_artifact_and_digest(tmp_path: Path) -> None:
     evidence = Evidence(tmp_path / "evidence")
     content = b"synthetic-video-bytes"

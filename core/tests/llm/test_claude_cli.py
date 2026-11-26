@@ -16,12 +16,14 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.jobs import CancelFlag
+from app.jobs import LIGHT, CancelFlag, LocalJobContext
 from app.llm.providers.claude_cli import adapter as claude_cli
 from app.llm.providers.claude_cli.adapter import ClaudeCliLlm, create
 from app.llm.providers.claude_cli.process import batch_command
 from app.llm.registry import create as create_llm
 from app.ports import AppError, Cancelled, LlmPart, LlmTask
+from app.schemas.job import Job, JobErrorCode, JobKind, JobState
+from tests.jobs.support import new_job, open_env
 from tests.llm.conftest import OWNER
 
 DEADLINE = time.monotonic() + 3600
@@ -519,18 +521,65 @@ def test_9a_structured_output_and_model_usage_become_the_reply(
     assert result.usage.cache_read_tokens == 4
 
 
-def test_9a_reported_tokens_over_the_request_budget_are_rejected(
-    settings, request_data, cancel, tmp_path
+@pytest.mark.parametrize("count", [6, 20])
+def test_9a_valid_output_over_prompt_budget_within_hard_limit_succeeds(
+    settings, request_data, cancel, tmp_path, count
 ) -> None:
-    cli = _fake_cli(tmp_path)
+    cli = _fake_cli(tmp_path, result={**SUCCESS_RESULT, "usage": {"output_tokens": count}})
     request = replace(request_data, max_output_tokens=5)
-    model = _adapter(settings, cli)
+    result = _adapter(settings, cli).complete(
+        request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE
+    )
 
-    with pytest.raises(AppError) as caught:
-        model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+    assert result.parsed == {"answer": "ok"}
+    assert result.usage.output_tokens == count
 
-    assert caught.value.code == "llm_invalid_output"
-    assert cli.generation_calls()
+
+@pytest.mark.parametrize(("reply", "detail", "outcome", "tries"), [
+    (
+        {**SUCCESS_RESULT, "usage": {"output_tokens": 21}},
+        {"reason": "output_over_cap", "output_tokens": 21, "cap": 20},
+        "failed",
+        1,
+    ),
+    (
+        {**SUCCESS_RESULT, "result": '{"unexpected":"synthetic output"}'},
+        {"validation_rule": "required"},
+        "ok",
+        2,
+    ),
+])
+def test_9a_failed_job_retains_safe_detail_and_request_usage(
+    settings, request_data, tmp_path, reply, detail, outcome, tries
+) -> None:
+    model = _adapter(settings, _fake_cli(tmp_path, result=reply))
+    request = replace(request_data, max_output_tokens=5)
+    env = open_env(tmp_path / "job-state")
+    try:
+        job = env.jobs.create(new_job(JobKind.draft, max_attempts=1))
+
+        def run_job(current: Job, ctx: LocalJobContext) -> None:
+            model.complete(
+                request, owner_id=current.owner_id, cancel=ctx.cancel, deadline=ctx.deadline,
+                on_request=ctx.record_request,
+            )
+
+        finished = env.runner(run_job).run_once(LIGHT)
+        assert finished is not None and finished.state is JobState.failed
+        assert finished.error is not None and finished.error.code == JobErrorCode.llm_invalid_output
+        assert finished.error.detail == detail
+        with env.db.read() as conn:
+            rows = conn.execute(
+                "SELECT outcome, input_tokens, output_tokens, cache_read_tokens, "
+                "cache_write_tokens "
+                "FROM usage_events WHERE job_id = ? ORDER BY try_index",
+                (job.id,),
+            ).fetchall()
+        assert [tuple(row) for row in rows] == [
+            (outcome, 11, detail.get("output_tokens", 7), 3, None)
+        ] * tries
+    finally:
+        env.close()
 
 
 def test_9a_unknown_usage_stays_none_and_modelusage_names_the_model(
@@ -704,6 +753,7 @@ def test_9a_tool_activity_output_is_rejected(
         model.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
+    assert caught.value.detail == {"reason": "tool_activity"}
     assert not marker.exists()
     generation = cli.generation_calls()[0]
     assert generation["argv"][generation["argv"].index("--tools") + 1] == ""
@@ -745,29 +795,47 @@ def test_9a_untrusted_text_is_only_input_data(
     assert request.parts[0].text in [block["text"] for block in blocks[1:]]
 
 
+INVALID_OUTPUT_CASES = (
+    ({"stdout": " \n"}, {"reason": "stdout_empty"}),
+    ({"stdout": "not json"}, {"reason": "stdout_not_json"}),
+    ({"stdout": "[]\n"}, {"reason": "stdout_not_json"}),
+    (
+        {"result": {**SUCCESS_RESULT, "structured_output": ["not-an-object"]}},
+        {"reason": "result_invalid"},
+    ),
+    (
+        {"result": {"type": "result", "subtype": "success", "is_error": False}},
+        {"reason": "result_invalid"},
+    ),
+    (
+        {"result": {**SUCCESS_RESULT, "is_error": True, "result": "schema: synthetic output"}},
+        {"reason": "result_error"},
+    ),
+    (
+        {
+            "result": {**SUCCESS_RESULT, "result": '{"answer":"quota"}'},
+            "returncode": 7,
+            "stderr": "synthetic stderr",
+        },
+        {"reason": "nonzero_exit", "returncode": 7},
+    ),
+)
+
+
+@pytest.mark.parametrize(("scenario", "detail"), INVALID_OUTPUT_CASES)
+def test_9a_invalid_output_includes_only_safe_detail(
+    settings, request_data, cancel, tmp_path, scenario, detail
+) -> None:
+    model = _adapter(settings, _fake_cli(tmp_path, **scenario))
+
+    with pytest.raises(AppError) as caught:
+        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+
+    assert caught.value.code == "llm_invalid_output"
+    assert caught.value.detail == detail
+
+
 ERROR_CASES = (
-    ({"stdout": "not json"}, "llm_invalid_output"),
-    (
-        {
-            "result": {
-                "type": "result",
-                "subtype": "success",
-                "is_error": False,
-                "structured_output": ["not-an-object"],
-            }
-        },
-        "llm_invalid_output",
-    ),
-    (
-        {
-            "result": {
-                "type": "result",
-                "subtype": "success",
-                "is_error": False,
-            }
-        },
-        "llm_invalid_output",
-    ),
     (
         {
             "result": {
@@ -977,13 +1045,19 @@ def test_9a_oversized_stdout_is_bounded(
     settings, request_data, cancel, tmp_path, monkeypatch
 ) -> None:
     monkeypatch.setattr(claude_cli, "MAX_STDOUT_BYTES", 1024)
-    cli = _fake_cli(tmp_path, stdout="x" * 5000)
+    cli = _fake_cli(tmp_path, stdout=json.dumps(SUCCESS_RESULT) + "\n" + "x" * 5000)
     model = _adapter(settings, cli)
+    requests = []
 
     with pytest.raises(AppError) as caught:
-        model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+        model.complete(
+            request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE,
+            on_request=requests.append,
+        )
 
     assert caught.value.code == "llm_invalid_output"
+    assert caught.value.detail == {"reason": "stdout_truncated"}
+    assert [(r.outcome, r.output_tokens) for r in requests] == [("failed", 7)]
 
 
 def test_9a_fake_cli_rejects_json_output_with_stream_input(tmp_path) -> None:
@@ -1011,6 +1085,7 @@ def test_9a_cli_usage_error_is_not_retried_as_connection(
         model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
+    assert caught.value.detail == {"reason": "nonzero_exit", "returncode": 1}
     assert len(cli.generation_calls()) == 1
 
 
@@ -1028,6 +1103,7 @@ def test_9a_tool_call_in_an_intermediate_stream_event_is_rejected(
         model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
+    assert caught.value.detail == {"reason": "tool_activity"}
 
 
 def test_9a_stream_without_result_event_is_invalid_output(
@@ -1040,6 +1116,7 @@ def test_9a_stream_without_result_event_is_invalid_output(
         model.complete(request_data, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
 
     assert caught.value.code == "llm_invalid_output"
+    assert caught.value.detail == {"reason": "no_result_event"}
 
 
 def test_dv1_batch_shim_command_keeps_every_argument_for_cmd_exe() -> None:

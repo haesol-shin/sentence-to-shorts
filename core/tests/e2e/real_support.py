@@ -11,8 +11,15 @@ from pathlib import Path
 from typing import Any
 
 from fastapi.testclient import TestClient
+from jsonschema import Draft202012Validator
 
 from tests.e2e.support import TERMINAL, Api
+
+_LLM_REASONS = frozenset({
+    "stdout_empty", "stdout_not_json", "no_result_event", "tool_activity",
+    "stdout_truncated", "nonzero_exit", "result_error", "result_invalid",
+    "output_over_cap",
+})
 
 
 class CaseSkipped(Exception):
@@ -35,9 +42,11 @@ class Evidence:
         rows = ["# Real-provider acceptance", "", "Private evidence; do not publish outputs.", ""]
         for item in self.events:
             if item["kind"] == "job":
+                detail = item["error_detail"]
                 rows.append(
                     f"- Job {item['id']} ({item['job_kind']}): {item['state']}; "
                     f"error={item['error_code']}; usage={json.dumps(item['usage'])}"
+                    + (f"; detail={json.dumps(detail)}" if detail else "")
                 )
             elif item["kind"] == "artifact":
                 rows.append(f"- {item['name']}: sha256={item['digest']}; bytes={item['bytes']}")
@@ -60,12 +69,14 @@ class Evidence:
             self.record({"kind": "case", "name": name, "state": "passed"})
 
     def job(self, job: dict[str, Any]) -> None:
-        # Never retain input, result, error detail, reference URL, frames or transcript.
+        # Only allowlisted diagnostics, never arbitrary job or provider content.
+        error = job["error"] or {}
         self.record({
             "kind": "job", "id": job["id"], "job_kind": job["kind"],
             "state": job["state"], "attempt": job["attempt"],
             "started_at": job["started_at"], "ended_at": job["ended_at"],
-            "error_code": (job["error"] or {}).get("code"),
+            "error_code": error.get("code"),
+            "error_detail": _llm_error_detail(error),
             "stages": [{key: stage[key] for key in (
                 "stage", "state", "started_ms", "ended_ms", "cache_hits", "rebuilt_scene_ids"
             )} for stage in job["stages"]],
@@ -115,3 +126,22 @@ def numeric_detail(detail: dict[str, Any]) -> dict[str, int]:
         key: value for key, value in detail.items()
         if isinstance(value, int) and not isinstance(value, bool)
     }
+
+
+def _llm_error_detail(error: dict[str, Any]) -> dict[str, int | str]:
+    if error.get("code") != "llm_invalid_output":
+        return {}
+    detail = error.get("detail") or {}
+    if not isinstance(detail, dict):
+        return {}
+    result: dict[str, int | str] = {
+        key: value for key, value in numeric_detail(detail).items()
+        if key in {"output_tokens", "cap", "returncode"}
+    }
+    reason = detail.get("reason")
+    if isinstance(reason, str) and reason in _LLM_REASONS:
+        result["reason"] = reason
+    rule = detail.get("validation_rule")
+    if isinstance(rule, str) and (rule == "json_object" or rule in Draft202012Validator.VALIDATORS):
+        result["validation_rule"] = rule
+    return result
