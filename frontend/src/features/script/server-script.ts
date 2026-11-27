@@ -233,7 +233,7 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
   };
 
   const confirm = async (next: ScriptDocument): Promise<ScriptDocument> => {
-    const { revision, document: saved } = await save(next);
+    const { revision, document: saved } = await save(next, next.scene_order.length);
 
     const confirmed = await confirmVideoScript(videoId, revision);
     if (!isConfirmed(confirmed)) {

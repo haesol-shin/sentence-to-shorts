@@ -33,7 +33,7 @@ test('real Script waits for draft, saves edits, and enters Edit only after serve
     stage: 'draft',
     settings: {
       ...view.video.settings,
-      format: { ...view.video.settings.format, register: 'friendly', scene_count: initialOrder.length },
+      format: { ...view.video.settings.format, register: 'friendly', scene_count: initialOrder.length + 3 },
     },
   };
   let savedScript: components['schemas']['SetScriptOp'] | undefined;
@@ -48,6 +48,9 @@ test('real Script waits for draft, saves edits, and enters Edit only after serve
       const request = body as components['schemas']['ChangeRequest'];
       expect(request.base_revision).toBe(2);
       expect(request.source).toBe('direct');
+      expect(request.ops).toContainEqual({
+        op: 'set', path: '/settings/format/scene_count', value: initialOrder.length, origin: 'user',
+      });
       savedScript = request.ops.find((op) => op.op === 'set_script');
       return { status: 200, body: { id: CHANGE_ID, status: 'proposed', requires_confirmation: true } };
     },
@@ -60,6 +63,10 @@ test('real Script waits for draft, saves edits, and enters Edit only after serve
         script: savedScript.script,
         scene_order: savedScript.scenes.map((scene) => scene.id),
         scenes: Object.fromEntries(savedScript.scenes.map((scene) => [scene.id, scene])),
+        settings: {
+          ...view.video.settings,
+          format: { ...view.video.settings.format, scene_count: savedScript.scenes.length },
+        },
       };
       throw new Error('Connection dropped after saving the change');
     },
@@ -236,7 +243,10 @@ test('test_8a_settings_applied_after_a_pending_chat_plan_do_not_block_confirm', 
   const view = makeView();
   view.video = {
     ...view.video, id: DRAFT_VIDEO, revision: 2, stage: 'concept_confirmed',
-    settings: { ...view.video.settings, format: { ...view.video.settings.format, register: 'friendly' } },
+    settings: {
+      ...view.video.settings,
+      format: { ...view.video.settings.format, register: 'friendly', scene_count: view.video.scene_order.length },
+    },
   };
   let confirms = 0;
   stubApi({
