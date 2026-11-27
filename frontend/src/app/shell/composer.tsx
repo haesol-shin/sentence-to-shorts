@@ -589,7 +589,7 @@ function ComposerBox({
       style={maskStyle}
       className={cn(
         'block max-h-[260px] resize-none overflow-y-auto bg-transparent text-[17px] leading-6 text-[var(--text-strong)] outline-none placeholder:text-[var(--text-disabled)] disabled:cursor-not-allowed',
-        face === 'first' ? 'px-2 pt-1.5 pb-3.5' : 'px-1 py-2.5',
+        face === 'first' ? 'px-0 pt-1.5 pb-3.5' : inline ? 'px-1 py-2.5' : 'px-0 py-2.5',
         inline ? 'min-w-0 flex-1' : 'w-full',
       )}
     />
@@ -633,7 +633,10 @@ function ComposerBox({
         targetSeat === null && className,
       )}
     >
-      {card === null && attachments.length === 0 ? null : (
+      {card === null && attachments.length === 0 ? (
+        // The first screen keeps the chip row's room, so a picked card never moves the box.
+        face === 'first' ? <div aria-hidden data-slot="composer-attachments-room" className="mb-2 h-9" /> : null
+      ) : (
         <div data-slot="composer-attachments" className="mb-2 flex min-w-0 flex-col items-start gap-1">
           {card === null ? null : (
             <span data-slot="composer-action" data-kind="card" className="inline-flex max-w-full">
@@ -740,8 +743,14 @@ function ComposerBox({
         // the docked box taller than the room a phone keyboard leaves it.
         className={cn('flex min-w-0', inline ? 'items-end gap-1.5' : 'items-center gap-2')}
       >
-        <div data-slot="composer-plus" data-hit={TOUCH_TARGET} className="relative shrink-0">
+        <div
+          data-slot="composer-plus"
+          data-hit={TOUCH_TARGET}
+          // Mirrors the send mark: the 44 target reaches 6 past the round 32, so that circle sits on the box's inner edge.
+          className="relative flex size-11 shrink-0 items-center justify-center -ml-1.5"
+        >
           <IconButton
+            size="compact"
             label={t('concept.composer.plus')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
@@ -872,6 +881,8 @@ function ComposerBox({
               stopLabel={t('edit.composer.cancel')}
               disabled={!canSend}
               onClick={() => void submit()}
+              // With nothing to send the mark wears the muted face every unusable primary control wears.
+              className="disabled:border-[var(--muted)]! disabled:bg-[var(--muted)]! disabled:text-[var(--disabled-foreground)]!"
               data-slot="composer-send-visual"
               data-size={SEND_VISUAL}
             />
