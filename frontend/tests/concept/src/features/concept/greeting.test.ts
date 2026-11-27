@@ -15,12 +15,12 @@ async function settings(): Promise<Settings> {
   return document.settings;
 }
 
-test('test_5_the_first_reply_names_picked_values_and_defaults', async () => {
+test('test_5_the_first_reply_distinguishes_picks_from_unchanged_values', async () => {
   const value = await settings();
   expect(conceptGreeting(value, t)).toBe([
     '이야기 방식은 딱 3가지만으로 골랐어요.',
     '길이는 30초, 장면은 5개로 했어요.',
-    '그림체와 캐릭터는 기본값이에요.',
+    '그림체와 캐릭터는 그대로 두었어요.',
     '바꾸고 싶은 것만 말하거나 눌러 주세요.',
   ].join(' '));
 });
@@ -42,9 +42,9 @@ test('test_5_the_first_reply_names_values_the_draft_picked', async () => {
   ].join(' '));
 });
 
-test('test_5_the_first_reply_calls_only_the_untouched_value_a_default', async () => {
+test('test_5_the_first_reply_identifies_an_unchanged_character', async () => {
   const value = await settings();
   value.origins['/visual/art_style'] = 'user';
   expect(conceptGreeting(value, t)).toContain('그림체는 픽셀로 골랐어요.');
-  expect(conceptGreeting(value, t)).toContain('캐릭터는 기본값이에요.');
+  expect(conceptGreeting(value, t)).toContain('캐릭터는 그대로 두었어요.');
 });

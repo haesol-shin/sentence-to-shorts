@@ -10,6 +10,7 @@ import {
   cardIdForSettings,
   cardTuneOf,
   cardTunePreset,
+  changeCard,
   changeCardTune,
   changeConceptValue,
   cloneSettings,
@@ -594,6 +595,21 @@ function commitChange(
   return changed;
 }
 
+/**
+ * The picked story card shows from the first paint. A server that opens the
+ * video before the draft has written it answers with the default card, so the
+ * card the user chose is applied to the opening view here; the read after the
+ * draft replaces it with what the server wrote.
+ */
+function withPickedCard(created: ConceptDocument, input: ConceptStartInput): ConceptDocument {
+  const cardId = input.cardId ?? null;
+  if (cardId === null || cardIdForSettings(created.settings) === cardId) {
+    return created;
+  }
+  const picked = changeCard(created.settings, cardId, input.duration ?? created.settings.target_duration_s, null);
+  return picked.kind === 'changed' ? { ...created, settings: picked.settings } : created;
+}
+
 export async function beginConcept(input: ConceptStartInput): Promise<ConceptDocument | null> {
   const token = ++startToken;
   const currentEpoch = epoch;
@@ -601,7 +617,7 @@ export async function beginConcept(input: ConceptStartInput): Promise<ConceptDoc
   if (currentEpoch !== epoch) {
     return null;
   }
-  const session = createSession(created);
+  const session = createSession(withPickedCard(created, input));
   sessions.set(created.id, session);
   if (token !== startToken) {
     return null;

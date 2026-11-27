@@ -345,6 +345,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
   const settings = doc.settings;
   const style = catalog?.styles.find((item) => item.ref.id === settings.visual.art_style.id)?.manifest;
   const frozen = doc.confirmed || snapshot.busy || catalog === null;
+  const readingDraft = snapshot.readState === 'waiting';
   const choices = (values: readonly unknown[]) => values.map((value) => ({ value, label: valueLabel(value, t) }));
   const activeCardId = cardIdForSettings(settings) ?? '';
   const character = settings.visual.character;
@@ -498,7 +499,10 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
           </h2>
           <CardGrid>
             {STORIES.map((id) => (
-              <TunedCard key={id} id={id} title={t(`concept.card.${id}`)} description={t(`concept.example.${id}`)}
+              <TunedCard key={id} id={id} title={t(`concept.card.${id}`)}
+                description={id === 'just_three'
+                  ? t('shell.first.cardExample', { topic: t('shell.cardTopic.just_three') })
+                  : t(`concept.example.${id}`)}
                 selected={activeCardId === id} disabled={frozen}
                 changed={activeCardId === id
                   ? versionOf('/format/story_structure', '/format/card_id')
@@ -561,11 +565,11 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
       </ScrollPane>
       {doc.confirmed ? null : <footer className="concept-footer">
         {snapshot.canUndo ? <Button variant="ghost" disabled={snapshot.busy} onClick={undoConcept}>{t('concept.undo')}</Button> : null}
-        <Button disabled={frozen || snapshot.pending !== null} onClick={() => setConfirming(true)}>{t('concept.confirm')}</Button>
+        <Button disabled={frozen || readingDraft || snapshot.pending !== null} onClick={() => setConfirming(true)}>{t('concept.confirm')}</Button>
       </footer>}
       {entry === null ? null : <Entry mode={entry} onClose={() => setEntry(null)} ComposerComponent={ComposerComponent} />}
       {confirming ? <Modal title={t('concept.confirm.title')} onClose={() => setConfirming(false)}
-        actions={<Button disabled={snapshot.busy} onClick={() => void confirmConcept().then(() => {
+        actions={<Button disabled={snapshot.busy || readingDraft} onClick={() => void confirmConcept().then(() => {
           setConfirming(false);
           onConfirmed?.();
         }, () => undefined)}>{t('concept.confirm')}</Button>}>

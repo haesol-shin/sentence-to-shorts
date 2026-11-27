@@ -109,7 +109,7 @@ test('test_10a_the_conversation_opens_with_the_sent_sentence', async () => {
     timeout: 5000,
   });
   expect(conversation.textContent).toContain('길이는 1분, 장면은 8개로 했어요.');
-  expect(conversation.textContent).toContain('그림체와 캐릭터는 기본값이에요.');
+  expect(conversation.textContent).toContain('그림체와 캐릭터는 그대로 두었어요.');
   expect(conversation.textContent).not.toContain('문장으로 컨셉 초안을 쓰고 있어요.');
 });
 
