@@ -27,9 +27,11 @@ export type ScrollPaneProps = {
 /**
  * One scrolling column. The scrollbar is never drawn, while the wheel, the
  * trackpad and the keyboard scroll it as usual. When more content waits below,
- * a 44 round jump control named by the caller floats at the bottom centre and moves one
+ * a 44 round jump control named by the caller sits at the bottom centre and moves one
  * screen's 80 percent; at the end it disappears and gives focus back to the
- * column. The control takes no layout row, so the content keeps its own height.
+ * column. In the app the control has its own dock row under the column, so it
+ * never covers content or a caller's controls; outside the app the dock has no
+ * height and the control floats over the column.
  */
 export const ScrollPane = forwardRef<HTMLDivElement, ScrollPaneProps>(
   function ScrollPane({ label, jumpLabel, children, className }, ref) {
@@ -127,9 +129,11 @@ export const ScrollPane = forwardRef<HTMLDivElement, ScrollPaneProps>(
         </div>
         {more ? (
           <div ref={jumpWrapRef} className="scroll-pane__jump">
-            <IconButton ref={jumpRef} label={jumpLabel} onClick={jump}>
-              <ChevronDown aria-hidden="true" />
-            </IconButton>
+            <div className="scroll-pane__jump-button">
+              <IconButton ref={jumpRef} label={jumpLabel} onClick={jump}>
+                <ChevronDown aria-hidden="true" />
+              </IconButton>
+            </div>
           </div>
         ) : null}
       </div>

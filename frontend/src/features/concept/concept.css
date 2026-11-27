@@ -75,10 +75,9 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   margin-top: -7px;
 }
 
-/* The jump control sits above the floating actions, as the canon draws it. */
-.concept-content .scroll-pane__jump {
-  bottom: calc(var(--size-control) + var(--space-48));
-  z-index: var(--z-picker);
+/* The floating step action covers the pane's bottom row, so the jump dock sits above it. */
+.concept-content {
+  --scroll-pane-floor: calc(var(--size-control) + var(--space-16) + var(--space-24));
 }
 
 .concept-group {

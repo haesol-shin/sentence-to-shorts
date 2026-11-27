@@ -24,10 +24,29 @@
   flex-direction: column;
 }
 
-/* The grey fill keeps the floating round control visible over the content. */
+/*
+ * The jump control sits in a dock row under the column. The row is as tall as
+ * --scroll-pane-reserve, so the control takes that space from the column
+ * instead of covering its content. With no reserve the row has no height and
+ * the control floats over the column's bottom, as the gallery draws it.
+ * The app turns the reserve on for every pane it renders. A screen whose own
+ * floating action covers the pane's bottom row sets --scroll-pane-floor to that
+ * row's height, and the control rises above it.
+ */
+[data-screen='app'] .scroll-pane {
+  --scroll-pane-reserve: calc(var(--size-control) + var(--space-24) + var(--scroll-pane-floor, 0px));
+}
+
 .scroll-pane__jump {
+  position: relative;
+  flex: none;
+  height: var(--scroll-pane-reserve, 0px);
+}
+
+/* The grey fill keeps the control visible when it floats over the content. */
+.scroll-pane__jump-button {
   position: absolute;
-  bottom: var(--space-12);
+  bottom: calc(var(--space-12) + var(--scroll-pane-floor, 0px));
   left: 50%;
   transform: translateX(-50%);
 }

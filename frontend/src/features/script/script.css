@@ -51,9 +51,9 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   min-height: 0;
 }
 
-.script-document-pane .scroll-pane__jump {
-  bottom: calc(var(--size-control) + var(--space-48));
-  z-index: var(--z-picker);
+/* The floating step action covers the pane's bottom row, so the jump dock sits above it. */
+.script-document-pane {
+  --scroll-pane-floor: calc(var(--size-control) + var(--space-16) + var(--space-24));
 }
 
 /*

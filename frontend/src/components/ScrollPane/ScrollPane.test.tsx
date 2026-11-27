@@ -50,6 +50,22 @@ describe('ScrollPane', () => {
     expect(screen.queryByRole('button', { name: 'Scroll down' })).toBeNull();
   });
 
+  test('test_10a_scroll_pane_keeps_the_jump_in_its_own_dock_outside_the_column', () => {
+    render(
+      <ScrollPane label="대본" jumpLabel="Scroll down">
+        <p>긴 대본</p>
+      </ScrollPane>,
+    );
+
+    const viewport = pane();
+    setMetrics(viewport, { scrollHeight: 1000, clientHeight: 400, scrollTop: 0 });
+    fireEvent.scroll(viewport);
+    const jump = screen.getByRole('button', { name: 'Scroll down' });
+
+    expect(viewport.contains(jump)).toBe(false);
+    expect(jump.closest('.scroll-pane__jump')?.parentElement).toBe(viewport.parentElement);
+  });
+
   test('test_10a_scroll_pane_moves_one_screens_eighty_percent', () => {
     render(
       <ScrollPane label="대본" jumpLabel="Scroll down">
