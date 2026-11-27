@@ -192,6 +192,87 @@ test('test_2_the_rewrite_control_becomes_stop_and_keeps_the_original_lines', asy
   await expect(firstLine(card)).toHaveValue(original);
 });
 
+test('test_7_the_card_actions_start_at_the_line_box_edge_and_the_scene_menu_keeps_the_tools_still', async ({ page }) => {
+  const screen = await openScript(page);
+  const card = sceneCards(screen).first();
+  const box = async (locator: Locator) => (await locator.boundingBox())!;
+  const lineLeft = (await box(card.locator('.script-line-row').first())).x;
+  const rewrite = card.getByRole('button', { name: 'AI로 다시 쓰기', exact: true });
+
+  expect((await box(rewrite)).x).toBeCloseTo(lineLeft, 0);
+
+  const arrows = card.getByRole('button', { name: '위로 옮기기', exact: true });
+  const resting = await box(arrows);
+  await card.locator('[data-slot="script-scene-menu"]').click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  expect((await box(arrows)).x).toBe(resting.x);
+  await page.keyboard.press('Escape');
+
+  await rewrite.click();
+  await expect(card.locator('[data-slot="script-working"]')).toBeVisible();
+  expect((await box(card.getByRole('button', { name: '멈추기', exact: true }))).x).toBeCloseTo(lineLeft, 0);
+  expect(await card.locator('.script-card').evaluate((el) => getComputedStyle(el).borderTopColor)).not.toBe(
+    'rgba(0, 0, 0, 0)',
+  );
+  await card.getByRole('button', { name: '멈추기', exact: true }).click();
+
+  await rewrite.click();
+  await card.locator('[data-slot="script-review"]').waitFor();
+  const cancel = card.getByRole('button', { name: '취소', exact: true });
+  expect((await box(cancel)).x).toBeCloseTo(lineLeft, 0);
+});
+
+test('test_2_a_focused_line_shows_one_grey_border_around_the_whole_box_with_its_seconds', async ({ page }) => {
+  const screen = await openScript(page);
+  const card = sceneCards(screen).first();
+  const row = card.locator('.script-line-row').first();
+
+  await firstLine(card).focus();
+
+  const sign = await row.evaluate((el) => {
+    const style = getComputedStyle(el);
+    const input = getComputedStyle(el.querySelector('textarea')!);
+    return { style: style.outlineStyle, color: style.outlineColor, inputStyle: input.outlineStyle };
+  });
+  expect(sign.style).toBe('solid');
+  expect(sign.color).not.toBe('rgb(49, 130, 246)');
+  expect(sign.inputStyle).toBe('none');
+  const rowBox = (await row.boundingBox())!;
+  const seconds = (await row.locator('[data-slot="script-line-seconds"]').boundingBox())!;
+  expect(seconds.x + seconds.width).toBeLessThanOrEqual(rowBox.x + rowBox.width);
+});
+
+test('test_5_a_added_line_is_deleted_and_the_top_bar_undo_brings_it_back', async ({ page }) => {
+  const screen = await openScript(page);
+  const card = sceneCards(screen).first();
+  const lines = card.locator('[data-slot="script-line-input"]');
+  const count = await lines.count();
+
+  await card.getByRole('button', { name: '대사 줄 추가', exact: true }).click();
+  await expect(lines).toHaveCount(count + 1);
+  await card.getByRole('button', { name: `장면 1 대사 ${count + 1} 지우기`, exact: true }).click();
+  await expect(lines).toHaveCount(count);
+
+  await page.getByRole('button', { name: '되돌리기', exact: true }).click();
+  await expect(lines).toHaveCount(count + 1);
+});
+
+test('test_6_a_line_grip_reorders_the_lines_of_one_scene', async ({ page }) => {
+  const screen = await openScript(page);
+  const card = sceneCards(screen).first();
+  const lines = card.locator('[data-slot="script-line-input"]');
+  const before = await lines.evaluateAll((nodes) => nodes.map((node) => (node as HTMLTextAreaElement).value));
+
+  await card
+    .getByRole('button', { name: '장면 1 대사 1 순서 바꾸기', exact: true })
+    .dragTo(card.locator('[data-slot="script-line"]').nth(1));
+
+  await expect.poll(() => lines.evaluateAll((nodes) => nodes.map((node) => (node as HTMLTextAreaElement).value))).toEqual([
+    before[1],
+    before[0],
+  ]);
+});
+
 test('test_8a_the_rewrite_review_applies_in_place_and_undoes_once', async ({ page }) => {
   const screen = await openScript(page);
   const card = sceneCards(screen).first();

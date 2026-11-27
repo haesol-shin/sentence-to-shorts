@@ -156,8 +156,9 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   background: var(--surface);
 }
 
+/* The ring stays around the card while it works, and the band travels over it. */
 .script-card[data-working='true'] {
-  border-color: transparent;
+  border-color: var(--emphasis);
 }
 
 .script-card-head {
@@ -222,7 +223,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   margin-left: auto;
 }
 
-.script-tools > :last-child {
+.script-tools [data-slot='script-scene-menu'] {
   margin-inline-start: var(--space-8);
 }
 
@@ -253,22 +254,49 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
-  margin-inline: var(--script-indent) var(--space-8);
+  margin-inline: 0 var(--space-8);
 }
 
+/* The line grip sits in the scene grip's column; the box starts at the same edge as the head's tools. */
 .script-line {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
+  display: grid;
+  grid-template-columns: var(--part-grip) minmax(0, 1fr);
+  column-gap: var(--space-8);
+  row-gap: var(--space-4);
 }
 
-/* The grey line box holds the text and, at its right end, the line's seconds. */
+.script-line > :not(.script-line-grip, .script-line-row) {
+  grid-column: 2;
+}
+
+.script-line-grip {
+  align-self: start;
+  height: var(--script-line-h);
+  margin-inline-end: 0;
+}
+
+.script-line-grip:disabled {
+  color: var(--disabled-foreground);
+  cursor: default;
+}
+
+.script-line-grip:disabled:hover {
+  background: transparent;
+}
+
+/* The grey line box holds the text and, at its right end, the line's seconds and delete. */
 .script-line-row {
   display: flex;
   align-items: flex-start;
-  padding-inline-end: var(--space-12);
+  padding-inline-end: var(--space-4);
   border-radius: var(--radius-content);
   background: var(--card);
+}
+
+/* One sign for the whole box: the same grey border as the other text boxes, never the blue ring. */
+.script-line-row:has(.script-line-input:focus) {
+  outline: var(--part-hairline) solid var(--sub);
+  outline-offset: calc(var(--part-hairline) * -1);
 }
 
 .script-line-input {
@@ -283,6 +311,7 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   background: transparent;
   color: var(--foreground);
   font-family: var(--font-family-sans);
+  outline: none;
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
   white-space: pre;
@@ -316,10 +345,17 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
 .script-seconds {
   flex: none;
   margin-block-start: calc((var(--script-line-h) - var(--line-height-small)) / 2);
+  margin-inline-end: var(--space-8);
   color: var(--disabled-foreground);
   font-size: var(--font-size-small);
   line-height: var(--line-height-small);
   font-variant-numeric: tabular-nums;
+}
+
+.script-line-delete {
+  flex: none;
+  margin-inline-start: auto;
+  margin-block-start: calc((var(--script-line-h) - var(--part-move)) / 2);
 }
 
 .script-card-actions {
@@ -328,9 +364,8 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   align-items: center;
   gap: var(--space-8);
   margin-block-start: var(--space-4);
-  /* The pill's left edge lines up with the dialogue text inside the line box. */
+  /* The pills start at the grey line boxes' left edge. */
   margin-inline-start: var(--script-indent);
-  padding-inline-start: var(--space-12);
 }
 
 /* A rewrite or tone proposal: the old lines struck through, then the new lines on the grey band. */
@@ -393,7 +428,6 @@ main:has(.script-screen) [data-slot='stage-scroll'] {
   justify-content: flex-start;
   gap: var(--space-8);
   margin-block-start: var(--space-4);
-  padding-inline-start: var(--space-12);
 }
 
 /* The working card carries a band that travels around its edge. */

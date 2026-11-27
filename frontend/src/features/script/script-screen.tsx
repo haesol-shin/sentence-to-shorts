@@ -3,8 +3,19 @@ import {
   useId,
   useLayoutEffect,
   useRef,
+  type DragEvent,
 } from 'react';
-import { Check, ChevronDown, ChevronUp, GripVertical, MoreHorizontal, Plus, RefreshCw, X } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  MoreHorizontal,
+  Plus,
+  RefreshCw,
+  Trash2,
+  X,
+} from 'lucide-react';
 
 import type { Language } from '@/shared/api/client';
 import { Button } from '@/components/Button/Button';
@@ -19,10 +30,12 @@ import {
   applyRewrite,
   applyToneScene,
   confirmScript,
+  deleteLine,
   dismissRewrite,
   dismissToneScene,
   editLine,
   ensureScript,
+  moveLineTo,
   moveScene,
   moveSceneTo,
   rewriteScene,
@@ -30,6 +43,7 @@ import {
   setRegister,
   setSceneCount,
   stopRewrite,
+  undo,
   useScript,
   useScriptLoadFailed,
 } from './store';
@@ -45,6 +59,19 @@ import {
 } from './model';
 import type { Register, ScriptDraftState, TargetDuration, ToneSceneReview } from './types';
 import './script.css';
+
+/** A dragged line carries its id under its own type, so a scene drop ignores it. */
+const LINE_DRAG_TYPE = 'application/x-script-line';
+
+/** Show the whole card under the pointer while its grip drags, not the grip alone. */
+function setCardDragImage(event: DragEvent<HTMLElement>, selector: string): void {
+  const card = event.currentTarget.closest(selector);
+  if (card === null) {
+    return;
+  }
+  const box = card.getBoundingClientRect();
+  event.dataTransfer.setDragImage(card, event.clientX - box.left, event.clientY - box.top);
+}
 
 function LineBox({
   label,
@@ -82,7 +109,7 @@ function LineBox({
       disabled={disabled}
       data-slot="script-line-input"
       onChange={(event) => onChange(event.target.value)}
-      className="script-line-input focus-ring"
+      className="script-line-input"
     />
   );
 }
@@ -128,6 +155,27 @@ export function ScriptScreen({
       void ensureScript(language, { id: videoId, topic, script: userScript }, serverVideoId);
     }
   }, [draftState, language, videoId, topic, userScript, serverVideoId]);
+
+  // Undo by keyboard outside a text box; inside one, the box keeps its own typing history.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (
+        (event.key !== 'z' && event.key !== 'Z') ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.shiftKey ||
+        event.altKey ||
+        (target instanceof HTMLElement &&
+          (target.isContentEditable || target.closest('input, textarea, select') !== null))
+      ) {
+        return;
+      }
+      event.preventDefault();
+      undo();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
 
   const highlighted = snapshot?.highlightedSceneId ?? null;
   const focusToken = snapshot?.focusToken ?? 0;
@@ -305,6 +353,7 @@ export function ScriptScreen({
                         onDragStart={(event) => {
                           event.dataTransfer.effectAllowed = 'move';
                           event.dataTransfer.setData('text/plain', sceneId);
+                          setCardDragImage(event, '.script-card');
                         }}
                       >
                         <GripVertical aria-hidden size={20} />
@@ -464,7 +513,37 @@ export function ScriptScreen({
                     ) : (
                       <div className="script-lines">
                         {scene.lines.map((line, lineIndex) => (
-                          <div key={line.id} data-slot="script-line" className="script-line">
+                          <div
+                            key={line.id}
+                            data-slot="script-line"
+                            className="script-line"
+                            onDrop={(event) => {
+                              const moved = event.dataTransfer.getData(LINE_DRAG_TYPE);
+                              if (moved === '') {
+                                return;
+                              }
+                              event.preventDefault();
+                              event.stopPropagation();
+                              if (!structureLocked) {
+                                moveLineTo(sceneId, moved, lineIndex);
+                              }
+                            }}
+                          >
+                            <button
+                              type="button"
+                              draggable={!structureLocked && scene.lines.length > 1}
+                              disabled={structureLocked || scene.lines.length < 2}
+                              aria-label={t('script.line.grip', { scene: number, line: lineIndex + 1 })}
+                              data-slot="script-line-grip"
+                              className="script-grip script-line-grip hit-area focus-ring"
+                              onDragStart={(event) => {
+                                event.dataTransfer.effectAllowed = 'move';
+                                event.dataTransfer.setData(LINE_DRAG_TYPE, line.id);
+                                setCardDragImage(event, '.script-line');
+                              }}
+                            >
+                              <GripVertical aria-hidden size={20} />
+                            </button>
                             <div className="script-line-row">
                               <LineBox
                                 label={t('script.line.label', {
@@ -483,6 +562,16 @@ export function ScriptScreen({
                                   })}
                                 </span>
                               )}
+                              <IconButton
+                                size="36"
+                                label={t('script.line.delete', { scene: number, line: lineIndex + 1 })}
+                                data-slot="script-line-delete"
+                                className="script-line-delete"
+                                disabled={structureLocked || scene.lines.length < 2}
+                                onClick={() => deleteLine(sceneId, line.id)}
+                              >
+                                <Trash2 aria-hidden size={20} />
+                              </IconButton>
                             </div>
                             {textLength(line.display_text) > MAX_DISPLAY_CHARS ? (
                               <p

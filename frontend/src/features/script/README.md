@@ -1,6 +1,6 @@
 # Script screen
 
-The script step edits the video's lines directly. One text box writes `display_text` and `speech_text` with the same value, so the caption and the voice cannot drift apart. The document head owns the target length, the scene count and the tone. Changing the length applies the concept screen's recommended scene count; changing the count field changes the scenes themselves. Scene order changes by the grip or by the up and down controls, and the card menu repeats the settled scene actions.
+The script step edits the video's lines directly. One text box writes `display_text` and `speech_text` with the same value, so the caption and the voice cannot drift apart. The document head owns the target length, the scene count and the tone. Changing the length applies the concept screen's recommended scene count; changing the count field changes the scenes themselves. Scene order changes by the grip or by the up and down controls, and the card menu repeats the settled scene actions. Inside a scene, each line has its own grip for reordering and a delete control; a scene keeps at least one line. Dragging either grip shows the whole card or line under the pointer. A focused line shows one grey border around the whole box, seconds included.
 
 Choosing a tone shows the old and the new line in every changed scene without applying anything. Applying changes those lines, marks the scene 「바뀜」 and recounts the expected length. When no line can be re-said, the tone choice leaves the register alone and shows 「바꿀 문장이 없어요」 in the existing notice. An applied rewrite can be undone once; while a rewrite review is open the undo waits.
 
@@ -32,7 +32,7 @@ The conversation pane is not part of this feature. It reads `useScript()` and ca
 - `focusScene(id)` for a changed-scene jump; the screen scrolls to that scene and gives its card the grey element face.
 - `clearTarget()` for the 「장면 N ×」 chip. `targetSceneId` names the scene and `sceneNumber(document, id)` gives its number.
 - `rewriteScene(id)` and `stopRewrite()` when a chat instruction targets a scene.
-- `undo()` for the one step back; the top bar's undo button calls it, the screen has no undo button of its own.
+- `undo()` for the one step back; the top bar's undo button calls it, and so does Ctrl or Cmd+Z outside a text box. The screen has no undo button of its own. `deleteLine(sceneId, lineId)` and `moveLineTo(sceneId, lineId, index)` each take one undo step.
 
 ## Server and mock paths
 

@@ -30,6 +30,7 @@ import type {
   ScriptTarget,
   TargetDuration,
   ToneProposal,
+  ScriptLine,
   UndoEntry,
 } from './types';
 
@@ -395,6 +396,53 @@ export function addLine(sceneId: string): void {
   );
   state.error = null;
   emit();
+}
+
+function replaceLines(state: SessionState, sceneId: string, lines: ScriptLine[]): void {
+  markUndo(state);
+  state.document = {
+    ...state.document,
+    scenes: {
+      ...state.document.scenes,
+      [sceneId]: { ...state.document.scenes[sceneId], lines },
+    },
+  };
+  state.error = null;
+  emit();
+}
+
+export function deleteLine(sceneId: string, lineId: string): void {
+  const state = requireSession();
+  if (state === null || structureLocked(state)) {
+    return;
+  }
+  const scene = state.document.scenes[sceneId];
+  if (scene === undefined || scene.lines.length <= 1) {
+    return;
+  }
+  const lines = scene.lines.filter((line) => line.id !== lineId);
+  if (lines.length !== scene.lines.length) {
+    replaceLines(state, sceneId, lines);
+  }
+}
+
+export function moveLineTo(sceneId: string, lineId: string, index: number): void {
+  const state = requireSession();
+  if (state === null || structureLocked(state)) {
+    return;
+  }
+  const scene = state.document.scenes[sceneId];
+  if (scene === undefined || index < 0 || index >= scene.lines.length) {
+    return;
+  }
+  const from = scene.lines.findIndex((line) => line.id === lineId);
+  if (from < 0 || from === index) {
+    return;
+  }
+  const lines = [...scene.lines];
+  lines.splice(from, 1);
+  lines.splice(index, 0, scene.lines[from]);
+  replaceLines(state, sceneId, lines);
 }
 
 export function moveScene(sceneId: string, delta: number): void {

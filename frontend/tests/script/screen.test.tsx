@@ -115,6 +115,76 @@ describe('script screen', () => {
     ).toBe(true);
   });
 
+  test('test_5_delete_line_removes_it_and_the_top_bar_undo_brings_it_back', async () => {
+    await open();
+    const id = firstSceneId();
+    const first = document.querySelector('[data-slot="script-scene"]') as HTMLElement;
+    const lines = snapshot().document.scenes[id]!.lines;
+
+    fireEvent.click(within(first).getByRole('button', { name: '장면 1 대사 2 지우기' }));
+    await waitFor(() => expect(snapshot().document.scenes[id]!.lines).toHaveLength(1));
+    expect(
+      (within(first).getByRole('button', { name: '장면 1 대사 1 지우기' }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    fireEvent.click(screen.getByRole('button', { name: '되돌리기' }));
+    await waitFor(() => expect(snapshot().document.scenes[id]!.lines).toEqual(lines));
+  });
+
+  test('test_5_ctrl_z_undoes_outside_a_text_box_and_leaves_a_text_box_alone', async () => {
+    await open();
+    const id = firstSceneId();
+    const first = document.querySelector('[data-slot="script-scene"]') as HTMLElement;
+    const addButton = within(first).getByRole('button', { name: '대사 줄 추가' });
+
+    fireEvent.click(addButton);
+    await waitFor(() => expect(snapshot().document.scenes[id]!.lines).toHaveLength(3));
+
+    const box = within(first).getByRole('textbox', { name: '장면 1 대사 1' });
+    fireEvent.keyDown(box, { key: 'z', ctrlKey: true });
+    expect(snapshot().document.scenes[id]!.lines).toHaveLength(3);
+
+    fireEvent.keyDown(addButton, { key: 'z', ctrlKey: true });
+    await waitFor(() => expect(snapshot().document.scenes[id]!.lines).toHaveLength(2));
+  });
+
+  test('test_6_a_line_grip_drops_the_line_inside_its_scene_and_a_scene_drop_ignores_it', async () => {
+    await open();
+    const id = firstSceneId();
+    const sceneOrder = [...snapshot().document.scene_order];
+    const [one, two] = snapshot().document.scenes[id]!.lines;
+    const first = document.querySelector('[data-slot="script-scene"]') as HTMLElement;
+    const store = new Map<string, string>();
+    const dataTransfer = {
+      effectAllowed: '',
+      setData: (type: string, value: string) => store.set(type, value),
+      getData: (type: string) => store.get(type) ?? '',
+      setDragImage: vi.fn(),
+    };
+
+    fireEvent.dragStart(within(first).getByRole('button', { name: '장면 1 대사 1 순서 바꾸기' }), { dataTransfer });
+    const rows = first.querySelectorAll('[data-slot="script-line"]');
+    fireEvent.drop(rows[1]!, { dataTransfer });
+
+    expect(snapshot().document.scenes[id]!.lines.map((line) => line.id)).toEqual([two!.id, one!.id]);
+    expect(snapshot().document.scene_order).toEqual(sceneOrder);
+    expect(dataTransfer.setDragImage).toHaveBeenCalledWith(rows[0], expect.any(Number), expect.any(Number));
+  });
+
+  test('test_3_a_scene_grip_drags_the_whole_card_as_the_drag_image', async () => {
+    await open();
+    const first = document.querySelector('[data-slot="script-scene"]') as HTMLElement;
+    const dataTransfer = { effectAllowed: '', setData: vi.fn(), setDragImage: vi.fn() };
+
+    fireEvent.dragStart(within(first).getByRole('button', { name: '장면 1 순서 바꾸기' }), { dataTransfer });
+
+    expect(dataTransfer.setDragImage).toHaveBeenCalledWith(
+      first.querySelector('.script-card'),
+      expect.any(Number),
+      expect.any(Number),
+    );
+  });
+
   test('test_26_the_tone_preview_shows_old_and_new_lines_and_apply_marks_scenes', async () => {
     await open();
     const before = screen.getByRole('combobox', { name: '길이' }).textContent;
