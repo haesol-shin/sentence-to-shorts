@@ -66,3 +66,16 @@ test('test_21_a_retrying_download_names_the_next_try_and_a_failed_one_offers_a_r
   await expect(notice).toContainText('음성 파일을 다시 받는 중이에요.');
   await expect(page.getByRole('button', { name: '다시 시도' })).toHaveCount(0);
 });
+
+test('test_21_the_scene_check_says_the_voice_files_are_not_ready', async ({ page }) => {
+  await openEdit(page, 'downloading');
+  await page.locator(ACTION).click();
+  const dialog = page.getByRole('dialog', { name: '장면 확인' });
+  await expect(dialog).toContainText('음성 파일을 준비하는 중이에요');
+  await expect(dialog.getByRole('button', { name: '영상 만들기' })).toBeEnabled();
+  await page.keyboard.press('Escape');
+
+  await openEdit(page, 'retrying');
+  await page.locator(ACTION).click();
+  await expect(dialog).toContainText('인터넷 연결이 끊겨서 음성 파일을 다시 받으려고 해요.');
+});

@@ -41,6 +41,13 @@ async function openStage(page: Page, label: string): Promise<void> {
   await page.locator('[data-slot="stage-indicator"]').getByRole('button', { name: label }).click();
 }
 
+/** Confirming the script opens the scene check; these tests leave it by cancelling. */
+async function closeSceneCheck(page: Page): Promise<void> {
+  const check = page.getByRole('dialog', { name: '장면 확인' });
+  await check.getByRole('button', { name: '취소' }).click();
+  await expect(check).toBeHidden();
+}
+
 test('test_10a_the_script_step_has_the_document_head_and_one_step_button', async ({ page }) => {
   const screen = await openScript(page);
 
@@ -89,6 +96,7 @@ test('test_2_the_confirmed_step_opens_edit_and_a_new_video_starts_clean', async 
 
   await screen.getByRole('button', { name: '이대로 영상 만들기', exact: true }).click();
   await expect(page.locator('[data-slot="stage-panel"]')).toHaveAttribute('data-stage', 'edit');
+  await closeSceneCheck(page);
 
   await openStage(page, '대본');
   const back = page.locator('[data-slot="stage-panel"][data-stage="script"]');
@@ -117,6 +125,7 @@ test('test_1_a_new_video_with_the_same_sentence_opens_a_fresh_script', async ({ 
   await firstLine(sceneCards(screen).first()).fill('첫 영상에서 고친 대사');
   await screen.getByRole('button', { name: '이대로 영상 만들기', exact: true }).click();
   await expect(page.locator('[data-slot="stage-panel"]')).toHaveAttribute('data-stage', 'edit');
+  await closeSceneCheck(page);
 
   await page.getByRole('button', { name: '새로 만들기' }).click();
   await page

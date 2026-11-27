@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-import { configureExport } from '@/features/export/store';
+import { configureExport, rearmAutoStart } from '@/features/export/store';
 import { ApiProblemError } from '@/shared/api/client';
 
 import { builtView, FINAL_ID, job, METRICS, REPORT, renderExport, stubApi, unbuiltView } from './fixtures';
@@ -463,4 +463,26 @@ test('test_10a_only_the_result_card_says_done_and_no_state_says_enlarge', async 
   await closeCard();
   expect(document.body.textContent).not.toMatch(done);
   expect(document.body.textContent).not.toMatch(words);
+});
+
+test('test_30_a_started_making_is_not_started_again_when_the_screen_comes_back', async () => {
+  const view = unbuiltView();
+  view.video.material = [];
+  const api = stubApi();
+  const onStart = vi.fn(async () => true);
+  renderExport(view, api, { onStart });
+  await waitFor(() => expect(onStart).toHaveBeenCalledTimes(1));
+  cleanup();
+
+  // The screen mounts again on the same revision, as it does after the video is made.
+  renderExport(view, api, { onStart, sameSession: true });
+  await screen.findByRole('status');
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(onStart).toHaveBeenCalledTimes(1);
+  cleanup();
+
+  // A new confirmation in the edit step starts it once more.
+  rearmAutoStart(view.video.id);
+  renderExport(view, api, { onStart, sameSession: true });
+  await waitFor(() => expect(onStart).toHaveBeenCalledTimes(2));
 });

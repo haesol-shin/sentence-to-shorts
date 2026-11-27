@@ -49,7 +49,16 @@ export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   text?: string;
-  kind?: 'noChange' | 'proposed' | 'applied' | 'error' | 'unsupported' | 'cancelled' | 'queueDiscarded' | 'stale';
+  kind?:
+    | 'noChange'
+    | 'proposed'
+    | 'applied'
+    | 'error'
+    | 'unsupported'
+    | 'cancelled'
+    | 'queueDiscarded'
+    | 'stale'
+    | 'videoStopped';
   targetId?: string | null;
   sceneIds?: string[];
   detail?: string;
@@ -565,6 +574,7 @@ export function EditProvider({
   const chatQueue = useRef<ChatRequest[]>([]);
   const revisionRef = useRef<number | null>(null);
   const generationSubmitting = useRef(false);
+  const stoppedLogged = useRef<string | null>(null);
 
   const load = useMemo(() => async (id: string): Promise<VideoView> => api.load(id), [api]);
 
@@ -775,6 +785,11 @@ export function EditProvider({
         return () => { cancelled = true; };
       }
       if (job.state === 'failed' || job.state === 'cancelled') {
+        const attempt = `${job.id}:${job.attempt}`;
+        if (job.state === 'cancelled' && stoppedLogged.current !== attempt) {
+          stoppedLogged.current = attempt;
+          logChatResult({ kind: 'videoStopped' });
+        }
         dispatch({ type: 'generation-finished', id: job.id });
       }
     } else if (job.state === 'failed') {
@@ -783,7 +798,7 @@ export function EditProvider({
       dispatch({ type: 'job', job: null });
     }
     return undefined;
-  }, [api, refresh, state.job, videoId]);
+  }, [api, logChatResult, refresh, state.job, videoId]);
 
   useEffect(() => {
     const initial = state.chatJob;

@@ -1,3 +1,5 @@
+import { createContext, useContext, type ReactNode } from 'react';
+
 import { Button } from '@/components/Button/Button';
 import { Dialog } from '@/components/Dialog/Dialog';
 import { Notice } from '@/components/Notice/Notice';
@@ -5,6 +7,12 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 
 import type { EditValue } from './edit-context';
 import { estimatedSeconds, stillIsReady } from './model';
+
+/**
+ * What the shell says about the voice files before the video starts. Only the
+ * shell reads the runtime, so it hands the sentence down through this seat.
+ */
+export const SceneConfirmNoticeContext = createContext<ReactNode>(null);
 
 export function SceneConfirm({
   edit,
@@ -19,6 +27,7 @@ export function SceneConfirm({
 }) {
   const { t } = useLocale();
   const missing = edit.scenes.filter((scene) => !stillIsReady(edit.build, scene.id)).length;
+  const voiceNotice = useContext(SceneConfirmNoticeContext);
 
   return (
     <Dialog
@@ -61,6 +70,7 @@ export function SceneConfirm({
         {missing === 0 ? null : (
           <Notice>{t('edit.confirm.missing', { count: missing })}</Notice>
         )}
+        {voiceNotice}
         {edit.canStartVideo ? null : <Notice>{t('edit.error.notConfirmed')}</Notice>}
       </div>
     </Dialog>

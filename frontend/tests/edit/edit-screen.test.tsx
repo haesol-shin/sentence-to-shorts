@@ -10,6 +10,7 @@ import { EditChatHistory } from '@/features/edit/chat-history';
 import { EditProvider, useEdit } from '@/features/edit/edit-context';
 import { EditScreen } from '@/features/edit/edit-screen';
 import { EditNextAction } from '@/features/edit/next-action';
+import { clearSceneConfirmRequest, requestSceneConfirm } from '@/features/edit/scene-confirm-request';
 import { StillBuild } from '@/features/edit/still-build';
 import { EditTopBarStatus } from '@/features/edit/top-bar-status';
 import { LocaleProvider } from '@/shared/lib/i18n/locale';
@@ -18,6 +19,7 @@ import { makeView } from './fixtures';
 
 afterEach(() => {
   cleanup();
+  clearSceneConfirmRequest();
   window.localStorage.clear();
   window.sessionStorage.clear();
 });
@@ -603,4 +605,57 @@ test('test_23_a_field_edit_survives_reopening', async () => {
   wrap(<EditScreen />, api);
   await screen.findByRole('heading', { name: '장면 1' });
   await waitFor(() => expect(positionField().textContent).toContain('왼쪽 위'));
+});
+
+test('test_10a_the_make_button_keeps_one_look_while_the_edit_session_loads', async () => {
+  const api = createMockEditApi(view);
+  const load = api.load.bind(api);
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  api.load = async (...args) => {
+    await gate;
+    return load(...args);
+  };
+  wrap(<EditNextAction />, api);
+
+  const action = screen.getByRole('button', { name: '영상 만들기' }) as HTMLButtonElement;
+  expect(action.disabled).toBe(false);
+  fireEvent.click(action);
+  expect(screen.queryByRole('dialog', { name: '장면 확인' })).toBeNull();
+
+  release();
+  await waitFor(() => expect(action.getAttribute('aria-busy')).toBeNull());
+  expect(action.disabled).toBe(false);
+  fireEvent.click(action);
+  expect(await screen.findByRole('dialog', { name: '장면 확인' })).toBeTruthy();
+});
+
+test('test_10a_a_confirmed_script_opens_the_scene_check_once_the_scenes_load', async () => {
+  requestSceneConfirm('v_test');
+  wrap(<EditNextAction />);
+
+  const dialog = await screen.findByRole('dialog', { name: '장면 확인' });
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  await waitFor(() => expect(screen.queryByRole('dialog', { name: '장면 확인' })).toBeNull());
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(screen.queryByRole('dialog', { name: '장면 확인' })).toBeNull();
+});
+
+test('test_10a_a_scene_check_asked_for_another_video_stays_closed', async () => {
+  requestSceneConfirm('v_other');
+  wrap(<EditNextAction />);
+
+  await waitFor(() => expect((screen.getByRole('button', { name: '영상 만들기' }) as HTMLButtonElement).getAttribute('aria-busy')).toBeNull());
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(screen.queryByRole('dialog', { name: '장면 확인' })).toBeNull();
+});
+
+test('test_10a_stopping_the_video_says_so_in_the_conversation', async () => {
+  wrap(<><EditActions /><EditChatHistory /></>);
+  await startVideo();
+  fireEvent.click(await screen.findByRole('button', { name: '확인 후 생성' }));
+  fireEvent.click(await screen.findByRole('button', { name: /만들기 멈추기/ }, { timeout: 5000 }));
+
+  expect(await screen.findByText('영상 만들기를 멈췄어요.')).toBeTruthy();
+  expect(screen.getAllByText('영상 만들기를 멈췄어요.')).toHaveLength(1);
 });

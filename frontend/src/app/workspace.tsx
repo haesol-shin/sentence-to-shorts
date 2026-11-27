@@ -11,6 +11,7 @@ import {
 import { attachConceptExtras, beginConcept, reloadConcept } from '@/features/concept/store';
 import type { Attachment } from '@/features/concept/types';
 import { resetRememberedScene } from '@/features/edit/edit-context';
+import { clearSceneConfirmRequest, requestSceneConfirm } from '@/features/edit/scene-confirm-request';
 import { useRuntimeHead } from '@/features/runtime/use-runtime-head';
 import { LocaleProvider, useLocale } from '@/shared/lib/i18n/locale';
 import { useSession, type SessionResult } from '@/shared/lib/session';
@@ -222,10 +223,19 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
     setAuthFailureKey(null);
   };
 
+  // Confirming the script leads to the scene check, the one confirmation that starts the video.
   const openEditAfterScriptConfirm = () => {
-    if (video !== null) resetRememberedScene(video.id);
+    if (video !== null) {
+      resetRememberedScene(video.id);
+      requestSceneConfirm(video.id);
+    }
     setView('edit');
   };
+
+  // A request the edit step never showed must not open a check on a later visit.
+  useEffect(() => {
+    if (view !== 'edit') clearSceneConfirmRequest();
+  }, [view]);
 
   const header = (
     <div className="flex flex-col">
