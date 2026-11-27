@@ -45,9 +45,10 @@ export function ConversationLog({
     );
   }
 
+  const writingConcept = stage === 'concept' && (draftWaiting || concept?.readState === 'waiting');
   const ready =
     stage === 'concept'
-      ? !draftWaiting && concept !== null && concept.readState === 'ready'
+      ? !writingConcept && concept?.readState === 'ready'
       : script !== null && script.document.scene_order.length > 0;
   return (
     <ChatLog slot="chat-log" label={t('edit.chat.label')}>
@@ -59,7 +60,14 @@ export function ConversationLog({
             : t(`shell.conversation.${stage}`)}
         </ChatAppLine>
       ) : null}
-      {stage === 'concept' && draftWaiting ? <ChatAppLine muted>{t('shell.conversation.conceptWaiting')}</ChatAppLine> : null}
+      {writingConcept ? (
+        <ChatAppLine muted>
+          <span role="status" className="flex items-start gap-2">
+            <span className="spinner shrink-0" aria-hidden="true" />
+            {t('shell.conversation.conceptWaiting')}
+          </span>
+        </ChatAppLine>
+      ) : null}
       {stage === 'script' && script?.tone != null ? (
         <ChatAppLine>
           {/* A line that asks for a choice reads on the 22 line, as the canon's question lines do. */}

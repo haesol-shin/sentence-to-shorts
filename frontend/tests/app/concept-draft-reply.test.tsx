@@ -43,11 +43,14 @@ test('test_10a_the_first_concept_reply_waits_for_the_post_draft_read', async () 
   await renderApp(routes);
   sendSentence('커피를 고르는 세 가지 기준');
   await screen.findByRole('heading', { name: '컨셉' });
+  const confirm = () => document.querySelector<HTMLButtonElement>('footer.concept-footer button:last-child')!;
+  expect(conversation().querySelector('[role="status"]')?.textContent).toContain('컨셉 초안을 쓰고 있어요.');
   expect(conversation().textContent).toContain('문장으로 컨셉 초안을 쓰고 있어요.');
 
   state = 'succeeded';
   await waitFor(() => expect(readStarted).toBe(true), { timeout: 10000 });
   // The draft is done, but the values it wrote are not in the screen yet.
+  expect(confirm().disabled).toBe(true);
   expect(conversation().textContent).toContain('문장으로 컨셉 초안을 쓰고 있어요.');
   expect(conversation().textContent).not.toContain('이야기 방식은');
 
@@ -56,6 +59,7 @@ test('test_10a_the_first_concept_reply_waits_for_the_post_draft_read', async () 
   });
   await waitFor(() => expect(conversation().textContent).toContain('이야기 방식은'));
   expect(conversation().textContent).not.toContain('문장으로 컨셉 초안을 쓰고 있어요.');
+  expect(confirm().disabled).toBe(false);
 }, 20000);
 
 test('test_10a_a_failed_post_draft_read_keeps_its_error_until_a_successful_read', async () => {

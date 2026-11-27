@@ -152,10 +152,6 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   padding: 0;
 }
 
-.concept-card-slot--tile .concept-tune-toggle {
-  width: 216px;
-}
-
 .concept-card {
   box-sizing: border-box;
   display: flex;
@@ -296,6 +292,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   width: 200px;
   height: 44px;
   margin-top: 6px;
+  margin-inline: auto;
   padding: 0 12px;
   border: 0;
   border-radius: var(--radius-pill);

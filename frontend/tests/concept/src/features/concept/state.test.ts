@@ -99,6 +99,19 @@ function methodCount(method: string): number {
   return api.requests.filter((request) => request.method === method).length;
 }
 
+test('test_a_picked_card_shows_when_the_server_opens_the_video_with_the_default_card', async () => {
+  // A real server opens the video before the draft writes the picked card.
+  const create = api.create.bind(api);
+  api.create = async (input) => create({ ...input, cardId: null });
+  await beginConcept({ topic: '합성 주제', language: 'ko', cardId: 'what_if' });
+  expect(current().document.settings.format.card_id).toBe('what_if');
+  expect(current().document.settings.format.story_structure).toBe('hypothetical');
+  expect(current().document.settings.origins['/format/card_id']).toBe('card');
+
+  await reloadConcept(current().document.id, true);
+  expect(current().document.settings.format.card_id).toBeNull();
+});
+
 test('test_confirmed_concept_values_survive_route_remount_and_save_before_confirm', async () => {
   await beginConcept({ topic: '합성 주제', language: 'ko' });
   await reloadConceptCatalog();
