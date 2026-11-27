@@ -168,7 +168,7 @@ export function jobUsageMetrics(videoId: string, jobs: readonly Job[] | null): J
       if (usage.input_tokens === null || usage.output_tokens === null) {
         completeUsage = false;
       } else {
-        input += usage.input_tokens;
+        input += usage.input_tokens + (usage.cache_read_tokens ?? 0) + (usage.cache_write_tokens ?? 0);
         output += usage.output_tokens;
       }
     }

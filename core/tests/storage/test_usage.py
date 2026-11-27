@@ -74,16 +74,16 @@ def test_listed_null_price_is_null_not_zero(db: Database) -> None:
     assert SqliteUsageReader(db, prices).video_cost("owner", VIDEO) is None
 
 
-def test_shipped_null_price_stays_null() -> None:
+def test_shipped_anthropic_prices_include_cache_rates() -> None:
     prices = PriceTable.load(Path(__file__).resolve().parents[2] / "config" / "prices.yaml")
     assert prices.line_cost(
         "anthropic_api",
         "claude-haiku-5-5",
-        input_tokens=None,
-        output_tokens=None,
-        cache_read_tokens=None,
-        cache_write_tokens=None,
-    ) is None
+        input_tokens=1000,
+        output_tokens=1000,
+        cache_read_tokens=1000,
+        cache_write_tokens=1000,
+    ) == 735
 
 
 def test_cost_rounds_once_per_line(db: Database) -> None:

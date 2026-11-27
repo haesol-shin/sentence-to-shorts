@@ -61,6 +61,12 @@ class AnthropicApiLlm(BaseLlm):
                 parts.append({"type": "text", "text": part.text})
             else:
                 raise ProviderError("llm_invalid_output")
+        system = [{"type": "text", "text": req.system}]
+        # Scene data sends video-wide context first, then the individual scene.
+        breakpoint = system[0]
+        if req.route == "scene_data" and len(parts) >= 2:
+            breakpoint = parts[0]
+        breakpoint["cache_control"] = {"type": "ephemeral"}
         output: dict[str, Any] = {"effort": route.effort}
         if req.output_schema is not None:
             output["format"] = {
@@ -76,7 +82,7 @@ class AnthropicApiLlm(BaseLlm):
                 ),
             ) as client:
                 message = client.messages.create(
-                    model=route.model, system=req.system, max_tokens=req.max_output_tokens,
+                    model=route.model, system=system, max_tokens=req.max_output_tokens,
                     output_config=output, messages=[{"role": "user", "content": parts}],
                 )
         except anthropic.APITimeoutError:

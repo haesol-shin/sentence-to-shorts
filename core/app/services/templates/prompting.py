@@ -118,12 +118,12 @@ def complete_json(
 ) -> CodeAnswer[ModelT]:
     """Call the model once, repair an invalid output once, then fail with llm_invalid_output."""
     system = load_prompt(route, data)
-    if system_suffix:
-        system += "\n" + system_suffix
     parts = [
         *(LlmPart(kind="png", png=image) for image in images),
-        LlmPart(kind="text", text=_data_text(data)),
     ]
+    if system_suffix:
+        parts.append(LlmPart(kind="text", text=system_suffix))
+    parts.append(LlmPart(kind="text", text=_data_text(data)))
     schema = model.model_json_schema()
     request = LlmRequest(
         task=task,
@@ -151,8 +151,8 @@ def complete_json(
             LlmRequest(
                 task=task,
                 route=route,
-                system=system + REPAIR_NOTE,
-                parts=[*parts, LlmPart(kind="text", text=note)],
+                system=system,
+                parts=[*parts, LlmPart(kind="text", text=REPAIR_NOTE + note)],
                 output_schema=schema,
                 max_output_tokens=max_output_tokens,
             ),

@@ -139,11 +139,11 @@ def ask(
     ]
     schema = ReferenceValues.model_json_schema()
 
-    def request(prompt: str, extra: list[LlmPart]) -> LlmRequest:
+    def request(extra: list[LlmPart]) -> LlmRequest:
         return LlmRequest(
             task=LlmTask.reference_vision,
             route=ROUTE,
-            system=prompt,
+            system=system,
             parts=[*parts, *extra],
             output_schema=schema,
             max_output_tokens=MAX_OUTPUT_TOKENS,
@@ -151,7 +151,7 @@ def ask(
 
     with ctx.stage(Stage.ref_llm):
         first = llm.complete(
-            request(system, []),
+            request([]),
             owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
@@ -164,7 +164,7 @@ def ask(
             problem = error.errors()[:5] if isinstance(error, ValidationError) else str(error)
             note = json.dumps({"validation_error": str(problem)[:1000]}, ensure_ascii=False)
         second = llm.complete(
-            request(system + REPAIR_NOTE, [LlmPart(kind="text", text=note)]),
+            request([LlmPart(kind="text", text=REPAIR_NOTE + note)]),
             owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,

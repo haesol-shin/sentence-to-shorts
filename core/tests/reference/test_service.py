@@ -437,7 +437,11 @@ def test_20_analysis_repairs_one_invalid_answer_then_fails(
 
     assert caught.value.code == "llm_invalid_output"
     assert len(llm.requests) == 2
-    assert "validation_error" in (llm.requests[1].parts[-1].text or "")
+    first, repair = llm.requests
+    assert (first.system, first.output_schema) == (repair.system, repair.output_schema)
+    assert first.parts == repair.parts[:-1]
+    assert "Return corrected JSON" in (repair.parts[-1].text or "")
+    assert "validation_error" in (repair.parts[-1].text or "")
     assert not _work(tmp_path).exists()
 
 

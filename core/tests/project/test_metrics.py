@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.jobs import LIGHT
@@ -16,7 +17,15 @@ from tests.jobs.support import new_job
 OWNER = "owner"
 
 
-def test_cost_rounds_once_per_line(client: TestClient) -> None:
+@pytest.mark.parametrize(
+    ("base", "cache_read", "cache_write", "total", "cost"),
+    [(2, None, None, 2, 2), (2, 3, 5, 10, 2), (None, 3, None, 3, 0),
+     (None, None, None, None, 0)],
+)
+def test_metrics_counts_all_reported_input_but_prices_it_by_category(
+    client: TestClient, base: int | None, cache_read: int | None,
+    cache_write: int | None, total: int | None, cost: int,
+) -> None:
     project = client.post(
         "/api/v1/projects", json={"title": None, "language": "ko"}
     ).json()
@@ -48,10 +57,10 @@ def test_cost_rounds_once_per_line(client: TestClient) -> None:
         provider="fixture",
         model="fixture",
         credential_id=None,
-        input_tokens=2,
-        output_tokens=None,
-        cache_read_tokens=None,
-        cache_write_tokens=None,
+        input_tokens=base,
+        output_tokens=1,
+        cache_read_tokens=cache_read,
+        cache_write_tokens=cache_write,
         outcome="ok",
         price_version="test",
     )
@@ -95,5 +104,7 @@ def test_cost_rounds_once_per_line(client: TestClient) -> None:
             ),
         )
     metrics = client.get(f"/api/v1/videos/{video['id']}/metrics").json()
-    assert metrics["cost_micro_usd"] == 2
+    assert metrics["input_tokens"] == total
+    assert metrics["output_tokens"] == 1
+    assert metrics["cost_micro_usd"] == cost
     assert "cost_usd" not in metrics

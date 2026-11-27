@@ -1,12 +1,14 @@
 # Versioned token prices for the usage ledger. Values are integer micro USD per
 # million tokens; null means the price is unknown, never zero. Cost is computed
 # when events are summed, so a price change applies to old rows too.
-version: "2026-11-17"
+# https://platform.claude.com/docs/en/about-claude/pricing
+# Standard API rates with 5-minute cache writes; Haiku uses the <=100K tier.
+version: "2026-11-27"
 
 llm:
   anthropic_api:
-    claude-haiku-5-5: {input: null, output: null, cache_read: null, cache_write: null}
-    claude-sonnet-5-5: {input: null, output: null, cache_read: null, cache_write: null}
+    claude-haiku-5-5: {input: 100000, output: 500000, cache_read: 10000, cache_write: 125000}
+    claude-sonnet-5-5: {input: 2000000, output: 10000000, cache_read: 100000, cache_write: 2500000}
   claude_cli:
     haiku: {input: null, output: null, cache_read: null, cache_write: null}
     sonnet: {input: null, output: null, cache_read: null, cache_write: null}

@@ -336,7 +336,10 @@ class SqliteProjectStore:
                 ).fetchall()
             )
             tokens = conn.execute(
-                "SELECT SUM(e.input_tokens), SUM(e.output_tokens) "
+                "SELECT SUM(CASE WHEN COALESCE(e.input_tokens, e.cache_read_tokens, "
+                "e.cache_write_tokens) IS NOT NULL THEN COALESCE(e.input_tokens, 0) "
+                "+ COALESCE(e.cache_read_tokens, 0) + COALESCE(e.cache_write_tokens, 0) "
+                "END), SUM(e.output_tokens) "
                 "FROM usage_events e JOIN jobs j ON j.id = e.job_id "
                 "WHERE j.video_id = ?",
                 (video_id,),

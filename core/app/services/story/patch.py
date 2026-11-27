@@ -415,8 +415,8 @@ def complete_json(
     """Call the model once, repair an invalid output once, then fail.
 
     A second invalid output is a job error, never a silent empty result. The
-    repair call appends one trusted repair note to the system prompt and sends
-    the validation error as a data part, so user text stays out of system.
+    repair instruction and validation error follow the original data so the
+    system prompt and output schema stay the same on both requests.
     """
     system = load_prompt(route, data)
     parts = [LlmPart(kind="text", text=_data_text(data))]
@@ -442,9 +442,9 @@ def complete_json(
         second_request = LlmRequest(
             task=task,
             route=route,
-            system=system + REPAIR_NOTE,
-            parts=[*parts, LlmPart(kind="text", text=_repair_text(error))],
-            output_schema=model.model_json_schema(),
+            system=system,
+            parts=[*parts, LlmPart(kind="text", text=REPAIR_NOTE + _repair_text(error))],
+            output_schema=request.output_schema,
             max_output_tokens=max_output_tokens,
         )
         second = llm.complete(

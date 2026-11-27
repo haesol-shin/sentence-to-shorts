@@ -91,13 +91,15 @@ def reference_frames_travel_with_the_style_request(harness: Harness) -> None:
     assert [part.kind for part in first.parts] == ["png", "png", "png", "png", "text"]
     assert [part.png for part in first.parts if part.kind == "png"] == frames
     second = harness.llm.requests[1]
-    assert [part.kind for part in second.parts] == ["png", "png", "png", "png", "png", "text"]
-    images = [part.png for part in second.parts if part.kind == "png"]
+    assert [part.kind for part in second.parts] == ["png"] * 5 + ["text", "text"]
+    images = [part.png for part in second.parts[:5]]
     assert images[:4] == frames
     assert images[4] is not None
     with Image.open(io.BytesIO(images[4])) as composed:
         assert composed.size == (1080, 1920)
-    data = harness.llm.data(1)
+    assert second.system == first.system
+    assert "Self view" in (second.parts[5].text or "")
+    data = json.loads(second.parts[6].text or "")
     assert data["frame_code"] == program("round_style")
     assert data["previous_code"] is None and data["failure"] is None
     assert data["reference_hints"] == {"palette": ["#112233", "#445566"]}
@@ -143,10 +145,10 @@ def style_without_reference_sends_no_frames(harness: Harness) -> None:
     assert [part.kind for part in first.parts] == ["text"]
     assert harness.llm.data(0)["reference_hints"] is None
     second = harness.llm.requests[1]
-    assert [part.kind for part in second.parts] == ["png", "text"]
+    assert [part.kind for part in second.parts] == ["png", "text", "text"]
     assert harness.llm.data(1)["frame_code"] == program("round_style")
-    assert "Self view" not in first.system
-    assert "Self view" in second.system
+    assert first.system == second.system
+    assert "Self view" in (second.parts[1].text or "")
 
 
 def later_rounds_get_an_earlier_deadline(harness: Harness) -> None:

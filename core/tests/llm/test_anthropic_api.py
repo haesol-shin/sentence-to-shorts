@@ -9,6 +9,7 @@ from dataclasses import replace
 import httpx2
 import pytest
 
+from app.jobs import LocalJobContext
 from app.llm.providers.anthropic_api.adapter import AnthropicApiLlm
 from app.ports import AppError, LlmPart
 from tests.llm.conftest import OWNER, FakeResolver
@@ -43,7 +44,9 @@ def adapter(settings, outcomes, key="synthetic-os-key"):
     return llm, calls
 
 
-def test_10_1_official_sdk_structured_png_and_usage(settings, request_data, cancel, monkeypatch):
+def test_10_1_official_sdk_structured_png_and_usage(
+    settings, request_data, cancel, monkeypatch, tmp_path,
+):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "ignored-env-key")
     monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "ignored-oauth")
     monkeypatch.setenv("ANTHROPIC_BASE_URL", "https://ignored.invalid")
@@ -51,21 +54,38 @@ def test_10_1_official_sdk_structured_png_and_usage(settings, request_data, canc
                        "Authorization: Bearer ignored-header-key\nx-api-key: ignored-header-key")
     llm, calls = adapter(settings, [(200, message(), {})])
     request = replace(request_data, parts=[*request_data.parts, LlmPart("png", png=b"synthetic")])
-    result = llm.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+    usage_records, events = [], []
+    ctx = LocalJobContext(
+        cancel, DEADLINE, tmp_path, owner_id=OWNER,
+        job_id="j_01jdq7c3v8m4n5p6q7r8s9t0vw",
+        on_usage=usage_records.append, on_request=events.append,
+    )
+    result = llm.complete(
+        request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE, on_request=ctx.record_request,
+    )
+    ctx.record_usage(result.usage)
     assert str(calls[0].url) == "https://api.anthropic.com/v1/messages"
     assert calls[0].headers["x-api-key"] == "synthetic-os-key"
     assert "authorization" not in calls[0].headers
     payload = json.loads(calls[0].content)
     assert payload["model"] == "claude-haiku-5-5"
     assert payload["output_config"]["effort"] == "low"
-    assert payload["system"] == request.system
+    assert payload["system"] == [
+        {"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}},
+    ]
+    assert "cache_control" not in payload
+    assert payload["messages"][0]["content"][0] == {
+        "type": "text", "text": request.parts[0].text,
+    }
     assert payload["messages"][0]["content"][1] == {"type": "image", "source": {
         "type": "base64", "media_type": "image/png", "data": "c3ludGhldGlj"}}
     assert "tools" not in payload
     assert result.parsed == {"answer": "합성"}
     assert result.usage.input_tokens == 13
-    assert result.usage.cache_read_tokens == 3
-    assert result.usage.cache_write_tokens == 4
+    snapshot, = usage_records
+    event, = events
+    assert (snapshot.cache_read_tokens, snapshot.cache_write_tokens) == (3, 4)
+    assert (event.cache_read_tokens, event.cache_write_tokens) == (3, 4)
     assert result.usage.model == "claude-synthetic-actual"
     assert llm.auth_state(OWNER) == "ok"
 
@@ -126,8 +146,9 @@ def test_10_3_schema_transform_keeps_original_response_validation(settings, requ
     llm, calls = adapter(settings, [(200, message('{"answer":"가"}'), {}), (200, message(), {})])
     result = llm.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
     assert len(calls) == 2
-    repair = json.loads(calls[1].content)
-    assert repair["system"] == request_data.system
+    first, repair = (json.loads(call.content) for call in calls)
+    assert repair["system"] == first["system"]
+    assert repair["output_config"] == first["output_config"]
     for call in calls:
         output_format = json.loads(call.content)["output_config"]["format"]
         assert output_format["type"] == "json_schema"
@@ -136,6 +157,28 @@ def test_10_3_schema_transform_keeps_original_response_validation(settings, requ
     assert schema["properties"]["answer"]["minLength"] == 2
     assert result.parsed == {"answer": "합성"}
     assert result.usage.input_tokens == 26
+    assert result.usage.cache_read_tokens == 6
+    assert result.usage.cache_write_tokens == 8
+
+
+def test_scene_data_caches_only_through_the_video_context(settings, request_data, cancel):
+    settings.models.routes["scene_data"] = settings.models.routes["draft"]
+    llm, calls = adapter(settings, [(200, message(), {})] * 2)
+    shared = LlmPart("text", text='{"allowed":["synthetic"]}')
+    for scene in ("first", "second"):
+        request = replace(request_data, route="scene_data", parts=[
+            shared, LlmPart("text", text=scene),
+        ])
+        llm.complete(request, owner_id=OWNER, cancel=cancel, deadline=DEADLINE)
+
+    for call, scene in zip(calls, ("first", "second"), strict=True):
+        payload = json.loads(call.content)
+        assert "cache_control" not in payload
+        assert payload["system"] == [{"type": "text", "text": request_data.system}]
+        assert payload["messages"][0]["content"] == [
+            {"type": "text", "text": shared.text, "cache_control": {"type": "ephemeral"}},
+            {"type": "text", "text": scene},
+        ]
 
 
 def test_10_3_sdk_refusal_is_not_retried(settings, request_data, cancel):

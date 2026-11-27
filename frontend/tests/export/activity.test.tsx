@@ -202,6 +202,10 @@ test('recorded token zero is a measurement, and missing token counts are unknown
   expect(jobUsageMetrics(videoId, [precheck]).tokens).toEqual({ input: 0, output: 14 });
   expect(jobUsageMetrics(videoId, [{
     ...precheck,
+    usage: [usage, { ...usage, input_tokens: 3, cache_read_tokens: 7, cache_write_tokens: 11 }],
+  }]).tokens).toEqual({ input: 21, output: 28 });
+  expect(jobUsageMetrics(videoId, [{
+    ...precheck,
     usage: [usage, { ...usage, input_tokens: null }],
   }]).tokens).toBeNull();
 });
