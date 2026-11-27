@@ -3,8 +3,10 @@
 Needs `scripts/dev_setup.py --models` under APP_MODEL_DIR and the second
 environment at APP_ALIGN_PYTHON (or `core/align_runtime/.venv`). The lines are
 the three contract cases: K4 keeps its phrase timing through a number spelling,
-E2 through a currency spelling, and K5 falls back to sentence captions because
-its code-name syllables have no confident alignment.
+E2 through a currency spelling, and K5 (code names) returns either phrase timing
+or a sentence fallback, whichever the synthesis engine's word scores allow. The
+low-score fallback itself is covered without models in test_mapping.py and
+test_adapter.py.
 
 The Qwen engine synthesizes each line once, then closes before the aligner runs,
 so the two torch environments are never loaded at the same time.
@@ -29,6 +31,12 @@ from app.tools.tts.qwen3_tts_0_6b.adapter import create as create_tts
 
 pytestmark = [pytest.mark.models, pytest.mark.timeout(1800)]
 
+FALLBACK_CODES = (
+    "align_failed",
+    "align_low_confidence",
+    "align_missing_words",
+    "align_unavailable",
+)
 REPO = Path(__file__).resolve().parents[3]
 LINES = (
     (
@@ -128,6 +136,7 @@ def results(tmp_path_factory):
                         wavs[name].wav_path, speech, display, language, cancel=CancelFlag()
                     ),
                     "display": display,
+                    "duration_ms": wavs[name].duration_ms,
                 }
         finally:
             aligner.close()
@@ -152,7 +161,20 @@ def test_15_models_e2_currency_keeps_phrase_timing(results) -> None:
     ]
 
 
-def test_15_models_k5_code_names_fall_back_to_sentence(results) -> None:
+def test_15_models_k5_code_names_keep_phrases_or_fall_back(results) -> None:
     result = results["K5"]["result"]
-    assert result.failure == "align_low_confidence"
-    assert result.phrases is None
+    display = results["K5"]["display"]
+    if result.phrases is None:
+        assert result.failure in FALLBACK_CODES
+        return
+    assert result.failure is None
+    spans = result.phrases
+    assert spans
+    assert spans[0].start_char >= 0
+    assert spans[-1].end_char <= len(display)
+    for span in spans:
+        assert span.start_char < span.end_char
+        assert 0 <= span.start_ms < span.end_ms <= results["K5"]["duration_ms"]
+    for before, after in zip(spans, spans[1:]):
+        assert before.end_char <= after.start_char
+        assert before.end_ms <= after.start_ms
