@@ -133,6 +133,40 @@ test('test_10a_send_and_plus_keep_a_44px_target_and_chips_stay_36px', async ({ p
   ).toBe(true);
 });
 
+test('test_10a_value_menus_open_clear_of_the_input_box', async ({ page }) => {
+  const composer = await openFirst(page);
+  for (const name of ['영상 언어', '영상 길이']) {
+    await composer.getByRole('combobox', { name, exact: true }).click();
+    const menu = page.locator('.field-positioner[data-open]');
+    await expect(menu).toBeVisible();
+    await expect(menu).toHaveAttribute('data-side', 'bottom');
+    const box = await composer.boundingBox();
+    const menuBox = await menu.boundingBox();
+    expect(box).not.toBeNull();
+    expect(menuBox).not.toBeNull();
+    if (box === null || menuBox === null) return;
+    // The menu hangs under the box instead of lying across the input.
+    expect(menuBox.y).toBeGreaterThanOrEqual(box.y + box.height);
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+  }
+});
+
+test('test_10a_a_picked_story_card_keeps_one_flat_face', async ({ page }) => {
+  await page.goto('/');
+  const card = page.locator('[data-slot="first-cards"] button').first();
+  await card.click();
+  await expect(card).toHaveAttribute('aria-pressed', 'true');
+  await expect
+    .poll(() =>
+      card.evaluate((node) => {
+        const picture = getComputedStyle(node.firstElementChild as Element).backgroundColor;
+        return picture === getComputedStyle(node).backgroundColor;
+      }),
+    )
+    .toBe(true);
+});
+
 test('test_10a_the_plus_menu_has_five_items_and_a_named_image_gap', async ({ page }) => {
   const composer = await openFirst(page);
   await composer.getByRole('button', { name: '파일이나 링크 더하기' }).press('Enter');

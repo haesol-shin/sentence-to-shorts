@@ -98,23 +98,25 @@ export function FirstScreen({
         </h1>
         {askKey ? <ApiKeyBlock noticeKey={authFailureKey} onSave={saveKey} /> : null}
         {keySaved && !askKey ? <Notice>{t('shell.apiKey.saved')}</Notice> : null}
-        <Composer
-          face="first"
-          label={t('shell.first.composerLabel')}
-          placeholder={t('shell.first.composerPlaceholder')}
-          sendLabel={t('shell.first.send')}
-          value={draft}
-          onChange={onDraftChange}
-          onSubmit={start}
-          card={card}
-          onClearCard={onClearCard}
-          language={chosenLanguage}
-          duration={duration}
-          onLanguageChange={setChosenLanguage}
-          onDurationChange={setDuration}
-          deployment={deployment}
-          disabled={submitting}
-        />
+        <div data-menu-below="">
+          <Composer
+            face="first"
+            label={t('shell.first.composerLabel')}
+            placeholder={t('shell.first.composerPlaceholder')}
+            sendLabel={t('shell.first.send')}
+            value={draft}
+            onChange={onDraftChange}
+            onSubmit={start}
+            card={card}
+            onClearCard={onClearCard}
+            language={chosenLanguage}
+            duration={duration}
+            onLanguageChange={setChosenLanguage}
+            onDurationChange={setDuration}
+            deployment={deployment}
+            disabled={submitting}
+          />
+        </div>
         <div className="flex flex-col gap-2.5">
           <h2 className="flex items-baseline justify-between text-[17px] leading-5 font-bold text-[var(--text-strong)]">
             <span>{t('shell.first.cardsTitle')}</span>
@@ -142,10 +144,7 @@ export function FirstScreen({
                   )}
                 >
                   <span
-                    className={cn(
-                      'flex h-[150px] w-[200px] shrink-0 items-center justify-center rounded-[var(--radius-media)] text-[var(--text-muted)]',
-                      selected ? 'bg-[var(--surface-muted)]' : 'bg-[var(--surface-sunken)]',
-                    )}
+                    className="flex h-[150px] w-[200px] shrink-0 items-center justify-center rounded-[var(--radius-media)] bg-[var(--surface-sunken)] text-[var(--text-muted)]"
                     aria-hidden="true"
                   >
                     <Image size={32} />

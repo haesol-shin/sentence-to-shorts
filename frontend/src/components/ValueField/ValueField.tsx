@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 import { Select as SelectPrimitive } from '@base-ui/react/select';
 import { Check, ChevronDown } from 'lucide-react';
 
@@ -50,11 +50,16 @@ export type ValueFieldProps<Value = string> = {
 
 
 
+/** The gap between the field, or the box holding it, and its menu. */
+const MENU_GAP = 4;
+
 /**
  * A grey value field whose menu opens below it with the same width. Base UI
- * flips the open side only when the space below cannot hold the menu. The row
- * values can be of any type: the menu keys its rows by position and hands the
- * caller's own value back.
+ * flips the open side only when the space below cannot hold the menu. A field
+ * inside an element marked `data-menu-below` keeps its menu clear of that
+ * element on either side, so the menu never lies across the box that holds
+ * the field. The row values can be of any type: the menu keys its rows by
+ * position and hands the caller's own value back.
  */
 export function ValueField<Value = string>({
   label,
@@ -76,6 +81,8 @@ export function ValueField<Value = string>({
   const noteId = useId();
   const container = usePopupContainer();
   const [list, setList] = useState<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const [hostGap, setHostGap] = useState({ below: 0, above: 0 });
   const fade = useOverflowFade(list, '.field-item');
   const forced = statesOf(forceState);
 
@@ -101,9 +108,21 @@ export function ValueField<Value = string>({
       disabled={disabled}
       open={open}
       defaultOpen={defaultOpen}
-      onOpenChange={(next) => onOpenChange?.(next)}
+      onOpenChange={(next) => {
+        if (next) {
+          const host = triggerRef.current?.closest('[data-menu-below]')?.getBoundingClientRect();
+          const field = triggerRef.current?.getBoundingClientRect();
+          setHostGap(
+            host === undefined || field === undefined
+              ? { below: 0, above: 0 }
+              : { below: Math.max(0, host.bottom - field.bottom), above: Math.max(0, field.top - host.top) },
+          );
+        }
+        onOpenChange?.(next);
+      }}
     >
       <SelectPrimitive.Trigger
+        ref={triggerRef}
         className={cn('field-trigger', 'hit-area', 'focus-ring', name !== undefined && 'field-trigger--named', className)}
         aria-label={label}
         data-force-state={forced.length > 0 ? forced.join(' ') : undefined}
@@ -118,7 +137,7 @@ export function ValueField<Value = string>({
         <SelectPrimitive.Positioner
           side="bottom"
           align="start"
-          sideOffset={4}
+          sideOffset={({ side }) => MENU_GAP + (side === 'top' ? hostGap.above : hostGap.below)}
           alignItemWithTrigger={false}
           collisionPadding={8}
           className="field-positioner"
