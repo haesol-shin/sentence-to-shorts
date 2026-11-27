@@ -69,7 +69,17 @@ export interface ToneProposal {
 export interface RewriteProposal {
   sceneId: string;
   before: string[];
-  after: string[];
+  after: ScriptLine[];
+}
+
+export interface RewriteResult {
+  lines: ScriptLine[] | null;
+  unsupported: string[];
+}
+
+export interface ScriptSettingsProposal {
+  duration: TargetDuration;
+  count: number;
 }
 
 export interface UndoEntry {
@@ -87,6 +97,8 @@ export interface ScriptSnapshot {
   workingSceneId: string | null;
   rewrite: RewriteProposal | null;
   tone: ToneProposal | null;
+  settings: ScriptSettingsProposal | null;
+  unsupported: string[];
   changedSceneIds: string[];
   highlightedSceneId: string | null;
   /** Bumped on every jump request so the same scene scrolls again. */

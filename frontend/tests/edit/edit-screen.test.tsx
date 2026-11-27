@@ -415,7 +415,7 @@ test('test_10a_the_edit_composer_targets_a_scene_and_sends', async () => {
   expect(target).toBeTruthy();
   const input = screen.getByRole('textbox', { name: '편집 요청' }) as HTMLTextAreaElement;
   expect(input.disabled).toBe(false);
-  expect(input.getAttribute('placeholder')).toBe('무엇을 바꿀까요?');
+  expect(input.placeholder).toMatch(/더 짧게/u);
   fireEvent.change(input, { target: { value: '이 장면을 더 짧게' } });
   fireEvent.click(screen.getByRole('button', { name: '보내기' }));
   expect(await screen.findByText('바꿀 값이 없어요.', {}, { timeout: 3000 })).toBeTruthy();
@@ -519,7 +519,10 @@ test('test_10a_scene_chat_uses_the_change_and_reports_unsupported_parts_of_the_s
       target: body.target,
       ops: [{ op: 'set', path: `/scenes/${target}/beat_label`, value: '새 진행 제목', origin: 'user' }],
     });
-    return { ...job, state: 'succeeded', result: { change_id: plan.id, unsupported: ['영상의 언어 변경'] } };
+    return { ...job, state: 'succeeded', result: {
+      change_id: plan.id,
+      unsupported: ['영상 언어는 장면 대화에서 바꿀 수 없어요. 첫 화면에서 영상 언어를 선택해 주세요.'],
+    } };
   };
   openComposer(api);
   await screen.findAllByText('장면 1');
@@ -527,7 +530,7 @@ test('test_10a_scene_chat_uses_the_change_and_reports_unsupported_parts_of_the_s
   fireEvent.click(screen.getByRole('button', { name: '보내기' }));
 
   expect(await screen.findByText('장면을 바꿨어요.')).toBeTruthy();
-  expect(await screen.findByText('그 요청은 아직 다룰 수 없어요.')).toBeTruthy();
+  expect(await screen.findByText(/첫 화면에서 영상 언어를 선택해 주세요/u)).toBeTruthy();
   expect(screen.queryByRole('button', { name: '요청 멈추기' })).toBeNull();
   expect(target).toBe(view.video.scene_order[0]);
 });

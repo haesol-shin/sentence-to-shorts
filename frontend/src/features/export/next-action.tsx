@@ -62,7 +62,7 @@ export function ExportNextAction({ videoId }: { videoId: string | null }) {
 
   return (
     <>
-      <CaptionSave videoId={videoId} ready={current && srtReady(state.view)} />
+      <CaptionSave videoId={videoId} ready={current && state.phase !== 'making' && srtReady(state.view)} />
       {ready ? (
         button
       ) : (

@@ -11,7 +11,7 @@ import {
   isConfirmed,
   maxEntityNumber,
 } from './model';
-import type { ScriptDocument, ScriptTarget } from './types';
+import type { RewriteResult, ScriptDocument, ScriptTarget } from './types';
 
 /** The rewrite takes long enough that the stop control can be pressed. */
 const REWRITE_DELAY_MS = 2500;
@@ -46,9 +46,11 @@ export interface ScriptApi {
   rewrite(
     document: ScriptDocument,
     sceneId: string,
-    options?: { signal?: AbortSignal },
-  ): Promise<string[]>;
+    options?: { signal?: AbortSignal; instruction?: string },
+  ): Promise<RewriteResult>;
   confirm(document: ScriptDocument): Promise<ScriptDocument>;
+  /** Adopt settings the conversation changed elsewhere, keeping the unsaved lines. */
+  sync?(document: ScriptDocument): Promise<ScriptDocument>;
   /** The edit step asks for scene previews only after this gate opens. */
   requestPreviews(document: ScriptDocument): Promise<void>;
 }
@@ -86,14 +88,37 @@ export class MockScriptApi implements ScriptApi {
   rewrite(
     document: ScriptDocument,
     sceneId: string,
-    options: { signal?: AbortSignal } = {},
-  ): Promise<string[]> {
+    options: { signal?: AbortSignal; instruction?: string } = {},
+  ): Promise<RewriteResult> {
     this.record('rewrite', sceneId);
     const proposal = buildRewriteProposal(document, sceneId);
     if (proposal === null) {
       return Promise.reject(new ScriptApiError('revision_conflict', 'Unknown scene'));
     }
-    return this.wait(options.signal).then(() => proposal.after);
+    const instruction = options.instruction?.trim() ?? '';
+    return this.wait(options.signal).then(() => {
+      if (instruction === '') return { lines: proposal.after, unsupported: [] };
+      if (/짧|short/u.test(instruction)) {
+        return {
+          lines: document.scenes[sceneId].lines.map((line) => {
+            const words = line.display_text.split(/\s+/u);
+            const text = words.slice(0, Math.ceil(words.length / 2)).join(' ');
+            return { ...line, display_text: text, speech_text: text };
+          }),
+          unsupported: [],
+        };
+      }
+      return {
+        lines: null,
+        unsupported: [document.language === 'ko'
+          ? (/순서|order/u.test(instruction)
+            ? '장면 순서는 전체 대본에 속해요. 장면 카드를 끌어 순서를 바꿔 주세요.'
+            : '장면 대화에서는 문장만 고칠 수 있어요. 대사나 장면 설정을 화면에서 직접 고쳐 주세요.')
+          : (/순서|order/u.test(instruction)
+            ? 'Scene order belongs to the whole script. Drag the scene cards to reorder them.'
+            : 'Scene chat only edits lines. Make other changes in the scene settings instead.')],
+      };
+    });
   }
 
   confirm(document: ScriptDocument): Promise<ScriptDocument> {

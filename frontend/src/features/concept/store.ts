@@ -1141,8 +1141,18 @@ export function rejectConceptPlan(): void {
   }
 }
 
+export function setConceptDraftQueued(videoId: string, queued: boolean): void {
+  const session = sessions.get(videoId);
+  if (session === undefined || (!queued && session.readState !== 'queued')) return;
+  session.readState = queued ? 'queued' : 'failed';
+  emit();
+}
+
 export async function confirmConcept(): Promise<void> {
   const session = requireSession();
+  if (session.busy > 0 || session.readState === 'queued' || session.readState === 'waiting') {
+    throw new Error(ERROR_BUSY);
+  }
   if (session.document.confirmed) {
     if (!session.dirty) {
       return;

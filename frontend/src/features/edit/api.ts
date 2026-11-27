@@ -271,11 +271,11 @@ class HttpEditApi implements EditApi {
     });
   }
 
-  sendMessage(
+  async sendMessage(
     videoId: string,
     body: { base_revision: number; text: string; target: ChangeTarget },
   ): Promise<Job> {
-    return request<Job>('POST', `/videos/${encodeURIComponent(videoId)}/messages`, body);
+    return this.withChatDetails(await request<Job>('POST', `/videos/${encodeURIComponent(videoId)}/messages`, body));
   }
 
   generate(videoId: string, baseRevision: number): Promise<Job> {
@@ -288,8 +288,15 @@ class HttpEditApi implements EditApi {
     return request<Job>('POST', `/jobs/${encodeURIComponent(jobId)}/cancel`);
   }
 
-  readJob(jobId: string): Promise<Job> {
-    return request<Job>('GET', `/jobs/${encodeURIComponent(jobId)}`);
+  async readJob(jobId: string): Promise<Job> {
+    return this.withChatDetails(await request<Job>('GET', `/jobs/${encodeURIComponent(jobId)}`));
+  }
+
+  private async withChatDetails(job: Job): Promise<Job> {
+    const id = job.result?.change_id;
+    if (job.kind !== 'chat' || job.state !== 'succeeded' || typeof id !== 'string') return job;
+    const plan = await this.readChange(id);
+    return { ...job, result: { ...job.result, notes: plan.notes, unsupported: plan.unsupported } };
   }
 
   listCatalog(kind: 'sfx' | 'voice' | 'font' | 'caption_language', videoId: string): Promise<CatalogItem[]> {

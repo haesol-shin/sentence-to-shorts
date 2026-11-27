@@ -71,6 +71,37 @@ test('test_10a_the_script_step_has_the_document_head_and_one_step_button', async
   await expect(page.getByRole('button', { name: '이대로 영상 만들기', exact: true })).toHaveCount(1);
 });
 
+for (const size of WIDTHS) {
+  test(`test_8a_scene_chat_previews_only_the_target_and_keeps_typed_lines_at_${size.width}`, async ({ page }) => {
+    const screen = await openScript(page, size);
+    const chat = page.getByRole('textbox', { name: '고칠 점을 적어 주세요' }).filter({ visible: true });
+    await expect(chat).toHaveAttribute('placeholder', /말투를 반말로/u);
+    const [target, other] = await sceneCards(screen).all();
+    const original = '직접 쓴 문장을 간결한 문장으로 바꿔요.';
+    const otherEdit = '다른 장면에서 직접 쓴 문장이에요.';
+    await firstLine(target).fill(original);
+    await firstLine(other).fill(otherEdit);
+    await target.getByRole('button', { name: '장면 1 메뉴' }).click();
+    await page.getByRole('menuitem', { name: '이 장면을 대화로 고치기' }).click();
+    await expect(chat).toHaveAttribute('placeholder', /더 짧게/u);
+
+    await chat.fill('장면 순서를 바꿔 줘');
+    await chat.press('Enter');
+    await expect(page.getByRole('status').filter({ hasText: '장면 카드를 끌어 순서를 바꿔 주세요.' })).toBeVisible();
+    await expect(firstLine(target)).toHaveValue(original);
+
+    await chat.fill('더 짧게');
+    await chat.press('Enter');
+    const review = target.locator('[data-slot="script-review"]');
+    await expect(review).toContainText(original);
+    await expect(review.getByRole('list', { name: '바뀐 뒤' })).toContainText('직접 쓴 문장을');
+    await expect(firstLine(other)).toHaveValue(otherEdit);
+    await review.getByRole('button', { name: '적용', exact: true }).click();
+    await expect(firstLine(target)).toHaveValue('직접 쓴 문장을');
+    await expect(firstLine(other)).toHaveValue(otherEdit);
+  });
+}
+
 test('test_10a_the_script_action_floats_over_the_document_without_a_band', async ({ page }) => {
   const screen = await openScript(page);
   const footer = screen.locator('[data-slot="script-footer"]');
@@ -151,11 +182,15 @@ test('test_3_the_interface_language_keeps_the_video_script', async ({ page }) =>
   await expect(line).toHaveValue('언어를 바꿔도 남아요.');
 });
 
-test('test_10a_the_length_field_applies_the_recommended_count', async ({ page }) => {
+test('test_8a_length_waits_for_confirmation_before_changing_the_scene_count', async ({ page }) => {
   const screen = await openScript(page);
 
   await screen.getByRole('combobox', { name: '길이', exact: true }).click();
   await page.getByLabel('2분', { exact: true }).click();
+  const review = screen.locator('[data-slot="script-settings-review"]');
+  await expect(review).toContainText('30초 → 2분');
+  await expect(sceneCards(screen)).toHaveCount(5);
+  await review.getByRole('button', { name: '대본 다시 쓰기' }).click();
 
   await expect(sceneCards(screen)).toHaveCount(11);
   await expect(screen.getByRole('combobox', { name: '장면 수', exact: true })).toContainText('11');
@@ -369,6 +404,7 @@ test('test_10a_the_document_scrolls_by_the_jump_control_without_a_scrollbar', as
 
   await screen.getByRole('combobox', { name: '장면 수', exact: true }).click();
   await page.getByRole('option', { name: '11', exact: true }).click();
+  await screen.getByRole('button', { name: '대본 다시 쓰기' }).click();
   await expect(sceneCards(screen)).toHaveCount(11);
 
   const viewport = page.getByRole('region', { name: '대본 문서', exact: true });

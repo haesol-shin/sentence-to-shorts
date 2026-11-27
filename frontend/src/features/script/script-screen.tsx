@@ -28,21 +28,23 @@ import { useLocale } from '@/shared/lib/i18n/locale';
 import {
   addLine,
   applyRewrite,
+  applyScriptSettings,
   applyToneScene,
   confirmScript,
   deleteLine,
   dismissRewrite,
+  discardScriptSettings,
   dismissToneScene,
   editLine,
   ensureScript,
   moveLineTo,
   moveScene,
   moveSceneTo,
+  proposeScriptSettings,
   rewriteScene,
-  setLength,
   setRegister,
-  setSceneCount,
   stopRewrite,
+  targetScene,
   undo,
   useScript,
   useScriptLoadFailed,
@@ -212,10 +214,8 @@ export function ScriptScreen({
   const confirmed = snapshot.confirmed;
   const confirming = snapshot.busy && snapshot.workingSceneId === null;
   const structureLocked =
-    snapshot.busy || snapshot.rewrite !== null || snapshot.tone !== null;
-  const toneLocked = snapshot.busy || snapshot.rewrite !== null;
-  const rewriteBlocked =
-    snapshot.busy || snapshot.rewrite !== null || snapshot.tone !== null;
+    snapshot.busy || snapshot.rewrite !== null || snapshot.tone !== null || snapshot.settings !== null;
+  const toneLocked = snapshot.busy || snapshot.rewrite !== null || snapshot.settings !== null;
   const toneValue = snapshot.tone?.to ?? script.register;
   const toneByScene = new Map<string, ToneSceneReview>(
     (snapshot.tone?.scenes ?? []).map((review) => [review.sceneId, review]),
@@ -271,7 +271,7 @@ export function ScriptScreen({
                   })}
                   items={durationItems}
                   value={String(script.target_duration_s)}
-                  onValueChange={(value) => setLength(Number(value) as TargetDuration)}
+                  onValueChange={(value) => proposeScriptSettings({ duration: Number(value) as TargetDuration })}
                   disabled={structureLocked}
                 />
                 <ValueField
@@ -280,7 +280,7 @@ export function ScriptScreen({
                   display={t('script.scenes.display', { count: script.scene_order.length })}
                   items={sceneItems}
                   value={String(script.scene_order.length)}
-                  onValueChange={(value) => setSceneCount(Number(value))}
+                  onValueChange={(value) => proposeScriptSettings({ count: Number(value) })}
                   disabled={structureLocked}
                 />
                 <ValueField
@@ -299,6 +299,20 @@ export function ScriptScreen({
               <p className="script-tone-note" role="status">
                 {t('script.tone.preview')}
               </p>
+            )}
+            {snapshot.settings === null ? null : (
+              <div data-slot="script-settings-review" className="script-review">
+                <p>{t('script.settings.preview', {
+                  from: t(`script.length.${script.target_duration_s}`),
+                  to: t(`script.length.${snapshot.settings.duration}`),
+                  before: script.scene_order.length,
+                  after: snapshot.settings.count,
+                })}</p>
+                <div className="script-review-actions">
+                  <Button size="36" variant="ghost" onClick={discardScriptSettings}>{t('script.review.keep')}</Button>
+                  <Button size="36" onClick={() => void applyScriptSettings()}>{t('script.settings.apply')}</Button>
+                </div>
+              </div>
             )}
           </header>
 
@@ -406,10 +420,11 @@ export function ScriptScreen({
                             </IconButton>
                           }
                           items={[
+                            { value: 'target', label: t('script.scene.chat') },
                             {
                               value: 'rewrite',
                               label: t('script.rewrite'),
-                              disabled: structureLocked || rewriteBlocked,
+                              disabled: structureLocked,
                             },
                             {
                               value: 'up',
@@ -425,6 +440,8 @@ export function ScriptScreen({
                           onSelect={(value) => {
                             if (value === 'rewrite') {
                               void rewriteScene(sceneId);
+                            } else if (value === 'target') {
+                              targetScene(sceneId);
                             } else {
                               moveScene(sceneId, value === 'up' ? -1 : 1);
                             }
@@ -450,10 +467,11 @@ export function ScriptScreen({
                           className="script-review-lines script-review-new"
                           aria-label={t('script.tone.new')}
                         >
-                          {review.after.map((text, lineIndex) => (
-                            <li key={`after-${lineIndex}`}>{text}</li>
+                          {review.after.map((line) => (
+                            <li key={line.id}>{line.display_text}</li>
                           ))}
                         </ul>
+                        <p>{t('script.review.rebuild')}</p>
                         <div className="script-review-actions">
                           <Button
                             size="36"
@@ -597,7 +615,7 @@ export function ScriptScreen({
                           running={working}
                           stopLabel={t('script.stop')}
                           onStop={stopRewrite}
-                          disabled={!working && rewriteBlocked}
+                          disabled={!working && structureLocked}
                           onClick={() => void rewriteScene(sceneId)}
                         >
                           {t('script.rewrite')}

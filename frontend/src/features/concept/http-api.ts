@@ -511,10 +511,11 @@ export class HttpConceptApi implements ConceptApi {
     const result = job.result ?? {};
     const changeId = typeof result.change_id === 'string' ? result.change_id : null;
     const video = job.video_id === null ? null : await this.head(job.video_id);
+    const plan = changeId === null ? null : await this.plan(changeId);
     return {
-      plan: changeId === null ? null : await this.plan(changeId),
-      notes: strings(result.notes),
-      unsupported: strings(result.unsupported),
+      plan,
+      notes: plan?.notes ?? strings(result.notes),
+      unsupported: plan?.unsupported ?? strings(result.unsupported),
       ...(video === null ? {} : { revision: video.revision, attachments: toAttachments(video) }),
     };
   }

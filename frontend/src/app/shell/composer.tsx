@@ -35,9 +35,9 @@ import {
   validateReferenceUrl,
   type Deployment,
 } from '@/features/concept/attachments';
-import type { Attachment } from '@/features/concept/types';
+import type { Attachment, ConceptSnapshot } from '@/features/concept/types';
 import { sceneNumber as scriptSceneNumber } from '@/features/script/model';
-import { clearTarget as clearScriptTarget, useScript } from '@/features/script/store';
+import { clearTarget as clearScriptTarget, rewriteScene, stopRewrite, syncScriptSettings, useScript } from '@/features/script/store';
 import { LANGUAGES } from '@/shared/lib/i18n/catalog';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { useLoad } from '@/shared/lib/use-load';
@@ -100,6 +100,7 @@ interface ComposerBoxProps {
   onLanguageChange?: (language: Language) => void;
   onDurationChange?: (duration: number) => void;
   deployment?: Deployment;
+  textOnly?: boolean;
   /** Read once on mount; the box always owns its attachment list afterwards. */
   initialAttachments?: Attachment[];
   onAttachmentsChange?: (attachments: Attachment[]) => void;
@@ -298,6 +299,7 @@ function ComposerBox({
   onLanguageChange,
   onDurationChange,
   deployment,
+  textOnly = false,
   initialAttachments,
   onAttachmentsChange,
   onEditBgm,
@@ -325,7 +327,8 @@ function ComposerBox({
 
   const busy = disabled || submitting;
   const canSend =
-    !busy && onSubmit !== undefined && (value.trim() !== '' || attachments.length > 0);
+    !busy && onSubmit !== undefined &&
+    (textOnly ? value.trim() !== '' && attachments.length === 0 : value.trim() !== '' || attachments.length > 0);
   const discoveredDeployment = useDeployment(deployment === undefined);
   const policy = linkPolicy(deployment ?? discoveredDeployment);
 
@@ -465,6 +468,7 @@ function ComposerBox({
   const onDrop = (event: DragEvent<HTMLDivElement>) => {
     event.preventDefault();
     setDragging(false);
+    if (textOnly) return;
     const files = Array.from(event.dataTransfer.files);
     if (files.length > 0) {
       void addFiles(files);
@@ -622,7 +626,7 @@ function ComposerBox({
       data-dragging={dragging ? 'true' : undefined}
       onDragOver={(event) => {
         event.preventDefault();
-        setDragging(true);
+        if (!textOnly) setDragging(true);
       }}
       onDragLeave={onDragLeave}
       onDrop={onDrop}
@@ -754,7 +758,7 @@ function ComposerBox({
             label={t('concept.composer.plus')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-            disabled={busy}
+            disabled={busy || textOnly}
             onClick={() => {
               if (!menuOpen) {
                 setMenuUp((rootRef.current?.getBoundingClientRect().top ?? 0) >= 260);
@@ -766,7 +770,7 @@ function ComposerBox({
           >
             <Plus aria-hidden size={20} />
           </IconButton>
-          {menuOpen ? (
+          {menuOpen && !textOnly ? (
             <div
               role="menu"
               aria-label={t('concept.composer.menuLabel')}
@@ -1015,8 +1019,12 @@ function EditComposer({
   }
   const number = edit.targetId === null ? 0 : sceneNumber(edit.video, edit.targetId);
   const bgm = edit.bgmWork;
+  const result = edit.messages.at(-1);
   return (
     <div className="flex w-full flex-col gap-2">
+      {result?.kind === 'unsupported' && result.detail ? (
+        <p role="status" className="px-1 text-[15px]">{result.detail}</p>
+      ) : null}
       {toneRequest === null ? null : (
         <div className="flex flex-col gap-2">
           <p>{t('edit.tone.preview')}</p>
@@ -1039,7 +1047,7 @@ function EditComposer({
         {...rest}
         face="chat"
         label={rest.label}
-        placeholder={t('edit.composer.placeholder')}
+        placeholder={t(number > 0 ? 'edit.composer.scenePlaceholder' : 'edit.composer.placeholder')}
         sendLabel={rest.sendLabel}
         onCancel={edit.chatBusy ? edit.cancelChat : undefined}
         cancelActive={edit.chatBusy}
@@ -1078,31 +1086,46 @@ function EditComposer({
   );
 }
 
-/**
- * The script conversation does not take sentences yet. The reason stays on
- * screen above the shut box instead of waiting for a hover.
- */
-function ScriptComposer({
-  reason,
-  rest,
-}: {
-  reason?: string;
+function ScriptComposer({ rest }: {
   rest: Omit<ComposerBoxProps, 'value' | 'onChange' | 'onSubmit' | 'disabled'>;
 }) {
   const { t } = useLocale();
   const script = useScript();
-  const number = script?.targetSceneId == null ? null : scriptSceneNumber(script.document, script.targetSceneId);
+  const concept = useConcept();
+  const [value, setValue] = useState('');
+  const sceneId = script?.targetSceneId ?? null;
+  const number = sceneId === null || script === null ? null : scriptSceneNumber(script.document, sceneId);
+  const rewriting = script?.workingSceneId != null;
+  // Chat reaches the server by direct apply or by a confirmed plan; either moves the concept revision.
+  const conceptRevision = concept?.document.revision ?? null;
+  const scriptIdle = script !== null && !script.busy && script.rewrite === null && script.tone === null && script.settings === null;
+  useEffect(() => {
+    if (conceptRevision !== null) void syncScriptSettings(conceptRevision);
+  }, [conceptRevision, scriptIdle]);
   return (
     <div className="flex w-full flex-col gap-2">
-      <p data-slot="composer-reason" className="px-1 text-[15px] leading-[18px] text-[var(--text-muted)]">
-        {reason ?? t('shell.stage.composerReason')}
-      </p>
-      <ComposerBox
+      {concept === null ? null : <ValueChatResult snapshot={concept} />}
+      {script?.unsupported.map((text, index) => <p key={index} role="status">{text}</p>)}
+      <Composer
         {...rest}
         face="chat"
-        value=""
-        disabled
-        placeholder={rest.placeholder}
+        value={value}
+        onChange={setValue}
+        disabled={script === null || (!rewriting && (
+          script.busy || script.rewrite !== null || script.tone !== null || script.settings !== null ||
+          concept?.busy === true || concept?.pending != null || (sceneId === null && concept === null)
+        ))}
+        textOnly={sceneId !== null}
+        cancelActive={rewriting}
+        onCancel={rewriting ? stopRewrite : undefined}
+        onSubmit={async (attachments) => {
+          const text = value.trim();
+          if (rewriting) return;
+          if (sceneId === null) await sendConcept(text, attachments);
+          else await rewriteScene(sceneId, text);
+          setValue('');
+        }}
+        placeholder={t(number === null ? 'edit.composer.placeholder' : 'edit.composer.scenePlaceholder')}
         targetChip={number === null ? null : {
           label: t('edit.chat.target', { number }),
           removeLabel: t('edit.chat.targetRemove'),
@@ -1132,7 +1155,7 @@ export function PlaceholderComposer({
     return <EditComposer reason={reason} rest={rest} />;
   }
   if (view === 'script') {
-    return <ScriptComposer reason={reason} rest={rest} />;
+    return <ScriptComposer rest={rest} />;
   }
 
   if (snapshot === null) {
@@ -1145,6 +1168,27 @@ export function PlaceholderComposer({
     );
   }
 
+  return (
+    <div className="flex w-full flex-col gap-2">
+      <ValueChatResult snapshot={snapshot} />
+      <Composer
+        {...rest}
+        face="chat"
+        value={snapshot.draft}
+        onChange={setConceptDraft}
+        onSubmit={(attachments) => sendConcept(snapshot.draft, attachments)}
+        disabled={snapshot.busy || snapshot.readState === 'queued' || snapshot.readState === 'waiting'}
+        deployment={deployment}
+        menuAction={snapshot.document.confirmed
+          ? undefined
+          : { label: t('concept.entry.style'), onSelect: requestConceptStyleEntry }}
+      />
+    </div>
+  );
+}
+
+function ValueChatResult({ snapshot }: { snapshot: ConceptSnapshot }) {
+  const { t } = useLocale();
   const settings = snapshot.document.settings;
   const jobLabel =
     snapshot.job === null
@@ -1158,8 +1202,8 @@ export function PlaceholderComposer({
           }[snapshot.job.state],
         );
 
-  // The concept head carries the length, so the rail box stays one row; the step's
-  // one extra action, a style made from words, rides the box's `+` menu.
+  if (jobLabel === null && snapshot.error === null && snapshot.notes.length === 0 &&
+      snapshot.unsupported.length === 0 && snapshot.pending === null) return null;
   return (
     <div className="flex w-full flex-col gap-2">
       {jobLabel === null ? null : (
@@ -1173,7 +1217,7 @@ export function PlaceholderComposer({
       )}
       {snapshot.error === null ? null : <FailureLine className="px-1">{t(snapshot.error)}</FailureLine>}
       {snapshot.notes.length === 0 && snapshot.unsupported.length === 0 && snapshot.pending === null ? null : (
-        <details className="max-h-48 overflow-y-auto px-1 text-[15px]">
+        <details open={snapshot.unsupported.length > 0 || snapshot.pending?.status === 'proposed'} className="max-h-48 overflow-y-auto px-1 text-[15px]">
           <summary className="min-h-11 cursor-pointer">{t('concept.results')}</summary>
           {snapshot.notes.map((note, index) => <p key={`n${index}`}>{note}</p>)}
           {snapshot.unsupported.map((text, index) => <p key={`u${index}`}>{t('concept.unsupported')}: {text}</p>)}
@@ -1182,18 +1226,6 @@ export function PlaceholderComposer({
           ) : null}
         </details>
       )}
-      <Composer
-        {...rest}
-        face="chat"
-        value={snapshot.draft}
-        onChange={setConceptDraft}
-        onSubmit={(attachments) => sendConcept(snapshot.draft, attachments)}
-        disabled={snapshot.busy}
-        deployment={deployment}
-        menuAction={snapshot.document.confirmed
-          ? undefined
-          : { label: t('concept.entry.style'), onSelect: requestConceptStyleEntry }}
-      />
     </div>
   );
 }

@@ -26,7 +26,7 @@ scene_rewrite route는 대상 장면 하나를 고친다. 말투는 데이터 pa
 - 효과음을 넣거나 바꾸라고 할 때만 `sfx`를 적는다. `sfx_options`의 id만 쓰고 장면마다 두 개까지다.
 - `sfx`의 `line_index`는 이 응답의 `lines` 기준 0부터 세는 줄 번호다. `lines`를 넣지 않으면 지금 장면의 줄 번호다.
 - 지금 장면에 있는 효과음을 유지하려면 `scene.sfx`의 cue를 `sfx`에 그대로 다시 적는다. `sfx`를 넣으면 그 목록이 장면의 효과음 전체를 바꾼다.
-- 목소리, BGM, 그림체, template, 자막 방식, 장면 추가와 삭제, 다른 장면 고치기는 이 route가 하지 않는다. 그 요청은 `unsupported`에 영상 언어로 적는다.
+- 이 장면에서 바꿀 수 없는 요청은 일부만 처리할 때도 `unsupported`에 영상 언어로 이유와 대안을 적는다. 예: 장면 순서는 전체에 속하므로 대본에서 장면 카드를 끌어 바꾼다. 목소리와 BGM은 소리 탭, 그림체는 컨셉, 자막은 자막 설정에서 바꾼다.
 - 요청이 모호하면 바꾸지 않고 `notes`에 확인할 점을 영상 언어로 적는다. 사용자가 읽는 문장이다.
 
 ## Examples
@@ -41,7 +41,7 @@ scene_rewrite route는 대상 장면 하나를 고친다. 말투는 데이터 pa
 
 입력: `{"register":"neutral","instruction":"목소리를 더 차분하게 바꿔 줘","scene":{"id":"s_0yy2rmcgs4816a52axdfjcmeb1","lines":[{"display_text":"물은 90도로 맞춰요.","speech_text":"물은 구십 도로 맞춰요."}]}}`
 
-출력: `{"scene_id":"s_0yy2rmcgs4816a52axdfjcmeb1","unsupported":["목소리는 소리 탭에서 바꾼다."]}`
+출력: `{"scene_id":"s_0yy2rmcgs4816a52axdfjcmeb1","unsupported":["대사 고치기는 이 장면의 글만 다룬다. 목소리는 소리 탭에서 바꾼다."]}`
 
 ## Data policy
 

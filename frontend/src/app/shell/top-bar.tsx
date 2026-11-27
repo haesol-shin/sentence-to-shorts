@@ -1,10 +1,12 @@
 import type { ReactNode } from 'react';
 
 import { useConcept } from '@/features/concept/store';
+import { useEditOptional } from '@/features/edit/edit-context';
 import { EditNextAction } from '@/features/edit/next-action';
 import { EditTopBarStatus } from '@/features/edit/top-bar-status';
 import { ExportNextAction } from '@/features/export/next-action';
 import { waitingPercent } from '@/features/runtime/prepare';
+import { useScript } from '@/features/script/store';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { Button } from '@/components/Button/Button';
 import { MenuButton } from '@/components/MenuButton/MenuButton';
@@ -25,7 +27,16 @@ import { VideoSettings } from './video-settings';
  */
 function EditAction() {
   const prepare = useEditPrepare();
-  return <EditNextAction preparePercent={waitingPercent(prepare.view)} />;
+  const edit = useEditOptional();
+  const script = useScript();
+  const rewriting = script?.document.id.split('#')[0] === edit?.video?.id &&
+    (script?.busy || script?.rewrite != null || script?.settings != null || script?.tone != null);
+  const held = edit?.phase !== 'video' && (edit?.chatBusy || edit?.pending != null || rewriting);
+  return (
+    <fieldset disabled={held} className="contents">
+      <EditNextAction preparePercent={waitingPercent(prepare.view)} />
+    </fieldset>
+  );
 }
 
 /**
