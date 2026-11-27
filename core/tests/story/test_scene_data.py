@@ -100,7 +100,7 @@ def _visual(op: Any) -> SceneVisual:
 
 
 def test_19_scene_data_fills_only_the_requested_scenes(ctx: LocalJobContext) -> None:
-    video = _video(sfx_enabled=False)
+    video = _video(sfx_enabled=False, material_ids=(MATERIAL_ID,))
     first, _, last = video.scene_order
     llm = ScriptedLlm(
         _response(first, background_id="bg_stars"), _response(last)
@@ -114,6 +114,16 @@ def test_19_scene_data_fills_only_the_requested_scenes(ctx: LocalJobContext) -> 
     ]
     assert _visual(ops[0]).background_id == "bg_stars"
     assert _visual(ops[1]).background_id == "bg_village"
+    initial, next_scene = llm.requests
+    assert (initial.system, initial.output_schema) == (next_scene.system, next_scene.output_schema)
+    common, first_scene = initial.parts
+    assert common == next_scene.parts[0]
+    shared_data = json.loads(common.text)
+    assert shared_data["allowed"]["materials"] == [MATERIAL_ID]
+    assert shared_data["materials"][0]["id"] == MATERIAL_ID
+    assert "scene" not in shared_data
+    assert json.loads(first_scene.text)["scene"]["id"] == first
+    assert json.loads(next_scene.parts[1].text)["scene"]["id"] == last
 
 
 def test_19_scene_data_repairs_once_when_a_catalog_id_is_outside_the_list(

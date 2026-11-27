@@ -163,7 +163,11 @@ def test_17_template_with_caption_outside_the_safe_area_needs_a_repair(harness: 
     req = scenarios.TemplateRequest(video_id=video.id, base_revision=1, instruction="자막 아래로")
     ref = harness.service.generate_template(req, video, ctx=harness.ctx())
     assert harness.catalog.get("template", ref.id, ref.revision).regions.caption.y == 1040
-    assert "validation_error" in (harness.llm.requests[1].parts[1].text or "")
+    first, repair = harness.llm.requests
+    assert (first.system, first.output_schema) == (repair.system, repair.output_schema)
+    assert first.parts == repair.parts[:-1]
+    assert "Return corrected JSON" in (repair.parts[-1].text or "")
+    assert "validation_error" in (repair.parts[-1].text or "")
 
 
 def test_17_generated_template_draws_through_the_sandbox(harness: Harness) -> None:

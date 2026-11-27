@@ -324,7 +324,11 @@ def test_repair_accepts_a_valid_second_output() -> None:
         ctx=FakeContext(),
     )
     assert value.value == 3
-    assert len(llm.requests) == 2
+    first, repair = llm.requests
+    assert (first.system, first.output_schema) == (repair.system, repair.output_schema)
+    assert first.parts == repair.parts[:-1]
+    assert "Return corrected JSON" in (repair.parts[-1].text or "")
+    assert "validation_error" in (repair.parts[-1].text or "")
 
 
 def test_business_check_runs_inside_the_repair() -> None:

@@ -857,7 +857,9 @@ def build_view(video: Video, services: Services) -> VideoBuild: ...
 - 사용자 조작 시간은 초안 편집 시작부터 다음 행동까지 활성 구간이다. 대기와 비활성 탭은 분리한다.
 - provider 요청마다 usage event 하나를 남긴다. 재시도한 요청도 각각 남긴다. event ID는 `<job_id>:<attempt>:<call_seq>:<try>`이고 같은 ID를 다시 쓰면 무시한다. 항목은 소유자, job, attempt, stage, provider, model, `credential_id`, 입력·출력·cache 읽기·cache 쓰기 token, 결과(`ok`, `failed`), 기록 때의 단가 버전이다.
 - `input_tokens`는 cache 읽기와 cache 쓰기를 뺀 기본 단가 입력 token이다. provider가 cache를 포함한 입력 합계를 주면 adapter가 cache token을 빼서 기록한다. provider가 주지 않은 값은 null이다.
+- Anthropic API는 고정 시스템 프롬프트 끝에 5분 캐시 경계를 둔다. 장면 데이터 요청은 같은 영상의 설정·허용 ID·자료 블록 끝으로 경계를 옮기고 장면별 데이터는 그 뒤에 보낸다. 복구 지시와 오류는 캐시 경계 뒤에만 붙인다.
 - usage event가 사용량의 원본이다. event는 provider 요청이 끝날 때마다 바로 쓴다. 실패로 끝난 LLM 호출의 요청도 남는다. `Job.usage`는 성공한 호출의 job별 요약이며 합계와 명세에 쓰지 않는다.
+- 결과 화면의 입력 token 합계는 기본 입력과 cache 읽기·쓰기를 모두 포함한다. `/metrics`는 usage event에서 합산하며, 화면이 작업 요약을 대신 쓸 때도 같은 세 종류를 더한다.
 - 비용은 event에 저장하지 않고 합계를 낼 때 계산한다. 단가는 `core/config/prices.yaml`의 버전 있는 표(백만 token당 정수 micro USD)를 쓴다. 합계 줄마다 token 합에 단가를 곱한 값을 한 번 계산해 micro USD 정수로 half-up 반올림한다. 단가가 없는 model의 비용은 0이 아닌 null이다.
 - 사용자 key로 낸 호출의 비용은 사용자가 provider에 직접 내는 추정치다. 서비스 청구액에 더하지 않는다.
 - offline은 기존 프로젝트 열기·편집·결과 재생의 가능 범위를 표시한다. 로컬 모델 준비 여부에 따라 음성·렌더 가능 경로와 누락 모델을 정확히 알린다. LLM 생성·참고 분석은 연결이 필요하다. 전체 offline 앱이라고 설명하지 않는다.

@@ -7,7 +7,11 @@
     "parts": [
       {
         "kind": "text",
-        "text": "{\"allowed\":{\"assets\":[\"body_hero\",\"face_neutral\",\"expr_happy\",\"expr_surprised\",\"pose_idle\",\"pose_wave\",\"bg_village\",\"bg_stars\",\"skin_plain\",\"icon_arrow\",\"body_round\",\"face_glasses\",\"hair_short\",\"hair_long\",\"hat_cap\",\"hat_crown\",\"outfit_tie\",\"outfit_scarf\",\"prop_book\",\"prop_mug\",\"bg_park\",\"bg_classroom\",\"bg_city_night\",\"bg_moon_hill\",\"bg_bedroom_night\",\"bg_arcade_grid\",\"bg_castle\",\"bg_space\",\"skin_round\",\"skin_bevel\"],\"backgrounds\":[\"bg_village\",\"bg_stars\",\"bg_park\",\"bg_classroom\"],\"expressions\":[\"expr_happy\",\"expr_surprised\"],\"materials\":[],\"poses\":[\"pose_idle\",\"pose_wave\"],\"sfx\":[]},\"character_role\":\"presenter\",\"humor\":\"none\",\"language\":\"ko\",\"materials\":[],\"register\":\"friendly\",\"scene\":{\"beat_id\":\"first\",\"beat_label\":\"첫 번째\",\"id\":\"s_01m7gas719ej081v2y7zr1xye4\",\"lines\":[{\"display_text\":\"첫째, 신선한 원두\",\"id\":\"l_01m7gas719efv9pknm9je827dv\",\"speech_text\":\"첫째, 신선한 원두\"}]},\"theme_id\":\"day\"}"
+        "text": "{\"allowed\":{\"assets\":[\"body_hero\",\"face_neutral\",\"expr_happy\",\"expr_surprised\",\"pose_idle\",\"pose_wave\",\"bg_village\",\"bg_stars\",\"skin_plain\",\"icon_arrow\",\"body_round\",\"face_glasses\",\"hair_short\",\"hair_long\",\"hat_cap\",\"hat_crown\",\"outfit_tie\",\"outfit_scarf\",\"prop_book\",\"prop_mug\",\"bg_park\",\"bg_classroom\",\"bg_city_night\",\"bg_moon_hill\",\"bg_bedroom_night\",\"bg_arcade_grid\",\"bg_castle\",\"bg_space\",\"skin_round\",\"skin_bevel\"],\"backgrounds\":[\"bg_village\",\"bg_stars\",\"bg_park\",\"bg_classroom\"],\"expressions\":[\"expr_happy\",\"expr_surprised\"],\"materials\":[],\"poses\":[\"pose_idle\",\"pose_wave\"],\"sfx\":[]},\"character_role\":\"presenter\",\"humor\":\"none\",\"language\":\"ko\",\"materials\":[],\"register\":\"friendly\",\"theme_id\":\"day\"}"
+      },
+      {
+        "kind": "text",
+        "text": "{\"scene\":{\"beat_id\":\"hook\",\"beat_label\":\"훅\",\"id\":\"s_01m7yjwmy5fjcaj867yydpwp5g\",\"lines\":[{\"display_text\":\"커피 고르는 법\",\"id\":\"l_01m7yjwmy5ek38rnwr475dvrv5\",\"speech_text\":\"커피 고르는 법\"}]}}"
       }
     ],
     "output_schema": {
@@ -127,9 +131,9 @@
     },
     "max_output_tokens": 800
   },
-  "text": "{\"scene_id\": \"s_01m7gas719ej081v2y7zr1xye4\", \"background_id\": \"bg_village\", \"elements\": [], \"expression_id\": \"expr_happy\", \"pose_id\": \"pose_idle\"}",
+  "text": "{\"scene_id\":\"s_01m7yjwmy5fjcaj867yydpwp5g\",\"background_id\":\"bg_village\",\"elements\":[],\"expression_id\":\"expr_happy\",\"pose_id\":\"pose_idle\"}",
   "parsed": {
-    "scene_id": "s_01m7gas719ej081v2y7zr1xye4",
+    "scene_id": "s_01m7yjwmy5fjcaj867yydpwp5g",
     "background_id": "bg_village",
     "elements": [],
     "expression_id": "expr_happy",

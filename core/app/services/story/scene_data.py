@@ -251,6 +251,7 @@ def plan_scene_data(
     role_none = video.settings.format.character_role == CharacterRole.none
     ops: list[Op] = []
     total = len(chosen)
+    video_part = _video_part(video, choices, role_none)
     with ctx.stage(Stage.llm_scene_data):
         for done, scene in enumerate(chosen):
             ctx.progress(done=done, total=total, waiting_on=WaitingOn.llm)
@@ -258,7 +259,7 @@ def plan_scene_data(
                 route="scene_data",
                 task=LlmTask.scene_data,
                 schema_model=SceneDataResponse,
-                parts=_scene_parts(video, scene, choices, role_none),
+                parts=[video_part, _scene_part(scene)],
                 validate=lambda item: _scene_problems(item, scene, choices, role_none),
                 llm=llm,
                 ctx=ctx,
@@ -285,18 +286,32 @@ def _ordered_scenes(video: Video, scene_ids: Sequence[str]) -> list[Scene]:
     return [video.scenes[scene_id] for scene_id in video.scene_order if scene_id in wanted]
 
 
-def _scene_parts(
+def _video_part(
     video: Video,
-    scene: Scene,
     choices: SceneCatalog,
     role_none: bool,
-) -> list[LlmPart]:
+) -> LlmPart:
     payload = {
         "language": video.settings.language.value,
         "register": video.settings.format.register_value.value,
         "humor": video.settings.format.humor.value,
         "character_role": video.settings.format.character_role.value,
         "theme_id": video.settings.visual.theme_id,
+        "materials": [{"id": item.id, "text": item.text} for item in video.material],
+        "allowed": {
+            "backgrounds": list(choices.backgrounds),
+            "expressions": [] if role_none else list(choices.expressions),
+            "poses": [] if role_none else list(choices.poses),
+            "assets": list(choices.assets),
+            "materials": [item.id for item in video.material],
+            "sfx": [],
+        },
+    }
+    return LlmPart(kind="text", text=canonical_json(payload).decode("utf-8"))
+
+
+def _scene_part(scene: Scene) -> LlmPart:
+    payload = {
         "scene": {
             "id": scene.id,
             "beat_id": scene.beat_id,
@@ -310,17 +325,8 @@ def _scene_parts(
                 for line in scene.lines
             ],
         },
-        "materials": [{"id": item.id, "text": item.text} for item in video.material],
-        "allowed": {
-            "backgrounds": list(choices.backgrounds),
-            "expressions": [] if role_none else list(choices.expressions),
-            "poses": [] if role_none else list(choices.poses),
-            "assets": list(choices.assets),
-            "materials": [item.id for item in video.material],
-            "sfx": [],
-        },
     }
-    return [LlmPart(kind="text", text=canonical_json(payload).decode("utf-8"))]
+    return LlmPart(kind="text", text=canonical_json(payload).decode("utf-8"))
 
 
 def _scene_problems(
