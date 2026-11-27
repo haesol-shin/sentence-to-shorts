@@ -289,6 +289,11 @@ test('test_10a_script_confirmation_starts_at_scene_one_but_regular_navigation_re
 
   await openStage(page, '대본');
   await script.getByRole('button', { name: '이대로 영상 만들기' }).click();
+  // The script confirmation opens the scene check by itself; the scene behind it is the first one.
+  const check = page.getByRole('dialog', { name: '장면 확인' });
+  await expect(check).toBeVisible();
+  await check.getByRole('button', { name: '취소' }).click();
+  await expect(check).toBeHidden();
   await expect(page.getByRole('heading', { name: '장면 1' })).toBeVisible();
   await expect(page.locator('[data-slot="stage-scroll"]')).toHaveJSProperty('scrollTop', 0);
 });

@@ -109,11 +109,12 @@ async function confirmScript(page: Page): Promise<void> {
 
 /**
  * The scene dialog on the edit screen; a check that finds nothing starts the
- * making by itself, so the confirm press is also the make press. Returns the
- * job the export screen started.
+ * making by itself, so the confirm press is also the make press. Confirming the
+ * script opens the dialog by itself; a later visit opens it from the top bar.
+ * Returns the job the export screen started.
  */
-async function confirmScenes(page: Page): Promise<string> {
-  await page.getByRole('button', { name: '영상 만들기', exact: true }).click();
+async function confirmScenes(page: Page, { opened = false }: { opened?: boolean } = {}): Promise<string> {
+  if (!opened) await page.getByRole('button', { name: '영상 만들기', exact: true }).click();
   const started = page.waitForResponse((response) => response.url().endsWith('/generate'), { timeout: 240_000 });
   await page.getByRole('dialog').getByRole('button', { name: '영상 만들기' }).click();
   const response = await started;
@@ -168,7 +169,7 @@ test('test_1_one_sentence_runs_to_a_result_edit_undo_and_a_next_video', async ({
   await test.step('the script and the scenes are confirmed', async () => {
     await confirmScript(page);
     await shot(page, 'edit');
-    firstJob = await confirmScenes(page);
+    firstJob = await confirmScenes(page, { opened: true });
     const stored = await readVideo(page, session.videoId);
     expect(stored.video.stage).toBe('scenes_confirmed');
     expect(stored.video.scene_order.map((id) => stored.video.scenes[id].lines[0].display_text)).toEqual(SCRIPT_LINES);

@@ -50,6 +50,12 @@ const listeners = new Set<() => void>();
 const timers = new Set<number>();
 /** A finished check stays for its revision, so going back and forth never asks the model again. */
 const reports = new Map<string, PrecheckReport>();
+/**
+ * The revisions whose making already started by itself. The mark outlives the
+ * screen, so coming back to a video that was made never starts it again; the
+ * edit step's confirmation clears it for the video it confirms.
+ */
+const autoStarted = new Set<string>();
 
 function reportKey(view: VideoView): string {
   return `${view.video.id}@${view.video.revision}`;
@@ -82,11 +88,27 @@ export function configureExport(next: ExportApi | null): void {
   reports.clear();
   api = next ?? createExportApi();
   state = initial();
+  autoStarted.clear();
   for (const listener of listeners) listener();
 }
 
 export function useExportState(): ExportState {
   return useSyncExternalStore(subscribe, () => state);
+}
+
+/** Marks the revision as started by itself; `false` when it already was. */
+export function claimAutoStart(view: VideoView): boolean {
+  const key = reportKey(view);
+  if (autoStarted.has(key)) return false;
+  autoStarted.add(key);
+  return true;
+}
+
+/** A new confirmation in the edit step lets the video start by itself once more. */
+export function rearmAutoStart(videoId: string): void {
+  for (const key of autoStarted) {
+    if (key.startsWith(`${videoId}@`)) autoStarted.delete(key);
+  }
 }
 
 const SEEN_KEY = 's2s.export.cardSeen.';

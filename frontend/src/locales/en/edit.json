@@ -53,6 +53,7 @@
   "chat.target": "Scene {number}",
   "chat.targetRemove": "Clear target",
   "chat.unsupported": "This request is not supported yet.",
+  "chat.videoStopped": "Making the video was stopped.",
   "chat.you": "You",
   "composer.cancel": "Stop the request",
   "composer.placeholder": "What should change?",

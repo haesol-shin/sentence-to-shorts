@@ -53,6 +53,7 @@
   "chat.target": "장면 {number}",
   "chat.targetRemove": "대상 지우기",
   "chat.unsupported": "그 요청은 아직 다룰 수 없어요.",
+  "chat.videoStopped": "영상 만들기를 멈췄어요.",
   "chat.you": "나",
   "composer.cancel": "요청 멈추기",
   "composer.placeholder": "무엇을 바꿀까요?",

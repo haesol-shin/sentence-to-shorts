@@ -1,16 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/Button/Button';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import { useEdit } from './edit-context';
+import { clearSceneConfirmRequest, useSceneConfirmRequested } from './scene-confirm-request';
 import { SceneConfirm } from './scene-confirm';
 
 /**
  * The edit stage confirms the scenes before handing off to the making. While
  * the voice models are still downloading the button stays pressable: the job it
  * starts waits in the queue, and the preparing percent stands beside the stop
- * control so the control keeps saying what it stops.
+ * control so the control keeps saying what it stops. The button keeps one look
+ * while the edit session loads, so it never flickers from grey to black; a press
+ * before the scenes are there does nothing. Confirming the script opens the
+ * scene check here once the scenes can be shown.
  */
 export function EditNextAction({ preparePercent = null }: { preparePercent?: number | null }) {
   const { t } = useLocale();
@@ -18,6 +22,15 @@ export function EditNextAction({ preparePercent = null }: { preparePercent?: num
   const [confirmOpen, setConfirmOpen] = useState(false);
   const running = edit.phase === 'video';
   const busy = edit.phase === 'stills';
+  const loaded = edit.view !== null;
+  const asked = useSceneConfirmRequested(edit.video?.id ?? null);
+  const ready = loaded && edit.canStartVideo && !edit.busy && !running && !busy;
+
+  useEffect(() => {
+    if (!asked || !ready) return;
+    clearSceneConfirmRequest();
+    setConfirmOpen(true);
+  }, [asked, ready]);
 
   return (
     <>
@@ -36,8 +49,11 @@ export function EditNextAction({ preparePercent = null }: { preparePercent?: num
         running={running}
         stopLabel={t('edit.next.stop')}
         onStop={edit.stopVideo}
-        disabled={!running && (!edit.canStartVideo || edit.busy || busy)}
-        onClick={() => setConfirmOpen(true)}
+        aria-busy={loaded ? undefined : true}
+        disabled={loaded && !running && (!edit.canStartVideo || edit.busy || busy)}
+        onClick={() => {
+          if (loaded) setConfirmOpen(true);
+        }}
       >
         {t('edit.next.make')}
       </Button>

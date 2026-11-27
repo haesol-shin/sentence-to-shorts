@@ -14,6 +14,7 @@ import { Attribution, ResultFacts, UsageSection } from './result-facts';
 import { ResultPlayer } from './result-player';
 import { SceneRail } from './scene-rail';
 import {
+  claimAutoStart,
   closeCard,
   refreshMetrics,
   reloadExport,
@@ -110,19 +111,17 @@ export function ExportScreen({
 
   /*
    * The check before output shows when it finds something to look at. A clean
-   * check starts the making itself, once per revision, so the edit step's
-   * confirmation is the only press; a refused start shows the check with its
-   * own sentence and both next actions.
+   * check starts the making itself, once per revision however often this screen
+   * mounts, so the edit step's confirmation is the only press; a refused start
+   * shows the check with its own sentence and both next actions.
    */
   const { precheck } = state;
   const confirmed = view !== null && view.video.stage === 'scenes_confirmed';
   const clean = precheck.status === 'done' && precheck.report !== null && view !== null &&
     !precheckFindsProblem(view, precheck.report);
-  const autoStarted = useRef<number | null>(null);
   useEffect(() => {
     if (phase !== 'idle' || !confirmed || !clean || view === null) return;
-    if (autoStarted.current === view.video.revision) return;
-    autoStarted.current = view.video.revision;
+    if (!claimAutoStart(view)) return;
     void submit(() => onStart(view.video.revision));
   });
 

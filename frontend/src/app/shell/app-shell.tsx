@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 
 import { useEditOptional } from '@/features/edit/edit-context';
+import { SceneConfirmNoticeContext } from '@/features/edit/scene-confirm';
 import { useActivityReporting } from '@/features/export/activity';
-import { useExportState } from '@/features/export/store';
+import { rearmAutoStart, useExportState } from '@/features/export/store';
+import { PrepareNotice } from '@/features/runtime/prepare-notice';
+import { Notice } from '@/components/Notice/Notice';
 import { StageScrollProvider } from '@/shared/lib/stage-scroll';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import { cn } from '@/shared/lib/utils';
@@ -10,7 +13,7 @@ import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
 import { ConversationLog } from './conversation';
 import { EditBridge } from './edit-bridge';
-import { EditPrepareNotice, EditPrepareProvider } from './edit-prepare';
+import { EditPrepareNotice, EditPrepareProvider, useEditPrepare } from './edit-prepare';
 import { ShellViewProvider } from './shell-view';
 import { Sidebar } from './sidebar';
 import { TopBar } from './top-bar';
@@ -25,6 +28,19 @@ const SCROLLED_AT = 24;
  */
 const STAGE_MAX_WIDTH =
   'calc(var(--layout-scene-col-w) + var(--layout-gutter) * 2 + 100cqh * 462 / 796 * 9 / 16 + var(--layout-scene-panel-max-w))';
+
+/**
+ * The scene check's own word about the voice files: the notice a stopped or
+ * retrying download owes, or a sentence while the files are still coming.
+ */
+function SceneConfirmVoiceNotice() {
+  const { t } = useLocale();
+  const prepare = useEditPrepare();
+  if (prepare.view.state === 'waiting' && !prepare.retrying) {
+    return <Notice>{t('shell.prepare.waiting')}</Notice>;
+  }
+  return <PrepareNotice status={prepare} />;
+}
 
 function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
   videoId: string | null;
@@ -42,6 +58,8 @@ function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
   useEffect(() => {
     if (editForVideo === null) return;
     if (editForVideo.confirmedForOutput) {
+      // A new confirmation starts the making again; coming back to the result never does.
+      if (videoId !== null) rearmAutoStart(videoId);
       editForVideo.acknowledgeOutput();
       if (view === 'edit') onStage('export');
     }
@@ -53,7 +71,7 @@ function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
         if (view === 'edit' && editForVideo.job?.state !== 'cancelled') onStage('export');
       }
     }
-  }, [editForVideo, onStage, view]);
+  }, [editForVideo, onStage, videoId, view]);
 
   return null;
 }
@@ -123,13 +141,15 @@ export function AppShell({
           <Sidebar view={view} onNewVideo={onNewVideo} brand={brand} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <EditPrepareProvider active={view === 'edit'}>
-              <TopBar
-                view={view}
-                videoId={videoId}
-                onStage={onStage}
-                onNewVideo={onNewVideo}
-                status={keyboardOpen ? jobStatus : null}
-              />
+              <SceneConfirmNoticeContext.Provider value={<SceneConfirmVoiceNotice />}>
+                <TopBar
+                  view={view}
+                  videoId={videoId}
+                  onStage={onStage}
+                  onNewVideo={onNewVideo}
+                  status={keyboardOpen ? jobStatus : null}
+                />
+              </SceneConfirmNoticeContext.Provider>
               {view === 'edit' && !keyboardOpen ? <EditPrepareNotice /> : null}
             </EditPrepareProvider>
             {/* While the keys are up the phone shows the sheet: step, panel and input. */}

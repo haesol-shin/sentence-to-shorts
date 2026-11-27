@@ -80,6 +80,7 @@
   "prepare.retryAt": "Next try {time}",
   "prepare.retrySent": "Downloading the voice files again.",
   "prepare.retrying": "The internet connection dropped, so the voice files will download again.",
+  "prepare.waiting": "The voice files are being prepared. Making the video continues once they are ready.",
   "scroll.jump": "Scroll down",
   "session.connecting": "Connecting.",
   "session.missing": "Open this again with the connection code shown on the computer.",
