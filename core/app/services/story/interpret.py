@@ -20,6 +20,7 @@ from app.schemas.settings import Settings
 from app.schemas.video import Video
 from app.services.story.patch import (
     SettingsValues,
+    SkipReason,
     ValuePatch,
     build_ops,
     check_catalog_ids,
@@ -36,6 +37,21 @@ MAX_EXTRA_INSTRUCTIONS = 20
 EMPTY_MESSAGE = {
     Language.ko: "무엇을 바꿀지 한 문장으로 알려 주세요.",
     Language.en: "Tell me in one sentence what to change.",
+}
+
+_REFUSAL_HINT = {
+    SkipReason.locked: {
+        Language.ko: "잠긴 값이에요. 설정에서 잠금을 풀고 다시 요청해 주세요.",
+        Language.en: "This value is locked. Unlock it in settings and ask again.",
+    },
+    SkipReason.outside_target: {
+        Language.ko: "현재 대상에 없는 값이에요. 대상 칩을 지우고 다시 요청해 주세요.",
+        Language.en: "This value is outside the current target. Clear the target and ask again.",
+    },
+    SkipReason.lower_origin: {
+        Language.ko: "직접 고른 값을 보존했어요. 설정에서 그 값을 직접 바꿔 주세요.",
+        Language.en: "Your prior choice was kept. Change it directly in settings.",
+    },
 }
 
 
@@ -171,12 +187,20 @@ def interpret(
                 )
             )
         unsupported = [
-            f"{EXTRA_INSTRUCTIONS_PATH}: full, not saved: {item[:150]}"
+            (
+                f"추가 지시가 가득 차서 저장하지 않았어요: {item[:100]}. "
+                "기존 지시를 정리하고 다시 요청해 주세요."
+                if language is Language.ko
+                else f"No room to save this instruction: {item[:100]}. "
+                "Remove a saved instruction and ask again."
+            )
             for item in dropped
         ] + unsupported
     outcome = build_ops(video, patches, target=target)
     notes = list(out.notes)
-    unsupported.extend(f"{path}: {reason.value}" for path, reason in outcome.skipped)
+    unsupported.extend(
+        f"{path}: {_REFUSAL_HINT[reason][language]}" for path, reason in outcome.skipped
+    )
     return Proposal(ops=list(outcome.ops), notes=notes[:5], unsupported=unsupported[:10])
 
 

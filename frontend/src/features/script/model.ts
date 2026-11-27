@@ -348,5 +348,8 @@ export function buildRewriteProposal(
     return null;
   }
   const before = scene.lines.map((line) => line.display_text);
-  return { sceneId, before, after: rewriteLines(before) };
+  const after = rewriteLines(before).map((text, index) => ({
+    ...scene.lines[index], display_text: text, speech_text: text,
+  }));
+  return { sceneId, before, after };
 }

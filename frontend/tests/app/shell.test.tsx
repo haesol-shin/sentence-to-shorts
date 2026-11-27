@@ -114,13 +114,20 @@ test('test_10a_the_conversation_opens_with_the_sent_sentence', async () => {
 });
 
 test('test_10a_confirming_the_concept_opens_the_script_step', async () => {
-  await renderApp();
+  let state = 'queued';
+  await renderApp({
+    ...shellRoutes(),
+    [`GET ${DRAFT_JOB_PATH}`]: () => ({ status: 200, body: draftAnswer(state) }),
+  });
   sendSentence('커피를 고르는 세 가지 기준');
   await screen.findByRole('heading', { name: '컨셉' });
 
   const footer = () => document.querySelector<HTMLElement>('footer.concept-footer')!;
-  await waitFor(() => expect(within(footer()).getByRole<HTMLButtonElement>('button', { name: '정하고 대본 만들기' }).disabled).toBe(false));
-  fireEvent.click(within(footer()).getByRole('button', { name: '정하고 대본 만들기' }));
+  const confirm = () => within(footer()).getByRole<HTMLButtonElement>('button', { name: '정하고 대본 만들기' });
+  expect(confirm().disabled).toBe(true);
+  state = 'succeeded';
+  await waitFor(() => expect(confirm().disabled).toBe(false), { timeout: 5000 });
+  fireEvent.click(confirm());
   const dialog = document.querySelector<HTMLElement>('dialog.concept-dialog')!;
   fireEvent.click(within(dialog).getByRole('button', { name: '정하고 대본 만들기', hidden: true }));
 

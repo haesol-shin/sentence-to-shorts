@@ -322,7 +322,7 @@ test('test_10a_the_edit_composer_has_no_example_chips', async ({ page }) => {
   await openEdit(page);
   const composer = page.locator('[data-slot="conversation"] [data-slot="composer"]');
   await expect(composer).toBeVisible();
-  await expect(composer.locator('textarea')).toHaveAttribute('placeholder', '무엇을 바꿀까요?');
+  await expect(composer.locator('textarea')).toHaveAttribute('placeholder', /더 짧게/u);
   await expect(composer.locator('[data-slot="composer-action"]')).toHaveCount(0);
   await expect(composer.locator('select')).toHaveCount(0);
 });

@@ -80,7 +80,7 @@ export interface ConceptForget {
   changes?: ConceptChange[];
 }
 
-export type ConceptReadState = 'idle' | 'waiting' | 'ready' | 'failed';
+export type ConceptReadState = 'idle' | 'queued' | 'waiting' | 'ready' | 'failed';
 
 export interface ConceptSnapshot {
   document: ConceptDocument;

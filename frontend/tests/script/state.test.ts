@@ -281,7 +281,7 @@ describe('script state', () => {
 
     await rewriteScene(id);
     expect(snapshot().rewrite?.sceneId).toBe(id);
-    expect(snapshot().rewrite?.after[0]?.startsWith('다시 말하면, ')).toBe(true);
+    expect(snapshot().rewrite?.after[0]?.display_text).not.toBe(original);
 
     applyRewrite();
     expect(snapshot().changedSceneIds).toContain(id);

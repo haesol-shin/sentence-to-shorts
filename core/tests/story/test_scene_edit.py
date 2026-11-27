@@ -156,9 +156,12 @@ def test_19_scene_rewrite_returns_only_the_target_scene_lines(
 ) -> None:
     video = _video()
     target = video.scene_order[1]
-    llm = ScriptedLlm(_response(target, "게임으로 바꿔요."))
+    output = _response(target, "게임으로 바꿔요.")
+    output["unsupported"] = ["장면 순서는 전체에 속해요. 장면 카드를 끌어 바꿔 주세요."]
+    llm = ScriptedLlm(output)
 
-    result = plan_scene_rewrite(video, target, "더 짧게", llm=llm, ctx=ctx)
+    instruction = "더 짧게, 장면 순서도 바꿔 줘"
+    result = plan_scene_rewrite(video, target, instruction, llm=llm, ctx=ctx)
 
     assert result.scene_id == target
     assert len(result.ops) == 1
@@ -166,6 +169,8 @@ def test_19_scene_rewrite_returns_only_the_target_scene_lines(
     assert op.op == "set"
     assert op.path == f"/scenes/{target}/lines"
     assert [line["display_text"] for line in op.value] == ["게임으로 바꿔요."]
+    assert json.loads(llm.requests[0].parts[-1].text or "{}")["instruction"] == instruction
+    assert result.unsupported == output["unsupported"]
 
 
 def test_19_scene_rewrite_keeps_scene_id_and_order(ctx: LocalJobContext) -> None:

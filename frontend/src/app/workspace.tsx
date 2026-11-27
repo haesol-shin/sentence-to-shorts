@@ -8,7 +8,7 @@ import {
   submitDraft,
   type Language,
 } from '@/shared/api/client';
-import { attachConceptExtras, beginConcept, reloadConcept } from '@/features/concept/store';
+import { attachConceptExtras, beginConcept, reloadConcept, setConceptDraftQueued } from '@/features/concept/store';
 import type { Attachment } from '@/features/concept/types';
 import { resetRememberedScene } from '@/features/edit/edit-context';
 import { clearSceneConfirmRequest, requestSceneConfirm } from '@/features/edit/scene-confirm-request';
@@ -142,6 +142,7 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
         card_id: card?.id ?? null,
       });
       if (nextPreset.current === preset) nextPreset.current = null;
+      setConceptDraftQueued(created.id, true);
       setDraftRead('waiting');
       setJobId(started.id);
       sessionSeq.current += 1;
@@ -173,6 +174,10 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
   const draftWritten = draftJob?.state === 'succeeded' ? draftJob.id : null;
   const draftApplied = draftJob?.result?.status === 'applied';
   const openVideoId = video?.id ?? null;
+  const draftFailed = draftJob?.state === 'failed' || draftJob?.state === 'cancelled';
+  useEffect(() => {
+    if (openVideoId !== null && draftFailed) setConceptDraftQueued(openVideoId, false);
+  }, [openVideoId, draftFailed]);
   // The draft job writes the concept values, so the screen reads the video
   // again before it starts the files and links held back at the start.
   useEffect(() => {
@@ -292,7 +297,6 @@ function WorkspaceBody({ session }: { session: SessionResult }) {
             label={t('shell.stage.composerPlaceholder')}
             placeholder={t('edit.composer.placeholder')}
             sendLabel={t('shell.first.send')}
-            reason={t('shell.stage.composerReason')}
           />
         )
       }

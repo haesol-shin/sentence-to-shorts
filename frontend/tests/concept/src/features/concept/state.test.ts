@@ -22,6 +22,7 @@ import {
   resetConceptSessions,
   sendConcept,
   setConceptDraft,
+  setConceptDraftQueued,
   toggleConceptLock,
   undoConcept,
   useConcept,
@@ -110,6 +111,21 @@ test('test_a_picked_card_shows_when_the_server_opens_the_video_with_the_default_
 
   await reloadConcept(current().document.id, true);
   expect(current().document.settings.format.card_id).toBeNull();
+});
+
+test('test_8a_concept_cannot_be_confirmed_while_its_draft_is_queued', async () => {
+  await beginConcept({ topic: '합성 주제', language: 'ko' });
+  await reloadConceptCatalog();
+  const id = current().document.id;
+  setConceptDraftQueued(id, true);
+
+  await expect(confirmConcept()).rejects.toThrow('concept.error.busy');
+  expect(current().document.confirmed).toBe(false);
+  expect(methodCount('confirm')).toBe(0);
+
+  await reloadConcept(id, true);
+  await confirmConcept();
+  expect(current().document.confirmed).toBe(true);
 });
 
 test('test_confirmed_concept_values_survive_route_remount_and_save_before_confirm', async () => {

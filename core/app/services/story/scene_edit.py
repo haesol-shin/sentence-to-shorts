@@ -163,7 +163,7 @@ class SceneRewrite:
 def plan_scene_rewrite(
     video: Video,
     scene_id: str,
-    instruction: str,
+    instruction: str = "",
     *,
     llm: LlmPort,
     ctx: JobContext,

@@ -1,19 +1,51 @@
 import {
   applyVideoChange,
+  cancelVideoJob,
   confirmVideoScript,
+  getJson,
   newIdempotencyKey,
+  readJob,
   readVideo,
+  rejectVideoChange,
+  submitScriptRebuild,
   submitVideoChange,
+  submitVideoMessage,
+  type Job,
   type Video,
 } from '@/shared/api/client';
 import type { components } from '@/shared/api/generated/openapi';
 
-import { ScriptApiError } from './api';
+import { ScriptApiError, type ScriptApi } from './api';
 import { isConfirmed } from './model';
-import type { ScriptDocument, ScriptTarget } from './types';
+import type { ScriptDocument, ScriptSettingsProposal, ScriptTarget } from './types';
 
 type Scene = components['schemas']['Scene'];
 type ChangeRequest = components['schemas']['ChangeRequest'];
+type ChangePlan = components['schemas']['ChangePlan'];
+
+async function finishStoryJob(job: Job, signal?: AbortSignal): Promise<Job> {
+  let cancelled = false;
+  while (job.state === 'queued' || job.state === 'running' || job.state === 'cancelling') {
+    if (signal?.aborted && !cancelled && job.state !== 'cancelling') {
+      cancelled = true;
+      try {
+        job = await cancelVideoJob(job.id);
+        continue;
+      } catch {
+        // The job may have finished just before the cancellation request.
+      }
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 300));
+    job = (await readJob(job.id, null)).job ?? job;
+  }
+  if (job.state === 'cancelled') throw new ScriptApiError('cancelled', 'The rewrite stopped');
+  if (job.state !== 'succeeded') throw new ScriptApiError('script_invalid', 'The rewrite did not succeed');
+  return job;
+}
+
+function texts(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((text): text is string => typeof text === 'string') : [];
+}
 
 function fromVideo(video: Video, sessionId: string): ScriptDocument {
   if (video.script === null || video.scene_order.length === 0) {
@@ -101,13 +133,52 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
 
   let known = draft;
   let knownSceneCount = initial.settings.format.scene_count;
-  let pending: { document: ScriptDocument; baseRevision: number; key: string } | null = null;
+  let pending: { document: ScriptDocument; count: number; baseRevision: number; key: string } | null = null;
 
-  const confirm = async (next: ScriptDocument): Promise<ScriptDocument> => {
+  const structureOf = (document: ScriptDocument): string =>
+    JSON.stringify(document.scene_order.map((id) => [id, document.scenes[id]?.lines.map((line) => line.id)]));
+
+  /**
+   * Adopt what the conversation changed on the server without dropping unsaved
+   * lines: the server keeps its structure and settings, and the local text of
+   * every line that still exists here stays. Structural edits made here are not
+   * merged, so the next save reports the conflict instead of overwriting them.
+   */
+  const sync: NonNullable<ScriptApi['sync']> = async (next) => {
     const head = (await readVideo(videoId)).video;
-    const current = fromVideo(head, next.id);
+    const server = fromVideo(head, next.id);
+    if (structureOf(server) !== structureOf(known)) {
+      throw new ScriptApiError('revision_conflict', 'The script changed on the server');
+    }
+    const merged: ScriptDocument = {
+      ...server,
+      scenes: Object.fromEntries(server.scene_order.map((id) => {
+        const scene = server.scenes[id];
+        const local = next.scenes[id];
+        const lines = scene.lines.map((line) => {
+          const edited = local?.lines.find((entry) => entry.id === line.id);
+          return edited === undefined ? line : { ...line, display_text: edited.display_text, speech_text: edited.speech_text };
+        });
+        return [id, { ...scene, lines }];
+      })),
+    };
+    known = server;
+    knownSceneCount = head.settings.format.scene_count;
+    pending = null;
+    return merged;
+  };
+
+  const save = async (
+    given: ScriptDocument,
+    explicitCount?: number,
+  ): Promise<{ revision: number; document: ScriptDocument }> => {
+    const head = (await readVideo(videoId)).video;
+    const current = fromVideo(head, given.id);
     const currentContent = scriptContent(current);
     const currentCount = head.settings.format.scene_count;
+    const next = given;
+    const count = explicitCount ?? (next.scene_order.length === known.scene_order.length
+      ? knownSceneCount : next.scene_order.length);
     const matches = (saved: ScriptDocument, count: number) =>
       current.register === saved.register &&
       current.target_duration_s === saved.target_duration_s &&
@@ -115,7 +186,7 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
 
     // Recover a save whose response was lost, but never overwrite other script edits.
     if (!matches(known, knownSceneCount) &&
-        (pending === null || !matches(pending.document, pending.document.scene_order.length))) {
+        (pending === null || !matches(pending.document, pending.count))) {
       throw new ScriptApiError('revision_conflict', 'The script changed on the server');
     }
     known = current;
@@ -128,8 +199,8 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
     if (next.register !== current.register) {
       ops.push({ op: 'set', path: '/settings/format/register', value: next.register, origin: 'user' });
     }
-    if (next.scene_order.length !== currentCount) {
-      ops.push({ op: 'set', path: '/settings/format/scene_count', value: next.scene_order.length, origin: 'user' });
+    if (count !== currentCount) {
+      ops.push({ op: 'set', path: '/settings/format/scene_count', value: count, origin: 'user' });
     }
     if (scriptContent(next) !== currentContent) {
       ops.push({ op: 'set_script', script: next.script, scenes: toServerScenes(next, head) });
@@ -137,8 +208,8 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
 
     let revision = current.revision;
     if (ops.length > 0) {
-      if (pending?.document !== next || pending.baseRevision !== revision) {
-        pending = { document: next, baseRevision: revision, key: newIdempotencyKey() };
+      if (pending?.document !== next || pending.count !== count || pending.baseRevision !== revision) {
+        pending = { document: next, count, baseRevision: revision, key: newIdempotencyKey() };
       }
       const change = await submitVideoChange(videoId, {
         base_revision: revision,
@@ -147,7 +218,7 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
         ops,
       }, pending.key);
       if (change.status === 'proposed' && change.requires_confirmation) {
-        // The footer press confirms this exact script and its plan; there is no preview request.
+        // This saves only the user's existing edits, not the model's proposal.
         revision = (await applyVideoChange(change.id, revision)).revision;
       } else if (change.status === 'applied' && change.applied_revision !== null) {
         revision = change.applied_revision;
@@ -155,16 +226,72 @@ export async function openServerScript(videoId: string, target: ScriptTarget) {
         throw new ScriptApiError('revision_conflict', 'The script change was not applied');
       }
       known = next;
-      knownSceneCount = next.scene_order.length;
+      knownSceneCount = count;
     }
     pending = null;
+    return { revision, document: next };
+  };
+
+  const confirm = async (next: ScriptDocument): Promise<ScriptDocument> => {
+    const { revision, document: saved } = await save(next, next.scene_order.length);
 
     const confirmed = await confirmVideoScript(videoId, revision);
     if (!isConfirmed(confirmed)) {
       throw new ScriptApiError('script_not_confirmed', 'The server did not confirm the script');
     }
-    return { ...next, revision: confirmed.revision, stage: confirmed.stage };
+    return { ...saved, revision: confirmed.revision, stage: confirmed.stage };
   };
 
-  return { document, confirm };
+  const rewrite: ScriptApi['rewrite'] = async (next, sceneId, options) => {
+    const { signal, instruction } = options ?? {};
+    const stopped = new ScriptApiError('cancelled', 'The rewrite stopped');
+    if (signal?.aborted) throw stopped;
+    const { revision } = await save(next);
+    if (signal?.aborted) throw stopped;
+    const path = `/scenes/${sceneId}/lines`;
+    const job = await finishStoryJob(await submitVideoMessage(videoId, {
+      base_revision: revision, text: instruction ?? '', target: { scene_id: sceneId, pointer: path },
+    }), signal);
+    const result = job.result;
+    const changeId = result?.change_id;
+    if (typeof changeId !== 'string') {
+      if (signal?.aborted) throw stopped;
+      return { lines: null, unsupported: [...texts(result?.notes), ...texts(result?.unsupported)] };
+    }
+    const plan = await getJson<ChangePlan>(`/changes/${encodeURIComponent(changeId)}`);
+    if (plan.status !== 'proposed') throw new ScriptApiError('revision_conflict', 'The rewrite is no longer proposed');
+    // Script owns the draft. Release the server proposal and keep its candidate
+    // locally so applying it never replaces other unsaved edits with a reread.
+    await rejectVideoChange(plan.id);
+    if (signal?.aborted) throw stopped;
+    const op = plan.ops.find((item) => item.op === 'set' && item.path === path);
+    const lines = op?.op === 'set' && Array.isArray(op.value) ? op.value as Scene['lines'] : null;
+    const dropped = plan.ops.some((item) => item !== op);
+    const droppedNote = next.language === 'ko'
+      ? '장면 제목과 효과음 변경은 대본에서 적용하지 않아요. 편집 단계에서 바꿔 주세요.'
+      : 'Scene titles and sound effects are not applied in the script. Change them in the edit step.';
+    return {
+      lines: lines?.map(({ id, display_text, speech_text }) => ({ id, display_text, speech_text })) ?? null,
+      unsupported: [...texts(plan.notes), ...texts(plan.unsupported), ...(dropped ? [droppedNote] : [])],
+    };
+  };
+
+  const rebuild = async (next: ScriptDocument, { duration, count }: ScriptSettingsProposal): Promise<ScriptDocument> => {
+    const { revision } = await save({ ...next, target_duration_s: duration }, count);
+    const job = await finishStoryJob(await submitScriptRebuild(videoId, revision));
+    const changeId = job.result?.change_id;
+    if (typeof changeId !== 'string') throw new ScriptApiError('script_invalid', 'Missing script proposal');
+    const status = job.result?.status;
+    if (status !== 'proposed' && status !== 'applied') {
+      throw new ScriptApiError('revision_conflict', 'The script rewrite is stale');
+    }
+    const head = status === 'proposed'
+      ? await applyVideoChange(changeId, revision)
+      : (await readVideo(videoId)).video;
+    known = fromVideo(head, next.id);
+    knownSceneCount = head.settings.format.scene_count;
+    return known;
+  };
+
+  return { document, confirm, rewrite, rebuild, sync };
 }

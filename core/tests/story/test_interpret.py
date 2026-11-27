@@ -90,7 +90,7 @@ def test_locked_value_is_not_changed_by_chat() -> None:
         video, "반말로 바꿔 줘", WHOLE, {"values": {"register": "casual"}}
     )
     assert proposal.ops == []
-    assert "/settings/format/register: locked" in proposal.unsupported
+    assert any("잠긴 값" in item and "잠금을 풀고" in item for item in proposal.unsupported)
 
 
 def test_target_pointer_limits_changes() -> None:
@@ -103,7 +103,10 @@ def test_target_pointer_limits_changes() -> None:
         {"values": {"register": "casual", "bgm_mood": "calm"}},
     )
     assert [op.path for op in proposal.ops] == ["/settings/format/register"]
-    assert any("outside_target" in item for item in proposal.unsupported)
+    assert any(
+        "현재 대상에 없는 값" in item and "대상 칩을 지우고" in item
+        for item in proposal.unsupported
+    )
 
 
 def test_scene_target_keeps_settings_unchanged() -> None:
@@ -113,7 +116,10 @@ def test_scene_target_keeps_settings_unchanged() -> None:
         video, "반말로 바꿔 줘", target, {"values": {"register": "casual"}}
     )
     assert proposal.ops == []
-    assert any("outside_target" in item for item in proposal.unsupported)
+    assert any(
+        "현재 대상에 없는 값" in item and "대상 칩을 지우고" in item
+        for item in proposal.unsupported
+    )
 
 
 def test_extra_instructions_append_up_to_the_cap() -> None:
@@ -130,7 +136,7 @@ def test_extra_instructions_append_up_to_the_cap() -> None:
     assert len(merged) == 20
     assert merged[19] == "새 메모 하나"
     assert any(
-        "새 메모 둘" in item and "not saved" in item for item in proposal.unsupported
+        "새 메모 둘" in item and "기존 지시를 정리" in item for item in proposal.unsupported
     )
     assert proposal.ops[0].origin is Origin.user
 

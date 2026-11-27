@@ -37,6 +37,10 @@ import type {
 interface SessionState {
   document: ScriptDocument;
   confirm: ScriptApi['confirm'];
+  requestRewrite: ScriptApi['rewrite'];
+  sync: ScriptApi['sync'] | null;
+  conceptRevision: number | null;
+  rebuild: ((document: ScriptDocument, settings: NonNullable<ScriptSnapshot['settings']>) => Promise<ScriptDocument>) | null;
   confirmedDocument: ScriptDocument | null;
   serverBacked: boolean;
   busy: boolean;
@@ -45,6 +49,8 @@ interface SessionState {
   workingSceneId: string | null;
   rewrite: RewriteProposal | null;
   tone: ToneProposal | null;
+  settings: ScriptSnapshot['settings'];
+  unsupported: string[];
   changedSceneIds: string[];
   highlightedSceneId: string | null;
   focusToken: number;
@@ -85,11 +91,18 @@ function subscribe(listener: () => void): () => void {
 function createSession(
   document: ScriptDocument,
   confirm: ScriptApi['confirm'],
+  requestRewrite: ScriptApi['rewrite'],
+  rebuild: SessionState['rebuild'],
+  sync: SessionState['sync'],
   serverBacked: boolean,
 ): SessionState {
   return {
     document,
     confirm,
+    requestRewrite,
+    rebuild,
+    sync,
+    conceptRevision: null,
     confirmedDocument: null,
     serverBacked,
     busy: false,
@@ -98,6 +111,8 @@ function createSession(
     workingSceneId: null,
     rewrite: null,
     tone: null,
+    settings: null,
+    unsupported: [],
     changedSceneIds: [],
     highlightedSceneId: null,
     focusToken: 0,
@@ -115,7 +130,7 @@ function jobRunning(state: SessionState): boolean {
 }
 
 function structureLocked(state: SessionState): boolean {
-  return jobRunning(state) || state.rewrite !== null || state.tone !== null;
+  return jobRunning(state) || state.rewrite !== null || state.tone !== null || state.settings !== null;
 }
 
 function blockedReason(state: SessionState): string | null {
@@ -128,6 +143,7 @@ function blockedReason(state: SessionState): string | null {
   if (state.tone !== null) {
     return 'script.reason.tone';
   }
+  if (state.settings !== null) return 'script.reason.settings';
   if (hasDuplicateOrder(state.document)) {
     return 'script.reason.duplicateOrder';
   }
@@ -153,11 +169,13 @@ function buildSnapshot(): ScriptSnapshot | null {
     workingSceneId: state.workingSceneId,
     rewrite: state.rewrite,
     tone: state.tone,
+    settings: state.settings,
+    unsupported: state.unsupported,
     changedSceneIds: state.changedSceneIds,
     highlightedSceneId: state.highlightedSceneId,
     focusToken: state.focusToken,
     totalSeconds: totalSeconds(state.document),
-    canUndo: state.undo !== null && !jobRunning(state) && state.rewrite === null,
+    canUndo: state.undo !== null && !jobRunning(state) && state.rewrite === null && state.settings === null,
     confirmed: state.serverBacked ? state.confirmedDocument === state.document : isConfirmed(state.document),
     nextBlockedReason: blockedReason(state),
   };
@@ -282,14 +300,17 @@ export function ensureScript(
     ? currentApi.open(language, target).then((document) => ({
         document,
         confirm: currentApi.confirm.bind(currentApi),
+        rewrite: currentApi.rewrite.bind(currentApi),
+        rebuild: null,
+        sync: null,
       }))
     : openServerScript(serverVideoId, target);
   opening = opened
-    .then(({ document, confirm }) => {
+    .then(({ document, confirm, rewrite, rebuild, sync }) => {
       if (token !== openToken) {
         return;
       }
-      session = createSession(document, confirm, serverVideoId !== null);
+      session = createSession(document, confirm, rewrite, rebuild, sync ?? null, serverVideoId !== null);
       opening = null;
       emit();
     })
@@ -302,6 +323,53 @@ export function ensureScript(
       emit();
     });
   return opening;
+}
+
+export function proposeScriptSettings({ duration, count }: Partial<NonNullable<ScriptSnapshot['settings']>>): void {
+  const state = requireSession();
+  if (state === null || structureLocked(state)) return;
+  const nextDuration = duration ?? state.document.target_duration_s;
+  const nextCount = count ?? (duration === undefined ? undefined : getScriptSceneCounts()[DURATIONS.indexOf(duration)])
+    ?? state.document.scene_order.length;
+  if (nextDuration === state.document.target_duration_s && nextCount === state.document.scene_order.length) return;
+  state.settings = { duration: nextDuration, count: nextCount };
+  state.error = null;
+  emit();
+}
+
+export function discardScriptSettings(): void {
+  const state = requireSession();
+  if (state === null || state.settings === null) return;
+  state.settings = null;
+  emit();
+}
+
+export async function applyScriptSettings(): Promise<void> {
+  const state = requireSession();
+  if (state === null || state.settings === null || jobRunning(state)) return;
+  const settings = state.settings;
+  state.settings = null;
+  if (state.rebuild === null) {
+    if (settings.duration !== state.document.target_duration_s) setLength(settings.duration);
+    else setSceneCount(settings.count);
+    return;
+  }
+  state.busy = true;
+  state.error = null;
+  emit();
+  try {
+    const rebuilt = await state.rebuild(state.document, settings);
+    markUndo(state);
+    state.document = rebuilt;
+    state.changedSceneIds = [...rebuilt.scene_order];
+    dropMissingTargets(state);
+  } catch {
+    state.error = 'script.error.rewrite';
+    state.settings = settings;
+  } finally {
+    state.busy = false;
+    emit();
+  }
 }
 
 export function setLength(duration: TargetDuration): void {
@@ -330,7 +398,7 @@ export function setSceneCount(count: number): void {
 
 export function setRegister(register: Register): void {
   const state = requireSession();
-  if (state === null || jobRunning(state) || state.rewrite !== null) {
+  if (state === null || jobRunning(state) || state.rewrite !== null || state.settings !== null) {
     return;
   }
   state.error = null;
@@ -486,13 +554,11 @@ export function moveSceneTo(sceneId: string, index: number): void {
   emit();
 }
 
-export async function rewriteScene(sceneId: string): Promise<void> {
+export async function rewriteScene(sceneId: string, instruction?: string): Promise<void> {
   const state = requireSession();
   if (
     state === null ||
-    jobRunning(state) ||
-    state.tone !== null ||
-    state.rewrite !== null ||
+    structureLocked(state) ||
     state.document.scenes[sceneId] === undefined
   ) {
     return;
@@ -503,10 +569,11 @@ export async function rewriteScene(sceneId: string): Promise<void> {
   state.targetSceneId = sceneId;
   state.workingSceneId = sceneId;
   state.error = null;
+  state.unsupported = [];
   emit();
   try {
-    const after = await api.rewrite(state.document, sceneId, {
-      signal: controller.signal,
+    const result = await state.requestRewrite(state.document, sceneId, {
+      signal: controller.signal, instruction,
     });
     if (token !== rewriteToken) {
       return;
@@ -514,15 +581,14 @@ export async function rewriteScene(sceneId: string): Promise<void> {
     const scene = state.document.scenes[sceneId];
     state.workingSceneId = null;
     rewriteController = null;
-    if (scene === undefined) {
-      emit();
-      return;
+    state.unsupported = result.unsupported;
+    if (scene !== undefined && result.lines !== null) {
+      state.rewrite = {
+        sceneId,
+        before: scene.lines.map((line) => line.display_text),
+        after: result.lines,
+      };
     }
-    state.rewrite = {
-      sceneId,
-      before: scene.lines.map((line) => line.display_text),
-      after,
-    };
     emit();
   } catch (error) {
     if (token !== rewriteToken) {
@@ -530,9 +596,8 @@ export async function rewriteScene(sceneId: string): Promise<void> {
     }
     state.workingSceneId = null;
     rewriteController = null;
-    if (!(error instanceof ScriptApiError && error.code === 'cancelled')) {
-      state.error = 'script.error.rewrite';
-    }
+    state.error = error instanceof ScriptApiError && error.code === 'cancelled'
+      ? 'script.stopped' : 'script.error.rewrite';
     emit();
   }
 }
@@ -542,12 +607,7 @@ export function stopRewrite(): void {
   if (state === null || state.workingSceneId === null) {
     return;
   }
-  rewriteToken += 1;
   rewriteController?.abort();
-  rewriteController = null;
-  state.workingSceneId = null;
-  state.error = 'script.stopped';
-  emit();
 }
 
 export function dismissRewrite(): void {
@@ -575,10 +635,7 @@ export function applyRewrite(): void {
   const next = cloneDocument(state.document);
   const target = next.scenes[proposal.sceneId];
   if (target !== undefined) {
-    target.lines = target.lines.map((line, index) => {
-      const text = proposal.after[index] ?? line.display_text;
-      return { ...line, display_text: text, speech_text: text };
-    });
+    target.lines = proposal.after;
   }
   state.document = next;
   markChanged(state, proposal.sceneId);
@@ -689,6 +746,38 @@ export function focusScene(sceneId: string): void {
   emit();
 }
 
+/**
+ * Pull settings the conversation changed on the server into the open script.
+ * The caller passes the concept session revision; a change in it, however it
+ * came about, is what triggers the read. A locked script retries on the next call.
+ */
+export async function syncScriptSettings(conceptRevision: number): Promise<void> {
+  const state = requireSession();
+  if (state === null || state.sync == null) return;
+  if (state.conceptRevision === null) {
+    state.conceptRevision = conceptRevision;
+    return;
+  }
+  if (state.conceptRevision === conceptRevision || structureLocked(state)) return;
+  try {
+    const next = await state.sync(state.document);
+    if (session === state) {
+      state.document = next;
+      state.conceptRevision = conceptRevision;
+      emit();
+    }
+  } catch {
+    // The next save reports a real conflict.
+  }
+}
+
+export function targetScene(sceneId: string): void {
+  const state = requireSession();
+  if (state === null || state.document.scenes[sceneId] === undefined) return;
+  state.targetSceneId = sceneId;
+  emit();
+}
+
 export function clearTarget(): void {
   const state = requireSession();
   if (state === null) {
@@ -700,7 +789,7 @@ export function clearTarget(): void {
 
 export function undo(): void {
   const state = requireSession();
-  if (state === null || state.undo === null || jobRunning(state) || state.rewrite !== null) {
+  if (state === null || state.undo === null || jobRunning(state) || state.rewrite !== null || state.settings !== null) {
     return;
   }
   state.tone = null;

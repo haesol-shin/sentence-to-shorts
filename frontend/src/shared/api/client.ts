@@ -374,6 +374,24 @@ export async function submitVideoChange(
   );
 }
 
+export function submitVideoMessage(videoId: string, body: components['schemas']['MessageRequest']): Promise<Job> {
+  return videoMutation<Job>(videoId, { method: 'POST', path: `/videos/${encodeURIComponent(videoId)}/messages`, body });
+}
+
+export function submitScriptRebuild(videoId: string, revision: number): Promise<Job> {
+  return videoMutation<Job>(videoId, {
+    method: 'POST', path: `/videos/${encodeURIComponent(videoId)}/script`, body: { base_revision: revision },
+  });
+}
+
+export function cancelVideoJob(jobId: string): Promise<Job> {
+  return send({ method: 'POST', path: `/jobs/${encodeURIComponent(jobId)}/cancel` }, { idempotencyKey: newIdempotencyKey() });
+}
+
+export function rejectVideoChange(changeId: string): Promise<components['schemas']['ChangePlan']> {
+  return send({ method: 'POST', path: `/changes/${encodeURIComponent(changeId)}/reject` }, { idempotencyKey: newIdempotencyKey() });
+}
+
 export async function applyVideoChange(changeId: string, baseRevision: number): Promise<Video> {
   return send<Video>({
     method: 'POST',

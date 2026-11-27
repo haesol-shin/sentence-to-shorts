@@ -345,7 +345,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
   const settings = doc.settings;
   const style = catalog?.styles.find((item) => item.ref.id === settings.visual.art_style.id)?.manifest;
   const frozen = doc.confirmed || snapshot.busy || catalog === null;
-  const readingDraft = snapshot.readState === 'waiting';
+  const readingDraft = snapshot.readState === 'queued' || snapshot.readState === 'waiting';
   const choices = (values: readonly unknown[]) => values.map((value) => ({ value, label: valueLabel(value, t) }));
   const activeCardId = cardIdForSettings(settings) ?? '';
   const character = settings.visual.character;
@@ -472,7 +472,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
         </header>
         {snapshot.readError === null ? null : <div role="alert" className="concept-review">
           <p>{snapshot.readError.startsWith('concept.') ? t(snapshot.readError) : snapshot.readError}</p>
-          <Button variant="ghost" disabled={snapshot.busy || snapshot.readState === 'waiting'}
+          <Button variant="ghost" disabled={snapshot.busy || readingDraft}
             onClick={() => void reloadConcept(doc.id)}>
             {t('shell.prepare.retry')}
           </Button>
@@ -569,7 +569,7 @@ export function ConceptScreen({ ComposerComponent, onConfirmed }: {
       </footer>}
       {entry === null ? null : <Entry mode={entry} onClose={() => setEntry(null)} ComposerComponent={ComposerComponent} />}
       {confirming ? <Modal title={t('concept.confirm.title')} onClose={() => setConfirming(false)}
-        actions={<Button disabled={snapshot.busy || readingDraft} onClick={() => void confirmConcept().then(() => {
+        actions={<Button disabled={frozen || readingDraft || snapshot.pending !== null} onClick={() => void confirmConcept().then(() => {
           setConfirming(false);
           onConfirmed?.();
         }, () => undefined)}>{t('concept.confirm')}</Button>}>

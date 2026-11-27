@@ -199,7 +199,7 @@ schema 검사 뒤 `services/project`의 의미 검사기가 다음을 거절한�
 - 앞뒤 장면의 옛 표현은 `stale_wording_in_neighbor` 경고만 남긴다. 자동으로 고치지 않는다.
 - undo는 직전 revision의 원본을 새 revision으로 쓴다. 이전 결과는 같은 cache key로 다시 연결된다.
 - `script` job은 대본이 없으면 결과를 바로 적용한다. 대본이 있으면 `script_rewrite` 확인이 필요한 계획을 만든다.
-- 장면 하나 다시 만들기는 `target.scene_id`가 있는 `messages` 요청이다. text가 비어 있으면 그 장면만 새로 쓴다. 결과 계획은 그 장면만 바꾼다.
+- 대상 없는 `messages`는 설정 변경을 해석한다. `target.scene_id`가 있으면 `text` 지시로 해당 장면만 고치는 계획을 만든다. `text`가 비어 있으면 해당 장면을 더 짧게 다시 쓴다. 모델은 요청마다 현재 문장 하나만 받는다. 처리하지 못한 부분은 이유와 대안을 `unsupported`에 넣는다. 변경 계획이 없으면 Job 결과에, 계획이 있으면 `ChangePlan.unsupported`에 담는다.
 - style, template, bgm job의 결과는 package나 entry를 만들고, 영상에 적용하는 계획을 따로 만든다. 그림체 적용 계획은 `rebuild_render` 확인을 요구한다.
 
 ## 5. Job
