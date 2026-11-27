@@ -13,6 +13,8 @@
   "length.30": "30초",
   "length.60": "1분",
   "length.display": "약 {seconds}초 · 목표 {target}",
+  "line.delete": "장면 {scene} 대사 {line} 지우기",
+  "line.grip": "장면 {scene} 대사 {line} 순서 바꾸기",
   "line.label": "장면 {scene} 대사 {line}",
   "line.placeholder": "대사를 적어 주세요",
   "line.seconds": "약 {seconds}초",

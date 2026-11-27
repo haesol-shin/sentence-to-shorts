@@ -13,6 +13,8 @@
   "length.30": "30 sec",
   "length.60": "1 min",
   "length.display": "About {seconds}s · target {target}",
+  "line.delete": "Delete scene {scene} line {line}",
+  "line.grip": "Reorder scene {scene} line {line}",
   "line.label": "Scene {scene} line {line}",
   "line.placeholder": "Write the line",
   "line.seconds": "About {seconds}s",

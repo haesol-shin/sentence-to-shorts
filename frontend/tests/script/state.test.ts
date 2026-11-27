@@ -5,6 +5,7 @@ import {
   applyRewrite,
   applyTone,
   applyToneScene,
+  deleteLine,
   clearTarget,
   configureScriptApi,
   confirmScript,
@@ -15,6 +16,7 @@ import {
   ensureScript,
   focusScene,
   getScriptSnapshot,
+  moveLineTo,
   moveScene,
   rewriteScene,
   setLength,
@@ -308,6 +310,37 @@ describe('script state', () => {
     expect(snapshot().document.scene_order).not.toEqual(order);
     undo();
     expect(snapshot().document.scene_order).toEqual(order);
+  });
+
+  test('test_5_a_deleted_line_returns_by_undo_and_the_last_line_stays', () => {
+    const id = firstSceneId();
+    const lines = snapshot().document.scenes[id]!.lines;
+    expect(lines).toHaveLength(2);
+
+    deleteLine(id, lines[0]!.id);
+    expect(snapshot().document.scenes[id]!.lines.map((line) => line.id)).toEqual([lines[1]!.id]);
+    expect(snapshot().canUndo).toBe(true);
+
+    deleteLine(id, lines[1]!.id);
+    expect(snapshot().document.scenes[id]!.lines).toHaveLength(1);
+
+    undo();
+    expect(snapshot().document.scenes[id]!.lines).toEqual(lines);
+  });
+
+  test('test_6_a_line_moves_inside_its_scene_and_undoes_as_one_step', () => {
+    const id = firstSceneId();
+    const before = snapshot().document.scenes[id]!.lines;
+
+    moveLineTo(id, before[0]!.id, 1);
+    expect(snapshot().document.scenes[id]!.lines.map((line) => line.id)).toEqual([before[1]!.id, before[0]!.id]);
+
+    moveLineTo(id, 'l_missing', 0);
+    moveLineTo(id, before[0]!.id, 5);
+    expect(snapshot().document.scenes[id]!.lines.map((line) => line.id)).toEqual([before[1]!.id, before[0]!.id]);
+
+    undo();
+    expect(snapshot().document.scenes[id]!.lines).toEqual(before);
   });
 
   test('test_2_the_mock_edit_opens_on_the_confirmed_order_and_lines', async () => {
