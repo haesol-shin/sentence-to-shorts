@@ -7,7 +7,7 @@ one invalid-output repair before any sandbox run.
 
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -38,6 +38,22 @@ class ShortLabel(Answer):
 class StyleCodeAnswer(Answer):
     label: ShortLabel
     code: Code
+
+
+class CaptionBoxCodeAnswer(Answer):
+    label: ShortLabel
+    code: Code
+
+
+class CaptionPlaceGeometry(Answer):
+    x: Annotated[int, Field(strict=True)]
+    y: Annotated[int, Field(strict=True)]
+    w: Annotated[int, Field(ge=120, strict=True)]
+
+
+class CaptionPlaceAnswer(Answer):
+    place: CaptionPlaceGeometry
+    align: Literal["left", "center", "right"]
 
 
 def _inside_frame(box: Box) -> bool:
@@ -109,6 +125,8 @@ __all__ = [
     "FRAME",
     "MAX_LOOP_MS",
     "BgmCodeAnswer",
+    "CaptionBoxCodeAnswer",
+    "CaptionPlaceAnswer",
     "ShortLabel",
     "StyleCodeAnswer",
     "TemplateCodeAnswer",

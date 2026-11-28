@@ -10,7 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.ports import AppError, JobContext, StyleFrames
+from app.caption_layout import draws_bubble
+from app.ports import AppError, JobContext, Proposal, StyleFrames
 from app.schemas.api import (
     BgmCodeRequest,
     DraftRequest,
@@ -30,8 +31,9 @@ from app.schemas.change import (
     SetScriptOp,
     Target,
 )
-from app.schemas.common import Mood, Origin
+from app.schemas.common import Language, Mood, Origin
 from app.schemas.job import Job
+from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import CreatedBy, ReferenceSummary, Video
 from app.services.pipeline.dependencies import plan_change
 from app.services.pipeline.run_state import check_alive
@@ -39,6 +41,8 @@ from app.services.pipeline.types import Services
 from app.services.project import revision, state
 
 SCENE_PREFIX = "/scenes/"
+CAPTION_STYLE_PATH = "/settings/caption/style"
+CAPTION_PLACE_PATH = "/settings/caption/place"
 
 
 def run_change_job(job: Job, ctx: JobContext, services: Services) -> dict[str, object]:
@@ -269,7 +273,11 @@ def _chat(
         source = "scene_rewrite"
         target = request.target
     else:
-        proposal = services.story.interpret(video, request.text, request.target, ctx=ctx)
+        caption_pointer = request.target.pointer in (CAPTION_STYLE_PATH, CAPTION_PLACE_PATH)
+        if caption_pointer and request.text.strip():
+            proposal = _caption_edit(video, request, ctx, services)
+        else:
+            proposal = services.story.interpret(video, request.text, request.target, ctx=ctx)
         ops = proposal.ops
         source = "chat"
         target = request.target
@@ -292,6 +300,43 @@ def _chat(
     )
 
 
+def _caption_stage_notes(video: Video, services: Services) -> list[str]:
+    layout = video.settings.format.layout
+    template = services.catalog_port.get("template", layout.id, layout.revision)
+    if not isinstance(template, TemplateManifest):
+        return []
+    korean = video.settings.language is Language.ko
+    if draws_bubble(template):
+        return [
+            "이 무대는 말풍선을 씁니다." if korean else "This stage uses its own speech bubble."
+        ]
+    if template.renderer.kind != "builtin":
+        return ["이 무대는 상자가 고정입니다." if korean else "This stage has a fixed caption box."]
+    return []
+
+
+def _caption_edit(
+    video: Video, request: MessageRequest, ctx: JobContext, services: Services
+) -> Proposal:
+    pointer = request.target.pointer
+    notes = _caption_stage_notes(video, services)
+    if pointer == CAPTION_STYLE_PATH:
+        result = services.templates.generate_caption_box(request.text, video, ctx=ctx)
+    else:
+        assert pointer == CAPTION_PLACE_PATH
+        result, moved = services.templates.edit_caption_place(request.text, video, ctx=ctx)
+        if moved:
+            notes.append(state.PLACE_CLAMPED[video.settings.language])
+    return Proposal(
+        ops=[
+            SetOp(
+                op="set", path=pointer, value=result.model_dump(mode="json"), origin=Origin.user
+            )
+        ],
+        notes=notes,
+    )
+
+
 def _style(
     video: Video, request: StyleRequest, ctx: JobContext, services: Services
 ) -> dict[str, object]:
@@ -303,15 +348,30 @@ def _style(
         value=ref.model_dump(mode="json"),
         origin=Origin.llm,
     )
+    ops = [op]
+    notes: list[str] = []
+    look = video.reference.style if request.use_reference and video.reference is not None else None
+    if look is not None and look.caption_box is not None:
+        caption_ref = services.templates.generate_caption_box(
+            request.instruction, video, reference_box=look.caption_box, art_style=ref, ctx=ctx
+        )
+        ops.append(SetOp(
+            op="set",
+            path=CAPTION_STYLE_PATH,
+            value=caption_ref.model_dump(mode="json"),
+            origin=Origin.llm,
+        ))
+        notes = _caption_stage_notes(video, services)
     result = _plan_result(
         video,
-        [op],
+        ops,
         "style",
         Target(scene_id=None, pointer="/settings/visual/art_style"),
         ctx,
         services,
         auto=True,
         override_confirmation=False,
+        notes=notes,
     )
     result["package"] = ref.model_dump(mode="json")
     return result
@@ -367,10 +427,12 @@ def _plan_result(
     check_alive(ctx)
     plan = plan_change(video, ops, source, target, services)
     if notes or unsupported:
-        # Partly handled requests keep their explanations on the plan itself.
-        plan = ChangePlan.model_validate(
-            {**plan.model_dump(), "notes": notes or [], "unsupported": unsupported or []}
-        )
+        # Keep geometry validation notes when a route adds its own explanation.
+        plan = ChangePlan.model_validate({
+            **plan.model_dump(),
+            "notes": list(dict.fromkeys([*plan.notes, *(notes or [])]))[:5],
+            "unsupported": unsupported or [],
+        })
     services.project.projects.put_change(plan)
     # The draft and first-script requests are the user's own start of those
     # steps, so their plans apply even when the graph sees new scenes. They never
@@ -438,6 +500,8 @@ def plan_result(plan: ChangePlan) -> dict[str, object]:
             for warning in plan.warnings
         ],
         "effects": plan.effects.model_dump(mode="json"),
+        "notes": list(plan.notes),
+        "unsupported": list(plan.unsupported),
         "applied_revision": plan.applied_revision if applied else None,
         "revision": plan.applied_revision if applied else None,
     }

@@ -6,20 +6,26 @@ that the Deno permissions or the parent stopped it, not the hook.
 
 from __future__ import annotations
 
+import hashlib
+import io
 import logging
 import struct
 from pathlib import Path
 
 import pytest
+from PIL import Image
 
 from app.jobs import CancelFlag
+from app.plugins.registry import Registry
 from app.ports import AppError
+from app.schemas.caption_style_manifest import CaptionStyleManifest
 from app.tools import process
 from app.tools.sandbox.adapter import SandboxAdapter, SandboxConfig
 from app.tools.sandbox.cache import ResultCache
 from app.tools.sandbox.runtime import DenoLauncher, SandboxRuntime
 from tests.sandbox.conftest import (
     b64,
+    caption_box_input,
     make_request,
     program,
     rgba_png,
@@ -79,6 +85,32 @@ def test_17_style_parts_program_returns_checked_pngs(runtime_root: Path, tmp_pat
         assert data.startswith(b"\x89PNG\r\n\x1a\n")
         assert struct.unpack(">II", data[16:24]) == (64, 64)
         assert output.meta["files"][name] == {"width": 64, "height": 64}
+
+
+def test_default_caption_plate_matches_calibration(runtime_root: Path, tmp_path: Path) -> None:
+    registry = Registry()
+    ref = registry.pin("caption_style", "plate")
+    manifest = registry.get("caption_style", ref.id, ref.revision)
+    assert isinstance(manifest, CaptionStyleManifest)
+    package = registry.package_dir("caption_style", ref)
+    code = (package / manifest.renderer.program).read_text(encoding="utf-8")
+    width, height = manifest.test.plate.w, manifest.test.plate.h
+    request = make_request("caption_box", code, input=caption_box_input(width, height), seed=0)
+
+    adapter = _adapter(runtime_root, tmp_path)
+    assert adapter.runtime_digest() == manifest.renderer.runtime_digest
+    output = adapter.run(request, cancel=CancelFlag())
+
+    assert list(output.files) == ["box"]
+    assert output.meta["program"] == {
+        "box": [0, 0, width, height],
+        "text_area": [0, 4, width, height - 8],
+    }
+    with Image.open(io.BytesIO(output.files["box"])) as image:
+        assert image.size == (width, height)
+        assert image.mode == "RGBA"
+        assert image.getextrema() == ((0, 0), (0, 0), (0, 0), (255, 255))
+        assert hashlib.sha256(image.tobytes()).hexdigest() == manifest.test.layer_digest
 
 
 def test_17_bgm_program_returns_a_checked_wav(runtime_root: Path, tmp_path: Path) -> None:

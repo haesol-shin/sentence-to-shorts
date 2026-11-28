@@ -1,4 +1,4 @@
-"""Generated style, template and code BGM packages.
+"""Generated style, caption box, template and code BGM packages.
 
 Each route asks the model for code, runs it only through the sandbox port,
 checks the validated output, writes a package into a staging folder of the job
@@ -19,7 +19,7 @@ from typing import Any, TypeVar
 
 from pydantic import BaseModel
 
-from app.caption_layout import safe_area
+from app.caption_layout import PLATE_SIDE_PAD, clamp_place, place_area, safe_area
 from app.ports import (
     AppError,
     AppSettings,
@@ -38,6 +38,12 @@ from app.ports import (
 )
 from app.schemas.api import BgmCodeRequest, StyleRequest, TemplateRequest
 from app.schemas.bgm_entry import BgmParams, CodeBgm
+from app.schemas.caption_style_manifest import (
+    CaptionSandboxRenderer,
+    CaptionStyleManifest,
+    CaptionTest,
+    CaptionTestPlate,
+)
 from app.schemas.common import (
     TYPEID_PATTERN,
     CharacterRole,
@@ -50,14 +56,14 @@ from app.schemas.common import (
 from app.schemas.job import Stage, Usage, WaitingOn
 from app.schemas.sandbox_io import SandboxKind
 from app.schemas.scene import Scene
-from app.schemas.settings import CharacterSlots, CharacterSpec
+from app.schemas.settings import CaptionPlace, CharacterSlots, CharacterSpec
 from app.schemas.style_manifest import AssetKind, SandboxRenderer, StyleAsset, StyleManifest
 from app.schemas.template_manifest import (
     TemplateManifest,
     TemplateSandboxRenderer,
     TemplateTest,
 )
-from app.schemas.video import Video
+from app.schemas.video import CaptionBoxDescription, Video
 from app.services.templates import shapes, sprites
 from app.services.templates.builders import (
     GeneratedLayerDrawer,
@@ -72,6 +78,8 @@ from app.services.templates.builders import (
 from app.services.templates.outputs import (
     FRAME,
     BgmCodeAnswer,
+    CaptionBoxCodeAnswer,
+    CaptionPlaceAnswer,
     StyleCodeAnswer,
     TemplateCodeAnswer,
 )
@@ -105,6 +113,9 @@ TEMPLATE_MS_PER_SCENE = 20000
 STYLE_TOKENS = 16000
 TEMPLATE_TOKENS = 12000
 BGM_TOKENS = 8000
+CAPTION_BOX_TOKENS = 6000
+CAPTION_PLACE_TOKENS = 350
+CAPTION_BOX_MS = 5000
 PACKAGE_VERSION = "1.0.0"
 SKIN_MIN_SIDE = 7
 FREE_SIZE_KINDS = frozenset({AssetKind.skin, AssetKind.icon})
@@ -144,8 +155,19 @@ def _write_json(path: Path, value: Any) -> None:
     )
 
 
-def _label(answer: StyleCodeAnswer | TemplateCodeAnswer | BgmCodeAnswer) -> LocalizedText:
+def _label(
+    answer: StyleCodeAnswer | TemplateCodeAnswer | BgmCodeAnswer | CaptionBoxCodeAnswer,
+) -> LocalizedText:
     return LocalizedText(ko=answer.label.ko, en=answer.label.en)
+
+
+def _box_rect(raw: Any, width: int, height: int) -> tuple[int, int, int, int] | None:
+    if not isinstance(raw, list) or len(raw) != 4 or any(type(n) is not int for n in raw):
+        return None
+    x, y, w, h = raw
+    if x < 0 or y < 0 or w <= 0 or h <= 0 or x + w > width or y + h > height:
+        return None
+    return x, y, x + w, y + h
 
 
 class _DeadlineContext:
@@ -254,25 +276,35 @@ class TemplatesService:
         ctx: JobContext,
         images: Sequence[bytes] = (),
         prompt_suffix: str = "",
+        previous_code: str | None = None,
     ) -> tuple[CodeAnswer[AnswerT], ValidatedOutput]:
         """Ask for code, run it, and send a failure back for at most two repairs.
 
         ``images`` are the same on every attempt; a repair keeps the data it was
         given and only adds the failed code and its failure.
         """
-        request = {**data, "previous_code": None, "failure": None}
+        request = {**data, "previous_code": previous_code, "failure": None}
+        bounded = task is LlmTask.caption_box_code
         for attempt in range(MAX_REPAIRS + 1):
-            answer = complete_json(
-                self.llm,
-                task=task,
-                route=task.value,
-                model=model,
-                data=request,
-                max_output_tokens=max_output_tokens,
-                ctx=ctx,
-                images=images,
-                system_suffix=prompt_suffix,
-            )
+            try:
+                answer = complete_json(
+                    self.llm,
+                    task=task,
+                    route=task.value,
+                    model=model,
+                    data=request,
+                    max_output_tokens=max_output_tokens,
+                    ctx=ctx,
+                    images=images,
+                    system_suffix=prompt_suffix,
+                    repairs=0 if bounded else 1,
+                    provider_repairs=not bounded,
+                )
+            except AppError as error:
+                if not bounded or error.code != "llm_invalid_output" or attempt == MAX_REPAIRS:
+                    raise
+                request["failure"] = failure_text(error)
+                continue
             try:
                 with ctx.stage(Stage.sandbox):
                     return answer, run(answer.value)
@@ -853,6 +885,185 @@ class TemplatesService:
             shutil.rmtree(staged, ignore_errors=True)
             raise
         return self._register("template", staged, ctx)
+
+    # Captions ---------------------------------------------------------------------
+
+    def edit_caption_place(
+        self, instruction: str, video: Video, *, ctx: JobContext
+    ) -> tuple[CaptionPlace, bool]:
+        caption = video.settings.caption
+        current = (
+            caption.place.model_dump(mode="json")
+            if caption.place is not None
+            else {"position": caption.position.value, "band": safe_area().model_dump(mode="json")}
+        )
+        line = (
+            video.scenes[video.scene_order[0]].lines[0].display_text if video.scene_order else None
+        )
+        answer = complete_json(
+            self.llm,
+            task=LlmTask.caption_place,
+            route="caption_place",
+            model=CaptionPlaceAnswer,
+            data={
+                "instruction": instruction,
+                "current_place": current,
+                "safe_area": place_area().model_dump(mode="json"),
+                "transcript_line": line,
+            },
+            max_output_tokens=CAPTION_PLACE_TOKENS,
+            ctx=ctx,
+            repairs=MAX_REPAIRS,
+            provider_repairs=False,
+            stage=Stage.llm_chat,
+        ).value
+        raw, moved = clamp_place({**answer.place.model_dump(), "align": answer.align})
+        return CaptionPlace.model_validate(raw), moved
+
+    def _caption_box_run(
+        self,
+        answer: CaptionBoxCodeAnswer,
+        tests: Sequence[dict[str, Any]],
+        ctx: JobContext,
+    ) -> ValidatedOutput:
+        outputs = []
+        for sample in tests:
+            w, h = sample["plate"]["w"], sample["plate"]["h"]
+            output = self.sandbox.run(
+                sandbox_request(
+                    SandboxKind.caption_box,
+                    answer.code,
+                    {**sample, "canvas": {"width": w, "height": h}},
+                    0,
+                ),
+                cancel=ctx.cancel,
+            )
+            layer = shapes.decode(output.files["box"], "box")
+            if layer.size != (w, h):
+                raise AppError("sandbox_output_invalid", detail={"reason": "wrong box image size"})
+            spec = sample["spec"]
+            program = output.meta.get("program", {})
+            text = _box_rect(program.get("text_area"), w, h)
+            if (
+                text is None
+                or text[2] - text[0] < max(line["w"] for line in spec["lines"])
+                or text[3] - text[1] < sum(line["h"] for line in spec["lines"])
+            ):
+                raise AppError(
+                    "sandbox_output_invalid", detail={"reason": "text_area does not fit the lines"}
+                )
+            pixels = layer.getchannel("A").getbbox()
+            box = _box_rect(program.get("box"), w, h)
+            if pixels is None and program.get("box") == [0, 0, 0, 0]:
+                outputs.append(output)
+                continue
+            if box is None or (pixels is not None and not (
+                box[0] <= pixels[0] and box[1] <= pixels[1]
+                and box[2] >= pixels[2] and box[3] >= pixels[3]
+            )):
+                raise AppError(
+                    "sandbox_output_invalid", detail={"reason": "box does not contain the layer"}
+                )
+            outputs.append(output)
+        return outputs[0]
+
+    def generate_caption_box(
+        self,
+        instruction: str,
+        video: Video,
+        *,
+        ctx: JobContext,
+        reference_box: CaptionBoxDescription | None = None,
+        art_style: PinnedRef | None = None,
+    ) -> PinnedRef:
+        """Test one new package, using the current program as the parent of a word edit."""
+        caption = video.settings.caption
+        previous_code = None
+        if reference_box is None:
+            base = caption.style or self.catalog.pin("caption_style", "plate")
+            manifest = self.catalog.get("caption_style", base.id, base.revision)
+            if not isinstance(manifest, CaptionStyleManifest):
+                raise UnknownCatalogId(f"caption_style:{base.id}@{base.revision}")
+            renderer = manifest.renderer
+            previous_code = read_program(
+                self.catalog.package_dir("caption_style", base),
+                renderer.program,
+                renderer.program_digest,
+            )
+        visual = video.settings.visual
+        manifest_style = self._style(art_style or visual.art_style)
+        theme = next(
+            (item for item in manifest_style.themes if item.id == visual.theme_id),
+            manifest_style.themes[0],
+        )
+        palette = theme.palette
+        width = caption.place.w if caption.place is not None else 640
+        align = caption.place.align if caption.place is not None else "center"
+        samples = []
+        for w, count in ((width, 1), (min(width, 360), 2)):
+            line_height = 60
+            samples.append({
+                "plate": {"w": w, "h": line_height * count + 8},
+                "spec": {
+                    "size_px": 48,
+                    "line_height": line_height,
+                    "text_color": palette.caption_text,
+                    "box_color": palette.caption_box,
+                    "align": align,
+                    "lines": [
+                        {"w": min(360, w - 2 * PLATE_SIDE_PAD), "h": line_height}
+                        for _ in range(count)
+                    ],
+                },
+            })
+        answer, output = self._write_and_run(
+            task=LlmTask.caption_box_code,
+            model=CaptionBoxCodeAnswer,
+            data={
+                "instruction": instruction,
+                "reference_box": None if reference_box is None else reference_box.model_dump(),
+                "palette": palette.model_dump(mode="json"),
+                "plate": samples[0]["plate"],
+                "safe_area": place_area().model_dump(mode="json"),
+                "test_plates": samples,
+            },
+            max_output_tokens=CAPTION_BOX_TOKENS,
+            run=lambda value: self._caption_box_run(value, samples, ctx),
+            ctx=ctx,
+            previous_code=previous_code,
+        )
+        code = answer.value.code.encode("utf-8")
+        program_digest = _sha256(code)
+        item_id = self._item_id("caption_box", _job_id(ctx), program_digest)
+        staged = self._staging(ctx, item_id)
+        try:
+            (staged / "program.py").write_bytes(code)
+            package = CaptionStyleManifest(
+                schema_version=1,
+                api_version=1,
+                id=item_id,
+                version=PACKAGE_VERSION,
+                label=_label(answer.value),
+                origin="generated",
+                status="ready",
+                renderer=CaptionSandboxRenderer(
+                    kind="sandbox",
+                    program="program.py",
+                    program_digest=program_digest,
+                    runtime_digest=self.sandbox.runtime_digest(),
+                    entry="draw_caption_box",
+                    max_ms_per_box=CAPTION_BOX_MS,
+                ),
+                test=CaptionTest(
+                    plate=CaptionTestPlate.model_validate(samples[0]["plate"]),
+                    layer_digest=_sha256(output.files["box"]),
+                ),
+            )
+            _write_json(staged / "manifest.json", package.model_dump(mode="json"))
+        except BaseException:
+            shutil.rmtree(staged, ignore_errors=True)
+            raise
+        return self._register("caption_style", staged, ctx)
 
     # BGM --------------------------------------------------------------------------
 

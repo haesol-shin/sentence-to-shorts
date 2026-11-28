@@ -13,6 +13,7 @@ from app.schemas.common import ContractModel
 class SandboxKind(StrEnum):
     style_parts = "style_parts"
     template_layer = "template_layer"
+    caption_box = "caption_box"
     bgm_loop = "bgm_loop"
 
 

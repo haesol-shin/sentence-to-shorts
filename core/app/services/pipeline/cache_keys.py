@@ -490,6 +490,8 @@ class Graph:
         caption_inputs.pop("typing_sound", None)
         if caption_inputs.get("place") is None:
             caption_inputs.pop("place", None)
+        if caption_inputs.get("style") is None:
+            caption_inputs.pop("style", None)
         if extra is None:
             caption_inputs.pop("extra", None)
         highlight = bool(caption.highlight)
@@ -534,6 +536,16 @@ class Graph:
             "title": title,
             "visual": _visual(scene),
         }
+        resolved = caption.style
+        if resolved is None:
+            try:
+                resolved = self.services.catalog_port.pin("caption_style", "plate")
+            except UnknownCatalogId:
+                resolved = None
+        if resolved is not None:
+            inputs["caption_style"] = _ref(resolved)
+            if resolved.id != "plate":
+                inputs["caption_sandbox"] = self._sandbox()
         if extra is not None:
             extra_font = self._extra_font()
             inputs["extra_font"] = {

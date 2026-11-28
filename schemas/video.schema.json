@@ -189,6 +189,17 @@
         "position": {
           "$ref": "#/$defs/CaptionPosition"
         },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "typing_sound": {
           "anyOf": [
             {
@@ -208,6 +219,73 @@
         "highlight"
       ],
       "title": "Caption",
+      "type": "object"
+    },
+    "CaptionBoxDescription": {
+      "additionalProperties": false,
+      "description": "A closed description of a reference, not a limit on generated box shapes.",
+      "properties": {
+        "fill": {
+          "anyOf": [
+            {
+              "const": "none",
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/HexColor"
+            }
+          ],
+          "title": "Fill"
+        },
+        "opacity": {
+          "enum": [
+            0.0,
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+            1.0
+          ],
+          "title": "Opacity",
+          "type": "number"
+        },
+        "radius": {
+          "enum": [
+            0,
+            8,
+            16,
+            24,
+            999
+          ],
+          "title": "Radius",
+          "type": "integer"
+        },
+        "shape": {
+          "enum": [
+            "flat_band",
+            "rounded_plate",
+            "outline_box",
+            "bubble_tail",
+            "card",
+            "stacked_bands",
+            "none"
+          ],
+          "title": "Shape",
+          "type": "string"
+        }
+      },
+      "required": [
+        "shape",
+        "fill",
+        "opacity",
+        "radius"
+      ],
+      "title": "CaptionBoxDescription",
       "type": "object"
     },
     "CaptionLayer": {
@@ -881,6 +959,17 @@
       "additionalProperties": false,
       "description": "The look kept from a reference so a later style request can copy it.",
       "properties": {
+        "caption_box": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CaptionBoxDescription"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "frames": {
           "items": {
             "pattern": "^frame_[0-3]\\.png$",

@@ -52,6 +52,7 @@ class Jobs(_Model):
 class SandboxWall(_Model):
     style_parts: int
     template_layer: int
+    caption_box: int
     bgm_loop: int
 
 

@@ -49,6 +49,7 @@ from app.schemas.job import (
     WaitingOn,
 )
 from app.schemas.scene import Placement, Scene, SceneVisual
+from app.schemas.settings import CaptionPlace
 from app.schemas.video import CreatedBy, Video, VideoStage
 from app.services.assemble.service import AssembleService
 from app.services.pipeline.types import KeyRuntime, Services
@@ -414,6 +415,8 @@ class FakeTemplates:
         self.style_hints: list[Any] = []
         self.template_calls: list[str] = []
         self.bgm_calls: list[str] = []
+        self.caption_box_calls: list[tuple[str, Any, PinnedRef | None]] = []
+        self.caption_place_calls: list[str] = []
 
     def parts_builder(self, style: PinnedRef) -> FakePartsBuilder:
         return self.parts
@@ -438,6 +441,24 @@ class FakeTemplates:
     ) -> PinnedRef:
         self.template_calls.append(req.instruction)
         return self.catalog.pin("template", "full_stage")
+
+    def generate_caption_box(
+        self,
+        instruction: str,
+        video: Video,
+        *,
+        ctx: JobContext,
+        reference_box: Any = None,
+        art_style: PinnedRef | None = None,
+    ) -> PinnedRef:
+        self.caption_box_calls.append((instruction, reference_box, art_style))
+        return self.catalog.pin("caption_style", "plate")
+
+    def edit_caption_place(
+        self, instruction: str, video: Video, *, ctx: JobContext
+    ) -> tuple[CaptionPlace, bool]:
+        self.caption_place_calls.append(instruction)
+        return CaptionPlace(x=48, y=600, w=500, align="right"), True
 
     def generate_bgm(self, req: Any, *, ctx: JobContext) -> PinnedRef:
         self.bgm_calls.append(req.mood.value)

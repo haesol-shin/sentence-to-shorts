@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Generic, TypeVar
 
@@ -115,8 +115,11 @@ def complete_json(
     ctx: JobContext,
     images: Sequence[bytes] = (),
     system_suffix: str = "",
+    repairs: int = 1,
+    provider_repairs: bool = True,
+    stage: Stage = Stage.code_llm,
 ) -> CodeAnswer[ModelT]:
-    """Call the model once, repair an invalid output once, then fail with llm_invalid_output."""
+    """Call the model and repair invalid JSON within the caller's budget."""
     system = load_prompt(route, data)
     parts = [
         *(LlmPart(kind="png", png=image) for image in images),
@@ -132,42 +135,39 @@ def complete_json(
         parts=parts,
         output_schema=schema,
         max_output_tokens=max_output_tokens,
+        repair_invalid_output=provider_repairs,
     )
-    with ctx.stage(Stage.code_llm):
-        first = llm.complete(
-            request,
-            owner_id=ctx.owner_id,
-            cancel=ctx.cancel,
-            deadline=ctx.deadline,
-            on_request=ctx.record_request,
-        )
-        ctx.record_usage(first.usage)
-        try:
-            return CodeAnswer(_parsed(first, model), first.usage)
-        except ValueError as error:
-            problem = error.errors()[:5] if isinstance(error, ValidationError) else str(error)
+    with ctx.stage(stage):
+        for attempt in range(repairs + 1):
+            try:
+                result = llm.complete(
+                    request,
+                    owner_id=ctx.owner_id,
+                    cancel=ctx.cancel,
+                    deadline=ctx.deadline,
+                    on_request=ctx.record_request,
+                )
+                ctx.record_usage(result.usage)
+                return CodeAnswer(_parsed(result, model), result.usage)
+            except AppError as error:
+                if provider_repairs or error.code != "llm_invalid_output" or attempt == repairs:
+                    raise
+                problem = error.detail.get("validation_rule", "json_object")
+            except ValueError as error:
+                if attempt == repairs:
+                    raise AppError(
+                        "llm_invalid_output", detail={"task": task.value, "route": route}
+                    ) from error
+                problem = (
+                    error.errors(include_input=False, include_context=False)[:5]
+                    if isinstance(error, ValidationError)
+                    else str(error)
+                )
             note = json.dumps({"validation_error": str(problem)[:1000]}, ensure_ascii=False)
-        second = llm.complete(
-            LlmRequest(
-                task=task,
-                route=route,
-                system=system,
-                parts=[*parts, LlmPart(kind="text", text=REPAIR_NOTE + note)],
-                output_schema=schema,
-                max_output_tokens=max_output_tokens,
-            ),
-            owner_id=ctx.owner_id,
-            cancel=ctx.cancel,
-            deadline=ctx.deadline,
-            on_request=ctx.record_request,
-        )
-        ctx.record_usage(second.usage)
-        try:
-            return CodeAnswer(_parsed(second, model), second.usage)
-        except ValueError as final:
-            raise AppError(
-                "llm_invalid_output", detail={"task": task.value, "route": route}
-            ) from final
+            request = replace(
+                request, parts=[*parts, LlmPart(kind="text", text=REPAIR_NOTE + note)]
+            )
+    raise AssertionError("unreachable")
 
 
 def failure_text(error: AppError) -> dict[str, str]:

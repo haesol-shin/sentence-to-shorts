@@ -284,6 +284,7 @@ class CatalogKind(StrEnum):
     sfx = "sfx"
     font = "font"
     caption_language = "caption_language"
+    caption_style = "caption_style"
 
 
 class Compatibility(ContractModel):

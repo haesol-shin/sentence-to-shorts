@@ -54,6 +54,7 @@ ENTRIES = {
     "style_parts": ("build_assets", ("spec", "character", "canvas")),
     "template_layer": ("render_layer", ("scene", "regions", "canvas")),
     "bgm_loop": ("render_loop", ("params",)),
+    "caption_box": ("draw_caption_box", ("plate", "spec", "canvas")),
 }
 REGIONS = {
     "title": {"x": 60, "y": 70, "w": 960, "h": 110},
@@ -115,6 +116,10 @@ def bgm_answer(code: str, *, bpm: int = 120, bars: int = 4) -> dict[str, Any]:
         "bpm": bpm,
         "bars": bars,
     }
+
+
+def caption_box_answer(code: str) -> dict[str, Any]:
+    return {"label": {"ko": "둥근 말풍선", "en": "Round Bubble"}, "code": code}
 
 
 class ScriptedLlm:
@@ -180,6 +185,9 @@ def _files(kind: str, result: Any, limits: dict[str, Any]) -> tuple[list[dict], 
     if kind == "template_layer":
         image, meta = result
         return [{"name": "layer", "media_type": "image/png", "b64": _png(image, side)}], meta
+    if kind == "caption_box":
+        image, meta = result
+        return [{"name": "box", "media_type": "image/png", "b64": _png(image, side)}], meta
     data = base64.b64encode(bytes(result)).decode("ascii")
     return [{"name": "loop", "media_type": "audio/wav", "b64": data}], {}
 

@@ -645,6 +645,7 @@ class _Checker:
         self.lookup(f"{base}/audio/voice", "voice", s.audio.voice)
         self.lookup(f"{base}/audio/bgm/entry", "bgm", s.audio.bgm.entry)
         font = self.lookup(f"{base}/caption/font_id", "font", s.caption.font_id)
+        self.lookup(f"{base}/caption/style", "caption_style", s.caption.style)
         typing = self.lookup(
             f"{base}/caption/typing_sound", "sfx", s.caption.typing_sound
         )

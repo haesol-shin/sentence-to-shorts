@@ -24,6 +24,7 @@ from app.ports import UnknownCatalogId, canonical_digest
 from app.schemas.api import CatalogItem, CatalogKind, Compatibility
 from app.schemas.bgm_entry import BuiltinBgm, CodeBgm, SfxEntry, TypingSoundEntry, UploadBgm
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
+from app.schemas.caption_style_manifest import CaptionStyleManifest
 from app.schemas.common import (
     PERSONAL_OWNER_ID,
     Language,
@@ -44,6 +45,7 @@ INDEX_RELATIVE = ("catalog", "index.json")
 
 PACKAGE_DIRS = {
     "art_style": "art_styles",
+    "caption_style": "caption_styles",
     "template": "templates",
     "voice": "voices",
     "bgm": "bgm",
@@ -57,6 +59,7 @@ FILE_DIRS = {
 }
 MODELS: dict[str, type[BaseModel]] = {
     "art_style": StyleManifest,
+    "caption_style": CaptionStyleManifest,
     "template": TemplateManifest,
     "voice": VoiceManifest,
     "bgm": BuiltinBgm,
@@ -114,6 +117,8 @@ def _sha256(path: Path) -> str:
 def _referenced_files(manifest: BaseModel) -> list[str]:
     if isinstance(manifest, (StyleManifest, TemplateManifest, VoiceManifest, FontManifest)):
         return _style_like_files(manifest)
+    if isinstance(manifest, CaptionStyleManifest):
+        return [manifest.renderer.program]
     if isinstance(manifest, TypingSoundEntry):
         return [key.file for key in manifest.keys] + [manifest.license.license_file]
     if isinstance(manifest, (BuiltinBgm, SfxEntry)):
@@ -163,6 +168,8 @@ def _digest_files(manifest: BaseModel) -> list[tuple[str, str]]:
                 (manifest.renderer.program, manifest.renderer.program_digest)
             ]
         return []
+    if isinstance(manifest, CaptionStyleManifest):
+        return [(manifest.renderer.program, manifest.renderer.program_digest)]
     if isinstance(manifest, VoiceManifest):
         return [(manifest.sample.file, manifest.sample.sha256)]
     if isinstance(manifest, FontManifest):
@@ -230,7 +237,7 @@ def validate_package(
     model_type = _manifest_model(kind, raw)
     if raw.get("schema_version") != 1:
         raise RegistryError("unsupported_version", expected_id, package_dir, "schema_version")
-    if kind in ("art_style", "template") and raw.get("api_version") != 1:
+    if kind in ("art_style", "caption_style", "template") and raw.get("api_version") != 1:
         raise RegistryError("unsupported_version", expected_id, package_dir, "api_version")
     try:
         manifest = model_type.model_validate(raw)
@@ -565,7 +572,7 @@ class Registry:
         return entry.package_dir
 
     def register_generated(self, kind: str, staged_dir: Path) -> PinnedRef:
-        if kind not in ("art_style", "template", "bgm"):
+        if kind not in ("art_style", "caption_style", "template", "bgm"):
             raise ValueError(f"generated packages are not supported for {kind}")
         if self.data_dir is None:
             raise RuntimeError("registry has no data directory")

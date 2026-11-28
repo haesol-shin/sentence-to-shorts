@@ -141,6 +141,7 @@ class Caption(ContractModel):
     highlight: bool
     typing_sound: PinnedRef | None = None
     place: CaptionPlace | None = None
+    style: PinnedRef | None = None
     extra: Annotated[list[CaptionLayer], Field(max_length=1)] = Field(
         default_factory=list
     )
@@ -236,6 +237,7 @@ class PresetCaption(ContractModel):
     highlight: bool
     typing_sound: PinnedRef | None = None
     place: CaptionPlace | None = None
+    style: PinnedRef | None = None
 
 
 class PresetSettings(ContractModel):

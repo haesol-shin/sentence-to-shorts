@@ -37,6 +37,7 @@ STAGES = {
     "scene_rewrite": Stage.llm_chat, "precheck": Stage.llm_precheck,
     "reference_vision": Stage.ref_llm, "style_code": Stage.code_llm,
     "template_code": Stage.code_llm, "bgm_code": Stage.code_llm,
+    "caption_box_code": Stage.code_llm, "caption_place": Stage.llm_chat,
 }
 
 
@@ -318,7 +319,7 @@ class BaseLlm(ABC):
             try:
                 parsed = validate_output(reply.text, req.output_schema)
             except AppError as error:
-                if repaired:
+                if repaired or not req.repair_invalid_output:
                     raise
                 repaired = True
                 rule = error.detail.get("validation_rule", "json_object")

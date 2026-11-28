@@ -152,6 +152,8 @@ class LlmTask(StrEnum):
     style_code = "style_code"
     template_code = "template_code"
     bgm_code = "bgm_code"
+    caption_box_code = "caption_box_code"
+    caption_place = "caption_place"
 
 
 @dataclass(frozen=True)
@@ -162,6 +164,7 @@ class LlmRequest:
     parts: list[LlmPart]
     output_schema: dict[str, Any] | None
     max_output_tokens: int
+    repair_invalid_output: bool = True
 
 
 @dataclass(frozen=True)

@@ -62,6 +62,7 @@ sandbox:
   wall_ms:
     style_parts: 60000
     template_layer: 20000
+    caption_box: 20000
     bgm_loop: 30000
   memory_bytes: 1073741824
   stdin_bytes: 12582912

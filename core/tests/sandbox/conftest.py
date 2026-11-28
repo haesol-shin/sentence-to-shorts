@@ -21,6 +21,23 @@ CORE = Path(__file__).resolve().parents[2]
 REPO_ROOT = CORE.parent
 PROGRAMS = Path(__file__).resolve().parent / "programs"
 LIMITS = {"max_files": 64, "max_png_side": 1920, "max_wav_ms": 16000}
+
+
+def caption_box_input(width: int, height: int) -> dict:
+    return {
+        "plate": {"w": width, "h": height},
+        "spec": {
+            "size_px": 48,
+            "line_height": 60,
+            "text_color": "#FFFFFF",
+            "box_color": "#000000",
+            "align": "center",
+            "lines": [{"w": 160, "h": 60}],
+        },
+        "canvas": {"width": width, "height": height},
+    }
+
+
 DEFAULT_INPUT = {
     "style_parts": {"spec": {}, "character": {}, "canvas": {"width": 256, "height": 256}},
     "template_layer": {
@@ -28,6 +45,7 @@ DEFAULT_INPUT = {
         "regions": {},
         "canvas": {"width": 256, "height": 256},
     },
+    "caption_box": caption_box_input(320, 80),
     "bgm_loop": {"params": {"seconds": 2}},
 }
 

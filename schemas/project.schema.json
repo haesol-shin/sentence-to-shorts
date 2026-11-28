@@ -98,6 +98,17 @@
         "position": {
           "$ref": "#/$defs/CaptionPosition"
         },
+        "style": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PinnedRef"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "typing_sound": {
           "anyOf": [
             {

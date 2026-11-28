@@ -1033,7 +1033,31 @@ export interface components {
             mode: components["schemas"]["CaptionMode"];
             place?: components["schemas"]["CaptionPlace"] | null;
             position: components["schemas"]["CaptionPosition"];
+            style?: components["schemas"]["PinnedRef"] | null;
             typing_sound?: components["schemas"]["PinnedRef"] | null;
+        };
+        /**
+         * CaptionBoxDescription
+         * @description A closed description of a reference, not a limit on generated box shapes.
+         */
+        CaptionBoxDescription: {
+            /** Fill */
+            fill: "none" | components["schemas"]["HexColor"];
+            /**
+             * Opacity
+             * @enum {number}
+             */
+            opacity: 0 | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1;
+            /**
+             * Radius
+             * @enum {integer}
+             */
+            radius: 0 | 8 | 16 | 24 | 999;
+            /**
+             * Shape
+             * @enum {string}
+             */
+            shape: "flat_band" | "rounded_plate" | "outline_box" | "bubble_tail" | "card" | "stacked_bands" | "none";
         };
         /**
          * CaptionLanguageManifest
@@ -1140,7 +1164,7 @@ export interface components {
          * CatalogKind
          * @enum {string}
          */
-        CatalogKind: "format_card" | "story_structure" | "art_style" | "template" | "voice" | "bgm" | "sfx" | "font" | "caption_language";
+        CatalogKind: "format_card" | "story_structure" | "art_style" | "template" | "voice" | "bgm" | "sfx" | "font" | "caption_language" | "caption_style";
         /** CatalogList */
         CatalogList: {
             /** Items */
@@ -1842,6 +1866,7 @@ export interface components {
             mode: components["schemas"]["CaptionMode"];
             place?: components["schemas"]["CaptionPlace"] | null;
             position: components["schemas"]["CaptionPosition"];
+            style?: components["schemas"]["PinnedRef"] | null;
             typing_sound?: components["schemas"]["PinnedRef"] | null;
         };
         /** PresetList */
@@ -1987,6 +2012,7 @@ export interface components {
          * @description The look kept from a reference so a later style request can copy it.
          */
         ReferenceLook: {
+            caption_box?: components["schemas"]["CaptionBoxDescription"] | null;
             /** Frames */
             frames: string[];
             /** Palette */
