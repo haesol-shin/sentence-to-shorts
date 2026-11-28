@@ -620,6 +620,26 @@ def test_29_two_layers_with_translations_have_no_issue(catalog: Registry) -> Non
     assert state.validate(video, catalog) == []
 
 
+def test_29_stored_second_caption_and_translations_remain_readable(
+    client: TestClient, catalog: Registry
+) -> None:
+    video = store_caption_video(client, catalog)
+    assert state.validate(video, catalog) == []
+
+    response = client.get(f"/api/v1/videos/{video.id}")
+
+    assert response.status_code == 200, response.text
+    saved = Video.model_validate(response.json()["video"])
+    assert len(saved.settings.caption.extra) == 1
+    assert all(
+        line.extra_texts
+        for scene in saved.scenes.values()
+        for line in scene.lines
+    )
+    assert saved.settings.caption.extra == video.settings.caption.extra
+    assert saved.scenes == video.scenes
+
+
 def test_29_missing_translation_is_reported_per_line(catalog: Registry) -> None:
     video = with_extra(current_bgm(fixture_video(), catalog), catalog, texts=False)
     issues = state.validate(video, catalog)

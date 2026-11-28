@@ -147,13 +147,16 @@ def test_29_preview_and_clip_share_the_caption_plate(studio: Studio) -> None:
         assert sink.distinct == {hashlib.sha256(still.convert("RGB").tobytes()).hexdigest()}
 
 
-def test_29_two_layer_preview_and_clip_share_both_plates(studio: Studio) -> None:
+def test_29_clip_ignores_stored_second_caption(studio: Studio) -> None:
     scene = _two_line_scene()
     scene["visual"]["elements"] = []
-    scene["lines"][0]["extra_texts"] = [
-        {"language": "en", "text": "The only criteria are freshness and grind size."}
+    legacy_scene = copy.deepcopy(scene)
+    legacy_scene["lines"][0]["extra_texts"] = [
+        {"language": "en", "text": "First check the beans."}
     ]
-    scene["lines"][1]["extra_texts"] = [{"language": "en", "text": "Then boil the water."}]
+    legacy_scene["lines"][1]["extra_texts"] = [
+        {"language": "en", "text": "Then boil the water."}
+    ]
     font = studio.registry.pin("font", "galmuri11").model_dump()
     extra = {
         "language": "en",
@@ -161,16 +164,16 @@ def test_29_two_layer_preview_and_clip_share_both_plates(studio: Studio) -> None
         "font_id": font,
         "position": "top",
     }
-    sink = FrameSink()
-    _clip(studio, sink, scene, timing_for(scene), font="galmuri11", extra=extra)
-    built = studio.video(scene, font="galmuri11", extra=extra)
-    parts, layer = studio.inputs(built, scene["id"])
-    still, composed = studio.service.compose(built, scene["id"], parts, layer)
-    path = studio.still(built, scene["id"], name="two_layers")
-    preview = json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
-    assert preview["caption"]["plate"] == composed["caption"]["plate"]
-    assert preview["caption_extra"]["plate"] == composed["caption_extra"]["plate"]
-    assert sink.first == still.convert("RGB").tobytes()
+    timing = timing_for(scene, speech_ms=100, gap_ms=50, tail_ms=50)
+    plain = FrameSink()
+    legacy = FrameSink()
+    _clip(studio, plain, scene, timing, font="galmuri11")
+    _clip(studio, legacy, legacy_scene, timing, font="galmuri11", extra=extra)
+    assert plain.count == legacy.count == frame_count(timing.duration_ms)
+    assert plain.first != plain.last
+    assert plain.first == legacy.first
+    assert plain.last == legacy.last
+    assert plain.distinct == legacy.distinct
 
 
 def test_29_fade_scene_starts_black_and_ends_drawn(studio: Studio) -> None:

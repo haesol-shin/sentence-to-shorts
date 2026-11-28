@@ -27,8 +27,8 @@ export type ScrollPaneProps = {
 /**
  * One scrolling column. The scrollbar is never drawn, while the wheel, the
  * trackpad and the keyboard scroll it as usual. When more content waits below,
- * a 44 round jump control named by the caller sits at the bottom centre and moves one
- * screen's 80 percent; at the end it disappears and gives focus back to the
+ * a 44 round jump control at the bottom centre moves to the end, then
+ * disappears and gives focus back to the
  * column. In the app the control has its own dock row under the column, so it
  * never covers content or a caller's controls; outside the app the dock has no
  * height and the control floats over the column.
@@ -113,7 +113,7 @@ export const ScrollPane = forwardRef<HTMLDivElement, ScrollPaneProps>(
     const jump = () => {
       const viewport = viewportRef.current;
       if (viewport === null) return;
-      viewport.scrollBy({ top: viewport.clientHeight * 0.8 });
+      viewport.scrollTo({ top: viewport.scrollHeight });
     };
 
     return (

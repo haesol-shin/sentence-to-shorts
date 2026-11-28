@@ -18,7 +18,6 @@ import { useEditPrepare } from './edit-prepare';
 import { HistoryButtons } from './history-buttons';
 import { type Stage, type View } from './shell-config';
 import { StageIndicator, StageMenu } from './stage-nav';
-import { VideoSettings } from './video-settings';
 
 /**
  * The edit stage's make-video button with what the voice models are doing. The
@@ -137,11 +136,9 @@ export function TopBar({
       <div className="absolute left-1/2 hidden -translate-x-1/2 md:block">
         <StageIndicator current={stage} onSelect={onStage} />
       </div>
-      {/* Export opens from the edit step, so its bar keeps the edit step's video settings. */}
       {view === 'edit' || view === 'export' ? (
         <div className="flex min-w-0 flex-1 items-center justify-end gap-2 md:min-h-[var(--size-control)]">
           {view === 'edit' ? <EditTopBarStatus /> : status}
-          <VideoSettings />
         </div>
       ) : (
         <div className="flex min-w-0 flex-1 items-center md:min-h-[var(--size-control)]">{status}</div>

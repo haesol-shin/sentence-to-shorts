@@ -1,7 +1,8 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
 import { Button } from '@/components/Button/Button';
-import { Dialog } from '@/components/Dialog/Dialog';
+import { CloseButton } from '@/components/CloseButton/CloseButton';
+import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
 import { Notice } from '@/components/Notice/Notice';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
@@ -38,15 +39,18 @@ export function SceneConfirm({
       label={t('edit.confirm.title')}
       actions={
         <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+          <Button variant="secondary" onClick={() => onOpenChange(false)}>
             {t('edit.confirm.cancel')}
           </Button>
-          <Button disabled={!edit.canStartVideo || edit.busy} onClick={onStart}>
+          <Button disabled={!edit.canStartVideo || edit.busy || edit.entryPreview} onClick={onStart}>
             {t('edit.confirm.start')}
           </Button>
         </>
       }
     >
+      <DialogClose
+        render={<CloseButton label={t('edit.preview.close')} className="absolute top-4 right-4" />}
+      />
       <div data-slot="scene-confirm" className="flex flex-col gap-3">
         <ol className="flex flex-col gap-1">
           {edit.scenes.map((scene, index) => (

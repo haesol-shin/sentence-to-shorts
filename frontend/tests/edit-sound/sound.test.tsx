@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, test, vi, type Mock } from 'vitest';
 
 import { createEditApi, createMockEditApi, EditApiError, type EditApi, type Job } from '@/features/edit/api';
 
-import { openTab, pickOption, renderEdit, soundView, tagOf } from './support';
+import { audioValue, openBgm, openCaptionMode, openTab, pickOption, renderEdit, soundView } from './support';
 
 let play: Mock<() => Promise<void>>;
 
@@ -25,13 +25,13 @@ afterEach(() => {
 
 async function openSound(api?: EditApi) {
   const rendered = await renderEdit(undefined, api);
-  await openTab('소리');
-  await screen.findByRole('switch', { name: 'BGM 켜기' });
+  await openTab('영상 전체');
+  await screen.findByRole('button', { name: /^BGM / });
   return rendered;
 }
 
 function trackName(): string {
-  return tagOf('bgm-section');
+  return audioValue('bgm-value');
 }
 
 function composerOf(): HTMLElement {
@@ -47,6 +47,25 @@ function chooseFile(...files: File[]) {
 async function advancePollTime(ms: number) {
   await act(async () => { await vi.advanceTimersByTimeAsync(ms); });
 }
+
+test('playing another audio source pauses the first, and replaying the same control stops it', async () => {
+  await openSound();
+  const pause = vi.mocked(window.HTMLMediaElement.prototype.pause);
+  fireEvent.click(screen.getByRole('button', { name: '기본 목소리 듣기' }));
+  await waitFor(() => expect(play).toHaveBeenCalledTimes(1));
+  const voice = play.mock.contexts[0];
+  expect(pause).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole('button', { name: '궁금증 스테이지 듣기' }));
+  await waitFor(() => expect(play).toHaveBeenCalledTimes(2));
+  expect(pause.mock.contexts).toEqual([voice]);
+  expect(screen.getByRole('button', { name: '기본 목소리 듣기' })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole('button', { name: '궁금증 스테이지 듣기 멈추기' }));
+  expect(pause.mock.contexts).toEqual([voice, play.mock.contexts[1]]);
+  expect(play).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('button', { name: '궁금증 스테이지 듣기' })).toBeTruthy();
+});
 
 test('test_9_listening_to_a_voice_does_not_pick_it', async () => {
   await openSound();
@@ -69,10 +88,10 @@ test('test_9_a_voice_is_picked_with_its_own_button_and_applied_on_the_apply_butt
   fireEvent.click(document.querySelector('[data-slot="voice-change"]') as HTMLElement);
   const dialog = await screen.findByRole('dialog', { name: '목소리 고르기' });
   fireEvent.click(within(dialog).getByRole('button', { name: '소희 (한국어)', pressed: false }));
-  expect(tagOf('voice-section')).toBe('기본 목소리');
+  expect(audioValue('voice-section')).toBe('기본 목소리');
   fireEvent.click(within(dialog).getByRole('button', { name: '적용' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: '목소리 고르기' })).toBeNull());
-  await waitFor(() => expect(tagOf('voice-section')).toBe('소희 (한국어)'));
+  await waitFor(() => expect(audioValue('voice-section')).toBe('소희 (한국어)'));
 });
 
 test('test_9_cancel_leaves_the_voice_as_it_was', async () => {
@@ -82,16 +101,17 @@ test('test_9_cancel_leaves_the_voice_as_it_was', async () => {
   fireEvent.click(within(dialog).getByRole('button', { name: '소희 (한국어)', pressed: false }));
   fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
   await waitFor(() => expect(screen.queryByRole('dialog', { name: '목소리 고르기' })).toBeNull());
-  expect(tagOf('voice-section')).toBe('기본 목소리');
+  expect(audioValue('voice-section')).toBe('기본 목소리');
 });
 
 test('test_14_the_bgm_is_on_and_shows_its_mood_track_and_level', async () => {
   await openSound();
+  const dialog = await openBgm();
   const bgm = document.querySelector<HTMLElement>('[data-slot="bgm-section"]') as HTMLElement;
   const toggle = within(bgm).getByRole('switch', { name: 'BGM 켜기' });
   expect(toggle.getAttribute('aria-checked')).toBe('true');
   expect(within(bgm).getByRole('combobox', { name: '분위기' }).textContent).toContain('호기심');
-  expect(within(bgm).getByText('궁금증 스테이지')).toBeTruthy();
+  expect(within(dialog).getByRole('button', { name: '궁금증 스테이지', pressed: true })).toBeTruthy();
   expect(within(bgm).getByRole('combobox', { name: '크기' }).textContent).toContain('보통');
   expect(within(bgm).getByRole('switch', { name: '말할 때 BGM 줄이기' }).getAttribute('aria-checked')).toBe(
     'true',
@@ -100,6 +120,7 @@ test('test_14_the_bgm_is_on_and_shows_its_mood_track_and_level', async () => {
 
 test('test_14_the_bgm_level_has_three_choices', async () => {
   await openSound();
+  await openBgm();
   fireEvent.click(screen.getByRole('combobox', { name: '크기' }));
   const options = await screen.findAllByRole('option');
   expect(options.map((option) => option.textContent)).toEqual(['작게', '보통', '크게']);
@@ -107,6 +128,7 @@ test('test_14_the_bgm_level_has_three_choices', async () => {
 
 test('test_14_a_new_mood_picks_the_first_track_of_that_mood_in_one_change', async () => {
   const api = await openSound();
+  await openBgm();
   fireEvent.click(screen.getByRole('combobox', { name: '분위기' }));
   pickOption(await screen.findByRole('option', { name: '장난스럽게' }));
   await waitFor(() => expect(trackName()).toBe('발랄한 보사노바'));
@@ -118,6 +140,7 @@ test('test_14_a_new_mood_picks_the_first_track_of_that_mood_in_one_change', asyn
 
 test('test_14_the_bgm_switch_turns_the_bgm_off_and_the_other_controls_stop', async () => {
   await openSound();
+  await openBgm();
   const bgm = document.querySelector<HTMLElement>('[data-slot="bgm-section"]') as HTMLElement;
   fireEvent.click(within(bgm).getByRole('switch', { name: 'BGM 켜기' }));
   await waitFor(() =>
@@ -137,8 +160,10 @@ test('test_14_an_upload_that_is_not_audio_shows_an_error_and_sends_nothing', asy
 test('test_14_a_file_dropped_during_a_bgm_job_is_refused_with_a_reason', async () => {
   const api = await openSound();
   const send = vi.spyOn(api, 'uploadBgm');
+  const dialog = await openBgm();
   fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' }));
   await screen.findByRole('button', { name: '멈추기' });
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
   const file = new File(['a'], 'late.wav', { type: 'audio/wav' });
   fireEvent.drop(composerOf(), { dataTransfer: { files: [file] } });
   expect((await screen.findByRole('alert')).textContent).toContain('BGM 작업이 끝난 뒤에 한 곡씩 올려 주세요.');
@@ -188,10 +213,13 @@ test('test_14_an_uploaded_track_is_picked_with_its_mood', async () => {
 
 test('test_14_a_generated_loop_is_picked_after_the_job_finishes', async () => {
   await openSound();
+  const dialog = await openBgm();
   fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' }));
   expect(await screen.findByRole('button', { name: /멈추기/ })).toBeTruthy();
-  await openTab('자막');
-  await openTab('소리');
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  await openTab('이 장면');
+  await openTab('영상 전체');
+  await openBgm();
   expect(screen.getByRole('button', { name: '멈추기' })).toBeTruthy();
   await waitFor(() => expect(trackName()).toBe('만든 BGM 1'), { timeout: 4000 });
 });
@@ -285,27 +313,22 @@ test('test_9_a_track_with_no_preview_url_says_so', async () => {
   expect(await screen.findByText(/미리 들을 수 없어요/)).toBeTruthy();
 });
 
-test('test_9_the_sound_effect_rule_is_written_in_the_sound_tab', async () => {
-  await openSound();
-  expect(
-    screen.getByText('효과음은 요청할 때만 AI가 장면마다 두 개까지 더해요.'),
-  ).toBeTruthy();
-  expect(screen.getByText('더한 효과음은 장면 탭에서 그 장면을 골라 확인해요.')).toBeTruthy();
-});
-
 test('test_14_a_choice_survives_a_tab_switch', async () => {
   await openSound();
+  const dialog = await openBgm();
   fireEvent.click(screen.getByRole('combobox', { name: '크기' }));
   pickOption(await screen.findByRole('option', { name: '크게' }));
   await waitFor(() => expect(screen.getByRole('combobox', { name: '크기' }).textContent).toContain('크게'));
-  await openTab('자막');
-  await screen.findByRole('radiogroup', { name: '자막 방식' });
-  await openTab('소리');
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  await openTab('이 장면');
+  await openTab('영상 전체');
+  await openBgm();
   expect((await screen.findByRole('combobox', { name: '크기' })).textContent).toContain('크게');
 });
 
 test('test_14_every_sound_and_caption_change_uses_a_path_the_server_accepts', async () => {
   const api = await openSound();
+  const dialog = await openBgm();
   const change = vi.spyOn(api, 'change');
   const accepted = /^\/settings(\/[a-z_]+)+$/u;
 
@@ -319,7 +342,8 @@ test('test_14_every_sound_and_caption_change_uses_a_path_the_server_accepts', as
   await waitFor(() => expect(change).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.getByRole('combobox', { name: '크기' }).textContent).toContain('작게'));
 
-  await openTab('자막');
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
+  await openCaptionMode();
   fireEvent.click(await screen.findByRole('radio', { name: '구절형' }));
   await waitFor(() => expect(change).toHaveBeenCalledTimes(3));
 
@@ -345,6 +369,7 @@ test('test_14_stop_before_the_start_response_cancels_that_job', async () => {
   vi.spyOn(api, 'createBgmCode').mockReturnValue(new Promise((resolve) => { release = resolve; }));
   const cancel = vi.spyOn(api, 'cancelJob');
   await openSound(api);
+  await openBgm();
   fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' }));
   fireEvent.click(screen.getByRole('button', { name: '멈추기' }));
   expect((screen.getByRole('button', { name: '멈추는 중' }) as HTMLButtonElement).disabled).toBe(true);
@@ -359,6 +384,7 @@ test('test_14_a_failed_stop_is_reported_without_discarding_the_job', async () =>
   const api = createMockEditApi(soundView());
   vi.spyOn(api, 'cancelJob').mockRejectedValueOnce(new EditApiError('offline', 0, ''));
   await openSound(api);
+  await openBgm();
   fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' }));
   fireEvent.click(screen.getByRole('button', { name: '멈추기' }));
   expect(await screen.findByText(/BGM 작업을 멈추지 못했어요/)).toBeTruthy();
@@ -371,6 +397,7 @@ test('test_14_bgm_polling_respects_visible_and_hidden_intervals_after_a_failure'
     .mockRejectedValueOnce(new EditApiError('offline', 0, ''))
     .mockRejectedValueOnce(new EditApiError('internal', 503, ''));
   await openSound(api);
+  await openBgm();
   const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
   vi.useFakeTimers();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' })); });
@@ -409,6 +436,7 @@ test.each([
   if (failure !== null) cancel.mockRejectedValueOnce(failure);
   const start = vi.spyOn(api, 'createBgmCode');
   await openSound(api);
+  await openBgm();
   vi.useFakeTimers();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' })); });
   await advancePollTime(2000);
@@ -433,6 +461,7 @@ test('test_14_a_cancelling_reply_keeps_tracking_until_the_job_is_cancelled', asy
   }));
   const poll = vi.spyOn(api, 'readJob');
   await openSound(api);
+  await openBgm();
   vi.useFakeTimers();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' })); });
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: '멈추기' })); });
@@ -447,6 +476,7 @@ test('test_14_a_missing_bgm_job_stops_polling_and_releases_the_controls', async 
   const poll = vi.spyOn(api, 'readJob').mockRejectedValue(new EditApiError('not_found', 404, ''));
   const start = vi.spyOn(api, 'createBgmCode');
   await openSound(api);
+  await openBgm();
   vi.useFakeTimers();
   await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' })); });
   await advancePollTime(6000);
@@ -466,10 +496,13 @@ test('test_14_a_completed_track_waits_for_another_setting_write', async () => {
     return change(id, body);
   });
   await openSound(api);
+  const bgmDialog = await openBgm();
   fireEvent.click(screen.getByRole('button', { name: 'BGM 만들기' }));
-  await openTab('자막');
+  fireEvent.click(within(bgmDialog).getByRole('button', { name: '취소' }));
+  const captions = await openCaptionMode();
   fireEvent.click(screen.getByRole('radio', { name: '구절형' }));
-  await openTab('소리');
+  fireEvent.keyDown(captions, { key: 'Escape' });
+  await openBgm();
   expect(await screen.findByText('지금 변경이 끝나면 새 곡을 적용해요.', {}, { timeout: 4000 })).toBeTruthy();
   expect(trackName()).toBe('궁금증 스테이지');
   release();
@@ -485,6 +518,7 @@ test('test_14_failed_and_incomplete_catalogs_keep_the_saved_pair_until_reloaded'
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce(allTracks.filter((track) => track.mood === 'curious'));
   await openSound(api);
+  await openBgm();
   const mood = screen.getByRole('combobox', { name: '분위기' });
   expect(await screen.findByText('곡 목록을 불러오지 못했어요.')).toBeTruthy();
   expect((mood as HTMLButtonElement).disabled).toBe(true);
@@ -504,11 +538,14 @@ test('test_14_failed_and_incomplete_catalogs_keep_the_saved_pair_until_reloaded'
 
 test('test_14_sound_undo_does_not_require_leaving_the_tab', async () => {
   await openSound();
+  const undo = screen.getByRole<HTMLButtonElement>('button', { name: '되돌리기' });
+  const dialog = await openBgm();
   const toggle = screen.getByRole('switch', { name: 'BGM 켜기' });
   fireEvent.click(toggle);
   await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('false'));
-  const undo = screen.getByRole('button', { name: '되돌리기' }) as HTMLButtonElement;
+  fireEvent.click(within(dialog).getByRole('button', { name: '취소' }));
   await waitFor(() => expect(undo.disabled).toBe(false));
   fireEvent.click(undo);
-  await waitFor(() => expect(toggle.getAttribute('aria-checked')).toBe('true'));
+  await openBgm();
+  await waitFor(() => expect(screen.getByRole('switch', { name: 'BGM 켜기' }).getAttribute('aria-checked')).toBe('true'));
 });

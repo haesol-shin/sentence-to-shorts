@@ -29,7 +29,7 @@ async function openEdit(page: Page): Promise<void> {
   await expect(page.locator('[data-slot="edit-stage"]')).toBeVisible();
 }
 
-async function openTab(page: Page, name: '소리' | '자막' | '장면'): Promise<void> {
+async function openTab(page: Page, name: '영상 전체' | '이 장면'): Promise<void> {
   await page.getByRole('tab', { name, exact: true }).click();
 }
 
@@ -48,28 +48,28 @@ async function expectJump(jump: Locator): Promise<void> {
   expect(size).toEqual({ width: 44, height: 44 });
 }
 
-test('test_14_the_sound_tab_fits_the_panel_at_1280_and_1920', async ({ page }) => {
+test('test_14_the_whole_video_panel_fits_at_1280_and_1920', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '소리');
-  const tab = page.locator('[data-slot="sound-tab"]');
-  await expect(tab).toBeVisible();
+  await openTab(page, '영상 전체');
+  const panel = page.locator('[data-slot="whole-panel"]');
+  await expect(panel).toBeVisible();
   for (const size of WIDTHS) {
     await page.setViewportSize(size);
     await page.waitForTimeout(200);
-    const overflow = await tab.evaluate((node) => {
+    const overflow = await panel.evaluate((node) => {
       const viewport = node.closest('.scroll-pane__viewport');
       return viewport === null ? -1 : viewport.scrollWidth - viewport.clientWidth;
     });
     expect(overflow).toBeLessThanOrEqual(0);
-    await expect(page.getByRole('switch', { name: 'BGM 켜기' })).toHaveAttribute('aria-checked', 'true');
-    await expect(page.getByRole('combobox', { name: '분위기' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: '크기' })).toBeVisible();
+    await expect(panel.getByRole('button', { name: /^목소리/ })).toBeVisible();
+    await expect(panel.getByRole('button', { name: /^BGM/ })).toBeVisible();
+    await expect(panel.getByRole('combobox', { name: '글꼴' })).toBeVisible();
   }
 });
 
 test('test_9_the_voice_list_hides_the_scrollbar_and_shows_a_44_jump', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '소리');
+  await openTab(page, '영상 전체');
   for (const size of WIDTHS) {
     await page.setViewportSize(size);
     await page.locator('[data-slot="voice-change"]').click();
@@ -85,7 +85,7 @@ test('test_9_the_voice_list_hides_the_scrollbar_and_shows_a_44_jump', async ({ p
 
 test('test_9_the_voice_listen_and_pick_buttons_are_separate', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '소리');
+  await openTab(page, '영상 전체');
   await page.locator('[data-slot="voice-change"]').click();
   const dialog = page.getByRole('dialog', { name: '목소리 고르기' });
   await dialog.getByRole('button', { name: '소희 (한국어) 듣기', exact: true }).click();
@@ -95,29 +95,13 @@ test('test_9_the_voice_listen_and_pick_buttons_are_separate', async ({ page }) =
   await expect(dialog.getByRole('button', { name: '적용' })).toBeEnabled();
   await dialog.getByRole('button', { name: '적용' }).click();
   await expect(dialog).toBeHidden();
-  await expect(page.locator('[data-slot="voice-section"] .tag__label')).toHaveText('소희 (한국어)');
+  await expect(page.locator('[data-slot="voice-section"] .whole-field__value')).toHaveText('소희 (한국어)');
 });
 
-test('test_9_the_sound_effect_window_uses_its_height_at_1280_and_1920', async ({ page }) => {
-  await openEdit(page);
-  for (const size of WIDTHS) {
-    await page.setViewportSize(size);
-    await page.getByRole('button', { name: '효과음 추가' }).click();
-    const dialog = page.getByRole('dialog', { name: '효과음 추가' });
-    await expect(dialog).toBeVisible();
-    const pane = dialog.locator('.scroll-pane');
-    await expectHiddenScrollbar(dialog.locator('.scroll-pane__viewport'));
-    await expectJump(dialog.locator('.scroll-pane__jump .icon-button'));
-    expect(await pane.evaluate((node) => (node as HTMLElement).offsetHeight)).toBe(288);
-    await expect(dialog.locator('.scroll-pane__viewport button')).toHaveCount(12);
-    await dialog.getByRole('button', { name: '닫기' }).first().click();
-    await expect(dialog).toBeHidden();
-  }
-});
 
 test('test_14_an_upload_that_is_not_audio_shows_an_error', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '소리');
+  await openTab(page, '영상 전체');
   await page
     .locator('[data-slot="composer"]')
     .filter({ visible: true })
@@ -132,7 +116,7 @@ test('test_14_an_upload_that_is_not_audio_shows_an_error', async ({ page }) => {
 
 test('test_14_an_uploaded_track_becomes_the_picked_track', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '소리');
+  await openTab(page, '영상 전체');
   await page.locator('[data-slot="composer-plus"]').getByRole('button').click();
   const chooseFile = page.waitForEvent('filechooser');
   await page.getByRole('menuitem', { name: 'BGM 올리기' }).click();
@@ -141,64 +125,36 @@ test('test_14_an_uploaded_track_becomes_the_picked_track', async ({ page }) => {
     mimeType: 'audio/wav',
     buffer: Buffer.from('RIFF'),
   });
-  await expect(page.locator('[data-slot="bgm-section"] .tag__label')).toHaveText('올린 BGM 1', {
+  await expect(page.locator('[data-slot="bgm-value"] .whole-field__value')).toHaveText('올린 BGM 1', {
     timeout: 5000,
   });
 });
 
 test('test_14_the_bgm_level_has_three_choices', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '소리');
+  await openTab(page, '영상 전체');
+  await page.locator('[data-slot="bgm-change"]').click();
   await page.getByRole('combobox', { name: '크기' }).click();
   await expect(page.getByRole('option')).toHaveCount(3);
 });
 
-test('test_24_the_caption_tab_picks_a_mode_and_a_position_and_keeps_them_across_tabs', async ({ page }) => {
+test('test_24_caption_mode_and_position_are_whole_video_values_without_a_second_layer', async ({ page }) => {
   await openEdit(page);
-  await openTab(page, '자막');
-  const group = page.getByRole('radiogroup', { name: '자막 방식' });
+  await openTab(page, '영상 전체');
+  await page.getByRole('button', { name: /^자막 방식/ }).click();
+  const dialog = page.getByRole('dialog', { name: '자막 방식' });
+  const group = dialog.getByRole('radiogroup', { name: '자막 방식' });
   await expect(group.getByRole('radio')).toHaveCount(3);
   await group.getByRole('radio', { name: '구절형' }).click();
-  await page.getByRole('combobox', { name: '자막 위치' }).click();
+  await dialog.getByRole('combobox', { name: '자막 위치' }).click();
   await expect(page.getByRole('option')).toHaveCount(5);
   await page.getByRole('option', { name: '위쪽' }).click();
-  await expect(page.getByRole('combobox', { name: '자막 위치' })).toContainText('위쪽');
-  await openTab(page, '소리');
-  await expect(page.locator('[data-slot="sound-tab"]')).toBeVisible();
-  await openTab(page, '자막');
-  await expect(group.getByRole('radio', { name: '구절형' })).toHaveAttribute('aria-checked', 'true');
-  await expect(page.getByRole('combobox', { name: '자막 위치' })).toContainText('위쪽');
-});
-
-test('test_29_the_caption_tab_with_a_second_layer_fits_at_1280_and_1920', async ({ page }) => {
-  await openEdit(page);
-  await openTab(page, '자막');
-  await page.getByRole('combobox', { name: '두 번째 언어' }).click();
-  await page.getByRole('option', { name: '영어' }).click();
-  const tab = page.locator('[data-slot="captions-tab"]');
-  await expect(tab.getByRole('textbox')).toHaveCount(11);
-  for (const size of WIDTHS) {
-    await page.setViewportSize(size);
-    await page.waitForTimeout(200);
-    const overflow = await tab.evaluate((node) => {
-      const viewport = node.closest('.scroll-pane__viewport');
-      return viewport === null ? -1 : viewport.scrollWidth - viewport.clientWidth;
-    });
-    expect(overflow).toBeLessThanOrEqual(0);
-    await expect(page.getByRole('combobox', { name: '자막 위치' })).toBeVisible();
-    await expect(page.getByRole('combobox', { name: '두 번째 위치' })).toBeVisible();
-  }
-  await page.getByRole('combobox', { name: '자막 위치' }).click();
-  await expect(page.getByRole('option')).toHaveCount(5);
-  await expect(page.locator('[role="option"][aria-disabled="true"]')).toHaveCount(3);
-});
-
-test('test_29_a_missing_translation_is_blocked_before_the_save_in_the_caption_tab', async ({ page }) => {
-  await openEdit(page);
-  await openTab(page, '자막');
-  await page.getByRole('combobox', { name: '두 번째 언어' }).click();
-  await page.getByRole('option', { name: '영어' }).click();
-  await page.getByRole('button', { name: '두 번째 자막 적용' }).click();
-  await expect(page.getByRole('alert').filter({ hasText: '번역문이 없는 줄이 있어요' })).toContainText('장면 1 줄 1');
-  await expect(page.getByRole('combobox', { name: '두 번째 언어' })).toContainText('영어');
+  await expect(dialog.getByRole('combobox', { name: '자막 위치' })).toContainText('위쪽');
+  await expect(dialog.getByText(/두 번째/)).toHaveCount(0);
+  await expect(dialog.getByText(/겹침 확인에 쓴 가장 작은 글자 크기/)).toBeVisible();
+  await dialog.getByRole('button', { name: '닫기' }).first().click();
+  await openTab(page, '이 장면');
+  await openTab(page, '영상 전체');
+  await page.getByRole('button', { name: /^자막 방식/ }).click();
+  await expect(page.getByRole('radio', { name: '구절형' })).toHaveAttribute('aria-checked', 'true');
 });

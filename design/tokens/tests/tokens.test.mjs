@@ -219,7 +219,7 @@ describe('design tokens', () => {
       expect(value, name).toMatch(/^var\(--palette-[a-z0-9-]+\)$/);
     }
     expect(values.get('--layout-sidebar-w')).toBe('72px');
-    expect(values.get('--touch-target')).toBe('48px');
+    expect(values.get('--touch-target')).toBe('44px');
     expect(values.get('--motion-short')).toBe('var(--motion-panel-duration)');
     expect(shell).not.toMatch(/#[0-9A-Fa-f]{3,8}/);
     expect(existsSync(SHELL_PATH)).toBe(true);

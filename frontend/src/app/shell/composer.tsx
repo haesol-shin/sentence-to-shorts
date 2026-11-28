@@ -632,7 +632,7 @@ function ComposerBox({
       onDrop={onDrop}
       className={cn(
         'relative flex w-full flex-col border border-[var(--border)] bg-[var(--surface)] transition-colors',
-        face === 'first' ? 'rounded-[var(--radius-input)] p-3' : 'gap-1.5 rounded-[var(--radius-composer)] p-1.5',
+        face === 'first' ? 'rounded-[var(--radius-input)] p-1.5' : 'gap-1.5 rounded-[var(--radius-composer)] p-1.5',
         dragging && 'border-dashed border-[var(--text-muted)]',
         targetSeat === null && className,
       )}
@@ -1010,8 +1010,8 @@ function EditComposer({
             label={rest.label}
             placeholder={rest.placeholder}
             sendLabel={rest.sendLabel}
-            value=""
-            disabled
+            value={value}
+            onChange={setValue}
           />
         </div>
       </Tooltip>

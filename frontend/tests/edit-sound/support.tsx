@@ -53,8 +53,18 @@ export async function renderEdit(view: VideoView = soundView(), api: EditApi = c
   return api;
 }
 
-export async function openTab(name: '소리' | '자막' | '장면') {
-  fireEvent.click(await screen.findByRole('tab', { name }));
+export async function openTab(name: '영상 전체' | '이 장면') {
+  fireEvent.click(await screen.findByRole('tab', { name: new RegExp(`^${name}$`) }));
+}
+
+export async function openCaptionMode() {
+  fireEvent.click(await screen.findByRole('button', { name: /^자막 방식/ }));
+  return screen.findByRole('dialog', { name: '자막 방식' });
+}
+
+export async function openBgm() {
+  fireEvent.click(document.querySelector<HTMLElement>('[data-slot="bgm-change"]')!);
+  return screen.findByRole('dialog', { name: /곡 고르기/ });
 }
 
 /** Picks one option of an open value field the way a press does: down, up, then click. */
@@ -65,8 +75,6 @@ export function pickOption(option: HTMLElement) {
   fireEvent.click(option);
 }
 
-/** The value a section shows in its tag, for the voice and the BGM track. */
-export function tagOf(slot: 'voice-section' | 'bgm-section'): string {
-  const section = document.querySelector<HTMLElement>(`[data-slot="${slot}"]`) as HTMLElement;
-  return section.querySelector('.tag__label')?.textContent ?? '';
+export function audioValue(slot: 'voice-section' | 'bgm-value'): string {
+  return document.querySelector(`[data-slot="${slot}"] .whole-field__value`)?.textContent ?? '';
 }

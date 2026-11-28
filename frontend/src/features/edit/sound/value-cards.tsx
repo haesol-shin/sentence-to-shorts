@@ -1,7 +1,10 @@
+import type { ReactElement } from 'react';
+
 import { useLocale } from '@/shared/lib/i18n/locale';
 
 import type { EditValue } from '../edit-context';
 import { ChoiceDialog, type ChoiceItem } from './choice-dialog';
+import { BgmDetails } from './bgm-details';
 import { bgmChange, readAudio, trackPatch, tracksOfMood, VOICE_PATH } from './model';
 import type { AudioPreview } from './use-audio-preview';
 
@@ -10,15 +13,11 @@ interface CardProps {
   preview: AudioPreview;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The settings panel the window lies over; without it the window opens in the page middle. */
-  container?: HTMLElement | null;
+  trigger: ReactElement;
+  container?: HTMLElement;
 }
 
-/**
- * The window that picks the video's voice. The sound tab and the video
- * settings panel open the same one, so a voice is picked the same way in both.
- */
-export function VoiceCard({ edit, preview, open, onOpenChange, container }: CardProps) {
+export function VoiceCard({ edit, preview, open, onOpenChange, trigger, container }: CardProps) {
   const { t, language } = useLocale();
   const { voiceId } = readAudio(edit.video);
   const items: ChoiceItem[] = edit.voices.map((item) => ({
@@ -32,6 +31,7 @@ export function VoiceCard({ edit, preview, open, onOpenChange, container }: Card
     <ChoiceDialog
       open={open}
       onOpenChange={onOpenChange}
+      trigger={trigger}
       container={container}
       title={t('audio.voice.title')}
       label={t('audio.voice.pickerTitle')}
@@ -51,10 +51,10 @@ export function VoiceCard({ edit, preview, open, onOpenChange, container }: Card
   );
 }
 
-/** The window that picks a BGM track of the chosen mood; the sound tab and the settings panel share it. */
-export function BgmCard({ edit, preview, open, onOpenChange, container }: CardProps) {
+export function BgmCard({ edit, preview, open, onOpenChange, trigger, container }: CardProps) {
   const { t, language } = useLocale();
   const { bgm } = readAudio(edit.video);
+  const canChoose = bgm.enabled && edit.bgmStatus === 'ready';
   const choices: ChoiceItem[] = tracksOfMood(edit.bgm, bgm.mood).map((item) => ({
     id: item.id,
     label: item.label[language],
@@ -68,16 +68,19 @@ export function BgmCard({ edit, preview, open, onOpenChange, container }: CardPr
     <ChoiceDialog
       open={open}
       onOpenChange={onOpenChange}
+      trigger={trigger}
       container={container}
       title={title}
       label={title}
       description={t('audio.bgm.pickerDescription')}
       listLabel={t('audio.bgm.list')}
       emptyText={t('audio.bgm.empty')}
-      items={choices}
+      items={canChoose ? choices : []}
       current={bgm.entryId}
       preview={preview}
-      disabled={edit.settingsBusy || edit.bgmStatus !== 'ready'}
+      showList={canChoose}
+      details={<BgmDetails edit={edit} preview={preview} />}
+      disabled={edit.settingsBusy || !canChoose}
       onApply={(id) => {
         const picked = edit.bgm.find((item) => item.id === id);
         if (picked !== undefined) edit.applySettings(bgmChange(edit.video, trackPatch(picked)));

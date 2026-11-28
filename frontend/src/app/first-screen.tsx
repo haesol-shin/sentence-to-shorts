@@ -8,7 +8,7 @@ import { cn } from '@/shared/lib/utils';
 import { useLocale } from '@/shared/lib/i18n/locale';
 import type { LlmKey } from '@/features/runtime/use-runtime-head';
 import { useLoad } from '@/shared/lib/use-load';
-import { Notice } from '@/components/Notice/Notice';
+import { Toast } from '@/components/Toast/Toast';
 import { ApiKeyBlock } from './api-key-block';
 import { useDeployment, Composer } from './shell/composer';
 import type { CardPick } from './shell/shell-config';
@@ -97,7 +97,7 @@ export function FirstScreen({
           {t('shell.first.heading')}
         </h1>
         {askKey ? <ApiKeyBlock noticeKey={authFailureKey} onSave={saveKey} /> : null}
-        {keySaved && !askKey ? <Notice>{t('shell.apiKey.saved')}</Notice> : null}
+        <Toast open={keySaved && !askKey} durationMs={3000}>{t('shell.apiKey.saved')}</Toast>
         <div data-menu-below="">
           <Composer
             face="first"

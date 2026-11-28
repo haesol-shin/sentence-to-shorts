@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Film, Maximize } from 'lucide-react';
 
-import { Button } from '@/components/Button/Button';
 import { CloseButton } from '@/components/CloseButton/CloseButton';
 import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
 import { PlaybackControls } from '@/components/PlaybackControls/PlaybackControls';
@@ -60,12 +59,12 @@ function StillFrame({
   const scene = edit.selectedScene;
   const state = scene === null ? 'missing' : stillState(edit.build, scene.id);
   const ready = scene !== null && stillIsReady(edit.build, scene.id);
+  const building = state === 'building' || (edit.entryPreview && (state === 'missing' || state === 'stale'));
   const number = sceneNumber(edit.video, edit.selectedId);
 
   return (
     <VideoPreview
-      state={ready ? 'ready' : state === 'building' ? 'loading' : 'empty'}
-      duration={ready ? t('edit.scene.estimated', { seconds: estimatedSeconds(scene) }) : undefined}
+      state={ready ? 'ready' : building ? 'loading' : 'empty'}
       className={className}
     >
       {scene === null ? (
@@ -90,7 +89,7 @@ function StillFrame({
             />
           )}
         </div>
-      ) : state === 'building' ? (
+      ) : building ? (
         <div
           data-state="building"
           className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-[var(--text-muted)]"
@@ -183,83 +182,69 @@ export function ScenePreview({ edit, collapsed }: { edit: EditValue; collapsed: 
   };
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-[14px]">
-      <div className="edit-preview-area flex min-h-0 w-full flex-1 flex-col items-center">
-        <div className="edit-preview-column flex w-full flex-col items-center gap-[14px]">
-          <div className="edit-preview-head relative ml-0.5 flex w-full items-center">
-            <h2 className="flex-1 text-[15px] leading-[normal] font-bold text-[var(--text-muted)]">
-              <span>{t('edit.preview.title')}</span>
-            </h2>
-            <IconButton
-              label={t('edit.preview.expand')}
-              onClick={() => setExpanded(true)}
-              className="absolute top-1/2 right-0 -translate-y-1/2"
-            >
+    <div className="edit-preview-area edit-preview-column flex w-full min-w-0 flex-col gap-[14px]">
+      <div className="edit-preview-head relative">
+        <h2 className="edit-column-title"><span>{t('edit.preview.title')}</span></h2>
+        <Dialog
+          open={expanded}
+          onOpenChange={setExpanded}
+          title={t('edit.preview.title')}
+          description={scene === null ? t('edit.preview.noScene') : scene.beat_label}
+          label={t('edit.preview.title')}
+          trigger={
+            <IconButton label={t('edit.preview.expand')} className="edit-preview-expand absolute right-0">
               <Maximize aria-hidden size={20} />
             </IconButton>
-          </div>
-
-          <StillFrame
-            edit={edit}
-            className={collapsed ? 'edit-preview-frame--thumb' : 'edit-preview-frame--standard'}
-            caption={caption}
-          />
-          <div className="edit-preview-controls mt-0.5 w-full min-w-0">
-            <PlaybackControls
-              label={t('edit.preview.play')}
-              labels={{
-                play: t('export.player.play'),
-                pause: t('export.player.pause'),
-                seek: t('export.player.seek'),
-                mute: t('export.player.mute'),
-                unmute: t('export.player.unmute'),
-              }}
-              playing={playing}
-              onToggle={() => {
-                if (lines.length === 0) return;
-                if (!playing && elapsedMs >= totalMs) seek(0);
-                setPlaying((current) => !current);
-              }}
-              position={position}
-              onSeek={(next) => {
-                if (lines.length === 0) return;
-                setPlaying(false);
-                seek(next);
-              }}
-              current={formatClock(Math.floor(elapsedMs / 1000))}
-              duration={`약 ${formatClock(seconds)}`}
-              muted={muted}
-              onToggleMute={() => setMuted((current) => !current)}
-              disabled={lines.length === 0}
-            />
-          </div>
-        </div>
-      </div>
-      <p className="text-center text-[15px] text-[var(--text-muted)]">{t('edit.preview.note')}</p>
-
-      <Dialog
-        open={expanded}
-        onOpenChange={setExpanded}
-        title={t('edit.preview.title')}
-        description={scene === null ? t('edit.preview.noScene') : scene.beat_label}
-        label={t('edit.preview.title')}
-        actions={
-          <DialogClose render={<Button variant="ghost">{t('edit.preview.close')}</Button>} />
-        }
-      >
-        <DialogClose
-          render={
-            <CloseButton
-              label={t('edit.preview.close')}
-              data-slot="preview-close"
-              className="absolute top-4 right-4"
-            />
           }
+        >
+          <DialogClose
+            render={
+              <CloseButton
+                label={t('edit.preview.close')}
+                data-slot="preview-close"
+                className="absolute top-4 right-4"
+              />
+            }
+          />
+          <div className="flex justify-center">
+            <StillFrame edit={edit} className="edit-preview-frame--large" caption={caption} />
+          </div>
+        </Dialog>
+      </div>
+      <StillFrame
+        edit={edit}
+        className={collapsed ? 'edit-preview-frame--thumb' : 'edit-preview-frame--standard'}
+        caption={caption}
+      />
+      <div className="edit-preview-controls mt-0.5 w-full min-w-0">
+        <PlaybackControls
+          label={t('edit.preview.play')}
+          labels={{
+            play: t('export.player.play'),
+            pause: t('export.player.pause'),
+            seek: t('export.player.seek'),
+            mute: t('export.player.mute'),
+            unmute: t('export.player.unmute'),
+          }}
+          playing={playing}
+          onToggle={() => {
+            if (lines.length === 0) return;
+            if (!playing && elapsedMs >= totalMs) seek(0);
+            setPlaying((current) => !current);
+          }}
+          position={position}
+          onSeek={(next) => {
+            if (lines.length === 0) return;
+            setPlaying(false);
+            seek(next);
+          }}
+          current={formatClock(Math.floor(elapsedMs / 1000))}
+          duration={`약 ${formatClock(seconds)}`}
+          muted={muted}
+          onToggleMute={() => setMuted((current) => !current)}
+          disabled={lines.length === 0}
         />
-        <div className="flex max-h-[70vh] justify-center py-2">
-          <StillFrame edit={edit} className="edit-preview-frame--large" caption={caption} />
-        </div>
-      </Dialog>
+      </div>
     </div>
   );
 }

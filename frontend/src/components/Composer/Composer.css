@@ -6,7 +6,7 @@
   flex-direction: column;
   gap: var(--space-4);
   width: 100%;
-  padding: var(--space-8);
+  padding: calc(var(--space-12) / 2);
   border: var(--part-hairline) solid var(--input);
   border-radius: var(--radius-composer);
   background: var(--card);

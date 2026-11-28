@@ -18,7 +18,7 @@
 | `--foreground` | `--muted` | 13.80 | 통과 |
 | `--foreground` | `--accent` | 12.37 | 통과 |
 | `--foreground` | `--accent-pressed` | 11.17 | 통과 |
-| `--foreground` | `--state-hover-white` | 11.17 | 통과 |
+| `--foreground` | `--state-hover-white` | 13.80 | 통과 |
 | `--foreground` | `--state-selected` | 12.37 | 통과 |
 | `--foreground` | `--state-pressed-white` | 11.17 | 통과 |
 | `--foreground` | `--state-hover-gray` | 11.17 | 통과 |
@@ -33,7 +33,7 @@
 | `--card-foreground` | `--muted` | 13.80 | 통과 |
 | `--card-foreground` | `--accent` | 12.37 | 통과 |
 | `--card-foreground` | `--accent-pressed` | 11.17 | 통과 |
-| `--card-foreground` | `--state-hover-white` | 11.17 | 통과 |
+| `--card-foreground` | `--state-hover-white` | 13.80 | 통과 |
 | `--card-foreground` | `--state-selected` | 12.37 | 통과 |
 | `--card-foreground` | `--state-pressed-white` | 11.17 | 통과 |
 | `--card-foreground` | `--state-hover-gray` | 11.17 | 통과 |
@@ -48,7 +48,7 @@
 | `--popover-foreground` | `--muted` | 13.80 | 통과 |
 | `--popover-foreground` | `--accent` | 12.37 | 통과 |
 | `--popover-foreground` | `--accent-pressed` | 11.17 | 통과 |
-| `--popover-foreground` | `--state-hover-white` | 11.17 | 통과 |
+| `--popover-foreground` | `--state-hover-white` | 13.80 | 통과 |
 | `--popover-foreground` | `--state-selected` | 12.37 | 통과 |
 | `--popover-foreground` | `--state-pressed-white` | 11.17 | 통과 |
 | `--popover-foreground` | `--state-hover-gray` | 11.17 | 통과 |
@@ -63,7 +63,7 @@
 | `--primary-foreground` | `--muted` | 1.10 | 금지 |
 | `--primary-foreground` | `--accent` | 1.23 | 금지 |
 | `--primary-foreground` | `--accent-pressed` | 1.36 | 금지 |
-| `--primary-foreground` | `--state-hover-white` | 1.36 | 금지 |
+| `--primary-foreground` | `--state-hover-white` | 1.10 | 금지 |
 | `--primary-foreground` | `--state-selected` | 1.23 | 금지 |
 | `--primary-foreground` | `--state-pressed-white` | 1.36 | 금지 |
 | `--primary-foreground` | `--state-hover-gray` | 1.36 | 금지 |
@@ -78,7 +78,7 @@
 | `--secondary-foreground` | `--muted` | 13.80 | 통과 |
 | `--secondary-foreground` | `--accent` | 12.37 | 통과 |
 | `--secondary-foreground` | `--accent-pressed` | 11.17 | 통과 |
-| `--secondary-foreground` | `--state-hover-white` | 11.17 | 통과 |
+| `--secondary-foreground` | `--state-hover-white` | 13.80 | 통과 |
 | `--secondary-foreground` | `--state-selected` | 12.37 | 통과 |
 | `--secondary-foreground` | `--state-pressed-white` | 11.17 | 통과 |
 | `--secondary-foreground` | `--state-hover-gray` | 11.17 | 통과 |
@@ -93,7 +93,7 @@
 | `--muted-foreground` | `--muted` | 4.88 | 통과 |
 | `--muted-foreground` | `--accent` | 4.37 | 금지 |
 | `--muted-foreground` | `--accent-pressed` | 3.94 | 금지 |
-| `--muted-foreground` | `--state-hover-white` | 3.94 | 금지 |
+| `--muted-foreground` | `--state-hover-white` | 4.88 | 통과 |
 | `--muted-foreground` | `--state-selected` | 4.37 | 금지 |
 | `--muted-foreground` | `--state-pressed-white` | 3.94 | 금지 |
 | `--muted-foreground` | `--state-hover-gray` | 3.94 | 금지 |
@@ -108,7 +108,7 @@
 | `--sub` | `--muted` | 4.88 | 통과 |
 | `--sub` | `--accent` | 4.37 | 금지 |
 | `--sub` | `--accent-pressed` | 3.94 | 금지 |
-| `--sub` | `--state-hover-white` | 3.94 | 금지 |
+| `--sub` | `--state-hover-white` | 4.88 | 통과 |
 | `--sub` | `--state-selected` | 4.37 | 금지 |
 | `--sub` | `--state-pressed-white` | 3.94 | 금지 |
 | `--sub` | `--state-hover-gray` | 3.94 | 금지 |
@@ -123,7 +123,7 @@
 | `--accent-foreground` | `--muted` | 13.80 | 통과 |
 | `--accent-foreground` | `--accent` | 12.37 | 통과 |
 | `--accent-foreground` | `--accent-pressed` | 11.17 | 통과 |
-| `--accent-foreground` | `--state-hover-white` | 11.17 | 통과 |
+| `--accent-foreground` | `--state-hover-white` | 13.80 | 통과 |
 | `--accent-foreground` | `--state-selected` | 12.37 | 통과 |
 | `--accent-foreground` | `--state-pressed-white` | 11.17 | 통과 |
 | `--accent-foreground` | `--state-hover-gray` | 11.17 | 통과 |
@@ -138,7 +138,7 @@
 | `--destructive` | `--muted` | 4.38 | 감수 |
 | `--destructive` | `--accent` | 3.93 | 금지 |
 | `--destructive` | `--accent-pressed` | 3.54 | 금지 |
-| `--destructive` | `--state-hover-white` | 3.54 | 금지 |
+| `--destructive` | `--state-hover-white` | 4.38 | 금지 |
 | `--destructive` | `--state-selected` | 3.93 | 금지 |
 | `--destructive` | `--state-pressed-white` | 3.54 | 금지 |
 | `--destructive` | `--state-hover-gray` | 3.54 | 금지 |
@@ -153,7 +153,7 @@
 | `--warning` | `--muted` | 4.55 | 통과 |
 | `--warning` | `--accent` | 4.08 | 금지 |
 | `--warning` | `--accent-pressed` | 3.69 | 금지 |
-| `--warning` | `--state-hover-white` | 3.69 | 금지 |
+| `--warning` | `--state-hover-white` | 4.55 | 통과 |
 | `--warning` | `--state-selected` | 4.08 | 금지 |
 | `--warning` | `--state-pressed-white` | 3.69 | 금지 |
 | `--warning` | `--state-hover-gray` | 3.69 | 금지 |
@@ -168,7 +168,7 @@
 | `--emphasis` | `--muted` | 3.37 | 금지 |
 | `--emphasis` | `--accent` | 3.02 | 금지 |
 | `--emphasis` | `--accent-pressed` | 2.73 | 금지 |
-| `--emphasis` | `--state-hover-white` | 2.73 | 금지 |
+| `--emphasis` | `--state-hover-white` | 3.37 | 금지 |
 | `--emphasis` | `--state-selected` | 3.02 | 금지 |
 | `--emphasis` | `--state-pressed-white` | 2.73 | 금지 |
 | `--emphasis` | `--state-hover-gray` | 2.73 | 금지 |
@@ -183,7 +183,7 @@
 | `--progress` | `--muted` | 4.91 | 통과 |
 | `--progress` | `--accent` | 4.40 | 금지 |
 | `--progress` | `--accent-pressed` | 3.97 | 금지 |
-| `--progress` | `--state-hover-white` | 3.97 | 금지 |
+| `--progress` | `--state-hover-white` | 4.91 | 통과 |
 | `--progress` | `--state-selected` | 4.40 | 금지 |
 | `--progress` | `--state-pressed-white` | 3.97 | 금지 |
 | `--progress` | `--state-hover-gray` | 3.97 | 금지 |
@@ -198,7 +198,7 @@
 | `--disabled-foreground` | `--muted` | 2.39 | WCAG 예외 |
 | `--disabled-foreground` | `--accent` | 2.14 | WCAG 예외 |
 | `--disabled-foreground` | `--accent-pressed` | 1.93 | WCAG 예외 |
-| `--disabled-foreground` | `--state-hover-white` | 1.93 | WCAG 예외 |
+| `--disabled-foreground` | `--state-hover-white` | 2.39 | WCAG 예외 |
 | `--disabled-foreground` | `--state-selected` | 2.14 | WCAG 예외 |
 | `--disabled-foreground` | `--state-pressed-white` | 1.93 | WCAG 예외 |
 | `--disabled-foreground` | `--state-hover-gray` | 1.93 | WCAG 예외 |
@@ -228,7 +228,7 @@
 | `--ring` | `--popover` | 3.71 | 통과 |
 | `--ring` | `--muted` | 3.37 | 통과 |
 | `--ring` | `--state-selected` | 3.02 | 통과 |
-| `--ring` | `--state-hover-white` | 2.73 | 감수 |
+| `--ring` | `--state-hover-white` | 3.37 | 통과 |
 
 ### 아이콘
 
@@ -270,7 +270,6 @@
 - `--emphasis` on `--card`: 3.37
 - `--emphasis` on `--popover`: 3.71
 - `--card` on `--overlay-length`: 4.30
-- `--ring` on `--state-hover-white`: 2.73
 
 ## WCAG 예외
 
@@ -286,7 +285,7 @@
 - `--disabled-foreground` on `--muted`: 2.39
 - `--disabled-foreground` on `--accent`: 2.14
 - `--disabled-foreground` on `--accent-pressed`: 1.93
-- `--disabled-foreground` on `--state-hover-white`: 1.93
+- `--disabled-foreground` on `--state-hover-white`: 2.39
 - `--disabled-foreground` on `--state-selected`: 2.14
 - `--disabled-foreground` on `--state-pressed-white`: 1.93
 - `--disabled-foreground` on `--state-hover-gray`: 1.93
@@ -301,12 +300,12 @@
 - `--foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
 - `--card-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
 - `--popover-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
-- `--primary-foreground`: `--background` (1.17), `--card` (1.10), `--popover` (1.00), `--secondary` (1.10), `--muted` (1.10), `--accent` (1.23), `--accent-pressed` (1.36), `--state-hover-white` (1.36), `--state-selected` (1.23), `--state-pressed-white` (1.36), `--state-hover-gray` (1.36), `--state-pressed-gray` (1.60)
+- `--primary-foreground`: `--background` (1.17), `--card` (1.10), `--popover` (1.00), `--secondary` (1.10), `--muted` (1.10), `--accent` (1.23), `--accent-pressed` (1.36), `--state-hover-white` (1.10), `--state-selected` (1.23), `--state-pressed-white` (1.36), `--state-hover-gray` (1.36), `--state-pressed-gray` (1.60)
 - `--secondary-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
-- `--muted-foreground`: `--primary` (2.83), `--primary-hover` (2.20), `--primary-pressed` (1.97), `--accent` (4.37), `--accent-pressed` (3.94), `--state-hover-white` (3.94), `--state-selected` (4.37), `--state-pressed-white` (3.94), `--state-hover-gray` (3.94), `--state-pressed-gray` (3.37)
-- `--sub`: `--primary` (2.83), `--primary-hover` (2.20), `--primary-pressed` (1.97), `--accent` (4.37), `--accent-pressed` (3.94), `--state-hover-white` (3.94), `--state-selected` (4.37), `--state-pressed-white` (3.94), `--state-hover-gray` (3.94), `--state-pressed-gray` (3.37)
+- `--muted-foreground`: `--primary` (2.83), `--primary-hover` (2.20), `--primary-pressed` (1.97), `--accent` (4.37), `--accent-pressed` (3.94), `--state-selected` (4.37), `--state-pressed-white` (3.94), `--state-hover-gray` (3.94), `--state-pressed-gray` (3.37)
+- `--sub`: `--primary` (2.83), `--primary-hover` (2.20), `--primary-pressed` (1.97), `--accent` (4.37), `--accent-pressed` (3.94), `--state-selected` (4.37), `--state-pressed-white` (3.94), `--state-hover-gray` (3.94), `--state-pressed-gray` (3.37)
 - `--accent-foreground`: `--primary` (1.00), `--primary-hover` (1.29), `--primary-pressed` (1.43)
-- `--destructive`: `--background` (4.12), `--primary` (3.15), `--primary-hover` (2.45), `--primary-pressed` (2.20), `--accent` (3.93), `--accent-pressed` (3.54), `--state-hover-white` (3.54), `--state-selected` (3.93), `--state-pressed-white` (3.54), `--state-hover-gray` (3.54), `--state-pressed-gray` (3.02)
-- `--warning`: `--background` (4.29), `--primary` (3.03), `--primary-hover` (2.35), `--primary-pressed` (2.11), `--accent` (4.08), `--accent-pressed` (3.69), `--state-hover-white` (3.69), `--state-selected` (4.08), `--state-pressed-white` (3.69), `--state-hover-gray` (3.69), `--state-pressed-gray` (3.14)
-- `--emphasis`: `--background` (3.17), `--primary` (4.10), `--primary-hover` (3.18), `--primary-pressed` (2.86), `--secondary` (3.37), `--muted` (3.37), `--accent` (3.02), `--accent-pressed` (2.73), `--state-hover-white` (2.73), `--state-selected` (3.02), `--state-pressed-white` (2.73), `--state-hover-gray` (2.73), `--state-pressed-gray` (2.33)
-- `--progress`: `--primary` (2.81), `--primary-hover` (2.18), `--primary-pressed` (1.96), `--accent` (4.40), `--accent-pressed` (3.97), `--state-hover-white` (3.97), `--state-selected` (4.40), `--state-pressed-white` (3.97), `--state-hover-gray` (3.97), `--state-pressed-gray` (3.39)
+- `--destructive`: `--background` (4.12), `--primary` (3.15), `--primary-hover` (2.45), `--primary-pressed` (2.20), `--accent` (3.93), `--accent-pressed` (3.54), `--state-hover-white` (4.38), `--state-selected` (3.93), `--state-pressed-white` (3.54), `--state-hover-gray` (3.54), `--state-pressed-gray` (3.02)
+- `--warning`: `--background` (4.29), `--primary` (3.03), `--primary-hover` (2.35), `--primary-pressed` (2.11), `--accent` (4.08), `--accent-pressed` (3.69), `--state-selected` (4.08), `--state-pressed-white` (3.69), `--state-hover-gray` (3.69), `--state-pressed-gray` (3.14)
+- `--emphasis`: `--background` (3.17), `--primary` (4.10), `--primary-hover` (3.18), `--primary-pressed` (2.86), `--secondary` (3.37), `--muted` (3.37), `--accent` (3.02), `--accent-pressed` (2.73), `--state-hover-white` (3.37), `--state-selected` (3.02), `--state-pressed-white` (2.73), `--state-hover-gray` (2.73), `--state-pressed-gray` (2.33)
+- `--progress`: `--primary` (2.81), `--primary-hover` (2.18), `--primary-pressed` (1.96), `--accent` (4.40), `--accent-pressed` (3.97), `--state-selected` (4.40), `--state-pressed-white` (3.97), `--state-hover-gray` (3.97), `--state-pressed-gray` (3.39)

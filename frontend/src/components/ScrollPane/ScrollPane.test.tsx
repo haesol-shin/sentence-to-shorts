@@ -66,7 +66,7 @@ describe('ScrollPane', () => {
     expect(jump.closest('.scroll-pane__jump')?.parentElement).toBe(viewport.parentElement);
   });
 
-  test('test_10a_scroll_pane_moves_one_screens_eighty_percent', () => {
+  test('test_21_scroll_pane_jump_scrolls_to_the_very_bottom', () => {
     render(
       <ScrollPane label="대본" jumpLabel="Scroll down">
         <p>긴 대본</p>
@@ -76,12 +76,12 @@ describe('ScrollPane', () => {
     const viewport = pane();
     setMetrics(viewport, { scrollHeight: 1000, clientHeight: 400, scrollTop: 0 });
     fireEvent.scroll(viewport);
-    const scrollBy = vi.fn();
-    Object.defineProperty(viewport, 'scrollBy', { configurable: true, value: scrollBy });
+    const scrollTo = vi.fn();
+    Object.defineProperty(viewport, 'scrollTo', { configurable: true, value: scrollTo });
 
     fireEvent.click(screen.getByRole('button', { name: 'Scroll down' }));
 
-    expect(scrollBy).toHaveBeenCalledWith({ top: 320 });
+    expect(scrollTo).toHaveBeenCalledWith({ top: 1000 });
   });
 
   test('test_10a_scroll_pane_gives_focus_back_when_the_jump_disappears', () => {

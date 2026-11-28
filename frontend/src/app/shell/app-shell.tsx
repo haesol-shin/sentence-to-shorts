@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode, type UIEvent } from 'react';
 
-import { useEditOptional } from '@/features/edit/edit-context';
+import { useEditOptional, type EditValue } from '@/features/edit/edit-context';
 import { SceneConfirmNoticeContext } from '@/features/edit/scene-confirm';
 import { useActivityReporting } from '@/features/export/activity';
-import { rearmAutoStart, useExportState } from '@/features/export/store';
+import { precheckFindsProblem } from '@/features/export/model';
+import { claimAutoStart, rearmAutoStart, useExportSession, useExportState } from '@/features/export/store';
 import { PrepareNotice } from '@/features/runtime/prepare-notice';
 import { Notice } from '@/components/Notice/Notice';
 import { StageScrollProvider } from '@/shared/lib/stage-scroll';
@@ -13,6 +14,7 @@ import { useViewportInsets } from '@/shared/lib/visual-viewport';
 
 import { ConversationLog } from './conversation';
 import { EditBridge } from './edit-bridge';
+import { ToastAnchor } from '@/components/Toast/Toast';
 import { EditPrepareNotice, EditPrepareProvider, useEditPrepare } from './edit-prepare';
 import { ShellViewProvider } from './shell-view';
 import { Sidebar } from './sidebar';
@@ -28,6 +30,8 @@ const SCROLLED_AT = 24;
  */
 const STAGE_MAX_WIDTH =
   'calc(var(--layout-scene-col-w) + var(--layout-gutter) * 2 + 100cqh * 462 / 796 * 9 / 16 + var(--layout-scene-panel-max-w))';
+const EDIT_STAGE_MAX_WIDTH =
+  'calc(var(--layout-scene-col-w) + var(--layout-gutter) * 2 + 318px + var(--layout-scene-panel-max-w))';
 
 /**
  * The scene check's own word about the voice files: the notice a stopped or
@@ -42,6 +46,43 @@ function SceneConfirmVoiceNotice() {
   return <PrepareNotice status={prepare} />;
 }
 
+/**
+ * After the scene check the edit screen stays in place while the output check
+ * runs and the making starts. Only a check that finds something to look at, or
+ * a start that does not go through, hands over to the export screen.
+ */
+function EditStart({ videoId, edit, onDone, onProblem }: {
+  videoId: string;
+  edit: EditValue;
+  onDone: () => void;
+  onProblem: () => void;
+}) {
+  const [seed] = useState(edit.view);
+  useExportSession(videoId, seed);
+  const state = useExportState();
+  const settled = useRef(false);
+
+  useEffect(() => {
+    if (settled.current || state.videoId !== videoId) return;
+    const { phase, precheck, view } = state;
+    if (phase === 'loading') return;
+    if (phase !== 'idle' || view === null) {
+      settled.current = true;
+      onProblem();
+      return;
+    }
+    if (precheck.status === 'idle' || precheck.status === 'running') return;
+    settled.current = true;
+    if (precheck.report !== null && !precheckFindsProblem(view, precheck.report) && claimAutoStart(view)) {
+      edit.generateVideo(view.video.revision).then((started) => (started ? onDone() : onProblem()), onProblem);
+    } else {
+      onProblem();
+    }
+  });
+
+  return null;
+}
+
 function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
   videoId: string | null;
   view: View;
@@ -51,6 +92,7 @@ function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
   const edit = useEditOptional();
   const output = useExportState();
   const delivered = useRef<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const editForVideo = edit?.video?.id === videoId ? edit : null;
   const checking = view === 'export' && output.videoId === videoId && output.precheck.status === 'running';
   useActivityReporting(videoId, draftWaiting || checking || editForVideo?.jobWaiting === true);
@@ -61,7 +103,7 @@ function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
       // A new confirmation starts the making again; coming back to the result never does.
       if (videoId !== null) rearmAutoStart(videoId);
       editForVideo.acknowledgeOutput();
-      if (view === 'edit') onStage('export');
+      if (view === 'edit') setStarting(true);
     }
     const finished = editForVideo.finishedGeneration;
     if (finished != null) {
@@ -73,7 +115,17 @@ function ExportHandoff({ videoId, view, draftWaiting, onStage }: {
     }
   }, [editForVideo, onStage, videoId, view]);
 
-  return null;
+  return starting && view === 'edit' && videoId !== null && editForVideo !== null ? (
+    <EditStart
+      videoId={videoId}
+      edit={editForVideo}
+      onDone={() => setStarting(false)}
+      onProblem={() => {
+        setStarting(false);
+        onStage('export');
+      }}
+    />
+  ) : null;
 }
 
 /**
@@ -115,6 +167,7 @@ export function AppShell({
   const { inset, keyboardOpen } = useViewportInsets();
   const [scrolled, setScrolled] = useState(false);
   const stage: Stage | null = view === 'first' ? null : view;
+  const [work, setWork] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     setScrolled(false);
@@ -127,7 +180,8 @@ export function AppShell({
 
   return (
     <ShellViewProvider value={view}>
-      <EditBridge key={videoId} active={view === 'edit' || view === 'export'} videoId={videoId}>
+      <ToastAnchor.Provider value={work}>
+      <EditBridge key={videoId} active={view === 'edit' || view === 'export'} previewOnEntry={view === 'edit'} videoId={videoId}>
         <ExportHandoff videoId={videoId} view={view} draftWaiting={draftWaiting} onStage={onStage} />
         <main
           data-screen="app"
@@ -170,12 +224,12 @@ export function AppShell({
               {stage !== null && composer !== null ? (
                 <div
                   data-slot="conversation"
-                  className="hidden shrink-0 flex-col rounded-[var(--radius-card)] bg-[var(--surface)] px-[var(--space-20)] pt-[18px] pb-[var(--space-20)] md:flex md:shadow-[var(--shadow-float)]"
+                  className="hidden shrink-0 flex-col rounded-[var(--radius-card)] bg-[var(--surface)] p-[var(--layout-gutter)] md:flex md:shadow-[var(--shadow-float)]"
                   // The width follows the face height (the row is the size container), so the
                   // 380 / 796 phone ratio of the layout tokens holds at every window size and engine.
                   style={{ width: 'calc(100cqh * 380 / 796)' }}
                 >
-                  <h2 className="mb-[14px] ml-[var(--space-4)] text-[22px] leading-[26px] font-bold text-[var(--text-strong)]">
+                  <h2 className="mb-[14px] text-[22px] leading-[26px] font-bold text-[var(--text-strong)]">
                     {t('shell.conversation.title')}
                   </h2>
                   <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -185,6 +239,7 @@ export function AppShell({
                 </div>
               ) : null}
               <section
+                ref={setWork}
                 data-slot="stage"
                 className={cn(
                   'flex min-h-0 min-w-0 flex-1 flex-col',
@@ -194,7 +249,7 @@ export function AppShell({
                 // The work face is as wide as the scene list, the 9:16 preview with its
                 // side gutters and the widest editor; the rest of the row is split on
                 // both sides so the face sits in the middle of the room beside the chat.
-                style={stage === null ? undefined : { maxWidth: STAGE_MAX_WIDTH }}
+                style={stage === null ? undefined : { maxWidth: view === 'edit' ? EDIT_STAGE_MAX_WIDTH : STAGE_MAX_WIDTH }}
               >
                 <div
                   key={view === 'edit' ? 'edit' : 'stage'}
@@ -214,6 +269,7 @@ export function AppShell({
           </div>
         </main>
       </EditBridge>
+      </ToastAnchor.Provider>
     </ShellViewProvider>
   );
 }

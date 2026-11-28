@@ -1,26 +1,22 @@
-/*
- * The pick window: 20 padding, the title centred on the 44 close corner,
- * a 15 description, then 44 rows with the listen mark at their start.
- */
 .dialog.choice-sheet {
-  padding: var(--space-20);
+  padding: var(--space-24);
 }
 
 .choice-sheet .dialog__title {
   width: fit-content;
   max-width: calc(100% - var(--size-control) - var(--space-8));
-  margin-top: calc((var(--size-control) - 26px) / 2);
+  margin-top: var(--space-4);
   line-height: 26px;
 }
 
 .choice-sheet .dialog__description {
-  margin-top: 15px;
+  margin-top: var(--space-16);
   font-size: var(--font-size-small);
   line-height: 18px;
 }
 
 .choice-sheet .dialog__content {
-  margin-top: 18px;
+  margin-top: var(--space-16);
 }
 
 .choice-sheet .dialog__actions {
@@ -31,14 +27,51 @@
   position: relative;
 }
 
-/* The listen mark sits inside the row's start, before the name. */
 .icon-button.choice-listen {
   position: absolute;
-  top: 10px;
-  left: 14px;
+  inset: 0 auto auto var(--space-4);
   z-index: 1;
+  color: var(--sub);
+}
+
+.icon-button.choice-listen--current {
+  color: var(--foreground);
+}
+
+.choice-listen.icon-button svg {
+  width: var(--icon-inline);
+  height: var(--icon-inline);
 }
 
 .choice-select {
-  padding: 0 var(--space-12) 0 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-12);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--size-control);
+  padding-inline: calc(var(--size-control) + var(--space-8)) var(--space-12);
+  border-radius: calc(var(--size-control) / 2);
+  color: var(--foreground);
+  font-size: var(--font-size-small);
+  text-align: start;
+  cursor: pointer;
+}
+
+.choice-row:nth-child(odd) .choice-select {
+  background: var(--muted);
+}
+
+.choice-row .choice-select:hover {
+  background: var(--state-hover-white);
+}
+
+.choice-row .choice-select:active {
+  background: var(--state-pressed-white);
+}
+
+.choice-row .choice-select[aria-pressed='true'] {
+  background: var(--state-selected);
+  font-weight: var(--font-weight-bold);
 }

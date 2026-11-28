@@ -24,13 +24,13 @@ export function EditScreen() {
   const collapsed = keyboardOpen || scrolled;
 
   return (
-    <div data-slot="edit-stage" className="flex min-h-full flex-col md:flex-row">
+    <div data-slot="edit-stage" className="flex min-h-full flex-col md:h-full md:flex-row">
       <SceneColumn edit={edit} />
       <div
         data-slot="preview"
         data-collapsed={collapsed ? 'true' : undefined}
         className={cn(
-          'flex min-w-0 shrink-0 flex-col md:min-h-0 md:flex-1 md:shrink md:justify-start md:px-[28px] md:py-4',
+          'edit-preview min-w-0 shrink-0 md:min-h-0 md:shrink md:px-[var(--layout-gutter)] md:pt-[26px] md:pb-[var(--layout-gutter)]',
           keyboardOpen ? 'gap-0 p-2' : 'gap-2 p-3',
         )}
       >
@@ -41,7 +41,7 @@ export function EditScreen() {
         data-slot="stage-panel"
         data-stage="edit"
         aria-label={t('shell.edit.panel')}
-        className="edit-stage-panel flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-[28px] pt-[22px] pb-4 md:max-w-[var(--layout-scene-panel-max-w)]"
+        className="edit-stage-panel flex min-h-0 flex-1 flex-col overflow-hidden md:max-w-[var(--layout-scene-panel-max-w)]"
       >
         <ScenePanel edit={edit} />
       </section>

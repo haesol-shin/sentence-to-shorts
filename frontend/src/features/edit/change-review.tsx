@@ -9,7 +9,7 @@ import { useLocale, type LocaleValue } from '@/shared/lib/i18n/locale';
 
 import { artifactUrl, type CatalogItem, type ChangePlan } from './api';
 import { CAPTION_FONT_PATH, CAPTION_MODE_PATH, CAPTION_POSITION_PATH } from './captions/model';
-import type { EditValue } from './edit-context';
+import { isAudioSettingsChange, type EditValue } from './edit-context';
 import { breaksFlow, insertScene, sceneNumber, sceneVisualLabel, stillIsReady, type Line, type Video } from './model';
 import { BGM_PATH, bgmGainLabel, VOICE_PATH } from './sound/model';
 
@@ -256,6 +256,8 @@ function PendingBody({
   plan,
   removed,
   previewNeeded,
+  renderScenes,
+  reviewSceneChange,
   imageFailed,
   onLoaded,
   onFailed,
@@ -263,6 +265,8 @@ function PendingBody({
   edit: EditValue;
   plan: ChangePlan;
   removed: ReadonlySet<string>;
+  renderScenes: readonly string[];
+  reviewSceneChange: boolean;
   previewNeeded: boolean;
   imageFailed: boolean;
   onLoaded: (sceneId: string) => void;
@@ -280,7 +284,7 @@ function PendingBody({
   });
   const scenes = [
     ...new Set([
-      ...plan.effects.scene_ids_render,
+      ...renderScenes,
       ...plan.effects.scene_ids_text,
       ...opScenes.filter((id) => id !== ''),
     ]),
@@ -360,6 +364,7 @@ function PendingBody({
         </ul>
       )}
 
+      {reviewSceneChange && (previewNeeded || removed.size > 0) ? (
       <div data-slot="still-compare" className="flex flex-col gap-2">
         <p className="text-[15px] font-bold text-[var(--text-strong)]">{t('edit.change.preview')}</p>
         {preview.loading ? (
@@ -402,6 +407,7 @@ function PendingBody({
           </div>
         )}
       </div>
+      ) : null}
 
       {previewNeeded && !edit.canPreviewChange ? (
         <Notice>{t('edit.change.previewAfterScript')}</Notice>
@@ -410,13 +416,15 @@ function PendingBody({
         <Notice tone="warning">{t('edit.change.previewFailed')}</Notice>
       ) : null}
 
-      <div data-slot="rebuild-scope" className="flex flex-col gap-1 text-[15px]">
-        <p className="font-bold">{t('edit.change.scope')}</p>
-        <p>{t('edit.change.scopeScene', { scenes: labels(plan.effects.scene_ids_render) })}</p>
-        <p>{t('edit.change.scopeText', { scenes: labels(plan.effects.scene_ids_text) })}</p>
-        <p>{t('edit.change.scopeTts', { scenes: labels(plan.effects.scene_ids_tts) })}</p>
-        {plan.effects.assemble ? <p>{t('edit.change.scopeAssemble')}</p> : null}
-      </div>
+      {reviewSceneChange ? (
+        <div data-slot="rebuild-scope" className="flex flex-col gap-1 text-[15px]">
+          <p className="font-bold">{t('edit.change.scope')}</p>
+          {renderScenes.length > 0 ? <p>{t('edit.change.scopeScene', { scenes: labels(renderScenes) })}</p> : null}
+          {plan.effects.scene_ids_text.length > 0 ? <p>{t('edit.change.scopeText', { scenes: labels(plan.effects.scene_ids_text) })}</p> : null}
+          {plan.effects.scene_ids_tts.length > 0 ? <p>{t('edit.change.scopeTts', { scenes: labels(plan.effects.scene_ids_tts) })}</p> : null}
+          {plan.effects.assemble ? <p>{t('edit.change.scopeAssemble')}</p> : null}
+        </div>
+      ) : null}
 
       {plan.warnings.length === 0 ? null : (
         <Notice tone="warning">
@@ -471,7 +479,8 @@ function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
   const { t } = useLocale();
   useReturnFocus();
   const removed = new Set(plan.ops.flatMap((op) => op.op === 'remove_scene' ? [op.scene_id] : []));
-  const renderScenes = plan.effects.scene_ids_render.filter((id) => !removed.has(id));
+  const audioOnly = isAudioSettingsChange(plan.ops);
+  const renderScenes = audioOnly ? [] : plan.effects.scene_ids_render.filter((id) => !removed.has(id));
   const previewNeeded = renderScenes.length > 0;
   const started = useRef(false);
   const [loadedStills, setLoadedStills] = useState<Record<string, boolean>>({});
@@ -484,6 +493,8 @@ function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
   }, [edit, previewNeeded]);
 
   const kind = plan.ops[0]?.op;
+  const settingsOnly = plan.ops.length > 0 && plan.ops.every((op) => op.op === 'set' && op.path.startsWith('/settings/'));
+  const reviewSceneChange = previewNeeded || !settingsOnly;
   const preview = edit.pendingPreview;
   const imageFailed = renderScenes.some((id) =>
     failedStills[id] === true || (preview.job?.state === 'succeeded' && preview.stills[id] === undefined),
@@ -499,7 +510,7 @@ function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
         ? t('edit.change.addTitle')
         : kind === 'remove_scene'
           ? t('edit.change.deleteTitle')
-          : t('edit.change.editTitle');
+          : t(reviewSceneChange ? 'edit.change.editTitle' : 'edit.change.settingsTitle');
 
   return (
     <Dialog
@@ -508,7 +519,7 @@ function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
         if (!next) edit.rejectPending();
       }}
       title={title}
-      description={t('edit.change.description')}
+      description={t(reviewSceneChange ? 'edit.change.description' : 'edit.change.settingsDescription')}
       label={title}
       actions={
         <>
@@ -532,6 +543,8 @@ function PlanReview({ edit, plan }: { edit: EditValue; plan: ChangePlan }) {
         plan={plan}
         removed={removed}
         previewNeeded={previewNeeded}
+        renderScenes={renderScenes}
+        reviewSceneChange={reviewSceneChange}
         imageFailed={imageFailed}
         onLoaded={(sceneId) => setLoadedStills((current) => ({ ...current, [sceneId]: true }))}
         onFailed={(sceneId) => setFailedStills((current) => ({ ...current, [sceneId]: true }))}

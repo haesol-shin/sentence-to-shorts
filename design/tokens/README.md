@@ -37,7 +37,7 @@ shadcn/ui 이름에 없는 역할은 아래와 같다. 값은 모두 결정표�
 
 - `--primary-hover`: 대표색 단추의 올림 면이다. 시안 값 #34383C를 팔레트 `gray-12`로 두고 가리킨다.
 - `--primary-pressed`와 `--accent-pressed`: 표에 있는 눌린 면 두 값을 눌림 상태에 쓴다.
-- `--state-hover-white`, `--state-selected`, `--state-pressed-white`: 흰 면 위 부품의 올림·선택·눌림 면이다. 올림과 선택은 같은 색을 쓰지 않는다. 안쪽 요소가 `--card` 회색이 된 뒤로 올림은 #DADDE1이라 회색 면 위에서도 보인다.
+- `--state-hover-white`, `--state-selected`, `--state-pressed-white`: 흰 면 위 부품의 올림 #F2F4F6, 선택 #E5E8EB, 눌림 #DADDE1 면이다.
 - `--state-hover-gray`, `--state-pressed-gray`: 회색 바탕 부품(보조 단추 등)의 올림·눌림 면이다.
 - `--sub`: 보조 글자 #646B76. 회색 면 `--muted`에서 4.88로 4.5를 넘고, 값 칸의 자리표시 글자에 쓴다.
 - `--emphasis`: 강조 단어와 안 본 변경 표시, 진행 표시의 spinner와 아이콘에 쓰는 파랑이다. 포커스 선 `--ring`은 정한 파랑 `blue` #3182F6을 쓰고, 회색 올림 면의 3:1 미달은 `contrast.exceptions`에 감수로 적는다.

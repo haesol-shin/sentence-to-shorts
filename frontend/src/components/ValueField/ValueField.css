@@ -11,7 +11,7 @@
   height: var(--size-control);
   padding-inline: calc(var(--size-control) / 2 - var(--part-hairline));
   border: var(--part-hairline) solid var(--muted);
-  border-radius: var(--radius-surface);
+  border-radius: calc(var(--size-control) / 2);
   background: var(--muted);
   color: var(--foreground);
   font-family: var(--font-family-sans);

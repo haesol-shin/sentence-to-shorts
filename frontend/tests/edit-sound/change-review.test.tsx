@@ -52,7 +52,10 @@ async function renderPending(
       </EditProvider>
     </LocaleProvider>,
   );
-  return screen.findByRole('dialog', { name: translate(language, 'edit.change.editTitle') });
+  const titles = [translate(language, 'edit.change.editTitle'), translate(language, 'edit.change.settingsTitle')];
+  return screen.findByRole('dialog', {
+    name: (name) => titles.includes(name),
+  });
 }
 
 function expectRows(dialog: HTMLElement, expected: readonly (readonly string[])[]) {
@@ -202,7 +205,7 @@ test.each([
   ]));
   fireEvent.click(within(dialog).getByRole('button', { name: apply }));
   await waitFor(() => {
-    expect(within(screen.getByRole('combobox', { name: background })).getByText(`${name} 1`)).toBeTruthy();
+    expect(screen.getByRole('button', { name: background }).textContent).toContain(`${name} 1`);
     expect(within(screen.getByRole('combobox', { name: expression })).getByText(`${name} 2`)).toBeTruthy();
   });
 });

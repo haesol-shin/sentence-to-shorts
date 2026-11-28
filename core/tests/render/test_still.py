@@ -77,68 +77,6 @@ OLD_FIGURE_BOXES = {
 """Pixels the character covered (left, top, right, bottom) when the visual region ended
 above the caption band; the picture growing to the frame bottom must not change them."""
 
-TWO_LINE_KO_11 = (
-    "커피를 고르는 기준은 세 가지뿐이다. "
-    "좋은 원두와 물의 온도, 그리고 비율이 만든다. 정말로"
-)
-TWO_LINE_KO_14 = (
-    "커피를 고르는 기준은 세 가지뿐이다. "
-    "좋은 원두와 물의 온도, 그리고 비율이 만든다."
-)
-TWO_LINE_EN = (
-    "The only criteria for choosing coffee are freshness, roast date, and grind size."
-)
-TWO_LAYER_SIZES = [
-    ("galmuri11", TWO_LINE_KO_11, TWO_LINE_EN, "bottom", "top", (33, 33), (2, 2)),
-    ("galmuri11", TWO_LINE_KO_11, TWO_LINE_EN, "upper", "lower", (22, 22), (2, 2)),
-    ("galmuri11", "짧은 자막", "Short line", "bottom", "top", (66, 66), (1, 1)),
-    ("galmuri14", TWO_LINE_KO_14, TWO_LINE_EN, "bottom", "top", (42, 28), (2, 2)),
-    ("galmuri14", "짧은 자막", "Short line", "bottom", "top", (70, 70), (1, 1)),
-]
-
-
-def _extra(
-    studio: Studio,
-    font: str,
-    position: str,
-    *,
-    language: str = "en",
-    mode: str = "sentence",
-) -> dict:
-    return {
-        "language": language,
-        "mode": mode,
-        "font_id": studio.registry.pin("font", font).model_dump(),
-        "position": position,
-    }
-
-
-def _two_layer_scene(display_text: str, translated: str = TWO_LINE_EN) -> dict:
-    scene = copy.deepcopy(load("scene_fixed_stage.json"))
-    scene["lines"][0]["display_text"] = display_text
-    scene["lines"][0]["speech_text"] = display_text
-    scene["lines"][0]["extra_texts"] = [{"language": "en", "text": translated}]
-    return scene
-
-
-def _assert_layer_safe(caption: dict) -> None:
-    plate = _box(caption["plate"])
-    assert inside(plate, safe_area())
-    for line in caption["lines"]:
-        assert inside(_box(line["box"]), plate)
-
-
-def _assert_extra_safe(record: dict) -> None:
-    _assert_layer_safe(record["caption"])
-    _assert_layer_safe(record["caption_extra"])
-    gap = max(
-        record["caption"]["plate"][1]
-        - (record["caption_extra"]["plate"][1] + record["caption_extra"]["plate"][3]),
-        record["caption_extra"]["plate"][1]
-        - (record["caption"]["plate"][1] + record["caption"]["plate"][3]),
-    )
-    assert gap >= 8
-
 
 def _record(path: Path) -> dict:
     return json.loads(path.with_suffix(".json").read_text(encoding="utf-8"))
@@ -359,26 +297,6 @@ def test_29_placed_caption_keeps_the_side_pad_when_left_aligned(studio: Studio) 
         box = _box(line["box"])
         assert box.x >= plate.x + PLATE_SIDE_PAD
         assert box.x + box.w <= plate.x + plate.w - PLATE_SIDE_PAD + 1
-
-
-def test_29_placed_caption_drops_the_extra_layer_when_nothing_keeps_clear(
-    studio: Studio,
-) -> None:
-    scene = _two_layer_scene(ONE_LINE)
-    extra = {
-        "language": "en",
-        "mode": "sentence",
-        "font_id": studio.registry.pin("font", "galmuri11").model_dump(),
-        "position": "bottom",
-    }
-    place = {"x": 48, "y": 1200, "w": 840, "align": "center"}
-    video = studio.video(scene, extra=extra, place=place)
-
-    _, record = studio.compose(video, scene["id"])
-
-    assert record["caption"]["caption_extra_skipped"] == "no_room"
-    assert "caption_extra" not in record
-    assert inside(_box(record["caption"]["plate"]), place_area())
 
 
 def _caption_scene(text: str) -> dict[str, Any]:
@@ -702,106 +620,38 @@ def test_29_code_element_draws_left_aligned_lines(studio: Studio) -> None:
 
 
 @pytest.mark.parametrize(
-    (
-        "font",
-        "display",
-        "translated",
-        "primary_position",
-        "extra_position",
-        "sizes",
-        "line_counts",
-    ),
-    TWO_LAYER_SIZES,
-)
-def test_29_two_layers_share_the_safe_band(
-    studio: Studio,
-    font: str,
-    display: str,
-    translated: str,
-    primary_position: str,
-    extra_position: str,
-    sizes: tuple[int, int],
-    line_counts: tuple[int, int],
-) -> None:
-    scene = _two_layer_scene(display, translated)
-    video = studio.video(
-        scene,
-        font=font,
-        position=primary_position,
-        extra=_extra(studio, font, extra_position),
-    )
-    record = _record(studio.still(video, scene["id"]))
-    caption = record["caption"]
-    extra = record["caption_extra"]
-    assert (caption["size"], extra["size"]) == sizes
-    assert (len(caption["lines"]), len(extra["lines"])) == line_counts
-    assert (extra["language"], extra["font"], extra["position"]) == (
-        "en",
-        font,
-        extra_position,
-    )
-    _assert_extra_safe(record)
-
-
-@pytest.mark.parametrize(
-    ("font", "display", "primary_position", "extra_position"),
+    ("name", "layout", "mode", "place"),
     [
-        ("galmuri14", TWO_LINE_KO_14, "upper", "lower"),
-        ("galmuri11", TWO_LINE_KO_11, "middle", "bottom"),
-        ("galmuri11", TWO_LINE_KO_11, "top", "middle"),
+        ("scene_fixed_stage.json", "fixed_stage", "sentence", None),
+        ("scene_fixed_stage.json", "fixed_stage", "sentence", {"x": 48, "y": 600, "w": 594}),
+        ("scene_dialog_stage_typewriter.json", "dialog_stage", "typewriter", None),
     ],
 )
-def test_29_two_layer_positions_that_collide_fail(
-    studio: Studio,
-    font: str,
-    display: str,
-    primary_position: str,
-    extra_position: str,
+def test_29_still_ignores_stored_second_caption(
+    studio: Studio, name: str, layout: str, mode: str, place: dict[str, Any] | None
 ) -> None:
-    scene = _two_layer_scene(display)
-    video = studio.video(
-        scene,
-        font=font,
-        position=primary_position,
-        extra=_extra(studio, font, extra_position),
-    )
-    with pytest.raises(AppError) as error:
-        studio.still(video, scene["id"])
-    assert error.value.code == "caption_overlap"
+    plain_scene = load(name)
+    legacy_scene = copy.deepcopy(plain_scene)
+    legacy_scene["lines"][0]["extra_texts"] = [{"language": "en", "text": "Second caption."}]
+    extra = {
+        "font_id": studio.registry.pin("font", "galmuri14").model_dump(),
+        "language": "en",
+        "mode": "sentence",
+        "position": "top",
+    }
+    scene_id = plain_scene["id"]
+    plain = studio.video(plain_scene, layout=layout, mode=mode, place=place)
+    legacy = studio.video(legacy_scene, layout=layout, mode=mode, place=place, extra=extra)
 
+    plain_path = studio.still(plain, scene_id, name="plain")
+    legacy_path = studio.still(legacy, scene_id, name="legacy")
+    assert plain_path.read_bytes() == legacy_path.read_bytes()
+    assert _record(plain_path) == _record(legacy_path)
 
-def test_29_two_layers_need_the_second_language_text(studio: Studio) -> None:
-    scene = _two_layer_scene(TWO_LINE_KO_11)
-    del scene["lines"][0]["extra_texts"]
-    video = studio.video(scene, extra=_extra(studio, "galmuri11", "top"))
-    with pytest.raises(AppError) as error:
-        studio.still(video, scene["id"])
-    assert error.value.code == "caption_text_missing"
-
-
-def test_29_two_layers_need_a_moving_plate_template(studio: Studio) -> None:
-    scene = load("scene_dialog_stage_typewriter.json")
-    scene["lines"][0]["extra_texts"] = [{"language": "en", "text": "Second."}]
-    video = studio.video(
-        scene,
-        layout="dialog_stage",
-        mode="typewriter",
-        extra=_extra(studio, "galmuri11", "top"),
-    )
-    with pytest.raises(AppError) as error:
-        studio.still(video, scene["id"])
-    assert error.value.code == "caption_layer_unsupported"
-
-
-def test_29_two_layers_need_a_sentence_second_layer(studio: Studio) -> None:
-    scene = _two_layer_scene(TWO_LINE_KO_11)
-    video = studio.video(
-        scene,
-        extra=_extra(studio, "galmuri11", "top", mode="phrase"),
-    )
-    with pytest.raises(AppError) as error:
-        studio.still(video, scene["id"])
-    assert error.value.code == "caption_mode_language"
+    plain_frame, plain_record = studio.compose(plain, scene_id)
+    legacy_frame, legacy_record = studio.compose(legacy, scene_id)
+    assert plain_frame.tobytes() == legacy_frame.tobytes()
+    assert plain_record == legacy_record
 
 
 REFERENCES = Path(__file__).resolve().parent / "stills"

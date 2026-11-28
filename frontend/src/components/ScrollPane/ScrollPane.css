@@ -55,6 +55,7 @@
   background: var(--secondary);
   border-color: var(--secondary);
   color: var(--sub);
+  box-shadow: var(--shadow-float);
 }
 
 .scroll-pane__jump .icon-button:hover:not(:disabled) {

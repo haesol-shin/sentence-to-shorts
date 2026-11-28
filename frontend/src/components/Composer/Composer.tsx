@@ -120,7 +120,7 @@ export function Composer({
       </div>
       <div className="composer__row">
         {attachLabel === undefined ? null : (
-          <IconButton label={attachLabel} onClick={onAttach} disabled={isDisabled}>
+          <IconButton size="compact" label={attachLabel} onClick={onAttach} disabled={isDisabled}>
             <Plus aria-hidden="true" />
           </IconButton>
         )}

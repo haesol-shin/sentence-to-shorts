@@ -35,7 +35,7 @@ main:has(.concept-screen) [data-slot="stage-scroll"] {
   width: 100%;
   max-width: calc(900px + var(--layout-gutter) * 2);
   margin: 0 auto;
-  padding: 22px var(--layout-gutter) calc(var(--size-control) + var(--space-48) + var(--space-24));
+  padding: var(--layout-gutter) var(--layout-gutter) calc(var(--size-control) + var(--space-48) + var(--space-24));
   container-type: inline-size;
 }
 

@@ -38,7 +38,7 @@ function SceneCard({
     <div
       data-slot="scene-card"
       data-scene-id={scene.id}
-      className="relative shrink-0"
+      className="relative shrink-0 self-start"
       draggable
       onDragStart={(event) => {
         event.dataTransfer.effectAllowed = 'move';
@@ -63,7 +63,7 @@ function SceneCard({
         busy={edit.phase === 'stills'}
         busyLabel={t('edit.scene.busy')}
         onClick={() => edit.selectScene(scene.id)}
-        className={compact ? 'w-24' : undefined}
+        className={compact ? 'w-24' : 'edit-scene-card'}
       />
       {edit.unseen.includes(scene.id) ? (
         <span
@@ -80,12 +80,12 @@ function SceneCard({
       >
         <Trash2 aria-hidden size={14} />
       </IconButton>
-      {/* The picked card shows by its undimmed picture alone; this empty mark only tags it. */}
+      {/* This mark follows the selection even when none of the pictures are ready. */}
       {selected ? (
         <span
           aria-hidden="true"
           data-slot="scene-selected"
-          className="pointer-events-none absolute inset-0 rounded-[var(--radius-content)] p-1"
+          className="edit-scene-selection pointer-events-none absolute inset-0 rounded-[var(--radius-content)] p-1"
         />
       ) : null}
     </div>
@@ -97,15 +97,15 @@ export function SceneColumn({ edit }: { edit: EditValue }) {
   return (
     <aside
       data-slot="scene-column"
-      className="hidden w-[var(--layout-scene-col-w)] shrink-0 flex-col gap-[18px] rounded-l-[var(--radius-column)] bg-[var(--surface-muted)] pt-4 pr-4 pb-5 pl-4 md:flex"
+      className="edit-scene-column hidden shrink-0 flex-col gap-3 rounded-l-[var(--radius-column)] bg-[var(--surface-muted)] pt-[26px] pr-0 pb-5 pl-[var(--layout-gutter)] md:flex"
     >
-      <h2 className="ml-0.5 text-[15px] leading-[18px] font-bold text-[var(--text-muted)]">
-        {t('edit.scene.list')}
+      <h2 className="edit-column-title">
+        <span>{t('edit.scene.list')}</span>
       </h2>
-      <ScrollPane label={t('edit.scene.list')} jumpLabel={t('shell.scroll.jump')} className="-mx-1 min-h-0 flex-1">
-        <div className="flex flex-col items-start gap-2 pb-12">
+      <ScrollPane label={t('edit.scene.list')} jumpLabel={t('shell.scroll.jump')} className="-ml-1 min-h-0 flex-1">
+        <div className="flex flex-col gap-2">
           {edit.scenes.length === 0 ? (
-            <p className="px-1 text-[15px] text-[var(--text-muted)]">{t('edit.scene.empty')}</p>
+            <p className="text-[15px] text-[var(--text-muted)]">{t('edit.scene.empty')}</p>
           ) : (
             edit.scenes.map((scene, index) => (
               <SceneCard key={scene.id} scene={scene} index={index} edit={edit} compact={false} />
@@ -113,7 +113,7 @@ export function SceneColumn({ edit }: { edit: EditValue }) {
           )}
         </div>
       </ScrollPane>
-      <div className="flex justify-center">
+      <div className="flex justify-start pl-[26px]">
         <IconButton label={t('edit.scene.add')} onClick={edit.requestAdd}>
           <Plus aria-hidden size={20} />
         </IconButton>

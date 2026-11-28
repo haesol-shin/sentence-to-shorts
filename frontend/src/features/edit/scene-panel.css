@@ -1,0 +1,337 @@
+/*
+ * The right panel. Every edge of the column keeps the card inset, so the host
+ * has no padding of its own: its children carry it, and the sheets that open
+ * over the column reach its edges.
+ */
+.edit-panel-host {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+.edit-panel-host > .tabs,
+.edit-panel-host .edit-scope-panel {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.edit-panel-host > .tabs {
+  max-width: none;
+}
+
+.edit-panel-error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: var(--layout-gutter) var(--layout-gutter) 0;
+}
+
+.edit-scope-tabs .tabs__head {
+  position: relative;
+  padding: var(--layout-gutter) var(--layout-gutter) var(--space-16);
+}
+
+/*
+ * The heading row is the whole panel width. Its right end is kept for the
+ * toggle, so the scope sentence wraps to a second line before it would touch it.
+ */
+.edit-scope-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: baseline;
+  column-gap: 0;
+  box-sizing: border-box;
+  min-height: var(--size-control);
+  margin: 0;
+  padding-inline-end: calc(var(--space-48) * 4);
+  font-size: var(--font-size-title);
+  line-height: var(--space-36);
+  font-weight: var(--font-weight-bold);
+  word-break: keep-all;
+}
+
+.edit-scope-title small {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--space-24);
+}
+
+/* The scope toggle: two pills on one grey capsule. */
+.edit-scope-tabs .tabs__list {
+  position: absolute;
+  inset-block-start: var(--layout-gutter);
+  inset-inline-end: var(--layout-gutter);
+  gap: 0;
+  padding: var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--muted);
+}
+
+.edit-scope-tabs .tab {
+  border-radius: var(--radius-pill);
+  padding-inline: var(--space-16);
+}
+
+.edit-scope-tabs .tab[data-active] {
+  background: var(--popover);
+}
+
+.edit-scope-tabs .tab::before {
+  display: none;
+}
+
+.edit-scope-panel > .scroll-pane {
+  flex: 1 1 auto;
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+  padding: 0 var(--layout-gutter) var(--layout-gutter);
+}
+
+.edit-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.edit-group-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--space-20);
+  font-weight: var(--font-weight-bold);
+}
+
+.edit-group-title small {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--space-20);
+}
+
+/* The dialogue line: the number, then the words with the emphasis marked in place. */
+.edit-dialogue {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: calc(var(--space-12) / 2) var(--space-12);
+  border-radius: var(--radius-content);
+  background: var(--card);
+  font-size: var(--font-size-body);
+  line-height: var(--space-24);
+}
+
+.edit-dialogue-number {
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.edit-dialogue-text {
+  margin: 0;
+  padding-inline-end: var(--space-36);
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+.edit-word {
+  display: inline;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-inset);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.edit-dialogue .edit-dialogue-edit {
+  position: absolute;
+}
+
+.edit-word[aria-pressed='true'] {
+  color: var(--emphasis);
+  font-weight: var(--font-weight-bold);
+}
+
+.edit-word:disabled {
+  cursor: default;
+}
+
+.edit-dialogue-edit {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline-end: 0;
+  opacity: 0;
+}
+
+.edit-dialogue:hover .edit-dialogue-edit,
+.edit-dialogue:focus-within .edit-dialogue-edit {
+  opacity: 1;
+}
+
+.edit-dialogue-input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  field-sizing: content;
+}
+
+.edit-dialogue-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-8);
+}
+
+/* Two named values to a row, as the canon draws the groups. */
+.settings-row.edit-field-group {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-8);
+}
+
+.edit-field-group .settings-row__text {
+  flex: none;
+}
+
+.edit-field-group .settings-row__label {
+  font-size: var(--font-size-body);
+  line-height: var(--space-24);
+  font-weight: var(--font-weight-bold);
+}
+
+.edit-field-group .settings-row__control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+}
+
+.edit-field-button.button {
+  justify-content: flex-start;
+  width: 100%;
+  gap: var(--space-8);
+  font-weight: var(--font-weight-regular);
+}
+
+.edit-field-button .edit-field-name {
+  color: var(--sub);
+}
+
+.edit-field-button .edit-field-value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The sheet lies over the whole column, from its top edge to its bottom edge. */
+.edit-panel-host .dialog-positioner--contained {
+  inset: 0;
+}
+
+.edit-panel-host .dialog-positioner--contained > .dialog {
+  height: 100%;
+  max-height: none;
+  padding: var(--layout-gutter);
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.edit-sheet .dialog__scroll-frame {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.edit-sheet-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-12);
+  margin-top: var(--space-16);
+}
+
+.edit-sheet-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8);
+  border: 0;
+  border-radius: var(--radius-content);
+  background: transparent;
+  color: var(--foreground);
+  font: inherit;
+  font-size: var(--font-size-small);
+  text-align: start;
+  cursor: pointer;
+}
+
+.edit-sheet-tile > span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-media);
+  background: var(--muted);
+  color: var(--sub);
+}
+
+.edit-sheet-tile:hover {
+  background: var(--state-hover-white);
+}
+
+.edit-sheet-tile[aria-pressed='true'] {
+  background: var(--state-selected);
+  font-weight: var(--font-weight-bold);
+}
+
+.edit-cues {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: var(--space-12) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.edit-cues li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.edit-cues li > .truncate {
+  flex: 1 1 auto;
+}
+
+.edit-cues-note {
+  margin: var(--space-8) 0 var(--space-12);
+  color: var(--sub);
+  font-size: var(--font-size-small);
+  line-height: var(--line-height-small);
+}
+
+.edit-sheet .close-button.close-button {
+  position: absolute;
+  inset-block-start: var(--space-24);
+  inset-inline-end: var(--space-24);
+}

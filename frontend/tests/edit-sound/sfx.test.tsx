@@ -12,7 +12,7 @@ afterEach(cleanup);
 
 test('test_9_the_sound_effect_window_keeps_its_height_and_every_choice', async () => {
   await renderEdit();
-  fireEvent.click(screen.getByRole('button', { name: '효과음 추가' }));
+  fireEvent.click(screen.getByRole('button', { name: '효과음' }));
   const picker = await screen.findByRole('dialog', {
     name: '효과음 추가',
     description: '효과음은 요청할 때만 AI가 장면마다 두 개까지 더해요.',
@@ -25,8 +25,9 @@ test('test_9_the_sound_effect_window_keeps_its_height_and_every_choice', async (
 
 test('test_9_a_scene_effect_is_checked_in_its_scene_form', async () => {
   await renderEdit();
-  fireEvent.click(screen.getByRole('button', { name: '효과음 추가' }));
+  fireEvent.click(screen.getByRole('button', { name: '효과음' }));
   const picker = await screen.findByRole('dialog', { name: '효과음 추가' });
   fireEvent.click(within(picker).getByRole('button', { name: '팝' }));
+  fireEvent.click(await screen.findByRole('button', { name: '효과음' }));
   expect(await screen.findByRole('button', { name: '팝 지우기' })).toBeTruthy();
 });

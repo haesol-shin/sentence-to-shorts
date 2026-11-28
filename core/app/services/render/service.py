@@ -28,8 +28,6 @@ from app.caption_layout import (
     fixed_text_box,
     inside,
     place_area,
-    place_pair,
-    place_pair_with_primary,
     placed_box,
     plate_box,
     safe_area,
@@ -48,11 +46,10 @@ from app.ports import (
     UnknownCatalogId,
 )
 from app.schemas.artifact import Timing
-from app.schemas.caption_language_manifest import CaptionLanguageManifest
 from app.schemas.common import Box, CaptionMode, CharacterRole
 from app.schemas.scene import Anchor, Element, ElementKind, Scene
 from app.schemas.script import Line, Span
-from app.schemas.settings import CaptionLayer, CaptionPosition, ProgressMode
+from app.schemas.settings import CaptionPosition, ProgressMode
 from app.schemas.style_manifest import AssetKind, Palette, Theme
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
@@ -91,42 +88,6 @@ def _caption_sizes(font: CaptionFont) -> list[int]:
     pixel = font.pixel_size or 12
     return font.sizes(pixel * 6, pixel * 2)
 
-
-def _caption_blocks(
-    font: CaptionFont,
-    text: str,
-    highlight: list[Span] | None,
-    *,
-    width: int,
-    height: int,
-    max_lines: int,
-    where: str,
-) -> list[TextBlock | None]:
-    """One layout per caption size; ``None`` where that size does not fit.
-
-    Two layers choose their ranks together, so each size needs its own block
-    before the joint search picks a pair.
-    """
-    blocks: list[TextBlock | None] = []
-    for size in _caption_sizes(font):
-        try:
-            blocks.append(
-                fit(
-                    font,
-                    text,
-                    highlight,
-                    width=width,
-                    height=height,
-                    max_lines=max_lines,
-                    sizes=[size],
-                    where=where,
-                )
-            )
-        except AppError as error:
-            if error.code != "text_overflow":
-                raise
-            blocks.append(None)
-    return blocks
 
 CHARACTER_HEIGHT_RATIO = (11, 20)
 ELEMENT_MARGIN = 24
@@ -187,16 +148,6 @@ def _typed(block: TextBlock, count: int) -> TextBlock:
 
 
 @dataclass(frozen=True)
-class ResolvedLayer:
-    """A second caption language: its catalog language, mode, font and position."""
-
-    language: str
-    mode: CaptionMode
-    font: CaptionFont
-    position: CaptionPosition
-
-
-@dataclass(frozen=True)
 class Resolved:
     """Catalog entries a still needs, resolved from the video's pinned refs."""
 
@@ -204,7 +155,6 @@ class Resolved:
     theme: Theme
     template: TemplateManifest
     font: CaptionFont
-    extra: ResolvedLayer | None
 
     @property
     def palette(self) -> Palette:
@@ -238,12 +188,9 @@ class ScenePlan:
     skipped: list[str]
     top: Image.Image | None
     top_at: tuple[int, int]
-    blocks: dict[tuple[str, int, tuple[int, int] | None], TextBlock] = field(
+    blocks: dict[tuple[int, tuple[int, int] | None], TextBlock] = field(
         default_factory=dict
     )
-    candidates: dict[
-        tuple[str, int, tuple[int, int] | None], list[TextBlock | None]
-    ] = field(default_factory=dict)
     caption_fallback: str | None = None
     """Why the caption left its stored place: ``text_overflow`` or ``place_outside``."""
 
@@ -308,45 +255,6 @@ class RenderService:
             theme=theme,
             template=template,
             font=open_font(self.catalog, font_ref),
-            extra=self._extra_layer(settings.caption.extra, template, style.manifest.fonts),
-        )
-
-    def _extra_layer(
-        self, layers: list[CaptionLayer], template: TemplateManifest, fonts: list[str]
-    ) -> ResolvedLayer | None:
-        """Resolve the second caption language and reject a layer it cannot draw."""
-        if not layers:
-            return None
-        layer = layers[0]
-        if template.dialog_box or template.renderer.kind != "builtin":
-            raise AppError(
-                "caption_layer_unsupported", detail={"template": template.id}
-            )
-        if layer.mode is not CaptionMode.sentence:
-            raise AppError(
-                "caption_mode_language", detail={"mode": layer.mode.value}
-            )
-        try:
-            language = self.catalog.get("caption_language", layer.language)
-        except UnknownCatalogId as error:
-            raise AppError(
-                "unknown_catalog_id",
-                detail={"kind": "caption_language", "id": layer.language},
-            ) from error
-        if not isinstance(language, CaptionLanguageManifest):
-            raise AppError(
-                "unknown_catalog_id",
-                detail={"kind": "caption_language", "id": layer.language},
-            )
-        if layer.font_id.id not in fonts:
-            raise AppError(
-                "unknown_catalog_id", detail={"kind": "font", "id": layer.font_id.id}
-            )
-        return ResolvedLayer(
-            language=layer.language,
-            mode=layer.mode,
-            font=open_font(self.catalog, layer.font_id),
-            position=layer.position,
         )
 
     def _background(self, frame: Image.Image, scene: Scene, res: Resolved) -> None:
@@ -570,67 +478,35 @@ class RenderService:
             color=_rgb(res.palette.ink), highlight_color=_rgb(res.palette.accent),
         )
 
-    @staticmethod
-    def _extra_text(line: Line, language: str) -> str:
-        """The line's text in the extra caption language."""
-
-        for item in line.extra_texts:
-            if item.language == language:
-                return item.text
-        raise AppError(
-            "caption_text_missing", detail={"line_id": line.id, "language": language}
-        )
-
-    def _caption_text_width(self, plan: ScenePlan, layer: str) -> int:
-        """Text width of one layer: the stored place wins over the template region."""
-        caption = plan.video.settings.caption
-        res = plan.res
-        if (
-            layer == "primary"
-            and plan.caption_fallback is None
-            and caption.place is not None
-            and res.template.renderer.kind == "builtin"
-            and not draws_bubble(res.template)
-        ):
-            return max(1, caption.place.w - 2 * PLATE_SIDE_PAD)
-        return caption_text_size(res.template)[0]
-
     def _caption_block(
         self,
         plan: ScenePlan,
         line_index: int,
         phrase: tuple[int, int] | None,
-        layer: str = "primary",
     ) -> TextBlock:
-        """Lay out a whole line or one phrase of one caption layer once per clip."""
-        key = (layer, line_index, phrase)
+        """Lay out a whole line or one phrase once per clip."""
+        key = (line_index, phrase)
         block = plan.blocks.get(key)
         if block is not None:
             return block
         res = plan.res
         caption = plan.video.settings.caption
         line = plan.scene.lines[line_index]
-        text_width = self._caption_text_width(plan, layer)
-        if layer == "extra":
-            assert res.extra is not None
-            font = res.extra.font
-            text = self._extra_text(line, res.extra.language)
-            highlight: list[Span] | None = None
+        width, height = caption_text_size(res.template)
+        if caption.place is not None:
             height = CAPTION_BLOCK_LIMIT
-            where = f"caption_extra:{line.id}"
-        else:
-            font = res.font
-            text = line.display_text
-            highlight = (
-                list(line.highlight) if caption.highlight else []
-            )
-            if phrase is not None:
-                text, highlight = _phrase_text(text, highlight, *phrase)
-            wide = res.extra is not None or caption.place is not None
-            height = CAPTION_BLOCK_LIMIT if wide else caption_text_size(res.template)[1]
-            where = f"caption:{line.id}"
+            if (
+                plan.caption_fallback is None
+                and res.template.renderer.kind == "builtin"
+                and not draws_bubble(res.template)
+            ):
+                width = max(1, caption.place.w - 2 * PLATE_SIDE_PAD)
+        text = line.display_text
+        highlight = line.highlight if caption.highlight else []
+        if phrase is not None:
+            text, highlight = _phrase_text(text, highlight, *phrase)
         block = self._fit_caption(
-            plan, layer, font, text, highlight, text_width, height, where
+            plan, res.font, text, highlight, width, height, f"caption:{line.id}"
         )
         plan.blocks[key] = block
         return block
@@ -638,7 +514,6 @@ class RenderService:
     def _fit_caption(
         self,
         plan: ScenePlan,
-        layer: str,
         font: CaptionFont,
         text: str,
         highlight: list[Span] | None,
@@ -646,7 +521,7 @@ class RenderService:
         height: int,
         where: str,
     ) -> TextBlock:
-        """Fit one block; a placed primary that cannot fit falls back to the band."""
+        """Fit the caption; a placed caption that cannot fit falls back to the band."""
         try:
             return fit(
                 font,
@@ -661,7 +536,6 @@ class RenderService:
         except AppError as error:
             if (
                 error.code != "text_overflow"
-                or layer != "primary"
                 or plan.video.settings.caption.place is None
                 or plan.caption_fallback is not None
             ):
@@ -677,195 +551,6 @@ class RenderService:
                 sizes=_caption_sizes(font),
                 where=where,
             )
-
-    def _caption_candidates(
-        self, plan: ScenePlan, layer: str, line_index: int, phrase: tuple[int, int] | None
-    ) -> list[TextBlock | None]:
-        """One layout per size rank, shared by the joint two-layer search."""
-        key = (layer, line_index, phrase)
-        cached = plan.candidates.get(key)
-        if cached is not None:
-            return cached
-        res = plan.res
-        line = plan.scene.lines[line_index]
-        caption = plan.video.settings.caption
-        text_width = self._caption_text_width(plan, layer)
-        if layer == "extra":
-            assert res.extra is not None
-            font = res.extra.font
-            text = self._extra_text(line, res.extra.language)
-            highlight: list[Span] | None = None
-            where = f"caption_extra:{line.id}"
-        else:
-            font = res.font
-            text = line.display_text
-            highlight = (
-                list(line.highlight) if caption.highlight else []
-            )
-            if phrase is not None:
-                text, highlight = _phrase_text(text, highlight, *phrase)
-            where = f"caption:{line.id}"
-        candidates = _caption_blocks(
-            font,
-            text,
-            highlight or None,
-            width=text_width,
-            height=CAPTION_BLOCK_LIMIT,
-            max_lines=CAPTION_MAX_LINES,
-            where=where,
-        )
-        if (
-            all(block is None for block in candidates)
-            and layer == "primary"
-            and caption.place is not None
-            and plan.caption_fallback is None
-        ):
-            plan.caption_fallback = "text_overflow"
-            candidates = _caption_blocks(
-                font,
-                text,
-                highlight or None,
-                width=caption_text_size(res.template)[0],
-                height=CAPTION_BLOCK_LIMIT,
-                max_lines=CAPTION_MAX_LINES,
-                where=where,
-            )
-        plan.candidates[key] = candidates
-        return candidates
-
-    def _caption_pair(
-        self,
-        draw: ImageDraw.ImageDraw,
-        plan: ScenePlan,
-        state: CaptionState,
-        phrase: tuple[int, int] | None,
-    ) -> dict[str, Any]:
-        """Draw the primary and the extra language caption in one safe band.
-
-        A stored place pins the primary plate. If no extra position keeps clear
-        of it, the extra layer is dropped and the record says so: one chosen
-        value does not fail the whole render.
-        """
-        caption = plan.video.settings.caption
-        res = plan.res
-        extra = res.extra
-        assert extra is not None
-        palette = res.palette
-        line = plan.scene.lines[state.line]
-        primary_blocks = self._caption_candidates(plan, "primary", state.line, phrase)
-        extra_blocks = self._caption_candidates(plan, "extra", state.line, None)
-        if not any(block is not None for block in primary_blocks):
-            raise AppError(
-                "text_overflow", detail={"where": f"caption:{line.id}", "font": res.font.id}
-            )
-        if not any(block is not None for block in extra_blocks):
-            raise AppError(
-                "text_overflow",
-                detail={"where": f"caption_extra:{line.id}", "font": extra.font.id},
-            )
-        inner = _caption_inner(res)
-        primary_heights = [None if block is None else block.height for block in primary_blocks]
-        extra_heights = [None if block is None else block.height for block in extra_blocks]
-        place = caption.place if plan.caption_fallback is None else None
-        pair = None
-        if place is not None:
-            pair = place_pair_with_primary(
-                inner, place, primary_heights, extra_heights, extra.position
-            )
-            if pair is None:
-                largest = next(block for block in primary_blocks if block is not None)
-                plate = placed_box(place, largest.height)
-                if plate is not None:
-                    return self._caption_alone(
-                        draw, plan, state, largest, plate, "no_room"
-                    )
-                plan.caption_fallback = "place_outside"
-                place = None
-        if pair is None:
-            pair = place_pair(
-                inner, primary_heights, caption.position, extra_heights, extra.position
-            )
-        if pair is None:
-            raise AppError(
-                "caption_overlap",
-                detail={
-                    "line_id": line.id,
-                    "positions": [caption.position.value, extra.position.value],
-                },
-            )
-        primary = primary_blocks[pair.primary_rank]
-        extra_block = extra_blocks[pair.extra_rank]
-        assert primary is not None and extra_block is not None
-        if state.typed is not None:
-            primary = _typed(primary, state.typed)
-        primary_text = text_box(pair.primary, primary.height)
-        extra_text = text_box(pair.extra, extra_block.height)
-        for plate in (pair.primary, pair.extra):
-            draw.rectangle(
-                (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
-                fill=palette.caption_box,
-            )
-        align = caption.place.align if place is not None else "center"
-        primary_boxes = self._draw_caption(
-            draw, res.font, primary, primary_text, align,
-            color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-        )
-        extra_boxes = draw_block(
-            draw, extra.font, extra_block, extra_text,
-            color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-        )
-        area = place_area() if place is not None else safe_area()
-        if (
-            not inside(pair.primary, area)
-            or not all(inside(box, pair.primary) for box in primary_boxes)
-            or not all(inside(box, pair.extra) for box in extra_boxes)
-        ):
-            raise AppError("caption_unsafe", detail={"line_id": line.id})
-        record = self._caption_record(
-            line, primary, primary_boxes, pair.primary, caption.mode, res.font,
-            caption.position, None,
-        )
-        record["caption_extra"] = self._caption_record(
-            line, extra_block, extra_boxes, pair.extra, extra.mode, extra.font,
-            extra.position, extra.language,
-        )
-        if plan.caption_fallback is not None:
-            record["caption_fallback"] = plan.caption_fallback
-        return record
-
-    def _caption_alone(
-        self,
-        draw: ImageDraw.ImageDraw,
-        plan: ScenePlan,
-        state: CaptionState,
-        block: TextBlock,
-        plate: Box,
-        reason: str,
-    ) -> dict[str, Any]:
-        """Draw the primary layer without the extra one, and record why it went."""
-        caption = plan.video.settings.caption
-        res = plan.res
-        palette = res.palette
-        line = plan.scene.lines[state.line]
-        if state.typed is not None:
-            block = _typed(block, state.typed)
-        text = text_box(plate, block.height)
-        draw.rectangle(
-            (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
-            fill=palette.caption_box,
-        )
-        align = caption.place.align if caption.place is not None else "center"
-        boxes = self._draw_caption(
-            draw, res.font, block, text, align,
-            color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-        )
-        if not all(inside(box, plate) for box in boxes):
-            raise AppError("caption_unsafe", detail={"line_id": line.id})
-        record = self._caption_record(
-            line, block, boxes, plate, caption.mode, res.font, caption.position, None
-        )
-        record["caption_extra_skipped"] = reason
-        return record
 
     @staticmethod
     def _draw_caption(
@@ -924,9 +609,8 @@ class RenderService:
         mode: CaptionMode,
         font: CaptionFont,
         position: CaptionPosition,
-        language: str | None,
     ) -> dict[str, Any]:
-        record: dict[str, Any] = {
+        return {
             "line_id": line.id,
             "mode": mode.value,
             "font": font.id,
@@ -938,9 +622,6 @@ class RenderService:
                 for text_line, box in zip(block.lines, boxes, strict=True)
             ],
         }
-        if language is not None:
-            record["language"] = language
-        return record
 
     def _caption(
         self,
@@ -963,8 +644,6 @@ class RenderService:
         phrase = state.phrase
         if phrase is not None and not line.display_text[phrase[0]:phrase[1]].strip():
             phrase = None
-        if res.extra is not None:
-            return self._caption_pair(pen, plan, state, phrase)
         block = self._caption_block(plan, state.line, phrase)
         if state.typed is not None:
             block = _typed(block, state.typed)
@@ -1014,7 +693,7 @@ class RenderService:
         if not inside(plate, area) or not all(inside(box, plate) for box in boxes):
             raise AppError("caption_unsafe", detail={"line_id": line.id})
         record = self._caption_record(
-            line, block, boxes, plate, caption.mode, res.font, caption.position, None
+            line, block, boxes, plate, caption.mode, res.font, caption.position
         )
         if plan.caption_fallback is not None:
             record["caption_fallback"] = plan.caption_fallback
@@ -1101,16 +780,12 @@ class RenderService:
         frame, caption = self._draw(
             plan, rest_pose(plan.scene), draw_caption=captions
         )
-        extra = caption.pop("caption_extra", None)
-        record = {
+        return frame, {
             "scene_id": plan.scene.id,
             "layout_size": list(OUTPUT),
             "caption": caption,
             "elements_not_drawn": plan.skipped,
         }
-        if extra is not None:
-            record["caption_extra"] = extra
-        return frame, record
 
     def compose(
         self,

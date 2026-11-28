@@ -1,9 +1,38 @@
-/*
- * The 9:16 preview part fills its width by default, so a frame that is sized by
- * its height says so here. Below 768px the frame has a fixed height; on a
- * desktop the preview area decides the size: the area is a size container, so
- * the frame is width-bound on a narrow desktop and height-bound on a wide one.
- */
+.edit-column-title {
+  color: var(--text-muted);
+  font-size: var(--font-size-small);
+  font-weight: var(--font-weight-bold);
+  line-height: 18px;
+}
+
+.edit-scene-column {
+  inline-size: 168px;
+}
+
+/* The selected card keeps the picture undimmed and takes the emphasis border, so it reads without a shadow. */
+.card--scene.edit-scene-card[data-selected] {
+  border-color: var(--emphasis);
+}
+
+.edit-scene-selection {
+  box-shadow: none;
+}
+
+.edit-preview-column {
+  position: relative;
+  align-items: center;
+}
+
+.edit-preview-head {
+  align-self: stretch;
+}
+
+.edit-preview-head .edit-preview-expand.icon-button {
+  position: absolute;
+  top: calc((18px - var(--size-control)) / 2);
+  right: 0;
+}
+
 .video-preview.edit-preview-frame--thumb {
   width: auto;
   height: var(--layout-thumb-h);
@@ -15,35 +44,22 @@
 }
 
 .video-preview.edit-preview-frame--large {
-  width: auto;
-  height: 70vh;
+  width: min(100%, 70dvh * 9 / 16);
 }
 
 @media (min-width: 768px) {
   .edit-stage-panel {
-    flex: 0 0 clamp(340px, 28vw, var(--layout-scene-panel-max-w));
-    min-width: 340px;
+    flex: 1 0 340px;
   }
 
-  .edit-preview-area {
+  .edit-preview {
+    flex-basis: calc(var(--layout-gutter) * 2 + 318px);
     container-type: size;
-    width: 100%;
-    height: 100%;
-    min-height: 0;
+    container-name: edit-preview;
   }
 
-  /*
-   * The caption, the 9:16 frame and the play bar share one column width. The
-   * frame takes the area's width, or the width whose height leaves the caption
-   * and the bar inside the area, so the bar never falls below the fold.
-   */
   .edit-preview-column {
-    width: min(
-      100cqw,
-      calc(
-        (100cqh - var(--size-control) - var(--space-48) - 2 * var(--space-16)) * 9 / 16
-      )
-    );
+    width: min(100%, 318px, calc((100cqh - var(--line-height-small) - 28px - var(--size-control)) * 9 / 16));
   }
 
   .edit-preview-column > .video-preview {
@@ -51,13 +67,12 @@
     height: auto;
   }
 
-  /*
-   * The control centers itself in the row with the `top-1/2` and `-translate-y-1/2`
-   * utilities, so the row keeps a control's height and the panel's top edge never
-   * cuts the control.
-   */
-  .edit-preview-head {
-    min-height: var(--size-control);
+  .edit-preview-head .edit-preview-expand.icon-button:not(:focus-visible):not([data-popup-open]) {
+    opacity: 0;
+  }
+
+  .edit-preview:hover .edit-preview-head .edit-preview-expand.icon-button {
+    opacity: 1;
   }
 }
 

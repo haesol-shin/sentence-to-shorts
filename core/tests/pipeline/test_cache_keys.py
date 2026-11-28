@@ -444,47 +444,27 @@ def _with_extra_layer(
     return Video.model_validate(data)
 
 
-def test_29_extra_text_moves_the_still_but_not_speech_or_srt(
-    registry: Registry,
-) -> None:
-    video = _with_extra_layer(_load_video(), registry)
-    scene_id = video.scene_order[0]
+def test_29_legacy_caption_does_not_change_render_keys(registry: Registry) -> None:
+    legacy = _with_extra_layer(_load_video(), registry)
 
-    def mutate(data):  # type: ignore[no-untyped-def]
-        data["scenes"][scene_id]["lines"][0]["extra_texts"][0]["text"] = "Another one."
+    def remove_second_caption(data):  # type: ignore[no-untyped-def]
+        data["settings"]["caption"]["extra"] = []
+        for scene in data["scenes"].values():
+            for line in scene["lines"]:
+                line["extra_texts"] = []
 
-    changed = _changed(video, mutate)
-    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
-    after = Graph(changed, _services(registry, MemoryStore()), symbolic=True)
+    def change_second_caption(data):  # type: ignore[no-untyped-def]
+        data["settings"]["caption"]["extra"][0]["font_id"]["id"] = "legacy-font"
+        line = data["scenes"][legacy.scene_order[0]]["lines"][0]
+        line["extra_texts"][0]["text"] = "Another one."
 
-    assert before.scenes[scene_id].still != after.scenes[scene_id].still
-    assert before.scenes[scene_id].clip != after.scenes[scene_id].clip
-    for candidate in video.scene_order:
-        assert before.scenes[candidate].tts == after.scenes[candidate].tts
-        assert before.scenes[candidate].timing == after.scenes[candidate].timing
-    assert before.srt == after.srt
-    assert before.mix == after.mix
-
-
-def test_29_extra_font_and_language_move_the_still(registry: Registry) -> None:
-    video = _with_extra_layer(_load_video(), registry, font="galmuri14")
-    scene_id = video.scene_order[0]
-    before = Graph(video, _services(registry, MemoryStore()), symbolic=True)
-
-    def change_font(data):  # type: ignore[no-untyped-def]
-        data["settings"]["caption"]["extra"][0]["font_id"] = registry.pin(
-            "font", "galmuri11"
-        ).model_dump()
-
-    def change_language(data):  # type: ignore[no-untyped-def]
-        data["settings"]["caption"]["extra"][0]["language"] = "ko"
-
-    for mutate in (change_font, change_language):
-        after = Graph(
-            _changed(video, mutate), _services(registry, MemoryStore()), symbolic=True
-        )
-        assert before.scenes[scene_id].still != after.scenes[scene_id].still
-        assert before.scenes[scene_id].timing == after.scenes[scene_id].timing
+    services = _services(registry, MemoryStore())
+    before = Graph(legacy, services, symbolic=True)
+    for mutate in (remove_second_caption, change_second_caption):
+        after = Graph(_changed(legacy, mutate), services, symbolic=True)
+        assert before.scenes == after.scenes
+        assert before.final == after.final
+        assert before.mix == after.mix
         assert before.srt == after.srt
 
 

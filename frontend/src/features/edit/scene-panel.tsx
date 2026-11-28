@@ -1,27 +1,23 @@
-import { useState, type ReactNode } from 'react';
-import { Music, Plus, Trash2 } from 'lucide-react';
+import { useState, type ReactElement, type ReactNode } from 'react';
+import { ChevronDown, Image, Music, Pencil, Trash2 } from 'lucide-react';
 
 import { Button } from '@/components/Button/Button';
+import { CloseButton } from '@/components/CloseButton/CloseButton';
 import { Dialog, DialogClose } from '@/components/Dialog/Dialog';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { IconButton } from '@/components/IconButton/IconButton';
 import { Notice } from '@/components/Notice/Notice';
 import { ScrollPane } from '@/components/ScrollPane/ScrollPane';
 import { SettingsRow } from '@/components/SettingsRow/SettingsRow';
-import { Tabs } from '@/components/Tabs/Tabs';
-import { Tooltip } from '@/components/Tooltip/Tooltip';
-import { CloseButton } from '@/components/CloseButton/CloseButton';
+import { Tabs, TabsPanel } from '@/components/Tabs/Tabs';
 import { ValueField } from '@/components/ValueField/ValueField';
 import { useLocale, type Translate } from '@/shared/lib/i18n/locale';
 import { cn } from '@/shared/lib/utils';
 
 import type { CatalogItem } from './api';
-import { CaptionsTab } from './captions/captions-tab';
-import { SoundTab } from './sound/sound-tab';
-import { EDIT_TABS } from './tabs';
 import type { EditValue, SceneBand, SceneFieldPatch } from './edit-context';
 import {
   POSITION_CHOICES,
-  estimatedSeconds,
   MAX_LINES_PER_SCENE,
   sceneNumber,
   sceneVisualLabel,
@@ -31,17 +27,16 @@ import {
   type BandField,
   type Line,
   type Scene,
-  type Span,
 } from './model';
+import { useAudioPreview } from './sound/use-audio-preview';
+import { EDIT_TABS } from './tabs';
+import { WholePanel } from './whole-panel';
+import './scene-panel.css';
 
 function labelFor(t: Translate, prefix: string, id: string): string {
   const key = `${prefix}.${id}`;
   const label = t(key);
   return label === key ? id : label;
-}
-
-function sceneCharacters(scene: Scene) {
-  return scene.visual?.characters ?? [];
 }
 
 /**
@@ -67,48 +62,82 @@ function Swept({
   );
 }
 
-function HighlightWords({
-  scene,
-  onChange,
+/** A value button that names itself inside, as the value fields of the panel do. */
+function fieldContent(name: string, value: string) {
+  return (
+    <>
+      <span className="field-trigger__name">{name}</span>
+      <span className="field-trigger__value">{value}</span>
+      <span className="field-trigger__icon">
+        <ChevronDown aria-hidden />
+      </span>
+    </>
+  );
+}
+
+function BackgroundPicker({
+  current,
+  items,
+  onApply,
+  container,
+  trigger,
 }: {
-  scene: Scene;
-  onChange: (lineId: string, spans: Span[]) => void;
+  current: string;
+  items: readonly { value: string; label: string }[];
+  onApply: (id: string) => void;
+  container: HTMLElement | null;
+  trigger: ReactElement;
 }) {
   const { t } = useLocale();
-  if (scene.lines.length === 0) {
-    return <p className="text-[15px] text-[var(--text-muted)]">{t('edit.scene.noLines')}</p>;
-  }
+  const [open, setOpen] = useState(false);
+  const [choice, setChoice] = useState(current);
   return (
-    <div className="flex flex-col gap-3">
-      {scene.lines.map((line, index) => (
-        <div key={line.id} data-slot="highlight-line" className="flex flex-col gap-1">
-          <span className="text-[13px] text-[var(--text-muted)]">
-            {t('edit.scene.line', { number: index + 1 })}
-          </span>
-          <div className="flex min-h-11 flex-wrap items-center gap-1">
-            {wordSpans(line.display_text).map((word) => {
-              const active = spanSelected(line.highlight, word);
-              return (
-                <button
-                  key={`${word.start}-${word.text}`}
-                  type="button"
-                  aria-pressed={active}
-                  onClick={() => onChange(line.id, toggleSpan(line.highlight, word))}
-                  className={cn(
-                    'hit-area focus-ring min-h-11 rounded-[var(--radius-inset)] px-1 text-[17px] leading-6 transition-colors duration-[var(--motion-short)]',
-                    active
-                      ? 'bg-[var(--surface-muted)] text-[var(--emphasis)] underline decoration-2 underline-offset-2'
-                      : 'text-[var(--text)] hover:bg-[var(--surface-muted)]',
-                  )}
-                >
-                  {word.text}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
+    <Dialog
+      title={t('edit.scene.background')}
+      description={t('edit.scene.backgroundHint')}
+      open={open}
+      onOpenChange={(next) => {
+        if (next) setChoice(current);
+        setOpen(next);
+      }}
+      trigger={trigger}
+      container={container}
+      className="edit-sheet"
+      actions={
+        <>
+          <DialogClose render={<Button variant="secondary">{t('edit.change.reject')}</Button>} />
+          <Button
+            disabled={choice === '' || choice === current}
+            onClick={() => {
+              onApply(choice);
+              setOpen(false);
+            }}
+          >
+            {t('edit.change.apply')}
+          </Button>
+        </>
+      }
+    >
+      <DialogClose
+        render={<CloseButton label={t('edit.sfx.close')} className="absolute top-4 right-4" />}
+      />
+      <div className="edit-sheet-tiles">
+        {items.map((item) => (
+          <button
+            key={item.value}
+            type="button"
+            aria-pressed={choice === item.value}
+            className="edit-sheet-tile focus-ring"
+            onClick={() => setChoice(item.value)}
+          >
+            <span aria-hidden="true">
+              <Image size={24} />
+            </span>
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </Dialog>
   );
 }
 
@@ -118,12 +147,14 @@ function SfxPicker({
   onAdd,
   disabled,
   items,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onAdd: (item: CatalogItem) => void;
   disabled: boolean;
   items: readonly CatalogItem[];
+  children: ReactNode;
 }) {
   const { t, language } = useLocale();
   return (
@@ -133,9 +164,7 @@ function SfxPicker({
       title={t('edit.sfx.title')}
       description={t('audio.sfx.rule')}
       label={t('edit.sfx.title')}
-      actions={
-        <DialogClose render={<Button variant="ghost">{t('edit.sfx.close')}</Button>} />
-      }
+      actions={<DialogClose render={<Button variant="secondary">{t('edit.sfx.close')}</Button>} />}
     >
       <DialogClose
         render={
@@ -146,6 +175,7 @@ function SfxPicker({
           />
         }
       />
+      {children}
       <ScrollPane label={t('edit.sfx.list')} jumpLabel={t('shell.scroll.jump')} className="max-h-72 min-h-0">
         <div className="flex flex-col">
           {items.length === 0 ? (
@@ -171,8 +201,9 @@ function SfxPicker({
 }
 
 /**
- * One caption box per line. The spoken text is not asked for: it follows the
- * caption, so the voice and the caption never drift apart.
+ * One dialogue line. The emphasis word is marked inside the line: a press on a
+ * word toggles it. The pencil opens the caption text; the spoken text is not
+ * asked for, it follows the caption so voice and caption never drift apart.
  */
 function LineEditor({
   line,
@@ -187,72 +218,123 @@ function LineEditor({
 }) {
   const { t } = useLocale();
   const [display, setDisplay] = useState(line.display_text);
-  const dirty = display !== line.display_text;
-  const invalid = display.trim() === '';
+  const [writing, setWriting] = useState(false);
+  const points = Array.from(line.display_text);
+  const words = wordSpans(line.display_text);
+
   return (
-    <div data-slot="line-editor" className="flex flex-col rounded-[var(--radius-content)] bg-[var(--surface-muted)] px-4 pt-2 pb-[10px]">
-      <span className="text-[15px] leading-[18px] text-[var(--text-muted)]">{index + 1}</span>
-      <textarea
-        aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
-        value={display}
-        onChange={(event) => setDisplay(event.target.value)}
-        rows={1}
-        className="w-full resize-none rounded-[var(--radius-inset)] bg-[var(--surface-muted)] text-[15px] leading-[18px] text-[var(--text-strong)] outline-none [field-sizing:content] focus-visible:ring-2 focus-visible:ring-[var(--ring)]"
-      />
-      {/* The line keeps its one row until the text changes; saving is a step on its own. */}
-      {dirty ? (
-        <div className="mt-1 flex justify-end">
-          <Button
-            variant="ghost"
-            disabled={invalid || edit.busy}
-            onClick={() => edit.applyLine(sceneId, line.id, display, display)}
+    <div data-slot="line-editor" className="edit-dialogue">
+      <span className="edit-dialogue-number">{index + 1}</span>
+      {writing ? (
+        <>
+          <textarea
+            ref={(element) => element?.focus()}
+            aria-label={t('edit.scene.displayTextLabel', { number: index + 1 })}
+            value={display}
+            onChange={(event) => setDisplay(event.target.value)}
+            rows={1}
+            className="edit-dialogue-input focus-ring"
+          />
+          <div className="edit-dialogue-buttons">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setDisplay(line.display_text);
+                setWriting(false);
+              }}
+            >
+              {t('edit.change.reject')}
+            </Button>
+            <Button
+              size="sm"
+              disabled={display.trim() === '' || display === line.display_text || edit.busy}
+              onClick={() => {
+                edit.applyLine(sceneId, line.id, display, display);
+                setWriting(false);
+              }}
+            >
+              {t('edit.scene.saveLine')}
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p className="edit-dialogue-text">
+            {words.map((word, position) => {
+              const active = spanSelected(line.highlight, word);
+              return (
+                <span key={word.start}>
+                  {points.slice(words[position - 1]?.end ?? 0, word.start).join('')}
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    disabled={edit.busy}
+                    className="edit-word hit-area focus-ring"
+                    onClick={() =>
+                      edit.applyField({
+                        kind: 'highlight',
+                        lineId: line.id,
+                        spans: toggleSpan(line.highlight, word),
+                      })
+                    }
+                  >
+                    {word.text}
+                  </button>
+                </span>
+              );
+            })}
+            {points.slice(words.at(-1)?.end ?? 0).join('')}
+          </p>
+          <IconButton
+            size="compact"
+            label={t('edit.scene.editLine', { number: index + 1 })}
+            className="edit-dialogue-edit"
+            disabled={edit.busy}
+            onClick={() => setWriting(true)}
           >
-            {t('edit.scene.saveLine')}
-          </Button>
-        </div>
-      ) : null}
+            <Pencil aria-hidden="true" />
+          </IconButton>
+        </>
+      )}
     </div>
   );
 }
 
-function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
+function SceneForm({ edit, scene, host }: { edit: EditValue; scene: Scene; host: HTMLElement | null }) {
   const { t } = useLocale();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const number = sceneNumber(edit.video, scene.id);
-  const character = sceneCharacters(scene)[0];
-  const hasCharacter = sceneCharacters(scene).length > 0;
+  const character = scene.visual?.characters[0];
   const background = scene.visual?.background_id ?? '';
-  const expression = character?.expression_id ?? '';
-  const anchor = character?.anchor ?? 'center';
-  const cues = scene.visual?.sfx ?? [];
   const backgrounds = edit.styleOptions?.backgrounds ?? [];
   const expressions = edit.styleOptions?.expressions ?? [];
+  const expression = character?.expression_id ?? expressions[0] ?? '';
+  const anchor = character?.anchor ?? 'center';
+  const cues = scene.visual?.sfx ?? [];
   const backgroundIds = [...new Set([...(background ? [background] : []), ...backgrounds])];
   const expressionIds = [...new Set([...(expression ? [expression] : []), ...expressions])];
   const backgroundItems = backgroundIds.map((id) => ({
-    value: id, label: sceneVisualLabel(t, 'background', id, backgrounds),
+    value: id,
+    label: sceneVisualLabel(t, 'background', id, backgrounds),
   }));
   const expressionItems = expressionIds.map((id) => ({
-    value: id, label: sceneVisualLabel(t, 'expression', id, expressions),
+    value: id,
+    label: sceneVisualLabel(t, 'expression', id, expressions),
   }));
   const positionItems = POSITION_CHOICES.map((choice) => ({ value: choice.anchor, label: t(choice.labelKey) }));
+  const noVisual = scene.visual === null || scene.visual === undefined;
 
   const apply = (patch: SceneFieldPatch) => edit.applyField(patch);
   const band = edit.band !== null && edit.band.sceneId === scene.id ? edit.band : null;
+  const backgroundName = backgroundItems.find((item) => item.value === background)?.label ?? t('edit.change.none');
+  const sfxNames = cues.map((cue) => labelFor(t, 'edit.sfx.name', cue.sfx_id.id)).join(', ');
 
   return (
-    <div data-slot="scene-form" className="flex flex-col gap-[18px]">
-      <div className="flex flex-col gap-1.5">
-        <h2 className="text-[22px] leading-[normal] font-bold text-[var(--text-strong)]">
-          {t('edit.scene.number', { number })}
-        </h2>
-        <p className="text-[15px] leading-[normal] text-[var(--text-muted)]">{t('edit.scene.scope')}</p>
-      </div>
-
-      <Swept fields={['lines']} band={band} className="flex flex-col gap-[10px]">
-        <h3 className="flex items-baseline justify-between text-[17px] leading-[normal] font-bold text-[var(--text-strong)]">
+    <div data-slot="scene-form" className="edit-form">
+      <Swept fields={['lines', 'highlight']} band={band} className="edit-group">
+        <h3 className="edit-group-title">
           {t('edit.scene.lines')}
-          <small className="text-[15px] font-normal text-[var(--text-muted)]">
+          <small data-slot="edit-line-count">
             {t('edit.scene.lineCount', { count: scene.lines.length, max: MAX_LINES_PER_SCENE })}
           </small>
         </h3>
@@ -267,12 +349,10 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         ))}
       </Swept>
 
-      {/* Each value names itself inside its field, so the group title is the only row label. */}
       <Swept fields={['expression', 'position']} band={band}>
         <SettingsRow
           className="edit-field-group"
           label={t('edit.scene.characterGroup')}
-          description={hasCharacter ? undefined : t('edit.scene.noCharacter')}
           control={
             <>
               <ValueField
@@ -281,8 +361,8 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
                 name={t('edit.scene.expression')}
                 items={expressionItems}
                 value={expression}
-                disabled={!hasCharacter}
-                onValueChange={(value) => apply({ kind: 'expression', value })}
+                disabled={noVisual || edit.busy}
+                onValueChange={(expressionId) => apply({ kind: 'expression', expressionId })}
               />
               <ValueField
                 className="edit-scene-field"
@@ -290,7 +370,7 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
                 name={t('edit.scene.position')}
                 items={positionItems}
                 value={anchor}
-                disabled={!hasCharacter}
+                disabled={noVisual || edit.busy}
                 onValueChange={(next) => apply({ kind: 'position', anchor: next })}
               />
             </>
@@ -298,109 +378,87 @@ function SceneForm({ edit, scene }: { edit: EditValue; scene: Scene }) {
         />
       </Swept>
 
-      <Swept fields={['background']} band={band}>
+      <Swept fields={['background', 'sfx']} band={band}>
         <SettingsRow
           className="edit-field-group"
           label={t('edit.scene.backgroundGroup')}
           control={
-            <ValueField
-              className="edit-scene-field"
-              label={t('edit.scene.background')}
-              name={t('edit.scene.background')}
-              items={backgroundItems}
-              value={background}
-              onValueChange={(value) => apply({ kind: 'background', value })}
-            />
+            <>
+              <BackgroundPicker
+                current={background}
+                items={backgroundItems}
+                container={host}
+                onApply={(value) => apply({ kind: 'background', value })}
+                trigger={
+                  <button
+                    type="button"
+                    aria-label={t('edit.scene.background')}
+                    className="field-trigger field-trigger--named edit-scene-field hit-area focus-ring"
+                    disabled={backgroundItems.length === 0 || edit.busy}
+                  >
+                    {fieldContent(t('edit.scene.background'), backgroundName)}
+                  </button>
+                }
+              />
+              <button
+                type="button"
+                aria-label={t('edit.scene.sfx')}
+                aria-haspopup="dialog"
+                className="field-trigger field-trigger--named edit-scene-field hit-area focus-ring"
+                disabled={noVisual || edit.busy}
+                onClick={() => setPickerOpen(true)}
+              >
+                {fieldContent(t('edit.scene.sfx'), cues.length === 0 ? t('edit.change.none') : sfxNames)}
+              </button>
+            </>
           }
         />
       </Swept>
 
-      <Swept fields={['highlight']} band={band} className="flex flex-col gap-2">
-        <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
-          {t('edit.scene.highlight')}
-        </h3>
-        <HighlightWords
-          scene={scene}
-          onChange={(lineId, spans) => apply({ kind: 'highlight', lineId, spans })}
-        />
-      </Swept>
-
-      <Swept fields={['sfx']} band={band} className="flex flex-col gap-2">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[15px] font-bold text-[var(--text-strong)]">
-            {t('edit.scene.sfx')}
-          </h3>
-          <Button
-            variant="ghost"
-            disabled={cues.length >= 2 || edit.busy}
-            onClick={() => setPickerOpen(true)}
-            iconStart={<Plus aria-hidden size={16} />}
-          >
-            {t('edit.scene.sfxAdd')}
-          </Button>
-        </div>
-        {cues.length === 0 ? (
-          <p className="text-[15px] text-[var(--text-muted)]">{t('edit.scene.sfxEmpty')}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {cues.map((cue, index) => (
-              <li
-                key={`${cue.sfx_id.id}-${index}`}
-                className="flex min-h-11 items-center justify-between gap-2 rounded-[var(--radius-row)] bg-[var(--surface-muted)] px-3 text-[15px]"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <Music aria-hidden size={16} className="text-[var(--text-muted)]" />
-                  <span className="truncate">{labelFor(t, 'edit.sfx.name', cue.sfx_id.id)}</span>
-                </span>
-                <button
-                  type="button"
-                  aria-label={t('edit.scene.sfxRemove', {
-                    name: labelFor(t, 'edit.sfx.name', cue.sfx_id.id),
-                  })}
-                  onClick={() =>
-                    apply({ kind: 'sfx', cues: cues.filter((entry) => entry !== cue) })
-                  }
-                  className="inline-flex size-11 items-center justify-center rounded-[var(--radius-pill)] text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--text-strong)]"
-                >
-                  <Trash2 aria-hidden size={16} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-[13px] text-[var(--text-muted)]">{t('edit.scene.sfxLimit')}</p>
-      </Swept>
-
-      <div className="flex items-center justify-between gap-2 border-t border-[var(--border)] pt-4">
-        <span className="text-[15px] text-[var(--text-muted)]">
-          {t('edit.scene.estimated', { seconds: estimatedSeconds(scene) })}
-        </span>
-        <Button
-          variant="ghost"
-          onClick={() => edit.requestDelete(scene.id)}
-          iconStart={<Trash2 aria-hidden size={16} />}
-        >
-          {t('edit.scene.delete')}
-        </Button>
-      </div>
-
       <SfxPicker
         open={pickerOpen}
         onOpenChange={setPickerOpen}
-        disabled={cues.length >= 2}
+        disabled={cues.length >= 2 || edit.busy}
         items={edit.sfx}
         onAdd={(item) => {
           if (cues.length >= 2) return;
           edit.addSfx(scene.id, item);
           setPickerOpen(false);
         }}
-      />
+      >
+        <ul className="edit-cues">
+          {cues.map((cue, index) => {
+            const name = labelFor(t, 'edit.sfx.name', cue.sfx_id.id);
+            return (
+              <li key={`${cue.sfx_id.id}-${index}`}>
+                <Music aria-hidden size={16} />
+                <span className="truncate">{name}</span>
+                <IconButton
+                  size="compact"
+                  label={t('edit.scene.sfxRemove', { name })}
+                  onClick={() => apply({ kind: 'sfx', cues: cues.filter((entry) => entry !== cue) })}
+                >
+                  <Trash2 aria-hidden size={16} />
+                </IconButton>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="edit-cues-note">{cues.length === 0 ? t('edit.scene.sfxEmpty') : t('edit.scene.sfxLimit')}</p>
+      </SfxPicker>
     </div>
   );
 }
 
+/**
+ * The right panel. The toggle at the end of the heading row picks the scope:
+ * values of the picked scene, or values of the whole video. Each value has
+ * one place; the sheets for background, voice and BGM open over this column.
+ */
 export function ScenePanel({ edit }: { edit: EditValue }) {
   const { t } = useLocale();
+  const [host, setHost] = useState<HTMLDivElement | null>(null);
+  const preview = useAudioPreview();
   const tabItems = EDIT_TABS.map((tab) => ({ value: tab.value, label: t(tab.labelKey) }));
 
   if (edit.loading) {
@@ -420,52 +478,56 @@ export function ScenePanel({ edit }: { edit: EditValue }) {
     );
   }
 
+  const whole = edit.tab === 'whole';
+  const scene = edit.selectedScene;
+  const title = whole
+    ? t('edit.tabs.whole')
+    : t('edit.scene.number', { number: sceneNumber(edit.video, scene?.id ?? null) });
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-4">
+    <div
+      ref={setHost}
+      data-slot="whole-picker-host"
+      aria-label={t('edit.scene.form')}
+      className="edit-panel-host"
+    >
       {edit.actionError === null ? null : (
-        <div className="flex items-start gap-2">
+        <div className="edit-panel-error">
           <Notice tone="error">{t(edit.actionError)}</Notice>
           <CloseButton label={t('edit.error.dismiss')} onClick={edit.dismissError} />
         </div>
       )}
-      <div className="flex items-center justify-between gap-2">
-        <Tabs
-          items={tabItems}
-          label={t('edit.tabs.label')}
-          value={edit.tab}
-          onValueChange={edit.setTab}
-          className="min-w-0 flex-1"
-        />
-        <Tooltip content={t('edit.preview.captionSaveReason')} side="bottom">
-          <span tabIndex={0} className="inline-flex shrink-0" data-slot="caption-save">
-            <Button variant="ghost" disabled>
-              {t('edit.preview.captionSave')}
-            </Button>
-          </span>
-        </Tooltip>
-      </div>
-      {edit.tab === 'sound' ? (
-        <SoundTab edit={edit} />
-      ) : edit.tab === 'captions' ? (
-        <CaptionsTab edit={edit} />
-      ) : edit.selectedScene === null ? (
-        <EmptyState
-          title={t('edit.scene.chooseTitle')}
-          actions={
-            <Button onClick={edit.requestAdd} iconStart={<Plus aria-hidden size={16} />}>
-              {t('edit.scene.add')}
-            </Button>
-          }
-        >
-          {t('edit.scene.chooseBody')}
-        </EmptyState>
-      ) : (
-        <ScrollPane label={t('edit.scene.form')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
-          <div className="pb-16">
-            <SceneForm key={edit.selectedScene.id} edit={edit} scene={edit.selectedScene} />
-          </div>
-        </ScrollPane>
-      )}
+      <Tabs
+        items={tabItems}
+        label={t('edit.tabs.label')}
+        value={edit.tab}
+        onValueChange={(value) => {
+          preview.stop();
+          edit.setTab(value);
+        }}
+        className="edit-scope-tabs"
+        heading={
+          <h2 className="edit-scope-title" aria-label={title}>
+            {title}
+            <small>· {t(whole ? 'edit.settings.scope' : 'edit.scene.scope')}</small>
+          </h2>
+        }
+      >
+        <TabsPanel value="whole" className="edit-scope-panel">
+          <ScrollPane label={t('edit.tabs.whole')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
+            <WholePanel edit={edit} preview={preview} />
+          </ScrollPane>
+        </TabsPanel>
+        <TabsPanel value="scenes" className="edit-scope-panel">
+          {scene === null ? (
+            <EmptyState title={t('edit.scene.chooseTitle')}>{t('edit.scene.chooseBody')}</EmptyState>
+          ) : (
+            <ScrollPane label={t('edit.scene.form')} jumpLabel={t('shell.scroll.jump')} className="min-h-0 flex-1">
+              <SceneForm key={scene.id} edit={edit} scene={scene} host={host} />
+            </ScrollPane>
+          )}
+        </TabsPanel>
+      </Tabs>
     </div>
   );
 }

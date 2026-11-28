@@ -1417,7 +1417,7 @@ test('test_10a_playback_bar_rounds_both_ends', async ({ page }) => {
   expect(bar?.fillWidth).toBeGreaterThan(0);
 });
 
-test('test_10a_scroll_pane_hides_its_scrollbar_and_moves_one_screen', async ({ page }) => {
+test('test_10a_scroll_pane_hides_its_scrollbar_and_jumps_to_the_end', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await galleryReady(page, 'scroll-pane', 3);
   const frame = await frameOf(page, 'iframe[data-frame-group="scroll-pane"][width="390"]');
@@ -1446,30 +1446,12 @@ test('test_10a_scroll_pane_hides_its_scrollbar_and_moves_one_screen', async ({ p
   expect(
     await jump.evaluate((element) => Number.parseFloat(getComputedStyle(element).borderRadius)),
   ).toBeGreaterThanOrEqual(22);
-  await jump.click();
-  await page.waitForTimeout(100);
-  const moved = await viewport.evaluate((element) => element.scrollTop);
-  expect(Math.abs(moved - before.scrollTop - before.clientHeight * 0.8)).toBeLessThan(2);
-
-  await viewport.focus();
-  const keyboardStart = await viewport.evaluate((element) => element.scrollTop);
-  await viewport.press('ArrowDown');
-  await page.waitForTimeout(100);
-  expect(await viewport.evaluate((element) => element.scrollTop)).toBeGreaterThan(keyboardStart);
-
-  // Put the end one jump away, then reach it with Enter. The focused control
-  // disappears, so the column itself must take focus for the next key.
-  await viewport.evaluate((element) => {
-    element.scrollTop = element.scrollHeight - element.clientHeight * 1.6;
-  });
-  await expect(jump).toBeVisible();
   await jump.focus();
   await jump.press('Enter');
   await expect(jump).toHaveCount(0);
-  await expect
-    .poll(async () => viewport.evaluate((element) => element === document.activeElement))
-    .toBe(true);
+  await expect(viewport).toBeFocused();
   const endPosition = await viewport.evaluate((element) => element.scrollTop);
+  expect(Math.abs(endPosition - before.scrollHeight + before.clientHeight)).toBeLessThan(2);
   await viewport.press('ArrowUp');
   await page.waitForTimeout(100);
   expect(await viewport.evaluate((element) => element.scrollTop)).toBeLessThan(endPosition);

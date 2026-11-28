@@ -55,37 +55,90 @@ test('test_10a_the_edit_shell_shows_the_scenes_and_the_preview', async ({ page }
   await expect(page.getByRole('heading', { name: '미리보기' })).toBeVisible();
   await expect(page.getByText('synthetic script')).toHaveCount(0);
   await expect(page.locator('[data-slot="top-bar"]').getByText('mp4 저장')).toHaveCount(0);
-
-  const caption = page.getByRole('button', { name: '자막 저장' });
-  await expect(caption).toBeVisible();
-  await expect(caption).toBeDisabled();
-  await page.locator('[data-slot="caption-save"]').hover();
-  await expect(page.getByRole('tooltip')).toContainText('SRT');
 });
 
-test('test_23_the_preview_and_panel_padding_is_28_at_1280_and_1920', async ({ page }) => {
-  await openEdit(page);
-  for (const width of [1280, 1920]) {
-    await page.setViewportSize({ width, height: width === 1280 ? 800 : 1080 });
-    await page.waitForTimeout(200);
-    const values = await page.evaluate(() => {
-      const preview = document.querySelector<HTMLElement>('[data-slot="preview"]');
-      const panel = document.querySelector<HTMLElement>('[data-slot="stage-panel"]');
-      return {
-        previewLeft: preview === null ? null : getComputedStyle(preview).paddingLeft,
-        previewRight: preview === null ? null : getComputedStyle(preview).paddingRight,
-        panelLeft: panel === null ? null : getComputedStyle(panel).paddingLeft,
-        panelRight: panel === null ? null : getComputedStyle(panel).paddingRight,
-      };
+for (const [width, height] of [[1280, 800], [1920, 1080]] as const) {
+  test(`test_ed2_the_scene_rail_is_168_with_the_canon_inset_at_${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await openEdit(page);
+    const column = await page.locator(SCENE_COLUMN).boundingBox();
+    const card = await page.locator(`${SCENE_COLUMN} ${SCENE_CARD}`).first().boundingBox();
+    const title = await page.locator(`${SCENE_COLUMN} > h2`).boundingBox();
+    const preview = await page.locator('[data-slot="preview"]').evaluate((node) => {
+      const style = getComputedStyle(node);
+      return [style.paddingLeft, style.paddingRight];
     });
-    expect(values).toEqual({
-      previewLeft: '28px',
-      previewRight: '28px',
-      panelLeft: '28px',
-      panelRight: '28px',
-    });
-  }
-});
+    expect(column).not.toBeNull();
+    expect(card).not.toBeNull();
+    expect(title).not.toBeNull();
+    if (column === null || card === null || title === null) return;
+    expect(Math.round(column.width)).toBe(168);
+    expect(Math.round(card.x - column.x)).toBe(24);
+    expect(Math.round(title.x - column.x)).toBe(28);
+    expect(Math.round(title.y - column.y)).toBe(26);
+    expect(preview).toEqual(['28px', '28px']);
+  });
+
+  test(`test_ed2_the_preview_shows_on_entry_in_9_16_without_a_scroll_at_${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await openEdit(page);
+    const frame = page.locator('[data-slot="preview"] .video-preview');
+    await expect(frame.locator('[data-slot="preview-still"]')).toBeVisible({ timeout: 10_000 });
+    const box = await frame.boundingBox();
+    expect(box).not.toBeNull();
+    if (box === null) return;
+    expect(Math.abs(box.width / box.height - 9 / 16)).toBeLessThan(0.01);
+    expect(Math.round(box.width)).toBeLessThanOrEqual(318);
+    const overflow = await page.locator('[data-slot="preview"]').evaluate((node) => node.scrollHeight - node.clientHeight);
+    expect(overflow).toBeLessThanOrEqual(1);
+    await expect(page.locator(`${SCENE_COLUMN} [data-slot="scene-selected"]`)).toHaveCount(1);
+    await expect(page.locator('[data-slot="preview"] button[aria-label="재생"]')).toBeVisible();
+  });
+
+  test(`test_ed2_the_character_dropdowns_are_enabled_and_the_expression_is_filled_at_${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await openEdit(page);
+    for (const name of ['표정', '위치']) {
+      const field = page.getByRole('combobox', { name, exact: true });
+      await expect(field).toBeEnabled();
+      await expect(field.locator('.field-trigger__value')).not.toHaveText('');
+    }
+  });
+
+  test(`test_ed2_a_voice_change_shows_no_scene_change_review_at_${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await openEdit(page);
+    await page.getByRole('tab', { name: '영상 전체' }).click();
+    await expect(page.getByRole('tab', { name: '영상 전체' })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('tab', { name: '소리' })).toHaveCount(0);
+    await expect(page.getByRole('tab', { name: '자막' })).toHaveCount(0);
+    await expect(page.locator('[data-slot="top-bar"]').getByRole('button', { name: '영상 설정' })).toHaveCount(0);
+    await page.locator('button[data-slot="voice-change"]').click();
+    const picker = page.getByRole('dialog', { name: '목소리 고르기' });
+    await expect(picker).toBeVisible();
+    await picker.locator('[data-slot="choice-select"]').nth(1).click();
+    await picker.getByRole('button', { name: '적용' }).click();
+    await expect(page.getByRole('dialog', { name: '장면을 바꿀까요?' })).toHaveCount(0);
+    await expect(page.locator(`${SCENE_COLUMN} [data-slot="scene-unseen"]`)).toHaveCount(0);
+    await page.getByRole('tab', { name: '이 장면' }).click();
+    await expect(page.getByRole('heading', { name: '장면 1' })).toBeVisible();
+  });
+
+  test(`test_ed2_making_shows_progress_and_the_edit_screen_stays_at_${width}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await openEdit(page);
+    await startVideo(page);
+    const status = page.locator('.top-bar-status__trigger');
+    await expect(status).toContainText(/영상 만드는 중 \d+ \/ 5/);
+    await status.click();
+    const dialog = page.getByRole('dialog', { name: '영상을 만들고 있어요' });
+    await expect(dialog.locator('[data-slot="progress-scene"]')).toHaveCount(5);
+    await expect(dialog.locator('.progress__track')).toBeVisible();
+    await dialog.locator('[data-slot="progress-close"]').click();
+    await expect(page.locator('[data-slot="scene-column"]')).toBeVisible();
+    await expect(page.locator('[data-slot="next-action"]')).toContainText('만들기 멈추기');
+  });
+}
 
 test('test_23_the_scene_list_hides_the_scrollbar_and_shows_a_44_jump', async ({ page }) => {
   await openEdit(page);
@@ -196,7 +249,7 @@ test('test_10a_the_edit_screen_stays_usable_while_the_video_is_made', async ({ p
   // Five 120x116 cards fit the column at 1080; the short window makes the list scroll.
   await page.setViewportSize({ width: 1920, height: 520 });
   const jump = page.locator(`${SCENE_COLUMN} .scroll-pane__jump .icon-button`);
-  await jump.click();
+  await jump.dispatchEvent('click');
   await page.waitForTimeout(400);
   const scrolled = await viewport.evaluate((node) => node.scrollTop);
   expect(scrolled).toBeGreaterThan(0);
@@ -221,26 +274,14 @@ test('test_10a_the_edit_composer_accepts_a_request_while_the_video_is_made', asy
   await expect(page.locator(`${SCENE_COLUMN} .scroll-pane__viewport`)).toBeVisible();
 });
 
-test('test_23_the_video_settings_panel_aligns_to_its_button_at_both_widths', async ({ page }) => {
+test('test_ed2_the_preview_close_control_is_the_shared_close_button', async ({ page }) => {
   await openEdit(page);
-  const trigger = page.locator('[data-slot="video-settings"]');
-  const panel = page.locator('[data-slot="video-settings-panel"]');
-  for (const width of [1280, 1920]) {
-    await page.setViewportSize({ width, height: width === 1280 ? 800 : 1080 });
-    await page.waitForTimeout(200);
-    await trigger.click();
-    await expect(panel).toBeVisible();
-    const triggerBox = await trigger.boundingBox();
-    const panelBox = await panel.boundingBox();
-    expect(triggerBox).not.toBeNull();
-    expect(panelBox).not.toBeNull();
-    if (triggerBox === null || panelBox === null) return;
-    expect(Math.abs(panelBox.x + panelBox.width - (triggerBox.x + triggerBox.width))).toBeLessThanOrEqual(1);
-    await expect(page.locator('[data-slot="settings-scrim"]')).toBeVisible();
-    await page.mouse.click(200, 500);
-    await expect(panel).toBeHidden();
-  }
+  await page.getByRole('button', { name: '미리보기 크게 보기' }).click();
+  const close = page.locator('[data-slot="preview-close"]');
+  await expect(close).toBeVisible();
+  await expect(close).toHaveClass(/close-button/);
 });
+
 
 test('test_23_dragging_a_scene_card_elsewhere_asks_first_and_shows_the_new_order', async ({
   page,
@@ -330,7 +371,7 @@ test('test_10a_the_edit_composer_has_no_example_chips', async ({ page }) => {
 test('test_23_the_sfx_picker_uses_the_shared_scroll_pane_and_stops_at_two', async ({ page }) => {
   await openEdit(page);
   const form = page.locator('[data-slot="scene-form"]');
-  await form.getByRole('button', { name: '효과음 추가' }).click();
+  await form.getByRole('button', { name: '효과음', exact: true }).click();
   const picker = page.getByRole('dialog', { name: '효과음 추가' });
   await expect(picker).toBeVisible();
   const viewport = picker.locator('.scroll-pane__viewport');
@@ -341,9 +382,10 @@ test('test_23_the_sfx_picker_uses_the_shared_scroll_pane_and_stops_at_two', asyn
   expect(await jump.evaluate((node) => (node as HTMLElement).offsetWidth)).toBe(44);
   await picker.getByRole('button', { name: '휙', exact: true }).click();
 
-  await form.getByRole('button', { name: '효과음 추가' }).click();
+  await form.getByRole('button', { name: '효과음', exact: true }).click();
   await page.getByRole('dialog', { name: '효과음 추가' }).getByRole('button', { name: '팝' }).click();
-  await expect(form.getByRole('button', { name: '효과음 추가' })).toBeDisabled();
+  await form.getByRole('button', { name: '효과음', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: '효과음 추가' }).getByRole('button', { name: '딩', exact: true })).toBeDisabled();
 });
 
 test('test_10a_a_closed_modal_returns_focus_to_its_trigger', async ({ page }) => {

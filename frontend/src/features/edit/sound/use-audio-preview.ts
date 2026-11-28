@@ -12,7 +12,7 @@ export interface AudioPreview {
   stop: () => void;
 }
 
-/** One shared player for the listen buttons of the sound tab: listening never selects anything. */
+/** One player for the edit screen's sound previews; listening never selects anything. */
 export function useAudioPreview(): AudioPreview {
   const element = useRef<HTMLAudioElement | null>(null);
   const token = useRef(0);

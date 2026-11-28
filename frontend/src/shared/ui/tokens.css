@@ -56,7 +56,7 @@
   --accent: var(--palette-gray-4);
   --accent-foreground: var(--palette-gray-11);
   --accent-pressed: var(--palette-gray-5);
-  --state-hover-white: var(--palette-gray-5);
+  --state-hover-white: var(--palette-gray-2);
   --state-selected: var(--palette-gray-4);
   --state-pressed-white: var(--palette-gray-5);
   --state-hover-gray: var(--palette-gray-5);
@@ -188,8 +188,8 @@
   --radius-card: var(--radius-column);
   --radius-capsule: var(--radius-pill);
 
-  /* Shell sizes and motion. The shell controls are 48 today; the floor is 44. */
-  --touch-target: 48px;
+  /* Shell sizes and motion. Smaller visible controls keep this hit area. */
+  --touch-target: 44px;
   --motion-short: var(--motion-panel-duration);
 
   /* Shell layout. */
@@ -198,7 +198,7 @@
   --layout-topbar-h: 64px;
   --layout-first-w: 672px;
   --layout-gutter: 28px;
-  --layout-scene-col-w: 152px;
+  --layout-scene-col-w: 168px;
   --layout-scene-panel-max-w: 520px;
   --layout-conversation-aspect: 380 / 796;
   --layout-preview-aspect: 9 / 16;

@@ -24,6 +24,8 @@ export type TabsProps = {
   /** Forces a state on the first tab for the gallery. */
   forceState?: ForceState;
   className?: string;
+  heading?: ReactNode;
+  children?: ReactNode;
 };
 
 
@@ -37,6 +39,8 @@ export function Tabs({
   onValueChange,
   forceState,
   className,
+  heading,
+  children,
 }: TabsProps) {
   const forced = statesOf(forceState);
   const forcedAttr = forced.length > 0 ? forced.join(' ') : undefined;
@@ -50,19 +54,25 @@ export function Tabs({
         if (next !== null) onValueChange?.(String(next));
       }}
     >
-      <TabsPrimitive.List className="tabs__list" aria-label={label}>
-        {items.map((item, index) => (
-          <TabsPrimitive.Tab
-            key={item.value}
-            value={item.value}
-            disabled={item.disabled}
-            className="tab hit-area focus-ring focus-ring--inset"
-            data-force-state={index === 0 ? forcedAttr : undefined}
-          >
-            <LabelBox>{item.label}</LabelBox>
-          </TabsPrimitive.Tab>
-        ))}
-      </TabsPrimitive.List>
+      <div className={heading === undefined ? undefined : 'tabs__head'}>
+        {heading}
+        <TabsPrimitive.List className="tabs__list" aria-label={label}>
+          {items.map((item, index) => (
+            <TabsPrimitive.Tab
+              key={item.value}
+              value={item.value}
+              disabled={item.disabled}
+              className="tab hit-area focus-ring focus-ring--inset"
+              data-force-state={index === 0 ? forcedAttr : undefined}
+            >
+              <LabelBox>{item.label}</LabelBox>
+            </TabsPrimitive.Tab>
+          ))}
+        </TabsPrimitive.List>
+      </div>
+      {children}
     </TabsPrimitive.Root>
   );
 }
+
+export const TabsPanel = TabsPrimitive.Panel;

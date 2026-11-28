@@ -24,7 +24,7 @@ export function EditNextAction({ preparePercent = null }: { preparePercent?: num
   const busy = edit.phase === 'stills';
   const loaded = edit.view !== null;
   const asked = useSceneConfirmRequested(edit.video?.id ?? null);
-  const ready = loaded && edit.canStartVideo && !edit.busy && !running && !busy;
+  const ready = loaded && edit.canStartVideo && !edit.busy && !edit.entryPreview && !running && !busy;
 
   useEffect(() => {
     if (!asked || !ready) return;
@@ -49,10 +49,11 @@ export function EditNextAction({ preparePercent = null }: { preparePercent?: num
         running={running}
         stopLabel={t('edit.next.stop')}
         onStop={edit.stopVideo}
-        aria-busy={loaded ? undefined : true}
+        aria-busy={!loaded || edit.entryPreview || undefined}
+        aria-disabled={!running && (!loaded || edit.entryPreview) ? true : undefined}
         disabled={loaded && !running && (!edit.canStartVideo || edit.busy || busy)}
         onClick={() => {
-          if (loaded) setConfirmOpen(true);
+          if (ready) setConfirmOpen(true);
         }}
       >
         {t('edit.next.make')}

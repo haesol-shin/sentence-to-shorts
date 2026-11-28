@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/Button/Button';
 import { EmptyState } from '@/components/EmptyState/EmptyState';
 import { Notice } from '@/components/Notice/Notice';
+import { Toast } from '@/components/Toast/Toast';
 import { ApiProblemError, type Job, type Preset } from '@/shared/api/client';
 import { useLocale } from '@/shared/lib/i18n/locale';
 
@@ -286,9 +287,8 @@ export function ExportScreen({
                   {state.preset === 'saving' ? t('export.next.saving') : t('export.next.save')}
                 </Button>
               </div>
-              {state.preset === 'saved' ? (
-                <Notice>{t('export.next.saved')}</Notice>
-              ) : state.preset === 'failed' ? (
+              <Toast open={state.preset === 'saved'} durationMs={3000}>{t('export.next.saved')}</Toast>
+              {state.preset === 'failed' ? (
                 <Notice tone="error">{t('export.next.failed')}</Notice>
               ) : null}
             </section>

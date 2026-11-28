@@ -33,6 +33,7 @@ import {
   newLocalId,
   scenesOf,
   totalEstimatedSeconds,
+  stillIsReady,
   type BandField,
   type Line,
   type SceneFieldPatch,
@@ -40,6 +41,7 @@ import {
   type Video,
   type VideoView,
 } from './model';
+import { BGM_PATH, VOICE_PATH } from './sound/model';
 import { EMPTY_BGM_WORK, useBgmWork, type BgmWork } from './sound/use-bgm-work';
 
 export type EditPhase = 'idle' | 'stills' | 'video' | 'done';
@@ -102,6 +104,7 @@ interface EditState {
   pendingSelect: string | null;
   reorder: ReorderReview | null;
   job: Job | null;
+  entryPreview: boolean;
   jobReadFailed: boolean;
   confirmedForOutput: boolean;
   finishedGeneration: string | null;
@@ -134,6 +137,7 @@ const INITIAL: EditState = {
   pendingSelect: null,
   reorder: null,
   job: null,
+  entryPreview: false,
   jobReadFailed: false,
   confirmedForOutput: false,
   finishedGeneration: null,
@@ -155,7 +159,7 @@ const INITIAL: EditState = {
 
 type EditAction =
   | { type: 'loading' }
-  | { type: 'loaded'; view: VideoView; storedScene: string | null; pending: ChangePlan | null }
+  | { type: 'loaded'; view: VideoView; selected: string | null; pending: ChangePlan | null; job: Job | null; entryPreview: boolean }
   | { type: 'refresh'; view: VideoView; band?: boolean }
   | { type: 'load-failed'; error?: string }
   | { type: 'select'; id: string }
@@ -167,6 +171,7 @@ type EditAction =
   | { type: 'reorder-review'; review: ReorderReview | null }
   | { type: 'busy'; value: boolean }
   | { type: 'job'; job: Job | null }
+  | { type: 'entry-preview-finished' }
   | { type: 'job-read-failed' }
   | { type: 'output-confirmed'; value: boolean }
   | { type: 'generation-finished'; id: string }
@@ -186,14 +191,15 @@ type EditAction =
   | { type: 'change-errors'; errors: readonly ErrorItem[] }
   | { type: 'preview'; planId: string; preview: Partial<PreviewState> };
 
-function phaseOf(job: Job | null, view: VideoView | null): EditPhase {
-  if (job === null || view === null) return 'idle';
+function phaseOf(job: Job | null, view: VideoView | null, entryPreview: boolean, finished: string | null): EditPhase {
+  if (job === null || view === null || entryPreview) return 'idle';
   if (job.state === 'queued' || job.state === 'running' || job.state === 'cancelling') {
     return job.kind === 'preview' ? 'stills' : 'video';
   }
   if (job.state === 'succeeded') {
     if (job.kind === 'preview') return 'stills';
-    return view.build.final.state === 'fresh' ? 'done' : 'idle';
+    if (view.build.final.state === 'fresh') return 'done';
+    return finished === job.id ? 'idle' : 'video';
   }
   return 'idle';
 }
@@ -201,6 +207,9 @@ function phaseOf(job: Job | null, view: VideoView | null): EditPhase {
 function sceneProgress(job: Job | null, stage: 'still' | 'clip', sceneCount: number) {
   if (job?.progress.stage === stage && job.progress.total > 0) {
     return { done: job.progress.done, total: job.progress.total };
+  }
+  if (job?.stages.some((record) => record.stage === stage && record.state === 'done')) {
+    return { done: sceneCount, total: sceneCount };
   }
   return { done: 0, total: sceneCount };
 }
@@ -217,12 +226,14 @@ function reducer(state: EditState, action: EditAction): EditState {
     case 'loading':
       return { ...INITIAL, loading: true };
     case 'loaded': {
-      const selected = selectedFor(action.view, action.storedScene);
+      const { selected } = action;
       return {
         ...INITIAL,
         view: action.view,
         selectedId: selected,
         targetId: selected,
+        job: action.job,
+        entryPreview: action.entryPreview,
         pending: action.pending,
         pendingSelect: action.pending?.target.scene_id ?? null,
       };
@@ -287,6 +298,8 @@ function reducer(state: EditState, action: EditAction): EditState {
           ? state.finishedGeneration
           : null,
       };
+    case 'entry-preview-finished':
+      return { ...state, job: null, entryPreview: false };
     case 'job-read-failed':
       return { ...state, jobReadFailed: true };
     case 'output-confirmed':
@@ -374,6 +387,7 @@ export interface EditValue {
   pendingPreview: PreviewState;
   reorder: ReorderReview | null;
   phase: EditPhase;
+  entryPreview: boolean;
   canPreviewChange: boolean;
   actionError: string | null;
   /** The semantic checks the last rejected change failed, as the server lists them. */
@@ -519,6 +533,12 @@ function canPreviewStage(view: VideoView | null): boolean {
   return view?.video.stage === 'script_confirmed' || view?.video.stage === 'scenes_confirmed';
 }
 
+export function isAudioSettingsChange(ops: ChangePlan['ops']): boolean {
+  return ops.length > 0 && ops.every((op) => op.op === 'set' &&
+    [VOICE_PATH, BGM_PATH].some((path) => op.path === path || op.path.startsWith(`${path}/`)),
+  );
+}
+
 function jobInFlight(job: Job): boolean {
   return job.state === 'queued' || job.state === 'running' || job.state === 'cancelling';
 }
@@ -555,10 +575,12 @@ function newBlankScene(id: string): Scene {
 export function EditProvider({
   active,
   videoId,
+  previewOnEntry = false,
   api: providedApi,
   children,
 }: {
   active: boolean;
+  previewOnEntry?: boolean;
   videoId: string | null;
   api?: EditApi;
   children: ReactNode;
@@ -571,6 +593,7 @@ export function EditProvider({
   const previewPoll = useRef(0);
   const chatStopping = useRef(false);
   const scenePreview = useRef<string | null>(null);
+  const previewEntryEnabled = useRef(previewOnEntry);
   const chatQueue = useRef<ChatRequest[]>([]);
   const revisionRef = useRef<number | null>(null);
   const generationSubmitting = useRef(false);
@@ -581,6 +604,10 @@ export function EditProvider({
   useEffect(() => {
     revisionRef.current = state.view?.video.revision ?? null;
   }, [state.view?.video.revision]);
+
+  useEffect(() => {
+    previewEntryEnabled.current = previewOnEntry;
+  }, [previewOnEntry]);
 
   const logChatResult = useCallback((result: Omit<ChatMessage, 'id' | 'role'>) => {
     dispatch({ type: 'message', message: { id: newLocalId('l'), role: 'assistant', ...result } });
@@ -645,14 +672,10 @@ export function EditProvider({
         if (cancelled || epoch !== videoEpoch.current) return;
         const pending = view.pending_change === null ? null : await api.readChange(view.pending_change);
         if (cancelled || epoch !== videoEpoch.current) return;
-        dispatch({
-          type: 'loaded',
-          view,
-          storedScene: readStorage(storageKey(videoId)),
-          pending: pending?.status === 'proposed' ? pending : null,
-        });
+        const selected = selectedFor(view, readStorage(storageKey(videoId)));
         let resumed: Job | null = null;
         let resumeFailed = false;
+        let entryPreview = false;
         const ownPreview = readScenePreview(videoId);
         for (const jobId of view.open_jobs) {
           let open: Job;
@@ -664,16 +687,42 @@ export function EditProvider({
           }
           if (open.kind === 'generate') {
             resumed = open;
+            entryPreview = false;
             break;
           }
-          if (open.kind === 'preview' && ownPreview === open.id) {
+          if (open.kind === 'preview' && (ownPreview === open.id || ownPreview === `entry:${open.id}`)) {
             resumed = open;
+            entryPreview = ownPreview !== open.id;
             scenePreview.current = open.id;
           }
         }
         if (cancelled || epoch !== videoEpoch.current) return;
-        if (resumed !== null) dispatch({ type: 'job', job: resumed });
-        else if (resumeFailed) dispatch({ type: 'action-error', error: 'edit.error.resume' });
+        const buildOnEntry = previewEntryEnabled.current && canPreviewStage(view) &&
+          resumed === null && view.open_jobs.length === 0 && pending?.status !== 'proposed' &&
+          selected !== null && !stillIsReady(view.build, selected) &&
+          view.build.scenes[selected]?.still.state !== 'failed';
+        dispatch({
+          type: 'loaded',
+          view,
+          selected,
+          pending: pending?.status === 'proposed' ? pending : null,
+          job: resumed,
+          entryPreview: entryPreview || buildOnEntry,
+        });
+        if (resumeFailed && resumed === null) dispatch({ type: 'action-error', error: 'edit.error.resume' });
+        if (buildOnEntry) {
+          const missing = view.video.scene_order.filter((id) => !stillIsReady(view.build, id));
+          void api.previewScenes(videoId, view.video.revision, missing).then((job) => {
+            if (cancelled || epoch !== videoEpoch.current) return;
+            scenePreview.current = job.id;
+            writeScenePreview(videoId, `entry:${job.id}`);
+            dispatch({ type: 'job', job });
+          }).catch(() => {
+            if (cancelled || epoch !== videoEpoch.current) return;
+            dispatch({ type: 'entry-preview-finished' });
+            dispatch({ type: 'action-error', error: 'edit.error.videoStart' });
+          });
+        }
         const styleRef = view.video.settings.visual.art_style;
         const styleId = typeof styleRef?.id === 'string' ? styleRef.id : '';
         const themeId = typeof view.video.settings.visual.theme_id === 'string' ? view.video.settings.visual.theme_id : '';
@@ -745,6 +794,23 @@ export function EditProvider({
   useEffect(() => {
     const job = state.job;
     if (job === null) return undefined;
+    if (state.entryPreview && job.kind === 'preview' && !jobInFlight(job)) {
+      let cancelled = false;
+      const epoch = videoEpoch.current;
+      const finish = () => {
+        if (cancelled || epoch !== videoEpoch.current) return;
+        scenePreview.current = null;
+        if (videoId !== null) writeScenePreview(videoId, null);
+        dispatch({ type: 'entry-preview-finished' });
+      };
+      if (job.state === 'failed') dispatch({ type: 'action-error', error: 'edit.error.videoStart' });
+      void refresh().catch(() => {
+        if (!cancelled && epoch === videoEpoch.current) {
+          dispatch({ type: 'action-error', error: 'edit.error.load' });
+        }
+      }).finally(finish);
+      return () => { cancelled = true; };
+    }
     if (job.kind === 'preview' && job.state === 'succeeded' && scenePreview.current === job.id) {
       let cancelled = false;
       const epoch = videoEpoch.current;
@@ -798,7 +864,7 @@ export function EditProvider({
       dispatch({ type: 'job', job: null });
     }
     return undefined;
-  }, [api, logChatResult, refresh, state.job, videoId]);
+  }, [api, logChatResult, refresh, state.entryPreview, state.job, videoId]);
 
   useEffect(() => {
     const initial = state.chatJob;
@@ -838,7 +904,8 @@ export function EditProvider({
       if (changeId !== null) {
         const plan = await api.readChange(changeId);
         if (!current()) return;
-        const sceneIds = [...new Set([...plan.effects.scene_ids_render, ...plan.effects.scene_ids_text])];
+        const sceneIds = isAudioSettingsChange(plan.ops) ? [] :
+          [...new Set([...plan.effects.scene_ids_render, ...plan.effects.scene_ids_text])];
         if (plan.status === 'proposed') {
           dispatch({ type: 'pending', plan, selectAfter: plan.target.scene_id });
         } else if (plan.status === 'applied' || plan.status === 'stale') {
@@ -872,10 +939,11 @@ export function EditProvider({
   }, [active, api, logChatResult, refresh, state.chatJob]);
 
   useEffect(() => {
-    if (!active || state.view === null || state.sending || state.busy || state.pending !== null || state.reorder !== null) return;
+    if (!active || state.view === null || state.sending || state.busy || state.entryPreview ||
+      state.pending !== null || state.reorder !== null) return;
     const next = chatQueue.current.shift();
     if (next !== undefined) startChat(next);
-  }, [active, startChat, state.view, state.sending, state.busy, state.pending, state.reorder]);
+  }, [active, startChat, state.view, state.sending, state.busy, state.entryPreview, state.pending, state.reorder]);
 
   useEffect(() => {
     if (state.preview.job === null) return undefined;
@@ -910,7 +978,7 @@ export function EditProvider({
         : state.view.video.scenes[state.selectedId] ?? null,
     [state.selectedId, state.view],
   );
-  const phase = phaseOf(state.job, state.view);
+  const phase = phaseOf(state.job, state.view, state.entryPreview, state.finishedGeneration);
   const videoProgress = sceneProgress(state.job, 'clip', scenes.length);
   const stillProgress = sceneProgress(state.job, 'still', scenes.length);
   const { done, total } = videoProgress;
@@ -974,26 +1042,37 @@ export function EditProvider({
       selectAfter: string | null = null,
       targetScene: string | null = state.selectedId,
     ) => {
-      if (videoId === null || state.view === null) return;
+      if (videoId === null || state.view === null || state.entryPreview) return;
+      const revision = state.view.video.revision;
+      const audioOnly = isAudioSettingsChange(ops);
       const epoch = videoEpoch.current;
       dispatch({ type: 'busy', value: true });
       dispatch({ type: 'change-errors', errors: [] });
       void api
         .change(videoId, {
-          base_revision: state.view.video.revision,
+          base_revision: revision,
           source: 'direct',
           target: { scene_id: targetScene, pointer: null },
           ops,
         })
         .then(async (plan) => {
           if (epoch !== videoEpoch.current) return;
+          if (plan.status === 'proposed' && audioOnly &&
+              plan.effects.locked_keys.length === 0 && plan.effects.overwrites_user_values.length === 0) {
+            await api.applyChange(plan.id, revision);
+            if (epoch !== videoEpoch.current) return;
+            await refresh();
+            return;
+          }
           if (plan.status === 'proposed') {
             dispatch({ type: 'pending', plan, selectAfter });
           } else if (plan.status === 'applied') {
-            const affected = plan.effects.scene_ids_render.length > 0
-              ? plan.effects.scene_ids_render
-              : plan.effects.scene_ids_text;
-            dispatch({ type: 'unseen', ids: affected });
+            if (!audioOnly) {
+              const affected = plan.effects.scene_ids_render.length > 0
+                ? plan.effects.scene_ids_render
+                : plan.effects.scene_ids_text;
+              dispatch({ type: 'unseen', ids: affected });
+            }
             await refresh(selectAfter);
           } else {
             dispatch({ type: 'action-error', error: 'edit.error.change' });
@@ -1072,7 +1151,7 @@ export function EditProvider({
       submitChange([{ op: 'set', path: `/scenes/${sceneId}/visual/sfx`, value: cues, origin: 'user' }], null, sceneId);
     };
 
-    const settingsBusy = state.busy || state.sending || state.pending !== null ||
+    const settingsBusy = state.busy || state.entryPreview || state.sending || state.pending !== null ||
       state.reorder !== null || chatQueue.current.length > 0;
     const applySettings = (changes: readonly SettingChange[]) => {
       if (state.view === null || changes.length === 0) return;
@@ -1114,7 +1193,7 @@ export function EditProvider({
     };
 
     const requestReorder = (order: readonly string[]) => {
-      if (state.view === null || state.busy || state.sending || state.pending !== null) return;
+      if (state.view === null || state.busy || state.entryPreview || state.sending || state.pending !== null) return;
       if (order.length !== state.view.video.scene_order.length) return;
       if (order.every((id, index) => id === state.view?.video.scene_order[index])) return;
       dispatch({ type: 'reorder-review', review: { order: [...order], revision: state.view.video.revision } });
@@ -1224,7 +1303,7 @@ export function EditProvider({
     };
 
     const confirmForOutput = () => {
-      if (state.view === null || videoId === null) return;
+      if (state.view === null || videoId === null || state.entryPreview) return;
       const stage = state.view.video.stage;
       const epoch = videoEpoch.current;
       if (stage === 'script_confirmed') {
@@ -1317,7 +1396,8 @@ export function EditProvider({
       const target = state.targetId;
       const id = newLocalId('l');
       dispatch({ type: 'message', message: { id: `${id}u`, role: 'user', text: message, targetId: target } });
-      if (state.sending || state.busy || state.pending !== null || state.reorder !== null || chatQueue.current.length > 0) {
+      if (state.sending || state.busy || state.entryPreview || state.pending !== null ||
+        state.reorder !== null || chatQueue.current.length > 0) {
         chatQueue.current.push({ text: message, target });
         return;
       }
@@ -1357,6 +1437,7 @@ export function EditProvider({
       pendingPreview: state.preview,
       reorder: state.reorder,
       phase,
+      entryPreview: state.entryPreview,
       job: state.job,
       jobReadFailed: state.jobReadFailed,
       jobWaiting: (state.job !== null && jobInFlight(state.job)) ||
@@ -1483,6 +1564,7 @@ export const EMPTY_EDIT_VALUE: EditValue = {
   pendingPreview: { job: null, stills: {}, loading: false, error: null },
   reorder: null,
   phase: 'idle',
+  entryPreview: false,
   job: null,
   jobReadFailed: false,
   jobWaiting: false,
