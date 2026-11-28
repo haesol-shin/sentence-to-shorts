@@ -114,7 +114,9 @@ def _origins(ops: list[Any]) -> dict[str, Origin]:
 
 def test_criterion_1_one_message_fills_every_stage() -> None:
     video = make_video(script=None, origins={})
-    ops, _ = _draft(video, MESSAGE, None, DRAFT, ANALOGY_SCRIPT, ANALOGY_SPLIT)
+    ops, _ = _draft(
+        video, MESSAGE, None, DRAFT, ANALOGY_SCRIPT, ANALOGY_SCRIPT, ANALOGY_SPLIT
+    )
     values = _set_values(ops)
     assert values["/topic"] == "캐시를 책상 서랍에 비유하기"
     assert values["/settings/format/card_id"] == "its_like"
@@ -123,7 +125,7 @@ def test_criterion_1_one_message_fills_every_stage() -> None:
     assert values["/settings/format/character_role"] == "subject"
     assert values["/settings/format/humor"] == "light"
     assert values["/settings/format/progress_mode"] == "phases"
-    assert values["/settings/format/scene_count"] == 8
+    assert values["/settings/format/scene_count"] == 4
     assert values["/settings/format/register"] == "casual"
     assert values["/settings/audio/bgm/mood"] == "calm"
     assert values["/settings/caption/mode"] == "phrase"

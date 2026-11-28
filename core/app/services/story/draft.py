@@ -30,6 +30,7 @@ from app.services.story.patch import (
     check_catalog_ids,
     check_theme_id,
     complete_json,
+    current_origin,
     field_patches,
     llm_step,
 )
@@ -152,6 +153,7 @@ def _effective_brief(video: Video, ops: list[Op], topic: str) -> ScriptBrief:
     register = settings.format.register_value
     humor = settings.format.humor
     scene_count = settings.format.scene_count
+    scene_count_origin = current_origin(video, "/settings/format/scene_count")
     for op in ops:
         if op.op != "set":
             continue
@@ -167,6 +169,7 @@ def _effective_brief(video: Video, ops: list[Op], topic: str) -> ScriptBrief:
             humor = Humor(op.value)
         elif op.path == "/settings/format/scene_count":
             scene_count = int(op.value)
+            scene_count_origin = op.origin
     return ScriptBrief(
         language=language,
         story_structure=story_structure,
@@ -175,6 +178,7 @@ def _effective_brief(video: Video, ops: list[Op], topic: str) -> ScriptBrief:
         target_duration_s=duration,
         scene_count=scene_count,
         topic=topic,
+        scene_count_origin=scene_count_origin,
     )
 
 

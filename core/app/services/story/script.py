@@ -8,6 +8,7 @@ lines, so a script the user supplied keeps every sentence byte for byte.
 
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 import time
@@ -17,15 +18,15 @@ from typing import Annotated
 from pydantic import Field
 
 from app.ports import AppError, CatalogPort, JobContext, LlmPort, LlmTask
-from app.schemas.change import Op, SetScriptOp
-from app.schemas.common import ContractModel, Language, LocalizedText
+from app.schemas.change import Op, SetOp, SetScriptOp
+from app.schemas.common import ContractModel, Language, LocalizedText, Origin
 from app.schemas.format_card import StoryStructure
 from app.schemas.job import Stage
 from app.schemas.scene import Line, Scene
 from app.schemas.script import Script, ScriptSource, Span, Speaker
 from app.schemas.settings import Humor, Register
 from app.schemas.video import Video
-from app.services.story.patch import complete_json, llm_step
+from app.services.story.patch import ORIGIN_RANK, complete_json, current_origin, llm_step
 
 NUMBERED_THREE = "numbered_three"
 SCRIPT_NUMBERED_ROUTE = "script.numbered_three"
@@ -35,6 +36,9 @@ SCRIPT_MAX_TOKENS = 2400
 SPLIT_MAX_TOKENS = 1200
 MAX_LINE_DISPLAY = 300
 MAX_SCENE_LINES = 4
+MIN_SCENE_COUNT = 3
+MAX_SCENE_COUNT = 20
+_LOG = logging.getLogger(__name__)
 
 _ALPHABET = "0123456789abcdefghjkmnpqrstvwxyz"
 _SENTENCE_BREAK = re.compile(r"(?<=[.!?。？！])\s+|\n+")
@@ -94,6 +98,7 @@ class ScriptBrief:
     target_duration_s: int
     scene_count: int
     topic: str
+    scene_count_origin: Origin = Origin.card
 
 
 class ScriptLineOut(ContractModel):
@@ -142,6 +147,20 @@ def _check_script(out: ScriptOutput, structure: StoryStructure) -> None:
     actual = [beat.beat_id for beat in out.beats]
     if actual != expected:
         raise ValueError(f"beats must be exactly {expected} in order, got {actual}")
+
+
+def _advise_script(out: ScriptOutput, scene_count: int) -> None:
+    lines = sum(len(beat.lines) for beat in out.beats)
+    if lines < scene_count:
+        raise ValueError(
+            f"the script needs at least {scene_count} lines for {scene_count} scenes, got {lines}"
+        )
+
+
+def _advise_split(out: SplitOutput, scene_count: int, line_count: int) -> None:
+    wanted = min(scene_count, line_count)
+    if len(out.scenes) != wanted:
+        raise ValueError(f"split must make exactly {wanted} scenes, got {len(out.scenes)}")
 
 
 def _check_split(
@@ -236,6 +255,7 @@ def _split(
             max_output_tokens=SPLIT_MAX_TOKENS,
             ctx=ctx,
             check=lambda value: _check_split(value, structure, len(lines), line_beats),
+            advise=lambda value: _advise_split(value, brief.scene_count, len(lines)),
         ),
     )
 
@@ -341,6 +361,7 @@ def build_script_ops(
                 max_output_tokens=SCRIPT_MAX_TOKENS,
                 ctx=ctx,
                 check=lambda value: _check_script(value, structure),
+                advise=lambda value: _advise_script(value, brief.scene_count),
             ),
         )
         steps_done += 1
@@ -354,7 +375,30 @@ def build_script_ops(
     if not lines:
         raise AppError("llm_invalid_output", detail={"task": LlmTask.script.value})
     split = _split(brief, beats, lines, line_beats, structure, llm, ctx, steps_done, total)
-    return [SetScriptOp(op="set_script", script=source, scenes=_scenes(split, lines))]
+    scenes = _scenes(split, lines)
+    ops: list[Op] = [SetScriptOp(op="set_script", script=source, scenes=scenes)]
+    ops.extend(_scene_count_ops(brief, len(scenes)))
+    return ops
+
+
+def _scene_count_ops(brief: ScriptBrief, real: int) -> list[Op]:
+    """Make the scene count setting match the stored script when the model could not."""
+    if real == brief.scene_count:
+        return []
+    if ORIGIN_RANK[brief.scene_count_origin] > ORIGIN_RANK[Origin.card]:
+        _LOG.warning(
+            "script has %d scenes but a %s value of %d outranks the card; keeping it",
+            real,
+            brief.scene_count_origin.value,
+            brief.scene_count,
+        )
+        return []
+    value = min(MAX_SCENE_COUNT, max(MIN_SCENE_COUNT, real))
+    if value == brief.scene_count:
+        return []
+    return [
+        SetOp(op="set", path="/settings/format/scene_count", value=value, origin=Origin.card)
+    ]
 
 
 def brief_from_video(video: Video) -> ScriptBrief:
@@ -367,6 +411,7 @@ def brief_from_video(video: Video) -> ScriptBrief:
         target_duration_s=settings.target_duration_s,
         scene_count=settings.format.scene_count,
         topic=video.topic,
+        scene_count_origin=current_origin(video, "/settings/format/scene_count"),
     )
 
 

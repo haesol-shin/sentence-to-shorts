@@ -185,6 +185,7 @@ def make_video(
     material: list[str] | None = None,
     register: str | None = None,
     extra_instructions: list[str] | None = None,
+    scene_count: int | None = None,
 ) -> Video:
     """Load the Korean fixture video and adjust the parts a test needs."""
     data = copy.deepcopy(_base())
@@ -200,6 +201,8 @@ def make_video(
         data["settings"]["format"]["story_structure"] = story_structure
     if register is not None:
         data["settings"]["format"]["register"] = register
+    if scene_count is not None:
+        data["settings"]["format"]["scene_count"] = scene_count
     if language is not None:
         data["settings"]["language"] = language
     if topic is not None:

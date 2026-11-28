@@ -43,7 +43,7 @@ class Recorded:
 def test_27_draft_records_its_three_llm_stages_and_finishes_at_total() -> None:
     recorded = Recorded()
     video = make_video(script=None, origins={})
-    llm = RecordingLlm(DRAFT, ANALOGY_SCRIPT, ANALOGY_SPLIT)
+    llm = RecordingLlm(DRAFT, ANALOGY_SCRIPT, ANALOGY_SCRIPT, ANALOGY_SPLIT)
     draft(video, MESSAGE, None, llm=llm, catalog=StubCatalog(), ctx=recorded.ctx)
 
     assert recorded.stages == [
@@ -80,7 +80,7 @@ def test_27_script_records_script_and_split_stages() -> None:
     recorded = Recorded()
     llm = RecordingLlm(ANALOGY_SCRIPT, ANALOGY_SPLIT)
     write_script(
-        make_video(script=None, story_structure="single_analogy"),
+        make_video(script=None, story_structure="single_analogy", scene_count=4),
         llm=llm,
         catalog=StubCatalog(),
         ctx=recorded.ctx,
@@ -96,7 +96,8 @@ def test_27_split_of_a_user_script_is_one_step() -> None:
     recorded = Recorded()
     script = {"source": "user", "raw_text": RAW_USER_SCRIPT, "title": "합성 대본"}
     llm = RecordingLlm(USER_SPLIT)
-    write_script(make_video(script=script), llm=llm, catalog=StubCatalog(), ctx=recorded.ctx)
+    video = make_video(script=script, scene_count=3)
+    write_script(video, llm=llm, catalog=StubCatalog(), ctx=recorded.ctx)
     assert [stage for stage, _ in recorded.stages] == [Stage.llm_split] * 2
     assert recorded.progress == [
         (Stage.llm_split, 0, 1, WaitingOn.llm),
