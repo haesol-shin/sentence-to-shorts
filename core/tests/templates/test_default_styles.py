@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.plugins.registry import Registry
-from app.schemas.style_manifest import MAX_SPRITE_GRID, RenderScale, StyleManifest
+from app.schemas.style_manifest import MAX_SPRITE_GRID, AssetKind, RenderScale, StyleManifest
 from app.schemas.video import Video
 from app.services.render import (
     BUILTIN_LAYER_DRAWERS,
@@ -197,13 +197,18 @@ def test_6_default_styles_share_the_pixel_rig_and_themes(registry: Registry) -> 
 
 
 @pytest.mark.parametrize("style_id", STYLES)
-def test_6_default_style_stores_every_asset_as_a_readable_grid(
+def test_6_default_style_stores_every_asset_at_native_resolution(
     registry: Registry, style_id: str
 ) -> None:
     manifest = _manifest(registry, style_id)
     root = registry.package_dir("art_style", registry.pin("art_style", style_id))
     for asset in manifest.assets:
-        image = rasterize(load_sprite(root / asset.file, asset.id))
+        sprite = load_sprite(root / asset.file, asset.id)
+        if asset.kind is AssetKind.background:
+            assert (sprite.width, sprite.height, sprite.scale) == (288, 512, 1), asset.id
+        elif asset.kind in {AssetKind.part, AssetKind.expression, AssetKind.pose}:
+            assert (sprite.width, sprite.height, sprite.scale) == (360, 512, 1), asset.id
+        image = rasterize(sprite)
         assert image.getbbox() is not None, asset.id
 
 

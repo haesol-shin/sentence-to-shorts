@@ -13,7 +13,7 @@
   "renderer": {
     "kind": "sandbox",
     "program": "program.py",
-    "program_digest": "1ce04232e4d897fe4b9528bf3fb24cdcb5dda9f4ec75b09d4a286cfc876cfe3f",
+    "program_digest": "bbdf3a5227de0402ef87c4993f3df89b5fc249b8fdc01d03f2cebe3f81eabd73",
     "runtime_digest": "e25045c7afcd28726694ba244e3cb2de14472e10f910253d5b50bacd00038ad6",
     "entry": "build_assets"
   },
@@ -128,7 +128,7 @@
       "kind": "part",
       "slot": "body",
       "file": "sprites/body_hero.json",
-      "sha256": "a1d5ab6cc3c51814049ee4cfc0d2b9e33deafd1c4a6e4354fcd7f0b8e9f4798d",
+      "sha256": "6d8bc9e870430aedadce459ed15a511d5740d4ab61f29713e4a04ef22a55e6fa",
       "license_id": "apache"
     },
     {
@@ -136,7 +136,7 @@
       "kind": "part",
       "slot": "body",
       "file": "sprites/body_round.json",
-      "sha256": "84879162edd9561841856deb1d6566347e92e95c90e088b0666620d6293b3f70",
+      "sha256": "d621b6cacea222da4370eb357754f46a7e29028ee393c1ce2868ae878add3ae7",
       "license_id": "apache"
     },
     {
@@ -144,7 +144,7 @@
       "kind": "part",
       "slot": "face",
       "file": "sprites/face_neutral.json",
-      "sha256": "3945554062253e762f286bed30690f017451ba7a830f921839a3b709728030e1",
+      "sha256": "702c6c11b35a548b26d75a59b11afdbfdd9c8279b9de99d947d0363ecc5e7ca0",
       "license_id": "apache"
     },
     {
@@ -152,7 +152,7 @@
       "kind": "part",
       "slot": "face",
       "file": "sprites/face_glasses.json",
-      "sha256": "61aa94e9f359ca47e63d901aadcd2faf303a0217f6af18c58d3c19182d75a9bf",
+      "sha256": "a356519f2598e834cc65aa33dff0a35a7a7fd175bdb3313a181dccacb96e73e5",
       "license_id": "apache"
     },
     {
@@ -160,7 +160,7 @@
       "kind": "part",
       "slot": "hair",
       "file": "sprites/hair_short.json",
-      "sha256": "1928171b92562da4699762329aaed911ab5da7d48247a1097e6d136eb4f954f3",
+      "sha256": "830657eb7a62d0dbe4f49ed45432c7a0b68525e7e653d7beabc4629b25502a91",
       "license_id": "apache"
     },
     {
@@ -168,7 +168,7 @@
       "kind": "part",
       "slot": "hair",
       "file": "sprites/hair_long.json",
-      "sha256": "1e118be62c793987ffb3871882d050247e98cee92795a1bc44a73087dad56dbf",
+      "sha256": "e5d55380c9c056f5b76c53d7638b24e0b9c276a99d7efb903610653959fc3263",
       "license_id": "apache"
     },
     {
@@ -176,7 +176,7 @@
       "kind": "part",
       "slot": "hat",
       "file": "sprites/hat_cap.json",
-      "sha256": "3c9aabaee02b512cd27cbc41de5f331a408719f59b4f66ed1eecc1b64c9b9497",
+      "sha256": "d3f62953c2a98b7fa11c7fd8f42bb7586dcc2c40ea27cd7eefd9addd10e93d00",
       "license_id": "apache"
     },
     {
@@ -184,7 +184,7 @@
       "kind": "part",
       "slot": "hat",
       "file": "sprites/hat_crown.json",
-      "sha256": "5b5b123e5bdeeb3dcd72b33f1ecdf5995584929af1be3454e8cd1cdac3631dfa",
+      "sha256": "9b579fc29fde25f3ca9024b2cd4214e9761b793b6ba121dd93b173517eaa44fa",
       "license_id": "apache"
     },
     {
@@ -192,7 +192,7 @@
       "kind": "part",
       "slot": "outfit",
       "file": "sprites/outfit_tie.json",
-      "sha256": "060209317303ba78e3b7b3423616d1fc1ab300b47c635bc50084fb643a78747b",
+      "sha256": "54915762e63ddd2d93fd2dbbb9ff646fb7691d0da2701b6a4f2465c502954ab4",
       "license_id": "apache"
     },
     {
@@ -200,7 +200,7 @@
       "kind": "part",
       "slot": "outfit",
       "file": "sprites/outfit_scarf.json",
-      "sha256": "567dab05636bc1e596e6021923261672d2d9c875ad0b09941056e6dc8f255fdc",
+      "sha256": "76fd96d114a8d772a9b2d0deb13fb5a6c9e3705aebc141a2574155bf4b65f5b5",
       "license_id": "apache"
     },
     {
@@ -208,7 +208,7 @@
       "kind": "part",
       "slot": "prop",
       "file": "sprites/prop_book.json",
-      "sha256": "df5a5b04c0f173a4ad6fa113850c937fb48274ff54264c0a6d0d198b80299993",
+      "sha256": "58696aca02e22d381ff7de0c991362418651f8945ebb6cdc47974b1a44329515",
       "license_id": "apache"
     },
     {
@@ -216,7 +216,7 @@
       "kind": "part",
       "slot": "prop",
       "file": "sprites/prop_mug.json",
-      "sha256": "05d2861cc7c97496cac6d5fa9f72869af023bc58a0559b14f4578282fd1b4e7b",
+      "sha256": "e5a109963db0315b9f6d1b3b5418858dce70aa9ee164bbcec99a4b8f0c2dd7ad",
       "license_id": "apache"
     },
     {
@@ -224,7 +224,7 @@
       "kind": "expression",
       "slot": null,
       "file": "sprites/expr_happy.json",
-      "sha256": "da68e937e15ce4322d9aed55b5865504e753a82b74092dd9b7177fec65dfb0b4",
+      "sha256": "5d13c158f176411b94d0d9181ce64e8afe53d0fecfeae4a2c31f688b1b194dbe",
       "license_id": "apache"
     },
     {
@@ -232,7 +232,7 @@
       "kind": "expression",
       "slot": null,
       "file": "sprites/expr_surprised.json",
-      "sha256": "92b254b21635b8a8fcb34e87e79ba87222e4d7a511496fd18fcecb018493ae73",
+      "sha256": "b6944665452a867066f189b9b74cc355c12bb2f9581ce952c92585e8a6994507",
       "license_id": "apache"
     },
     {
@@ -240,7 +240,7 @@
       "kind": "pose",
       "slot": null,
       "file": "sprites/pose_idle.json",
-      "sha256": "7e50f02fc6c1cd9d83434df9f0581567a2903436557db9eb2beb3007ffeb79ae",
+      "sha256": "7e817db898fca6829a984e548db451efca66ff353398c723a53cf6741e2fd2f1",
       "license_id": "apache"
     },
     {
@@ -248,7 +248,7 @@
       "kind": "pose",
       "slot": null,
       "file": "sprites/pose_wave.json",
-      "sha256": "9a911ad33230b912b9c5d55a064b50c25511e3e4c331aa804924e13b77dcdab4",
+      "sha256": "5ddd13aecf5a5f1eaad9a155ba201610d067dbbae693ed20267ba7646509bc16",
       "license_id": "apache"
     },
     {
@@ -256,7 +256,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_village.json",
-      "sha256": "f6be75b07c785d2a2d1cba077084071ef6f5749dfb4528d80204593d6d00d6bc",
+      "sha256": "8425b97c8be0c70017152d46695f3bd23939dd51a8284ac6cd8450c0ca13945f",
       "license_id": "apache"
     },
     {
@@ -264,7 +264,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_stars.json",
-      "sha256": "b3cb6ca338bbafad5cb14103290b26ecceeec167e0d63af8e37fa7cfda5cd10c",
+      "sha256": "6d755bd3372631a2af066c191311ecb2140da95188d2c56f4764154de2ac39ad",
       "license_id": "apache"
     },
     {
@@ -272,7 +272,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_park.json",
-      "sha256": "02edf047fb6324307bb19a63b91f9256f2e9a35e18c403df4dedf3984627c75a",
+      "sha256": "c2cbb29f4d3b44050e989b9a87b892f35c7fb90e6fd6318ac2fafb7e93178a6c",
       "license_id": "apache"
     },
     {
@@ -280,7 +280,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_classroom.json",
-      "sha256": "b33a728e49f9da0b76c4326cf16e6bf28e6290c39e921586fdcf80af988aa08c",
+      "sha256": "362252f1173fb8c5fd9afbdcf7c53e22c8e39d9b37cbceb03c939f51b124e034",
       "license_id": "apache"
     },
     {
@@ -288,7 +288,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_city_night.json",
-      "sha256": "6f21a935a11ddd0f7b40d4f0836c44c7318f57bdb36691cd82d7fe6995836563",
+      "sha256": "e9e31a0a23cbbe2d625f9a8a0e1b75d9b3c2e8639bfde0020df0b2fdaa0ffc2b",
       "license_id": "apache"
     },
     {
@@ -296,7 +296,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_moon_hill.json",
-      "sha256": "62bfc19b398c9688e3afcf507f0950afd3bc7292b1465ae2d7704ce0c238cc68",
+      "sha256": "bd8c6257f9537a66746659038f3ae771b216770f493add9bcbbdb69025baffde",
       "license_id": "apache"
     },
     {
@@ -304,7 +304,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_bedroom_night.json",
-      "sha256": "586d65e5739223687bdb6afa4c7b38605798e24f267025ae37c6a8e437d2ca0d",
+      "sha256": "917536363840df368913b6fdfe5f114f1922ea82604e67e35c24ed0c8d4be9b0",
       "license_id": "apache"
     },
     {
@@ -312,7 +312,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_arcade_grid.json",
-      "sha256": "e94c378ba4956f831f66eee5d6ffeac4e41dd18b5114e53dd3cf81682f954a3e",
+      "sha256": "2e13096ba93360c2f3aaff8b89b697fe836944131c160361ca92d28052f5c289",
       "license_id": "apache"
     },
     {
@@ -320,7 +320,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_castle.json",
-      "sha256": "b405d16888cb50806a4b2ba31b2bf9136903010b302bfb3cdab1e94570c79b83",
+      "sha256": "5af6aa421003f52124db7e0a7d18bb71cc0914a4ac3e7b74dddb795f31ed4a7a",
       "license_id": "apache"
     },
     {
@@ -328,7 +328,7 @@
       "kind": "background",
       "slot": null,
       "file": "sprites/bg_space.json",
-      "sha256": "9e3dfcec9810ca0871fbe05b841693a61496e510805e3ea11544bbb73bc7538d",
+      "sha256": "b6c42c1a5793f94a2c7e0eccd663311c8ef488672ca6e5cde8a25911d835cc2d",
       "license_id": "apache"
     },
     {
