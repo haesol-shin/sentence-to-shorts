@@ -28,6 +28,7 @@ from app.schemas.common import (
 )
 from app.schemas.job import Stage
 from app.schemas.settings import Humor, ProgressMode, Register
+from app.schemas.video import CaptionBoxDescription
 
 ROUTE = "reference_vision"
 PROMPT_ROOT = Path(__file__).resolve().parent / "prompts"
@@ -65,6 +66,7 @@ class ReferenceValues(ContractModel):
     progress_mode: ProgressMode | None = None
     caption_mode: CaptionMode | None = None
     caption_place: CaptionPlaceRatios | None = None
+    caption_box: CaptionBoxDescription | None = None
     bgm_mood: Mood | None = None
     palette: Annotated[
         list[Annotated[str, Field(pattern=HEX_COLOR_PATTERN)]], Field(max_length=5)
@@ -112,10 +114,19 @@ def load_prompt(data: Mapping[str, Any]) -> str:
     return body + "\n"
 
 
-def _parsed(result: LlmResult) -> ReferenceValues:
+def _without_caption_box(result: LlmResult) -> ReferenceValues:
     if result.parsed is None:
         raise ValueError("output is not a JSON object")
-    return ReferenceValues.model_validate(result.parsed)
+    return ReferenceValues.model_validate(
+        {key: value for key, value in result.parsed.items() if key != "caption_box"}
+    )
+
+
+def _caption_box(result: LlmResult) -> CaptionBoxDescription | None:
+    if result.parsed is None:
+        raise ValueError("output is not a JSON object")
+    box = result.parsed.get("caption_box")
+    return None if box is None else CaptionBoxDescription.model_validate(box)
 
 
 def ask(
@@ -126,7 +137,7 @@ def ask(
     allowed: Mapping[str, list[str]],
     ctx: JobContext,
 ) -> ReferenceValues:
-    """One call, one repair for an invalid answer, then ``llm_invalid_output``."""
+    """Repair once; a malformed box must not erase valid analysis fields."""
     if not frames or len(frames) > MAX_FRAMES:
         raise ValueError(f"send 1 to {MAX_FRAMES} frames")
     data = {"transcript": transcript[:MAX_TRANSCRIPT_CHARS], "allowed": dict(allowed)}
@@ -138,41 +149,60 @@ def ask(
         ),
     ]
     schema = ReferenceValues.model_json_schema()
+    # Let the host see an out-of-list description instead of losing the entire
+    # provider response to schema validation before we can salvage its fields.
+    del schema["$defs"]["CaptionBoxDescription"]["properties"]["shape"]["enum"]
 
-    def request(extra: list[LlmPart]) -> LlmRequest:
-        return LlmRequest(
+    def complete(extra: list[LlmPart]) -> LlmResult:
+        request = LlmRequest(
             task=LlmTask.reference_vision,
             route=ROUTE,
             system=system,
             parts=[*parts, *extra],
             output_schema=schema,
             max_output_tokens=MAX_OUTPUT_TOKENS,
+            repair_invalid_output=False,
         )
+        result = llm.complete(
+            request,
+            owner_id=ctx.owner_id,
+            cancel=ctx.cancel,
+            deadline=ctx.deadline,
+            on_request=ctx.record_request,
+        )
+        ctx.record_usage(result.usage)
+        return result
 
     with ctx.stage(Stage.ref_llm):
-        first = llm.complete(
-            request([]),
-            owner_id=ctx.owner_id,
-            cancel=ctx.cancel,
-            deadline=ctx.deadline,
-            on_request=ctx.record_request,
-        )
-        ctx.record_usage(first.usage)
+        kept: ReferenceValues | None = None
         try:
-            return _parsed(first)
+            first = complete([])
+            kept = _without_caption_box(first)
+            return kept.model_copy(update={"caption_box": _caption_box(first)})
+        except AppError as error:
+            if error.code != "llm_invalid_output":
+                raise
+            problem = error.detail.get("validation_rule", "json_object")
         except ValueError as error:
-            problem = error.errors()[:5] if isinstance(error, ValidationError) else str(error)
-            note = json.dumps({"validation_error": str(problem)[:1000]}, ensure_ascii=False)
-        second = llm.complete(
-            request([LlmPart(kind="text", text=REPAIR_NOTE + note)]),
-            owner_id=ctx.owner_id,
-            cancel=ctx.cancel,
-            deadline=ctx.deadline,
-            on_request=ctx.record_request,
-        )
-        ctx.record_usage(second.usage)
+            problem = (
+                error.errors(include_input=False, include_context=False)[:5]
+                if isinstance(error, ValidationError)
+                else str(error)
+            )
+        note = json.dumps({"validation_error": str(problem)[:1000]}, ensure_ascii=False)
         try:
-            return _parsed(second)
+            second = complete([LlmPart(kind="text", text=REPAIR_NOTE + note)])
+            valid = kept if kept is not None else _without_caption_box(second)
+            try:
+                return valid.model_copy(update={"caption_box": _caption_box(second)})
+            except ValueError:
+                return valid
+        except AppError as error:
+            if error.code != "llm_invalid_output":
+                raise
+            if kept is not None:
+                return kept
+            raise
         except ValueError as final:
             raise AppError(
                 "llm_invalid_output",

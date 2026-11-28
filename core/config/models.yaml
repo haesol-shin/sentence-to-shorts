@@ -73,3 +73,13 @@ routes:
     effort: high
     timeout_s: 180
     retries: 1
+  caption_box_code:
+    model: sonnet
+    effort: high
+    timeout_s: 180
+    retries: 1
+  caption_place:
+    model: haiku
+    effort: low
+    timeout_s: 60
+    retries: 1

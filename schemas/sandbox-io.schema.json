@@ -97,6 +97,7 @@
       "enum": [
         "style_parts",
         "template_layer",
+        "caption_box",
         "bgm_loop"
       ],
       "title": "SandboxKind",

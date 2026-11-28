@@ -279,6 +279,7 @@ class ReferenceService:
             style=ReferenceLook(
                 palette=palette,
                 frames=self._keep(video, reference_id, seen.frames, answer.subject_frames),
+                caption_box=answer.caption_box,
             ),
         )
         report = ReferenceReport(

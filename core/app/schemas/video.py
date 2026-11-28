@@ -100,6 +100,17 @@ REFERENCE_FRAME_PATTERN = r"^frame_[0-3]\.png$"
 """Kept frames are named in stored order, so a style job can find them without a path."""
 
 
+class CaptionBoxDescription(ContractModel):
+    """A closed description of a reference, not a limit on generated box shapes."""
+
+    shape: Literal[
+        "flat_band", "rounded_plate", "outline_box", "bubble_tail", "card", "stacked_bands", "none"
+    ]
+    fill: Literal["none"] | HexColor
+    opacity: Literal[0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    radius: Literal[0, 8, 16, 24, 999]
+
+
 class ReferenceLook(ContractModel):
     """The look kept from a reference so a later style request can copy it."""
 
@@ -108,6 +119,7 @@ class ReferenceLook(ContractModel):
         list[Annotated[str, Field(pattern=REFERENCE_FRAME_PATTERN)]],
         Field(max_length=MAX_REFERENCE_FRAMES),
     ]
+    caption_box: CaptionBoxDescription | None = None
 
 
 class ReferenceSummary(ContractModel):

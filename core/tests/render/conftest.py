@@ -59,6 +59,7 @@ class Studio:
         font: str | None = None,
         extra: dict[str, Any] | None = None,
         place: dict[str, Any] | None = None,
+        style: dict[str, Any] | None = None,
     ) -> Video:
         raw = load(base)
         settings = raw["settings"]
@@ -73,6 +74,8 @@ class Studio:
             settings["caption"]["extra"] = [extra]
         if place is not None:
             settings["caption"]["place"] = place
+        if style is not None:
+            settings["caption"]["style"] = style
         if scene is not None:
             raw["scenes"] = {scene["id"]: scene}
             raw["scene_order"] = [scene["id"]]

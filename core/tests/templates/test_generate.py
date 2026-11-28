@@ -17,7 +17,13 @@ from app.services.templates.service import TEST_SCENE, BuiltinNotConnected
 from tests.templates import scenarios
 from tests.templates.conftest import Harness, program, style_answer, template_answer
 
-ROUTES = ("style_code", "template_code", "bgm_code")
+ROUTES = (
+    "style_code",
+    "template_code",
+    "bgm_code",
+    "caption_box_code",
+    "caption_place",
+)
 
 
 def test_6_shape_change_is_ready(harness: Harness) -> None:

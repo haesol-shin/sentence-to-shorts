@@ -12,6 +12,7 @@ import pytest
 from app.plugins.registry import Registry, RegistryError, file_list_revision
 from app.schemas.bgm_entry import SfxEntry, TypingSoundEntry
 from app.schemas.caption_language_manifest import CaptionLanguageManifest
+from app.schemas.caption_style_manifest import CaptionStyleManifest
 from app.schemas.font_manifest import FontScript
 
 PLUGINS = Path(__file__).resolve().parents[2] / "app" / "plugins"
@@ -48,6 +49,10 @@ def test_builtin_catalog_loads() -> None:
         "full_stage",
         "dialog_stage",
     }
+    assert [item.id for item in registry.list("caption_style")] == ["plate"]
+    manifest = registry.get("caption_style", "plate")
+    assert isinstance(manifest, CaptionStyleManifest)
+    assert manifest.renderer.entry == "draw_caption_box"
 
 
 def test_caption_language_catalog_loads_scripts() -> None:
@@ -163,6 +168,31 @@ def test_renderer_program_digest_is_checked(tmp_path: Path) -> None:
     with pytest.raises(RegistryError) as error:
         _registry(tmp_path).load()
     assert error.value.code == "digest_mismatch"
+
+
+def test_caption_style_program_digest_is_checked(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path, "caption_styles", "plate")
+    (package / "program.py").write_text("# changed caption program\n", encoding="utf-8")
+    with pytest.raises(RegistryError) as error:
+        _registry(tmp_path).load()
+    assert error.value.code == "digest_mismatch"
+
+
+def test_generated_caption_style_resolves_after_restart(tmp_path: Path) -> None:
+    package = _copy_package(tmp_path / "staging", "caption_styles", "plate")
+    staged = package.rename(package.with_name("generated_plate"))
+    manifest_path = staged / "manifest.json"
+    raw = _read(manifest_path)
+    raw.update(id=staged.name, origin="generated")
+    _write(manifest_path, raw)
+    ref = _registry(tmp_path).register_generated("caption_style", staged)
+
+    restarted = _registry(tmp_path)
+    manifest = restarted.get("caption_style", ref.id, ref.revision)
+    assert isinstance(manifest, CaptionStyleManifest)
+    assert manifest.id == ref.id
+    assert [item.id for item in restarted.list("caption_style")] == [ref.id]
+    assert file_list_revision(restarted.package_dir("caption_style", ref)) == ref.revision
 
 
 def test_symlinked_package_directory_is_rejected(tmp_path: Path) -> None:

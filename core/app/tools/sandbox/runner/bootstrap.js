@@ -35,8 +35,10 @@ _ALLOWED_IMPORTS = frozenset(
 _ENTRIES = {
     "style_parts": ("build_assets", ("spec", "character", "canvas")),
     "template_layer": ("render_layer", ("scene", "regions", "canvas")),
+    "caption_box": ("draw_caption_box", ("plate", "spec", "canvas")),
     "bgm_loop": ("render_loop", ("params",)),
 }
+_IMAGE_META_NAMES = {"template_layer": "layer", "caption_box": "box"}
 _NAME = re.compile(r"[a-z0-9_]{1,40}")
 _REQUEST_ID = re.compile(r"[0-9a-f]{16}")
 _NO_ID = "0000000000000000"
@@ -135,17 +137,19 @@ def _files(kind, result, limits):
                 raise _Failure("bad_return", "part names must match [a-z0-9_]{1,40}")
             files.append({"name": name, "media_type": "image/png", "b64": _png(image, max_side)})
         return files, {}
-    if kind == "template_layer":
+    if kind in _IMAGE_META_NAMES:
+        entry_name = _ENTRIES[kind][0]
         if not isinstance(result, tuple) or len(result) != 2:
-            raise _Failure("bad_return", "render_layer must return (image, dict)")
+            raise _Failure("bad_return", entry_name + " must return (image, dict)")
         image, meta = result
         if not isinstance(meta, dict) or len(meta) > _META_LIMIT:
-            raise _Failure("bad_return", "layer meta must be a dict of at most 8 keys")
+            raise _Failure("bad_return", "program meta must be a dict of at most 8 keys")
         try:
             meta = json.loads(json.dumps(meta, allow_nan=False))
         except (TypeError, ValueError) as error:
-            raise _Failure("bad_return", "layer meta is not JSON: " + str(error)) from None
-        return [{"name": "layer", "media_type": "image/png", "b64": _png(image, max_side)}], meta
+            raise _Failure("bad_return", "program meta is not JSON: " + str(error)) from None
+        filename = _IMAGE_META_NAMES[kind]
+        return [{"name": filename, "media_type": "image/png", "b64": _png(image, max_side)}], meta
     if not isinstance(result, (bytes, bytearray)):
         raise _Failure("bad_return", "render_loop must return WAV bytes")
     data = base64.b64encode(bytes(result)).decode("ascii")

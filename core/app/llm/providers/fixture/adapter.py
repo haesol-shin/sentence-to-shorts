@@ -39,6 +39,8 @@ STAGE_BY_TASK = {
     LlmTask.style_code: Stage.code_llm,
     LlmTask.template_code: Stage.code_llm,
     LlmTask.bgm_code: Stage.code_llm,
+    LlmTask.caption_box_code: Stage.code_llm,
+    LlmTask.caption_place: Stage.llm_chat,
 }
 
 

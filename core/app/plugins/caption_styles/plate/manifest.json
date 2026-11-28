@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "api_version": 1,
+  "id": "plate",
+  "version": "1.0.0",
+  "label": {
+    "ko": "기본 자막 상자",
+    "en": "Default caption plate"
+  },
+  "origin": "builtin",
+  "status": "ready",
+  "renderer": {
+    "kind": "sandbox",
+    "program": "program.py",
+    "program_digest": "6dd9a263ca72cee51b360cdd2f3d3d8679984ed942a1cb46bfcfdeef5799d23f",
+    "runtime_digest": "8e7c6b8010964014911a2502ca253c5518c7489144125616fac517ab680bc45f",
+    "entry": "draw_caption_box",
+    "max_ms_per_box": 20000
+  },
+  "test": {
+    "plate": {"w": 320, "h": 80},
+    "layer_digest": "080fad2d14b6e1e38d42d6231f88feeb9dc79fc83272dd4f4cf746991a1a5c3c"
+  }
+}

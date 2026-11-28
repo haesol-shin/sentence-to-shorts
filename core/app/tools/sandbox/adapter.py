@@ -55,12 +55,19 @@ RESPONSE: TypeAdapter[SandboxResult | SandboxError] = TypeAdapter(SandboxRespons
 INPUT_KEYS: dict[SandboxKind, frozenset[str]] = {
     SandboxKind.style_parts: frozenset({"spec", "character", "canvas"}),
     SandboxKind.template_layer: frozenset({"scene", "regions", "canvas"}),
+    SandboxKind.caption_box: frozenset({"plate", "spec", "canvas"}),
     SandboxKind.bgm_loop: frozenset({"params"}),
 }
 SINGLE_FILE: dict[SandboxKind, tuple[str, str]] = {
     SandboxKind.template_layer: ("layer", "image/png"),
+    SandboxKind.caption_box: ("box", "image/png"),
     SandboxKind.bgm_loop: ("loop", "audio/wav"),
 }
+PROGRAM_META_KINDS = frozenset({SandboxKind.template_layer, SandboxKind.caption_box})
+CAPTION_SPEC_KEYS = frozenset(
+    {"size_px", "line_height", "text_color", "box_color", "align", "lines"}
+)
+CAPTION_META_KEYS = frozenset({"box", "text_area"})
 MIN_CANVAS_SIDE = 16
 META_BYTES = 64 * 1024
 # The runner reports Deno permission errors and wasm allocation failures inside
@@ -220,6 +227,23 @@ class SandboxAdapter(SandboxPort):
             for side in canvas.values():
                 if type(side) is not int or not MIN_CANVAS_SIDE <= side <= limits.max_png_side:
                     raise ValueError("canvas sides must be integers inside the PNG side limit")
+            if request.kind is SandboxKind.caption_box:
+                plate = request.input["plate"]
+                if (
+                    not isinstance(plate, dict)
+                    or set(plate) != {"w", "h"}
+                    or any(type(side) is not int for side in plate.values())
+                    or (plate["w"], plate["h"]) != (canvas["width"], canvas["height"])
+                ):
+                    raise ValueError("caption plate dimensions must match the canvas")
+                spec = request.input["spec"]
+                if not isinstance(spec, dict) or set(spec) != CAPTION_SPEC_KEYS:
+                    raise ValueError(f"caption spec takes exactly {sorted(CAPTION_SPEC_KEYS)}")
+                lines = spec["lines"]
+                if not isinstance(lines, list) or any(
+                    not isinstance(line, dict) or set(line) != {"w", "h"} for line in lines
+                ):
+                    raise ValueError("caption lines take only w and h")
         if request.assets and request.kind is not SandboxKind.template_layer:
             raise ValueError("only template_layer takes part assets")
         names = [asset.name for asset in request.assets]
@@ -276,7 +300,7 @@ class SandboxAdapter(SandboxPort):
             raise _invalid("response is for another request")
         if isinstance(response, SandboxError):
             raise self._runner_error(response)
-        return self._validated(request.kind, limits, response)
+        return self._validated(request, limits, response)
 
     @staticmethod
     def _runner_error(response: SandboxError) -> AppError:
@@ -294,8 +318,9 @@ class SandboxAdapter(SandboxPort):
         return AppError("sandbox_crashed", detail=detail)
 
     def _validated(
-        self, kind: SandboxKind, limits: SandboxLimits, response: SandboxResult
+        self, request: SandboxRequest, limits: SandboxLimits, response: SandboxResult
     ) -> ValidatedOutput:
+        kind = request.kind
         names = [item.name for item in response.files]
         if len(set(names)) != len(names):
             raise _invalid("file names repeat")
@@ -318,6 +343,11 @@ class SandboxAdapter(SandboxPort):
                     png = check_png(
                         data, max_side=limits.max_png_side, max_bytes=self._config.max_png_bytes
                     )
+                    if kind is SandboxKind.caption_box and (png.width, png.height) != (
+                        request.input["canvas"]["width"],
+                        request.input["canvas"]["height"],
+                    ):
+                        raise _invalid("caption box PNG dimensions must match the canvas")
                     files[item.name] = png.data
                     measured[item.name] = {"width": png.width, "height": png.height}
                 else:
@@ -334,10 +364,20 @@ class SandboxAdapter(SandboxPort):
             except (PngRejected, WavRejected) as error:
                 raise _invalid(f"{item.name}: {error}") from error
         program_meta: dict[str, Any] = {}
-        if kind is SandboxKind.template_layer:
+        if kind in PROGRAM_META_KINDS:
             program_meta = response.meta
             if len(json.dumps(program_meta, ensure_ascii=True)) > META_BYTES:
-                raise _invalid("layer meta is too large")
+                raise _invalid("program meta is too large")
+            if kind is SandboxKind.caption_box and (
+                set(program_meta) != CAPTION_META_KEYS
+                or any(
+                    not isinstance(rect, list)
+                    or len(rect) != 4
+                    or any(type(coordinate) is not int for coordinate in rect)
+                    for rect in program_meta.values()
+                )
+            ):
+                raise _invalid("caption box meta must contain box and text_area integer rectangles")
         return ValidatedOutput(files=files, meta={"program": program_meta, "files": measured})
 
     def _log_run(

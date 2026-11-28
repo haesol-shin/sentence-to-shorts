@@ -27,12 +27,12 @@ from app.caption_layout import (
     draws_bubble,
     fixed_text_box,
     inside,
-    place_area,
     place_pair,
     place_pair_with_primary,
     placed_box,
     plate_box,
     safe_area,
+    separated,
     side_padded,
     text_box,
 )
@@ -44,6 +44,7 @@ from app.ports import (
     CatalogPort,
     JobContext,
     MediaPort,
+    SandboxPort,
     ServiceDeps,
     UnknownCatalogId,
 )
@@ -56,6 +57,14 @@ from app.schemas.settings import CaptionLayer, CaptionPosition, ProgressMode
 from app.schemas.style_manifest import AssetKind, Palette, Theme
 from app.schemas.template_manifest import TemplateManifest
 from app.schemas.video import Video
+from app.services.render.caption_boxes import (
+    SceneBoxes,
+    caption_program,
+    caption_style_ref,
+    edges,
+    readable,
+    translated,
+)
 from app.services.render.layers import place_box
 from app.services.render.motion import (
     OPAQUE,
@@ -84,6 +93,10 @@ from app.services.render.text import (
 OUTPUT = (1080, 1920)
 PREVIEW = (540, 960)
 CAPTION_BLOCK_LIMIT = SAFE_HEIGHT - 2 * PLATE_PAD
+
+
+def _fill_plate(draw: ImageDraw.ImageDraw, box: Box, color: str) -> None:
+    draw.rectangle((box.x, box.y, box.x + box.w - 1, box.y + box.h - 1), fill=color)
 
 
 def _caption_sizes(font: CaptionFont) -> list[int]:
@@ -246,6 +259,15 @@ class ScenePlan:
     ] = field(default_factory=dict)
     caption_fallback: str | None = None
     """Why the caption left its stored place: ``text_overflow`` or ``place_outside``."""
+    caption_boxes: SceneBoxes | None = None
+
+
+@dataclass(frozen=True)
+class StyledCaption:
+    plate: Box
+    block: TextBlock
+    lines: list[Box]
+    box: Box | None
 
 
 def _estimated_timing(scene: Scene) -> dict[str, Any]:
@@ -276,11 +298,13 @@ def _artifact_timing(scene: Scene, timing: Timing) -> dict[str, Any]:
 
 class RenderService:
     def __init__(
-        self, media: MediaPort, artifacts: ArtifactStore, catalog: CatalogPort
+        self, media: MediaPort, artifacts: ArtifactStore, catalog: CatalogPort,
+        sandbox: SandboxPort | None = None,
     ) -> None:
         self.media = media
         self.artifacts = artifacts
         self.catalog = catalog
+        self.sandbox = sandbox
 
     def _resolve(self, video: Video) -> Resolved:
         settings = video.settings
@@ -735,10 +759,13 @@ class RenderService:
 
     def _caption_pair(
         self,
+        frame: Image.Image,
         draw: ImageDraw.ImageDraw,
         plan: ScenePlan,
         state: CaptionState,
         phrase: tuple[int, int] | None,
+        *,
+        visible: bool,
     ) -> dict[str, Any]:
         """Draw the primary and the extra language caption in one safe band.
 
@@ -777,7 +804,7 @@ class RenderService:
                 plate = placed_box(place, largest.height)
                 if plate is not None:
                     return self._caption_alone(
-                        draw, plan, state, largest, plate, "no_room"
+                        frame, draw, plan, state, phrase, largest, plate, "no_room", visible
                     )
                 plan.caption_fallback = "place_outside"
                 place = None
@@ -796,76 +823,162 @@ class RenderService:
         primary = primary_blocks[pair.primary_rank]
         extra_block = extra_blocks[pair.extra_rank]
         assert primary is not None and extra_block is not None
-        if state.typed is not None:
-            primary = _typed(primary, state.typed)
-        primary_text = text_box(pair.primary, primary.height)
-        extra_text = text_box(pair.extra, extra_block.height)
-        for plate in (pair.primary, pair.extra):
-            draw.rectangle(
-                (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
-                fill=palette.caption_box,
-            )
-        align = caption.place.align if place is not None else "center"
-        primary_boxes = self._draw_caption(
-            draw, res.font, primary, primary_text, align,
-            color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
+        primary_record, primary_plate = self._primary_plate(
+            frame, draw, plan, state, phrase, primary, pair.primary,
+            placed=place is not None, visible=visible,
         )
+        if not separated(primary_plate, pair.extra):
+            primary_record["caption_extra_skipped"] = "no_room"
+            return primary_record
+        _fill_plate(draw, pair.extra, palette.caption_box)
         extra_boxes = draw_block(
-            draw, extra.font, extra_block, extra_text,
+            draw, extra.font, extra_block, text_box(pair.extra, extra_block.height),
             color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
         )
-        area = place_area() if place is not None else safe_area()
-        if (
-            not inside(pair.primary, area)
-            or not all(inside(box, pair.primary) for box in primary_boxes)
-            or not all(inside(box, pair.extra) for box in extra_boxes)
-        ):
+        if not all(inside(box, pair.extra) for box in extra_boxes):
             raise AppError("caption_unsafe", detail={"line_id": line.id})
-        record = self._caption_record(
-            line, primary, primary_boxes, pair.primary, caption.mode, res.font,
-            caption.position, None,
-        )
-        record["caption_extra"] = self._caption_record(
+        primary_record["caption_extra"] = self._caption_record(
             line, extra_block, extra_boxes, pair.extra, extra.mode, extra.font,
             extra.position, extra.language,
         )
-        if plan.caption_fallback is not None:
-            record["caption_fallback"] = plan.caption_fallback
-        return record
+        return primary_record
 
     def _caption_alone(
         self,
+        frame: Image.Image,
         draw: ImageDraw.ImageDraw,
         plan: ScenePlan,
         state: CaptionState,
+        phrase: tuple[int, int] | None,
         block: TextBlock,
         plate: Box,
         reason: str,
+        visible: bool,
     ) -> dict[str, Any]:
-        """Draw the primary layer without the extra one, and record why it went."""
-        caption = plan.video.settings.caption
-        res = plan.res
-        palette = res.palette
-        line = plan.scene.lines[state.line]
-        if state.typed is not None:
-            block = _typed(block, state.typed)
-        text = text_box(plate, block.height)
-        draw.rectangle(
-            (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
-            fill=palette.caption_box,
-        )
-        align = caption.place.align if caption.place is not None else "center"
-        boxes = self._draw_caption(
-            draw, res.font, block, text, align,
-            color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-        )
-        if not all(inside(box, plate) for box in boxes):
-            raise AppError("caption_unsafe", detail={"line_id": line.id})
-        record = self._caption_record(
-            line, block, boxes, plate, caption.mode, res.font, caption.position, None
+        record, _ = self._primary_plate(
+            frame, draw, plan, state, phrase, block, plate, placed=True, visible=visible,
         )
         record["caption_extra_skipped"] = reason
         return record
+
+    def _styled_caption(
+        self,
+        frame: Image.Image,
+        plan: ScenePlan,
+        state: CaptionState,
+        phrase: tuple[int, int] | None,
+        block: TextBlock,
+        plate: Box,
+        align: str,
+        visible: bool,
+    ) -> StyledCaption | str:
+        painter = plan.caption_boxes
+        if painter is None:
+            return "no_ctx"
+        palette = plan.res.palette
+        candidate = block
+        candidates: Iterator[TextBlock] | None = None
+        while True:
+            painted = painter.paint(plate, candidate, palette, align)
+            if isinstance(painted, str):
+                return painted
+            area = painted.text_area
+            fits = candidate.height <= area.h and all(
+                line.width <= area.w for line in candidate.lines
+            )
+            boxes: list[Box] = []
+            scratch = Image.new("RGBA", (plate.w, plate.h))
+            shown = candidate if state.typed is None else _typed(candidate, state.typed)
+            if fits:
+                pen = ImageDraw.Draw(scratch)
+                pen.fontmode = "1"
+                boxes = self._draw_caption(
+                    pen, plan.res.font, shown, area, align,
+                    color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
+                    side_pad=0,
+                )
+            if fits and all(inside(box, area) for box in boxes):
+                if not painted.transparent:
+                    backdrop = frame.crop(edges(plate))
+                    backdrop.alpha_composite(painted.image)
+                    if not readable(backdrop, scratch, _rgb(palette.caption_text)):
+                        return "caption_contrast"
+                if visible:
+                    frame.alpha_composite(painted.image, (plate.x, plate.y))
+                    frame.alpha_composite(scratch, (plate.x, plate.y))
+                return StyledCaption(
+                    plate, shown, [translated(box, plate.x, plate.y) for box in boxes],
+                    None if painted.transparent else translated(painted.box, plate.x, plate.y),
+                )
+            if candidates is None:
+                candidates = (
+                    value for value in self._caption_candidates(plan, "primary", state.line, phrase)
+                    if value is not None and value.size < block.size
+                )
+            candidate = next(candidates, None)
+            if candidate is None:
+                return "caption_text_area"
+
+    def _primary_plate(
+        self,
+        frame: Image.Image,
+        draw: ImageDraw.ImageDraw,
+        plan: ScenePlan,
+        state: CaptionState,
+        phrase: tuple[int, int] | None,
+        block: TextBlock,
+        plate: Box,
+        *,
+        placed: bool,
+        visible: bool,
+    ) -> tuple[dict[str, Any], Box]:
+        caption = plan.video.settings.caption
+        res = plan.res
+        line = plan.scene.lines[state.line]
+        align = caption.place.align if placed and caption.place is not None else "center"
+        reason = plan.caption_fallback
+        result: StyledCaption | str | None = None
+        if caption.style is not None and caption.style.id != "plate" and reason is None:
+            result = self._styled_caption(frame, plan, state, phrase, block, plate, align, visible)
+            if isinstance(result, str):
+                reason = result
+                block = self._band_block(plan, line, phrase)
+                plate = plate_box(_caption_inner(res), block.height, caption.position)
+                align = "center"
+        if not isinstance(result, StyledCaption):
+            if state.typed is not None:
+                block = _typed(block, state.typed)
+            _fill_plate(draw, plate, res.palette.caption_box)
+            boxes = self._draw_caption(
+                draw, res.font, block, text_box(plate, block.height), align,
+                color=_rgb(res.palette.caption_text), highlight_color=_rgb(res.palette.accent),
+            )
+            if not all(inside(box, plate) for box in boxes):
+                raise AppError("caption_unsafe", detail={"line_id": line.id})
+            result = StyledCaption(plate, block, boxes, plate)
+        record = self._caption_record(
+            line, result.block, result.lines, result.plate, caption.mode, res.font,
+            caption.position, None,
+        )
+        box = result.box
+        record["box"] = None if box is None else [box.x, box.y, box.w, box.h]
+        if reason is not None:
+            record["caption_fallback"] = reason
+            record["caption_message"] = "상자를 그리지 못해 기본 모양으로 내보냈어요"
+        return record, result.plate
+
+    @staticmethod
+    def _band_block(plan: ScenePlan, line: Line, phrase: tuple[int, int] | None) -> TextBlock:
+        caption = plan.video.settings.caption
+        text = line.display_text
+        highlight = list(line.highlight) if caption.highlight else []
+        if phrase is not None:
+            text, highlight = _phrase_text(text, highlight, *phrase)
+        return fit(
+            plan.res.font, text, highlight, width=caption_text_size(plan.res.template)[0],
+            height=CAPTION_BLOCK_LIMIT, max_lines=CAPTION_MAX_LINES,
+            sizes=_caption_sizes(plan.res.font), where=f"caption:{line.id}",
+        )
 
     @staticmethod
     def _draw_caption(
@@ -877,6 +990,7 @@ class RenderService:
         *,
         color: tuple[int, int, int],
         highlight_color: tuple[int, int, int],
+        side_pad: int = PLATE_SIDE_PAD,
     ) -> list[Box]:
         """Draw one block at the place alignment, inside ``text``.
 
@@ -885,7 +999,7 @@ class RenderService:
         """
         if align == "right":
             boxes: list[Box] = []
-            right = text.x + text.w - PLATE_SIDE_PAD
+            right = text.x + text.w - side_pad
             top = text.y + max(0, text.h - block.height) // 2
             for line in block.lines:
                 offset = line.ink[2] if line.ink is not None else line.width
@@ -904,9 +1018,9 @@ class RenderService:
             return boxes
         if align == "left":
             text = Box(
-                x=text.x + PLATE_SIDE_PAD,
+                x=text.x + side_pad,
                 y=text.y,
-                w=max(1, text.w - 2 * PLATE_SIDE_PAD),
+                w=max(1, text.w - 2 * side_pad),
                 h=text.h,
             )
         return draw_block(
@@ -949,6 +1063,7 @@ class RenderService:
         state: CaptionState,
         *,
         draw: bool = True,
+        ctx: JobContext | None = None,
     ) -> dict[str, Any]:
         """Lay out the caption; a still keeps the record but not the pixels."""
         caption = plan.video.settings.caption
@@ -964,18 +1079,18 @@ class RenderService:
         if phrase is not None and not line.display_text[phrase[0]:phrase[1]].strip():
             phrase = None
         if res.extra is not None:
-            return self._caption_pair(pen, plan, state, phrase)
+            return self._caption_pair(frame, pen, plan, state, phrase, visible=draw)
         block = self._caption_block(plan, state.line, phrase)
+        if template.renderer.kind == "builtin" and not draws_bubble(template):
+            return self._caption_builtin(frame, pen, plan, state, phrase, block, draw)
         if state.typed is not None:
             block = _typed(block, state.typed)
         valign = "middle"
-        placed = False
-        align = "center"
         if draws_bubble(template):
             plate = bubble_box(region, caption.position)
             text = plate
             valign = "ink"
-        elif template.renderer.kind != "builtin":
+        else:
             plate = region
             inner = side_padded(caption_inner(region, dialog=template.dialog_box))
             text = fixed_text_box(inner, block.height, caption.position)
@@ -984,40 +1099,44 @@ class RenderService:
                     (region.x, region.y, region.x + region.w - 1, region.y + region.h - 1),
                     fill=palette.caption_box,
                 )
-        else:
-            plate = None
-            if caption.place is not None and plan.caption_fallback is None:
-                plate = placed_box(caption.place, block.height)
-                if plate is None:
-                    plan.caption_fallback = "place_outside"
-            placed = plate is not None
-            if plate is None:
-                plate = plate_box(_caption_inner(res), block.height, caption.position)
-            text = text_box(plate, block.height)
-            if placed and caption.place is not None:
-                align = caption.place.align
-            pen.rectangle(
-                (plate.x, plate.y, plate.x + plate.w - 1, plate.y + plate.h - 1),
-                fill=palette.caption_box,
-            )
-        if placed:
-            boxes = self._draw_caption(
-                pen, res.font, block, text, align,
-                color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-            )
-        else:
-            boxes = draw_block(
-                pen, res.font, block, text, valign=valign,
-                color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
-            )
-        area = place_area() if placed else safe_area()
-        if not inside(plate, area) or not all(inside(box, plate) for box in boxes):
+        boxes = draw_block(
+            pen, res.font, block, text, valign=valign,
+            color=_rgb(palette.caption_text), highlight_color=_rgb(palette.accent),
+        )
+        if not inside(plate, safe_area()) or not all(inside(box, plate) for box in boxes):
             raise AppError("caption_unsafe", detail={"line_id": line.id})
         record = self._caption_record(
             line, block, boxes, plate, caption.mode, res.font, caption.position, None
         )
-        if plan.caption_fallback is not None:
-            record["caption_fallback"] = plan.caption_fallback
+        if caption.style is not None or caption.place is not None:
+            record["caption_message"] = (
+                "이 무대는 말풍선을 씁니다" if draws_bubble(template)
+                else "이 무대는 상자가 고정입니다"
+            )
+        return record
+
+    def _caption_builtin(
+        self,
+        frame: Image.Image,
+        pen: ImageDraw.ImageDraw,
+        plan: ScenePlan,
+        state: CaptionState,
+        phrase: tuple[int, int] | None,
+        block: TextBlock,
+        visible: bool,
+    ) -> dict[str, Any]:
+        caption = plan.video.settings.caption
+        plate = None
+        if caption.place is not None and plan.caption_fallback is None:
+            plate = placed_box(caption.place, block.height)
+            if plate is None:
+                plan.caption_fallback = "place_outside"
+        placed = plate is not None
+        if plate is None:
+            plate = plate_box(_caption_inner(plan.res), block.height, caption.position)
+        record, _ = self._primary_plate(
+            frame, pen, plan, state, phrase, block, plate, placed=placed, visible=visible,
+        )
         return record
 
     def _plan(
@@ -1026,6 +1145,7 @@ class RenderService:
         scene_id: str,
         parts: dict[str, bytes],
         layer: bytes | None,
+        ctx: JobContext | None = None,
     ) -> ScenePlan:
         """Draw the layers that stay still for the whole scene once."""
         scene = video.scenes.get(scene_id)
@@ -1034,6 +1154,7 @@ class RenderService:
         if scene.visual is None:
             raise AppError("scene_visual_missing", detail={"scene_id": scene_id})
         res = self._resolve(video)
+        painter = self._caption_painter(video, res, ctx)
         base = Image.new("RGBA", OUTPUT, (*_rgb(res.palette.bg), 255))
         self._background(base, scene, res)
         if layer is not None:
@@ -1070,10 +1191,26 @@ class RenderService:
             ],
             top=top.crop(bbox) if bbox else None,
             top_at=(bbox[0], bbox[1]) if bbox else (0, 0),
+            caption_boxes=painter,
         )
 
+    def _caption_painter(
+        self, video: Video, res: Resolved, ctx: JobContext | None,
+    ) -> SceneBoxes | None:
+        if (
+            ctx is None or self.sandbox is None or res.template.renderer.kind != "builtin"
+            or draws_bubble(res.template)
+        ):
+            return None
+        ref = caption_style_ref(self.catalog, video.settings.caption.style)
+        if ref is None or ref.id == "plate":
+            return None
+        program = caption_program(self.catalog, ref)
+        return SceneBoxes(program, self.sandbox, ctx.cancel) if program is not None else None
+
     def _draw(
-        self, plan: ScenePlan, pose: Pose, *, draw_caption: bool = True
+        self, plan: ScenePlan, pose: Pose, *, draw_caption: bool = True,
+        ctx: JobContext | None = None,
     ) -> tuple[Image.Image, dict[str, Any]]:
         """One 1080x1920 frame in the still's layer order: background and layer,
         character, elements, progress and title, caption, then the fade."""
@@ -1082,7 +1219,7 @@ class RenderService:
         self._paste_elements(frame, plan, pose)
         if plan.top is not None:
             frame.alpha_composite(plan.top, plan.top_at)
-        caption = self._caption(frame, plan, pose.caption, draw=draw_caption)
+        caption = self._caption(frame, plan, pose.caption, draw=draw_caption, ctx=ctx)
         if pose.fade < OPAQUE:
             black = Image.new("RGBA", OUTPUT, (0, 0, 0, 255))
             frame = Image.blend(black, frame, pose.fade / OPAQUE)
@@ -1096,10 +1233,11 @@ class RenderService:
         layer: bytes | None,
         *,
         captions: bool,
+        ctx: JobContext | None = None,
     ) -> tuple[Image.Image, dict[str, Any]]:
-        plan = self._plan(video, scene_id, parts, layer)
+        plan = self._plan(video, scene_id, parts, layer, ctx)
         frame, caption = self._draw(
-            plan, rest_pose(plan.scene), draw_caption=captions
+            plan, rest_pose(plan.scene), draw_caption=captions, ctx=ctx
         )
         extra = caption.pop("caption_extra", None)
         record = {
@@ -1140,7 +1278,7 @@ class RenderService:
         and the PNG text chunk say the timing is estimated.
         """
         ctx.cancel.raise_if_set()
-        frame, record = self._rest(video, scene_id, parts, layer, captions=False)
+        frame, record = self._rest(video, scene_id, parts, layer, captions=False, ctx=ctx)
         scene = video.scenes[scene_id]
         record["timing"] = (
             _estimated_timing(scene)
@@ -1180,7 +1318,7 @@ class RenderService:
         the timing's length and no audio track: sound joins at the final mux.
         """
         ctx.cancel.raise_if_set()
-        plan = self._plan(video, scene_id, parts, layer)
+        plan = self._plan(video, scene_id, parts, layer, ctx)
         scene = plan.scene
         _artifact_timing(scene, timing)
         if any(line.end_ms > timing.duration_ms for line in timing.lines):
@@ -1212,7 +1350,7 @@ class RenderService:
             for pose in poses(scene, timing, typed_units, travel):
                 ctx.cancel.raise_if_set()
                 if pose != previous:
-                    image, _ = self._draw(plan, pose)
+                    image, _ = self._draw(plan, pose, ctx=ctx)
                     data = image.convert("RGB").tobytes()
                     previous = pose
                 yield data
@@ -1227,7 +1365,7 @@ class RenderService:
 
 
 def create(settings: AppSettings, deps: ServiceDeps) -> RenderService:
-    return RenderService(deps.media, deps.artifact_store, deps.catalog)
+    return RenderService(deps.media, deps.artifact_store, deps.catalog, deps.sandbox)
 
 
 __all__ = ["RenderService", "create"]

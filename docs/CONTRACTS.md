@@ -277,9 +277,11 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 - 진입 함수는 kind별로 고정이다.
   - `style_parts`: `build_assets(spec: dict, character: dict, canvas: dict, seed: int) -> dict[str, PIL.Image]`
   - `template_layer`: `render_layer(scene: dict, regions: dict, canvas: dict, parts: dict[str, PIL.Image], seed: int) -> (PIL.Image, dict)`
+  - `caption_box`: `draw_caption_box(plate: dict, spec: dict, canvas: dict, seed: int) -> (PIL.Image, dict)`이다. `plate`는 `{w, h}`, `spec`은 `{size_px, line_height, text_color, box_color, align, lines: [{w, h}]}`이고 글자는 넘기지 않는다. 반환 이미지는 `plate` 크기 RGBA이고 meta는 `box`와 `text_area` 두 키(각 `[x, y, w, h]`, plate 원점 기준)다. 완전히 투명한 이미지는 상자 없음이며 `box`는 `[0, 0, 0, 0]`이다.
   - `bgm_loop`: `render_loop(params: dict, seed: int) -> bytes`이고 반환값은 WAV bytes다.
 - 입력은 위 kind별 진입 함수에 필요한 인자로 한정하고 부모가 검증한다. API key, home 경로, 프로젝트 전체, 다른 영상은 보내지 않는다.
-- 생성 코드는 부품과 layer PNG만 만든다. 프레임 위치, 페이드, 자막은 host Pillow가 합성한다.
+- 생성 코드는 부품, layer, 자막 상자 PNG만 만든다. 프레임 위치, 페이드, 자막 글자는 host Pillow가 합성한다.
+- 자막 상자는 `caption_style` package(`core/app/plugins/caption_styles/<id>/`)가 담는다. `Caption.style`이 null이면 기본 package `plate`를 쓴다. 상자 모양에는 목록이 없고 코드가 정한다. host는 글이 `text_area` 안에 드는지, `box`가 `plate` 안에 드는지, 글 아래 합성 픽셀의 대비가 4.5:1 이상인지를 검사하고, 하나라도 어긋나거나 sandbox가 실패하면 기본 띠로 그리며 layout record에 `caption_fallback`과 `caption_message`를 남긴다. 렌더는 세우지 않는다. 장면당 호출은 고유 `(plate 크기, 글자 크기, 줄 폭, 색, 정렬)` 조합 수이고 20회를 넘으면 기본 띠다. 말풍선 template는 말풍선이, sandbox template는 고정 상자가 이기며 record의 `caption_message`가 그 사실을 적는다. `ctx` 없는 합성(`compose`)은 기본 띠다. 폴백과 무대 우선순위 안내는 이번 단계에서 layout record와 서버 기록에만 남고 화면 표시는 후속이다.
 
 ### 9.3 부모 감독과 한도
 
@@ -287,7 +289,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 
 | 항목 | 값 |
 |---|---|
-| wall time | style_parts 60초, template_layer 장면당 20초, bgm_loop 30초 |
+| wall time | style_parts 60초, template_layer 장면당 20초, caption_box 호출당 20초, bgm_loop 30초 |
 | 메모리 | process tree 1GiB. Windows는 Job Object, Linux는 위임된 cgroup v2가 있으면 적용 |
 | stdin | 12MiB |
 | stdout | 48MiB, 한 줄 |
@@ -310,7 +312,7 @@ OS별 경로·파일 배치·보존 세부는 [열린 질문](#저장-경로와-
 
 - template_layer worker는 같은 job 안의 같은 `video revision + template digest`에서만 재사용한다.
 - 다른 영상, 코드 변경, 취소, 오류 뒤에는 worker를 폐기한다. 전역 warm pool은 없다.
-- 결과 조회는 `(owner_id, cache_key)`로 하고, cache key는 code digest, runtime digest, kind, canonical input, seed다. hit면 sandbox를 실행하지 않는다.
+- 결과 조회는 `(owner_id, cache_key)`로 하고, cache key는 code digest, runtime digest, kind, canonical input, seed다. hit면 sandbox를 실행하지 않는다. still과 clip key는 자막 style의 ref를 포함하고, 기본이 아닌 style이면 sandbox runtime digest도 포함한다.
 - 실패하면 이전 package와 이전 BGM을 그대로 둔다.
 
 ### 9.6 거부 시험

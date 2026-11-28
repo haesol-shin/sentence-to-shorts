@@ -20,6 +20,7 @@ from app.tools.sandbox.adapter import SandboxAdapter, SandboxConfig
 from app.tools.sandbox.cache import ResultCache
 from tests.sandbox.conftest import (
     b64,
+    caption_box_input,
     make_request,
     rgba_png,
     sandbox_config_values,
@@ -240,12 +241,58 @@ def test_17_layer_meta_is_passed_through(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
+    ("name", "width", "meta", "reason"),
+    [
+        ("box", 320, {"box": [0, 0, 320, 80], "text_area": [0, 4, 320, 72]}, None),
+        ("layer", 320, {}, "cannot return"),
+        ("box", 319, {}, "must match the canvas"),
+        ("box", 320, {"box": [0, 0, 320, 80]}, "integer rectangles"),
+        (
+            "box",
+            320,
+            {"box": [0, 0, 320, 80], "text_area": [False, 4, 320, 72]},
+            "integer rectangles",
+        ),
+        ("box", 320, {"box": "x" * (64 * 1024)}, "too large"),
+    ],
+)
+def test_caption_box_output_contract(
+    tmp_path: Path, name: str, width: int, meta: dict, reason: str | None
+) -> None:
+    image = b64(rgba_png(width=width, height=80))
+    files = [{"name": name, "media_type": "image/png", "b64": image}]
+    stdout = _line({"type": "result", "request_id": REQUEST_ID, "files": files, "meta": meta})
+    adapter = _adapter(tmp_path, ScriptedLauncher(_result(stdout)))
+    request = make_request("caption_box", "x = 1\n")
+    if reason is not None:
+        with pytest.raises(AppError) as failure:
+            adapter.run(request, cancel=CancelFlag())
+        assert failure.value.code == "sandbox_output_invalid"
+        assert reason in failure.value.detail["reason"]
+    else:
+        output = adapter.run(request, cancel=CancelFlag())
+        assert list(output.files) == ["box"]
+        assert output.meta == {"program": meta, "files": {"box": {"width": 320, "height": 80}}}
+
+
+def test_caption_box_rejects_mismatched_plate_dimensions(tmp_path: Path) -> None:
+    values = caption_box_input(320, 80)
+    values["plate"]["w"] = 319
+    request = make_request("caption_box", "x = 1\n", input=values)
+    launcher = ScriptedLauncher()
+    with pytest.raises(ValueError, match="plate dimensions must match"):
+        _adapter(tmp_path, launcher).run(request, cancel=CancelFlag())
+    assert not launcher.payloads
+
+
+@pytest.mark.parametrize(
     ("kind", "fields"),
     [
         ("style_parts", {"input": {"spec": {}, "character": {}}}),
         ("style_parts", {"input": {"spec": {}, "character": {}, "canvas": {}, "home": "x"}}),
         ("bgm_loop", {"input": {"params": {}, "api_key": "x"}}),
         ("style_parts", {"assets": [{"name": "part", "png_b64": b64(rgba_png())}]}),
+        ("caption_box", {"assets": [{"name": "part", "png_b64": b64(rgba_png())}]}),
         (
             "style_parts",
             {"input": {"spec": {}, "character": {}, "canvas": {"width": 4000, "height": 10}}},

@@ -25,6 +25,7 @@ from app.schemas.script import Script, ScriptSource
 from app.schemas.settings import LockKey, LockState
 from app.schemas.video import (
     ArtifactState,
+    CaptionBoxDescription,
     Measured,
     ReferenceKind,
     ReferenceLook,
@@ -1373,3 +1374,73 @@ def test_tts_publish_failure_after_a_step_down_is_reported_under_the_cpu_key(
         "cache_key": cpu_key,
         "error_code": "tts_failed",
     }
+
+
+def test_caption_style_chat_writes_the_new_box_through_the_templates_route(
+    harness: Harness,
+) -> None:
+    video = harness.video
+    result, _ = _run(
+        harness,
+        JobKind.chat,
+        video=video,
+        input={
+            "base_revision": video.revision,
+            "text": "둥근 말풍선으로",
+            "target": {"scene_id": None, "pointer": "/settings/caption/style"},
+        },
+    )
+    assert harness.templates.caption_box_calls == [("둥근 말풍선으로", None, None)]
+    assert harness.story.interpret_calls == []
+    plan = harness.projects.get_change(result["change_id"])
+    assert [op.path for op in plan.ops] == ["/settings/caption/style"]
+
+
+def test_caption_place_chat_reports_a_clamp_in_the_plan_notes(harness: Harness) -> None:
+    video = harness.video
+    result, _ = _run(
+        harness,
+        JobKind.chat,
+        video=video,
+        input={
+            "base_revision": video.revision,
+            "text": "오른쪽 아래로",
+            "target": {"scene_id": None, "pointer": "/settings/caption/place"},
+        },
+    )
+    assert harness.templates.caption_place_calls == ["오른쪽 아래로"]
+    assert harness.story.interpret_calls == []
+    plan = harness.projects.get_change(result["change_id"])
+    assert [op.path for op in plan.ops] == ["/settings/caption/place"]
+    assert any("안전 영역" in note or "safe area" in note for note in plan.notes)
+
+
+def test_style_with_a_reference_box_pins_one_caption_style_with_the_art_style(
+    harness: Harness,
+) -> None:
+    box = CaptionBoxDescription(shape="card", fill="#ffffff", opacity=0.9, radius=16)
+    look = ReferenceLook(palette=["#112233"], frames=["frame_0.png"], caption_box=box)
+    summary = _look(harness, style=look)
+    video = harness.revise(harness.video, reference=summary)
+    harness.reference.frames = [b"\x89PNG synthetic"]
+    result, _ = _run(
+        harness,
+        JobKind.style,
+        video=video,
+        input={
+            "video_id": video.id,
+            "base_revision": video.revision,
+            "instruction": "참고 그림체",
+            "base_style": None,
+            "use_reference": True,
+        },
+    )
+    assert len(harness.templates.caption_box_calls) == 1
+    _, reference_box, art_style = harness.templates.caption_box_calls[0]
+    assert reference_box == box
+    assert art_style is not None
+    plan = harness.projects.get_change(result["change_id"])
+    assert [op.path for op in plan.ops] == [
+        "/settings/visual/art_style",
+        "/settings/caption/style",
+    ]

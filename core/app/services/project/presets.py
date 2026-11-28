@@ -127,6 +127,7 @@ def _region_leaves(name: str, value: dict[str, Any]) -> Iterator[tuple[str, Any]
         # The place moves between null and an object, so it is one value. Split
         # leaves would write x before w and fail on a null parent.
         yield "/settings/caption/place", value["place"]
+        yield "/settings/caption/style", value["style"]
         for key in ("mode", "font_id", "position", "highlight", "typing_sound"):
             yield from _leaves(f"/settings/caption/{key}", value[key])
         return
