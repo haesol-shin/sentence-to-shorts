@@ -69,6 +69,8 @@ python scripts/check_fast.py
 
 빠른 검사는 커밋한 브랜치가 `main`과 갈라진 뒤 바뀐 경로로 CI와 같은 검사를 같은 인자로 돌립니다. 대상은 brand, 공개 문서, 검사 스크립트 시험, 커밋 글, Ruff, import 계약, ESLint, TypeScript, Vitest, 생성 파일, 그리고 [시험 선택](scripts/select_tests.py)이 고른 시험입니다. 시험이 `tests` 전체를 고르면 로컬에서 돌리지 않고 `CI only`로 남깁니다. 전체 시험은 PR CI가 돕니다. PR 제목과 squash 본문은 `--title-file`과 `--squash-file`로 함께 검사합니다. 검사가 실패하면 이름과 출력 끝을 찍고 0이 아닌 코드로 끝납니다. 커밋하지 않은 변경은 대상이 아니므로 커밋한 뒤에 실행합니다.
 
+Vitest는 바뀐 경로로 고릅니다. `frontend/` 경로가 없으면 `CI only`로 남기고, `frontend/src`와 `frontend/tests`에서 import로 추적할 수 있는 파일만 바뀌면 `vitest related`로 그 파일에 닿는 시험만 돌립니다. 설정, 의존성, setup 파일, 삭제된 파일처럼 추적할 수 없는 변경이 있으면 전체를 돌립니다. 가벼운 검사(brand부터 TypeScript까지) 중 하나가 실패하면 Vitest, 생성 파일, pytest는 건너뛰고 이유를 출력합니다. 종료 코드는 0이 아닙니다. 로컬 검사는 Vitest worker를 `VITEST_MAX_WORKERS=2`로 제한하고, CI는 기본값을 씁니다.
+
 아래 개별 명령은 같은 검사를 직접 돌릴 때 씁니다. 검사 스크립트의 의존성은 실행할 때마다 격리 환경에 설치되므로 `pyproject.toml`이 필요 없습니다.
 
 ```sh

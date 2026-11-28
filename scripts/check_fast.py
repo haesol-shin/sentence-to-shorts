@@ -5,8 +5,9 @@ The checkers and their arguments are the ones in `.github/workflows/ci.yml`, so
 a failure here is a failure in CI. The test targets come from
 `scripts/select_tests.py`, the map that also drives PR CI; when the map selects
 the whole `tests` folder the suite stays in CI, because the full suite is CI's
-job. Commit first: the changed paths and the commit messages are read from the
-commit range.
+job. Vitest runs only what the changed paths reach, and a failed cheap check
+skips the heavy steps; see `vitest_command` and `run_checks`. Commit first:
+the changed paths and the commit messages are read from the commit range.
 
 Usage:
     python scripts/check_fast.py
@@ -38,6 +39,14 @@ GENERATED_PATHS = ("schemas/", "core/openapi.json", "frontend/src/shared/api/gen
 # local equivalent written in CONTRIBUTING.md.
 MARKDOWN_ENV = ("uv", "run", "--with", "markdown-it-py==3.0.0", "python")
 PYTEST_MARKERS = ("-q", "-rfE", "-m", "not sandbox and not models and not realllm")
+# Vitest runs on at most this many workers in the local check; CI keeps vitest's default.
+VITEST_WORKERS = "2"
+# Source kinds `vitest related` follows through the import graph. A changed file of
+# any other kind (a snapshot, a fixture read from disk) may feed a test the graph
+# cannot reach, so it runs the full suite.
+RELATED_SUFFIXES = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".json", ".css")
+# A changed file whose name says it prepares every test can break any of them.
+SETUP_MARKER = "setup"
 
 Runner = Callable[[Sequence[str], Path], tuple[int, str]]
 
@@ -114,6 +123,34 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def vitest_command(paths: list[str]) -> tuple[list[str] | None, str]:
+    """Pick the vitest run for the changed paths: none, related files, or all."""
+    prefix = f"{FRONTEND.name}/"
+    changed = [path for path in paths if path.startswith(prefix)]
+    if not changed:
+        return None, "CI only (no frontend path changed)"
+    env = ["env", f"VITEST_MAX_WORKERS={VITEST_WORKERS}"]
+    related = []
+    for path in changed:
+        inside = path[len(prefix) :]
+        followed = inside.startswith(("src/", "tests/")) and inside.endswith(
+            RELATED_SUFFIXES
+        )
+        if (
+            not followed
+            or SETUP_MARKER in inside.rsplit("/", 1)[-1].lower()
+            or not (ROOT / path).is_file()
+        ):
+            reason = f"full suite ({path} is not followed by related mode)"
+            return [*env, "npm", "test"], reason
+        related.append(inside)
+    command = ["npm", "exec", "--offline", "--yes=false", "--", "vitest", "related"]
+    return (
+        [*env, *command, "--run", "--passWithNoTests", *related],
+        f"related to {len(related)} changed file(s)",
+    )
+
+
 def changed_paths(ref: str, runner: Runner) -> tuple[list[str], str, str | None]:
     """Return the paths the branch changed since ref, its merge base, and an error."""
     code, output = runner(["git", "merge-base", "HEAD", ref], ROOT)
@@ -122,11 +159,13 @@ def changed_paths(ref: str, runner: Runner) -> tuple[list[str], str, str | None]
         return [], "", f"cannot resolve --base {ref}"
     base = output.strip()
     print(f"base {base}")
-    code, output = runner(["git", "diff", "--name-only", f"{base}...HEAD"], ROOT)
+    code, output = runner(
+        ["git", "diff", "--no-renames", "--name-only", "-z", f"{base}...HEAD"], ROOT
+    )
     if code:
         print(output.rstrip())
         return [], base, "cannot list the changed paths"
-    paths = [line for line in output.splitlines() if line.strip()]
+    paths = [path for path in output.split("\0") if path]
     print(f"changed paths: {len(paths)}")
     return paths, base, None
 
@@ -181,7 +220,20 @@ def run_checks(
     checks.run("import contracts", ["poetry", "run", "lint-imports"], CORE)
     checks.run("eslint", ["npm", "run", "lint"], FRONTEND)
     checks.run("typescript", ["npm", "run", "typecheck"], FRONTEND)
-    checks.run("vitest", ["npm", "test"], FRONTEND)
+    if checks.failed:
+        reason = f"skipped after a failed check ({', '.join(checks.failed)})"
+        for name in (
+            "vitest", "generated schemas", "generated api types", "generated files", "tests"
+        ):
+            checks.skip(name, reason)
+        return
+
+    vitest_argv, vitest_reason = vitest_command(paths)
+    if vitest_argv is None:
+        checks.skip("vitest", vitest_reason)
+    else:
+        print(f"== vitest: {vitest_reason}")
+        checks.run("vitest", vitest_argv, FRONTEND)
 
     if checks.run(
         "generated schemas",

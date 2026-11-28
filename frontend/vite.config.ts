@@ -34,5 +34,9 @@ export default defineConfig({
     environment: 'jsdom',
     // Part tests live next to their part so the acceptance command can name the folder.
     include: ['tests/**/*.test.{ts,tsx}', 'src/components/**/*.test.{ts,tsx}'],
+    // The local check sets this to share a small host; unset keeps vitest's default.
+    ...(process.env.VITEST_MAX_WORKERS
+      ? { maxWorkers: Number(process.env.VITEST_MAX_WORKERS) }
+      : {}),
   },
 });

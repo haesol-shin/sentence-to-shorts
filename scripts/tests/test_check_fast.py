@@ -30,7 +30,7 @@ def fake_runner(overrides=None, capture=None, select="tests/contracts\n"):
         if "merge-base" in argv:
             return 0, f"{SHA}\n"
         if "--name-only" in argv:
-            return 0, "docs/INTENT.md\n"
+            return 0, "docs/INTENT.md\0"
         if check_fast.SELECTOR in argv:
             return 0, select
         return 0, ""
@@ -121,6 +121,87 @@ class CheckFastTest(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("cannot resolve --base origin/main", out)
         self.assertFalse([argv for argv, _ in runner.calls if "pytest" in argv])
+
+    def vitest_calls(self, runner):
+        return [
+            argv
+            for argv, cwd in runner.calls
+            if cwd == check_fast.FRONTEND
+            and ("vitest" in argv or argv[-2:] == ["npm", "test"])
+        ]
+
+    def run_with_paths(self, *paths, overrides=None):
+        replies = {"--name-only": (0, "".join(f"{path}\0" for path in paths))}
+        runner = fake_runner({**replies, **(overrides or {})})
+        code, out = self.run_fast(runner=runner)
+        return code, out, runner
+
+    def test_no_frontend_path_skips_vitest(self):
+        code, out, runner = self.run_with_paths("core/app/main.py")
+        self.assertEqual(code, 0)
+        self.assertIn("== vitest: CI only", out)
+        self.assertFalse(self.vitest_calls(runner))
+
+    def test_frontend_source_change_runs_related_tests_on_two_workers(self):
+        code, out, runner = self.run_with_paths(
+            "frontend/src/shared/lib/utils.ts",
+            "frontend/src/shared/api/generated/openapi.d.ts",
+        )
+        self.assertEqual(code, 0)
+        (argv,) = self.vitest_calls(runner)
+        self.assertEqual(argv[:2], ["env", "VITEST_MAX_WORKERS=2"])
+        self.assertEqual(
+            argv[argv.index("related") :],
+            [
+                "related",
+                "--run",
+                "--passWithNoTests",
+                "src/shared/lib/utils.ts",
+                "src/shared/api/generated/openapi.d.ts",
+            ],
+        )
+
+    def test_config_package_and_setup_changes_run_the_full_suite(self):
+        for path in (
+            "frontend/vite.config.ts",
+            "frontend/package.json",
+            "frontend/package-lock.json",
+            "frontend/src/shared/ui/tokens.css.snap",
+            "frontend/tests/support/test-setup.ts",
+            "frontend/src/gone/deleted.ts",
+        ):
+            with self.subTest(path=path):
+                code, out, runner = self.run_with_paths(
+                    "frontend/src/shared/lib/utils.ts", path
+                )
+                (argv,) = self.vitest_calls(runner)
+                self.assertEqual(argv[-2:], ["npm", "test"])
+                self.assertNotIn("related", argv)
+                self.assertIn("full suite", out)
+
+    def test_failed_cheap_check_skips_the_heavy_steps(self):
+        for failing in (
+            "scripts/check_brand.py",
+            "scripts/check_public_docs.py",
+            check_fast.COMMIT_CHECK,
+            "ruff",
+            "lint-imports",
+            "lint",
+            "typecheck",
+        ):
+            with self.subTest(failing=failing):
+                code, out, runner = self.run_with_paths(
+                    "frontend/src/shared/lib/utils.ts",
+                    overrides={failing: (1, "boom\n")},
+                )
+                self.assertEqual(code, 1)
+                self.assertIn("fast check: failed", out)
+                self.assertIn("== generated schemas: skipped after a failed check", out)
+                self.assertIn("== vitest: skipped after a failed check", out)
+                self.assertIn("== tests: skipped after a failed check", out)
+                heavy = ("../scripts/export_schemas.py", "gen:api", "pytest", check_fast.SELECTOR)
+                for argv, _ in runner.calls:
+                    self.assertTrue(set(argv).isdisjoint(heavy), argv)
 
 
 if __name__ == "__main__":
