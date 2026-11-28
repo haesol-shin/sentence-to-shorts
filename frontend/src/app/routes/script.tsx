@@ -1,5 +1,7 @@
 import { recommendedSceneCount } from '@/features/concept/model';
+import { getConceptSnapshot } from '@/features/concept/store';
 import type { Language } from '@/shared/api/client';
+import { configureScriptMockSettings } from '@/features/script/fixture';
 import { configureScriptSceneCounts, DURATIONS } from '@/features/script/model';
 import { ScriptScreen } from '@/features/script/script-screen';
 import type { ScriptDraftState } from '@/features/script/types';
@@ -7,6 +9,12 @@ import type { ScriptDraftState } from '@/features/script/types';
 // The concept screen owns the target length to scene count rule. The app reads
 // it once here instead of keeping a second copy in the script feature.
 configureScriptSceneCounts(DURATIONS.map((seconds) => recommendedSceneCount(seconds)));
+configureScriptMockSettings(() => {
+  const settings = getConceptSnapshot()?.document.settings;
+  return settings === undefined
+    ? null
+    : { target_duration_s: settings.target_duration_s, scene_count: settings.format.scene_count };
+});
 
 /**
  * The script step: lines, their order and their tone, behind one confirm gate.

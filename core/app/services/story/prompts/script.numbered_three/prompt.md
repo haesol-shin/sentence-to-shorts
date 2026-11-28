@@ -44,7 +44,7 @@ humor가 light이면 요약에 짧은 비유나 과장 하나를 넣는다. humo
 - hook은 무엇을 세 가지 볼지 약속하고 계속 볼 이유를 만든다.
 - first, second, third는 각각 기준 하나를 설명하고 예시 하나를 붙인다.
 - recap은 세 가지를 한 문장으로 묶어 끝낸다.
-- 30초는 beat마다 한 문장, 60초와 120초는 beat마다 두 문장까지 쓴다. scene_count는 장면 수 목표이고 문장을 나누는 기준으로 쓴다.
+- 30초는 beat마다 한 문장, 60초와 120초는 beat마다 두 문장까지 쓴다. scene_count는 장면 수다. 모든 beat의 문장 수를 합쳐 scene_count 이상으로 쓴다.
 
 # Rules
 
@@ -63,7 +63,7 @@ humor가 light이면 요약에 짧은 비유나 과장 하나를 넣는다. humo
 - register: 대사의 말투다.
 - humor: 농담의 정도다.
 - target_duration_s: 30, 60, 120이다.
-- scene_count: 장면 수 목표다.
+- scene_count: 장면 수다.
 - topic: 영상 주제다.
 - material: 붙여넣은 재료 글 목록이다.
 - extra_instructions: 사용자의 추가 요청 목록이다.

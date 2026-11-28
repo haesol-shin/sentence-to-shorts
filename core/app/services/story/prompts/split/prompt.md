@@ -38,7 +38,7 @@ beat_label은 영상 언어의 짧은 명사구로 쓴다. 화면 진행 표시�
 - 장면 하나에는 줄을 1개에서 4개까지 넣는다. 같은 화면에서 이어져도 되는 줄을 함께 둔다.
 - beat_id는 beats 데이터의 id만 쓴다. 장면의 beat 순서는 beats 순서를 거꾸로 가지 않는다.
 - numbered_lines의 beat_id는 그 줄의 원래 beat다. 장면의 beat_id는 그 장면에 넣은 줄의 beat_id와 같아야 한다. 줄의 beat_id가 null이면 장면이 beat를 고른다.
-- scene_count는 장면 수 목표다. 줄 수가 모자라면 목표보다 적게 만들어도 된다.
+- scene_count만큼 장면을 정확히 만든다. 줄 수가 scene_count보다 적을 때만 줄 수만큼 만든다.
 - beat_label은 영상 언어로 쓰고 한국어는 8자, 영어는 18자 안팎의 몇 단어로 줄인다. 화면 진행 표시 칸이 좁아 길면 잘린다. 어떤 경우에도 40자를 넘기지 않는다. 같은 beat를 여러 장면으로 나누면 장면마다 다른 label을 쓴다.
 - target_duration_s는 장면 길이 감각에 쓴다. 30초는 한 장면에 한 줄을 우선하고 60초와 120초는 두 줄까지 묶는다.
 
@@ -48,7 +48,7 @@ beat_label은 영상 언어의 짧은 명사구로 쓴다. 화면 진행 표시�
 - story_structure: 지금 이야기 틀이다.
 - beats: beat_id와 label 목록이다.
 - numbered_lines: index와 text와 beat_id 목록이다. text는 확정된 대사이고 beat_id는 그 줄의 원래 beat이거나 null이다.
-- scene_count: 장면 수 목표다.
+- scene_count: 장면 수다.
 - target_duration_s: 30, 60, 120이다.
 
 # Output

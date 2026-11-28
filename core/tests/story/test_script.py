@@ -224,7 +224,12 @@ def _run(
 def test_criterion_3_story_structures_have_different_beat_orders() -> None:
     orders: list[tuple[str, ...]] = []
     for structure, (script, split) in CASES.items():
-        video = make_video(story_structure=structure, script=None, origins={})
+        video = make_video(
+            story_structure=structure,
+            script=None,
+            origins={},
+            scene_count=len(split["scenes"]),
+        )
         op, _ = _run(video, script, split)
         orders.append(tuple(scene.beat_id for scene in op.scenes))
     assert len(set(orders)) == 3
@@ -246,7 +251,9 @@ def test_criterion_3_script_routes_read_different_prompts() -> None:
         NUMBERED_SPLIT,
     )
     analogy, analogy_llm = _run(
-        make_video(story_structure="single_analogy", script=None, origins={}),
+        make_video(
+            story_structure="single_analogy", script=None, origins={}, scene_count=4
+        ),
         ANALOGY_SCRIPT,
         ANALOGY_SPLIT,
     )
@@ -274,7 +281,7 @@ def test_criterion_18_material_keywords_enter_the_script() -> None:
 
 def test_criterion_18_user_script_sentences_stay_verbatim() -> None:
     script = {"source": "user", "raw_text": RAW_USER_SCRIPT, "title": "합성 대본"}
-    video = make_video(script=script)
+    video = make_video(script=script, scene_count=3)
     op, llm = _run(video, USER_SPLIT)
     assert [request.task for request in llm.requests] == [LlmTask.split]
     texts = [line.display_text for scene in op.scenes for line in scene.lines]
@@ -356,3 +363,100 @@ def test_split_request_carries_each_line_beat() -> None:
     write_script(video, llm=llm, catalog=StubCatalog(), ctx=FakeContext())
     split_request = llm.requests[1]
     assert '"beat_id": "first"' in split_request.parts[0].text
+
+
+def _three_lines(beat: dict[str, Any]) -> dict[str, Any]:
+    return {"beat_id": beat["beat_id"], "lines": beat["lines"] * 2}
+
+
+def test_script_with_too_few_lines_is_repaired_once() -> None:
+    long_script = {
+        "title": NUMBERED_SCRIPT["title"],
+        "beats": [_three_lines(beat) for beat in NUMBERED_SCRIPT["beats"]],
+    }
+    split = {
+        "scenes": [
+            {"beat_id": beat["beat_id"], "beat_label": "장면", "line_indices": [2 * i + j]}
+            for i, beat in enumerate(NUMBERED_SCRIPT["beats"])
+            for j in range(2)
+        ]
+    }
+    video = make_video(story_structure="numbered_three", script=None, origins={}, scene_count=10)
+    op, llm = _run(video, NUMBERED_SCRIPT, long_script, split)
+    assert [request.task for request in llm.requests] == [
+        LlmTask.script,
+        LlmTask.script,
+        LlmTask.split,
+    ]
+    assert "validation_error" in llm.requests[1].parts[-1].text
+    assert len(op.scenes) == 10
+
+
+def test_split_with_another_count_is_repaired_once() -> None:
+    long_script = {
+        "title": NUMBERED_SCRIPT["title"],
+        "beats": [_three_lines(beat) for beat in NUMBERED_SCRIPT["beats"]],
+    }
+    beats = NUMBERED_SCRIPT["beats"]
+    ten = {
+        "scenes": [
+            {"beat_id": beat["beat_id"], "beat_label": "장면", "line_indices": [2 * i + j]}
+            for i, beat in enumerate(beats)
+            for j in range(2)
+        ]
+    }
+    five = {
+        "scenes": [
+            {"beat_id": beat["beat_id"], "beat_label": "장면", "line_indices": [2 * i, 2 * i + 1]}
+            for i, beat in enumerate(beats)
+        ]
+    }
+    video = make_video(story_structure="numbered_three", script=None, origins={}, scene_count=5)
+    op, llm = _run(video, long_script, ten, five)
+    assert [request.task for request in llm.requests] == [
+        LlmTask.script,
+        LlmTask.split,
+        LlmTask.split,
+    ]
+    assert len(op.scenes) == 5
+
+
+def _count_patches(ops: list[Any]) -> list[Any]:
+    return [op for op in ops if op.op == "set" and op.path == "/settings/format/scene_count"]
+
+
+def test_unrepaired_count_patches_the_setting_with_card_origin() -> None:
+    video = make_video(story_structure="numbered_three", script=None, origins={}, scene_count=8)
+    llm = RecordingLlm(NUMBERED_SCRIPT, NUMBERED_SCRIPT, NUMBERED_SPLIT)
+    ops = write_script(video, llm=llm, catalog=StubCatalog(), ctx=FakeContext())
+    patches = _count_patches(ops)
+    assert [(op.value, op.origin.value) for op in patches] == [(5, "card")]
+    assert len(ops[0].scenes) == 5
+
+
+@pytest.mark.parametrize("origin", ["user", "reference", "preset"])
+def test_higher_origin_count_is_kept_when_the_script_differs(
+    origin: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    video = make_video(
+        story_structure="numbered_three",
+        script=None,
+        origins={"/format/scene_count": origin},
+        scene_count=8,
+    )
+    llm = RecordingLlm(NUMBERED_SCRIPT, NUMBERED_SCRIPT, NUMBERED_SPLIT)
+    with caplog.at_level("WARNING"):
+        ops = write_script(video, llm=llm, catalog=StubCatalog(), ctx=FakeContext())
+    assert _count_patches(ops) == []
+    assert f"a {origin} value of 8" in caplog.text
+
+
+def test_matching_count_adds_no_patch() -> None:
+    video = make_video(story_structure="numbered_three", script=None, origins={}, scene_count=5)
+    ops = write_script(
+        video,
+        llm=RecordingLlm(NUMBERED_SCRIPT, NUMBERED_SPLIT),
+        catalog=StubCatalog(),
+        ctx=FakeContext(),
+    )
+    assert len(ops) == 1

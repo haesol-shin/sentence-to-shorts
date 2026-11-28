@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'vitest';
 
 import { MockScriptApi, ScriptApiError } from '@/features/script/api';
+import { configureScriptMockSettings } from '@/features/script/fixture';
 import {
   applyRewrite,
   applyTone,
@@ -185,6 +186,17 @@ describe('script state', () => {
     expect(snapshot().document.id).toBe('v_language');
     expect(snapshot().document.language).toBe('ko');
     expect(snapshot().document.scenes[id]?.lines[0]?.display_text).toBe('언어를 바꿔도 남아요.');
+  });
+
+  test('test_10a_mock_script_opens_with_the_concept_length_and_scene_count', async () => {
+    configureScriptMockSettings(() => ({ target_duration_s: 60, scene_count: 8 }));
+    try {
+      await ensureScript('ko', { id: 'v_concept_settings', topic: null, script: null });
+      expect(snapshot().document.target_duration_s).toBe(60);
+      expect(snapshot().document.scene_order).toHaveLength(8);
+    } finally {
+      configureScriptMockSettings(() => null);
+    }
   });
 
   test('test_10a_length_applies_the_concept_scene_count', () => {

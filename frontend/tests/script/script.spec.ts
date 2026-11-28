@@ -51,10 +51,10 @@ async function closeSceneCheck(page: Page): Promise<void> {
 test('test_10a_the_script_step_has_the_document_head_and_one_step_button', async ({ page }) => {
   const screen = await openScript(page);
 
-  await expect(screen.getByRole('combobox', { name: '길이', exact: true })).toBeVisible();
-  await expect(screen.getByRole('combobox', { name: '장면 수', exact: true })).toBeVisible();
+  await expect(screen.getByRole('combobox', { name: '길이', exact: true })).toContainText('1분');
+  await expect(screen.getByRole('combobox', { name: '장면 수', exact: true })).toContainText('8');
   await expect(screen.getByRole('combobox', { name: '말투', exact: true })).toBeVisible();
-  await expect(sceneCards(screen)).toHaveCount(5);
+  await expect(sceneCards(screen)).toHaveCount(8);
 
   const first = sceneCards(screen).first();
   await expect(first.getByRole('button', { name: '장면 1 순서 바꾸기', exact: true })).toBeVisible();
@@ -188,8 +188,9 @@ test('test_8a_length_waits_for_confirmation_before_changing_the_scene_count', as
   await screen.getByRole('combobox', { name: '길이', exact: true }).click();
   await page.getByLabel('2분', { exact: true }).click();
   const review = screen.locator('[data-slot="script-settings-review"]');
-  await expect(review).toContainText('30초 → 2분');
-  await expect(sceneCards(screen)).toHaveCount(5);
+  await expect(review).toContainText('1분 → 2분');
+  await expect(review).toContainText('장면 8개 → 11개');
+  await expect(sceneCards(screen)).toHaveCount(8);
   await review.getByRole('button', { name: '대본 다시 쓰기' }).click();
 
   await expect(sceneCards(screen)).toHaveCount(11);
@@ -353,7 +354,7 @@ test('test_26_the_tone_field_shows_the_old_and_new_line_and_blocks_the_step', as
 
   const previews = screen.locator('[data-slot="script-tone-preview"]');
   await expect(previews).toHaveCount(5);
-  // Every scene now keeps a line the tone changes, so the second scene holds this pair.
+  // Only scenes with lines affected by the tone change get previews.
   const second = previews.nth(1);
   await expect(second.locator('del').first()).toContainText('길 찾기가 어려워요');
   await expect(second).toContainText('길 찾기가 어렵습니다');

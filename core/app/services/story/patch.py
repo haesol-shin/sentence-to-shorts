@@ -411,12 +411,17 @@ def complete_json(
     max_output_tokens: int,
     ctx: JobContext,
     check: Callable[[ModelT], None] | None = None,
+    advise: Callable[[ModelT], None] | None = None,
 ) -> ModelT:
     """Call the model once, repair an invalid output once, then fail.
 
     A second invalid output is a job error, never a silent empty result. The
     repair instruction and validation error follow the original data so the
     system prompt and output schema stay the same on both requests.
+
+    ``advise`` is a soft check: a failure asks for the same one repair, but a
+    repaired output that still fails it is accepted, and so is the first output
+    when the repair breaks ``check``. The caller reconciles what is left.
     """
     system = load_prompt(route, data)
     parts = [LlmPart(kind="text", text=_data_text(data))]
@@ -428,36 +433,45 @@ def complete_json(
         output_schema=model.model_json_schema(),
         max_output_tokens=max_output_tokens,
     )
-    first = llm.complete(
-        request,
-        owner_id=ctx.owner_id,
-        cancel=ctx.cancel,
-        deadline=ctx.deadline,
-        on_request=ctx.record_request,
-    )
-    ctx.record_usage(first.usage)
-    try:
-        return _validated(first, model, check)
-    except ValueError as error:
-        second_request = LlmRequest(
-            task=task,
-            route=route,
-            system=system,
-            parts=[*parts, LlmPart(kind="text", text=REPAIR_NOTE + _repair_text(error))],
-            output_schema=request.output_schema,
-            max_output_tokens=max_output_tokens,
-        )
-        second = llm.complete(
-            second_request,
+
+    def call(req: LlmRequest) -> LlmResult:
+        result = llm.complete(
+            req,
             owner_id=ctx.owner_id,
             cancel=ctx.cancel,
             deadline=ctx.deadline,
             on_request=ctx.record_request,
         )
-        ctx.record_usage(second.usage)
+        ctx.record_usage(result.usage)
+        return result
+
+    def repair(error: ValueError) -> LlmResult:
+        return call(
+            LlmRequest(
+                task=task,
+                route=route,
+                system=system,
+                parts=[*parts, LlmPart(kind="text", text=REPAIR_NOTE + _repair_text(error))],
+                output_schema=request.output_schema,
+                max_output_tokens=max_output_tokens,
+            )
+        )
+
+    first = call(request)
+    kept: ModelT | None = None
+    try:
+        kept = _validated(first, model, check)
+        if advise is None:
+            return kept
+        advise(kept)
+        return kept
+    except ValueError as error:
+        second = repair(error)
         try:
             return _validated(second, model, check)
         except ValueError as final:
+            if kept is not None:
+                return kept
             raise AppError(
                 "llm_invalid_output", detail={"task": task.value, "route": route}
             ) from final

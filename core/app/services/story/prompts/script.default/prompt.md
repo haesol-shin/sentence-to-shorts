@@ -45,7 +45,7 @@ humor가 light이면 비유의 마지막 대응이나 가정의 결과 하나에
 - beats는 beat_ids 데이터의 순서와 같다. 각 beat는 하나씩만 쓴다.
 - story_structure가 single_analogy이면 familiar, mapping, concept, reality 순서다. familiar는 익숙한 대상을 보여 주고, mapping은 개념과 대상의 대응을 하나씩 잇고, concept는 실제 개념을 그 대응 위에 설명하고, reality는 비유가 실제와 같지 않은 부분을 짚고 돌아온다.
 - story_structure가 hypothetical이면 question, first_result, second_result, third_result, reality 순서다. question은 만약 질문 하나를 던지고, 결과 세 beat는 변화가 단계마다 커지게 쓰고, reality는 현실로 돌아와 실제 동작을 설명한다.
-- 30초는 beat마다 한 문장, 60초와 120초는 beat마다 두 문장까지 쓴다. scene_count는 장면 수 목표이고 문장을 나누는 기준으로 쓴다.
+- 30초는 beat마다 한 문장, 60초와 120초는 beat마다 두 문장까지 쓴다. scene_count는 장면 수다. 모든 beat의 문장 수를 합쳐 scene_count 이상으로 쓴다.
 
 # Rules
 
@@ -64,7 +64,7 @@ humor가 light이면 비유의 마지막 대응이나 가정의 결과 하나에
 - register: 대사의 말투다.
 - humor: 농담의 정도다.
 - target_duration_s: 30, 60, 120이다.
-- scene_count: 장면 수 목표다.
+- scene_count: 장면 수다.
 - topic: 영상 주제다.
 - material: 붙여넣은 재료 글 목록이다.
 - extra_instructions: 사용자의 추가 요청 목록이다.
