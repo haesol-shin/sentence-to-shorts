@@ -4,14 +4,13 @@ The program draws every asset the manifest declares. The stored grids in
 ``sprites/`` were encoded from this program, so a package without them can be
 redrawn in the sandbox with the same shapes and colours.
 
-Character parts share one 90x128 design canvas, drawn at three pixels per cell
-for the 1080x1920 canvas; backgrounds use a 72x128 design canvas. Every piece is
-a shadow and then the cut paper, which is what separates this style from the
-flat one.
+Pillow draws the original design coordinates directly onto four-times denser
+part and background grids, with a soft shadow under each paper piece.
 """
 
 from PIL import Image, ImageDraw, ImageFilter
 
+DENSITY = 4
 PART = (90, 128)
 SCENE = (72, 128)
 
@@ -46,31 +45,46 @@ def _new(size):
     return Image.new("RGBA", size, (0, 0, 0, 0))
 
 
+def _box(box):
+    left, top, right, bottom = box
+    # Pillow includes both endpoints, so keep the far edge of each design cell.
+    return (
+        left * DENSITY, top * DENSITY,
+        (right + 1) * DENSITY - 1, (bottom + 1) * DENSITY - 1,
+    )
+
+
+def _points(points):
+    return [(x * DENSITY, y * DENSITY) for x, y in points]
+
+
 def _base(image, color):
-    ImageDraw.Draw(image).rectangle((0, 0, SCENE[0], SCENE[1]), fill=color)
+    image.paste(color, (0, 0, *image.size))
 
 
 def _shape(draw, kind, box, fill):
     if kind == "ellipse":
-        draw.ellipse(box, fill=fill)
+        draw.ellipse(_box(box), fill=fill)
     elif kind == "rect":
-        draw.rectangle(box, fill=fill)
+        draw.rectangle(_box(box), fill=fill)
     elif kind == "round":
-        draw.rounded_rectangle(box, 6, fill=fill)
+        draw.rounded_rectangle(_box(box), 6 * DENSITY, fill=fill)
     elif kind == "line":
-        draw.line(box, fill=fill, width=8)
-        for point in box:
-            draw.ellipse((point[0] - 4, point[1] - 4, point[0] + 4, point[1] + 4), fill=fill)
+        draw.line(_points(box), fill=fill, width=8 * DENSITY)
+        for x, y in box:
+            draw.ellipse(_box((x - 4, y - 4, x + 4, y + 4)), fill=fill)
     elif kind == "chord":
-        draw.chord(box, 180, 360, fill=fill)
+        draw.chord(_box(box), 180, 360, fill=fill)
     else:
-        draw.polygon(box, fill=fill)
+        draw.polygon(_points(box), fill=fill)
 
 
-def _piece(image, kind, box, fill, *, blur=2, offset=(1, 1)):
+def _piece(image, kind, box, fill, *, blur=2):
     shadow = _new(image.size)
     _shape(ImageDraw.Draw(shadow), kind, box, SHADOW)
-    image.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(blur)), offset)
+    image.alpha_composite(
+        shadow.filter(ImageFilter.GaussianBlur(blur * DENSITY)), (DENSITY, DENSITY)
+    )
     _shape(ImageDraw.Draw(image), kind, box, fill)
 
 
@@ -80,9 +94,9 @@ def _head(image, glasses=False):
         _piece(image, "ellipse", (left, 30, left + 6, 40), SKIN)
     draw = ImageDraw.Draw(image)
     if glasses:
-        draw.rounded_rectangle((31, 32, 41, 42), 3, outline=INK, width=2)
-        draw.rounded_rectangle((49, 32, 59, 42), 3, outline=INK, width=2)
-        draw.line((41, 37, 49, 37), fill=INK, width=2)
+        draw.rounded_rectangle(_box((31, 32, 41, 42)), 3 * DENSITY, outline=INK, width=2 * DENSITY)
+        draw.rounded_rectangle(_box((49, 32, 59, 42)), 3 * DENSITY, outline=INK, width=2 * DENSITY)
+        draw.line(_points(((41, 37), (49, 37))), fill=INK, width=2 * DENSITY)
 
 
 def _body(image, round_body=False):
@@ -103,20 +117,21 @@ def _body(image, round_body=False):
 def _arm(image, start, end, radius=4):
     _piece(image, "line", (start, end), SHIRT)
     draw = ImageDraw.Draw(image)
-    draw.ellipse((start[0] - radius, start[1] - radius,
-                  start[0] + radius, start[1] + radius), fill=SHIRT)
-    draw.ellipse((end[0] - 4, end[1] - 4, end[0] + 4, end[1] + 4), fill=SKIN)
+    x, y = start
+    draw.ellipse(_box((x - radius, y - radius, x + radius, y + radius)), fill=SHIRT)
+    x, y = end
+    draw.ellipse(_box((x - 4, y - 4, x + 4, y + 4)), fill=SKIN)
 
 
 def _expression(draw, surprised=False):
     if surprised:
-        draw.ellipse((34, 33, 40, 40), fill=INK)
-        draw.ellipse((50, 33, 56, 40), fill=INK)
-        draw.ellipse((42, 44, 48, 51), fill=MOUTH)
+        draw.ellipse(_box((34, 33, 40, 40)), fill=INK)
+        draw.ellipse(_box((50, 33, 56, 40)), fill=INK)
+        draw.ellipse(_box((42, 44, 48, 51)), fill=MOUTH)
         return
-    draw.ellipse((35, 34, 39, 39), fill=INK)
-    draw.ellipse((51, 34, 55, 39), fill=INK)
-    draw.arc((38, 38, 52, 48), 20, 160, fill=MOUTH, width=2)
+    draw.ellipse(_box((35, 34, 39, 39)), fill=INK)
+    draw.ellipse(_box((51, 34, 55, 39)), fill=INK)
+    draw.arc(_box((38, 38, 52, 48)), 20, 160, fill=MOUTH, width=2 * DENSITY)
 
 
 def _hair(image, long_hair=False):
@@ -150,7 +165,7 @@ def _prop(image, mug=False):
         _piece(image, "round", (68, 94, 80, 108), "#6E8FA8")
         _piece(image, "ellipse", (70, 95, 78, 99), "#4A3628")
         draw = ImageDraw.Draw(image)
-        draw.ellipse((78, 96, 86, 104), outline="#6E8FA8", width=2)
+        draw.ellipse(_box((78, 96, 86, 104)), outline="#6E8FA8", width=2 * DENSITY)
         return
     _piece(image, "round", (4, 92, 26, 108), "#B5654A")
     _piece(image, "rect", (9, 94, 23, 106), "#FFF6E5")
@@ -186,9 +201,9 @@ CHARACTER = {
 
 
 def _character(asset_id):
-    image = _new(PART)
+    image = _new((PART[0] * DENSITY, PART[1] * DENSITY))
     CHARACTER[asset_id](image)
-    return image.resize((PART[0] * 3, PART[1] * 3), Image.Resampling.NEAREST)
+    return image
 
 
 def _park(image):
@@ -213,15 +228,15 @@ def _village(image):
         _piece(image, "polygon", [(left - 2, top), (left + 8, top - 10),
                                   (left + 19, top)], roof)
         draw = ImageDraw.Draw(image)
-        draw.rectangle((left + 3, top + 6, left + 7, top + 12), fill="#A88B5C")
-        draw.rectangle((left + 10, top + 6, left + 14, top + 12), fill="#A88B5C")
+        draw.rectangle(_box((left + 3, top + 6, left + 7, top + 12)), fill="#A88B5C")
+        draw.rectangle(_box((left + 10, top + 6, left + 14, top + 12)), fill="#A88B5C")
 
 
 def _stars(image):
     _base(image, NIGHT)
     draw = ImageDraw.Draw(image)
     for x, y in ((8, 12), (18, 30), (32, 10), (44, 36), (58, 18), (64, 48), (24, 52)):
-        draw.ellipse((x, y, x + 2, y + 2), fill=STAR)
+        draw.ellipse(_box((x, y, x + 2, y + 2)), fill=STAR)
     _piece(image, "ellipse", (50, 12, 64, 26), MOON)
     _piece(image, "ellipse", (0, 58, 72, 102), "#2E3648")
 
@@ -242,7 +257,7 @@ def _city_night(image):
         _piece(image, "rect", (left, top, left + width, 66), "#3A4152")
         draw = ImageDraw.Draw(image)
         for row in range(top + 6, 62, 10):
-            draw.rectangle((left + 3, row, left + 6, row + 3), fill=MOON)
+            draw.rectangle(_box((left + 3, row, left + 6, row + 3)), fill=MOON)
     _piece(image, "rect", (0, 64, SCENE[0], SCENE[1]), DEEP)
 
 
@@ -250,7 +265,7 @@ def _moon_hill(image):
     _base(image, DEEP)
     draw = ImageDraw.Draw(image)
     for x, y in ((10, 20), (26, 8), (40, 30), (60, 22), (16, 44)):
-        draw.ellipse((x, y, x + 2, y + 2), fill=STAR)
+        draw.ellipse(_box((x, y, x + 2, y + 2)), fill=STAR)
     _piece(image, "ellipse", (48, 10, 64, 26), MOON)
     _piece(image, "ellipse", (-16, 54, 80, 106), "#2E3648")
 
@@ -270,7 +285,7 @@ def _arcade(image):
     _piece(image, "ellipse", (24, 10, 48, 34), "#E86F4C")
     draw = ImageDraw.Draw(image)
     for row in range(30, 64, 8):
-        draw.rectangle((0, row, SCENE[0], row + 2), fill="#A8703F")
+        draw.rectangle(_box((0, row, SCENE[0], row + 2)), fill="#A8703F")
     _piece(image, "rect", (0, 64, SCENE[0], SCENE[1]), "#402828")
 
 
@@ -284,14 +299,14 @@ def _castle(image):
         _piece(image, "polygon", [(left - 2, 58 - height), (left + 5, 48 - height),
                                   (left + 12, 58 - height)], STONE)
     draw = ImageDraw.Draw(image)
-    draw.rectangle((32, 50, 40, 70), fill="#140F1A")
+    draw.rectangle(_box((32, 50, 40, 70)), fill="#140F1A")
 
 
 def _space(image):
     _base(image, "#171C29")
     draw = ImageDraw.Draw(image)
     for x, y in ((8, 10), (22, 26), (36, 8), (50, 30), (64, 14), (16, 44), (58, 40)):
-        draw.ellipse((x, y, x + 2, y + 2), fill=STAR)
+        draw.ellipse(_box((x, y, x + 2, y + 2)), fill=STAR)
     _piece(image, "ellipse", (12, 24, 36, 48), "#6E8FA8")
     _piece(image, "ellipse", (44, 14, 60, 30), "#C2554A")
     _piece(image, "ellipse", (-24, 66, 96, 160), "#2A3040")
@@ -312,7 +327,7 @@ BACKGROUNDS = {
 
 
 def _background(asset_id):
-    image = _new(SCENE)
+    image = _new((SCENE[0] * DENSITY, SCENE[1] * DENSITY))
     BACKGROUNDS[asset_id](image)
     return image
 
@@ -339,8 +354,7 @@ def _icon(asset_id):
 
 
 def build_assets(spec, character, canvas, seed):
-    """Every asset of the manifest, drawn at the declared canvas size."""
-    width, height = int(canvas["width"]), int(canvas["height"])
+    """Draw the manifest's assets at their native grid sizes."""
     images = {}
     for slot_ids in spec["parts"].values():
         for asset_id in slot_ids:
@@ -348,9 +362,7 @@ def build_assets(spec, character, canvas, seed):
     for asset_id in [*spec["expressions"], *spec["poses"]]:
         images[asset_id] = _character(asset_id)
     for asset_id in spec["backgrounds"]:
-        images[asset_id] = _background(asset_id).resize(
-            (width, height), Image.Resampling.NEAREST
-        )
+        images[asset_id] = _background(asset_id)
     for asset_id in spec["skins"]:
         images[asset_id] = _skin(asset_id)
     for asset_id in spec["icons"]:

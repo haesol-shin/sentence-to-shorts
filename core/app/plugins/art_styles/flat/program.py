@@ -4,13 +4,13 @@ The program draws every asset the manifest declares. The stored grids in
 ``sprites/`` were encoded from this program, so a package without them can be
 redrawn in the sandbox with the same shapes and colours.
 
-Character parts share one 90x128 design canvas, drawn at three pixels per cell
-for the 1080x1920 canvas; backgrounds use a 72x128 design canvas for the same
-frame. Pillow primitives only, no random and no host files.
+Pillow draws the original design coordinates directly onto four-times denser
+part and background grids. No random and no host files.
 """
 
 from PIL import Image, ImageDraw
 
+DENSITY = 4
 PART = (90, 128)
 SCENE = (72, 128)
 
@@ -39,6 +39,47 @@ PLUM = "#3D2B56"
 STONE = "#1E1733"
 
 
+def _box(box):
+    left, top, right, bottom = box
+    # Pillow includes both endpoints, so keep the far edge of each design cell.
+    return (
+        left * DENSITY, top * DENSITY,
+        (right + 1) * DENSITY - 1, (bottom + 1) * DENSITY - 1,
+    )
+
+
+def _points(points):
+    return [(x * DENSITY, y * DENSITY) for x, y in points]
+
+
+class _Drawing:
+    """Draw in design units without rasterizing the design grid first."""
+
+    def __init__(self, image):
+        self.draw = ImageDraw.Draw(image)
+
+    def ellipse(self, box, *, width=1, **paint):
+        self.draw.ellipse(_box(box), width=width * DENSITY, **paint)
+
+    def rectangle(self, box, **paint):
+        self.draw.rectangle(_box(box), **paint)
+
+    def rounded_rectangle(self, box, radius, *, width=1, **paint):
+        self.draw.rounded_rectangle(_box(box), radius * DENSITY, width=width * DENSITY, **paint)
+
+    def line(self, points, *, width, **paint):
+        self.draw.line(_points(points), width=width * DENSITY, **paint)
+
+    def polygon(self, points, **paint):
+        self.draw.polygon(_points(points), **paint)
+
+    def arc(self, box, start, end, *, width, **paint):
+        self.draw.arc(_box(box), start, end, width=width * DENSITY, **paint)
+
+    def chord(self, box, start, end, **paint):
+        self.draw.chord(_box(box), start, end, **paint)
+
+
 def _new(size):
     return Image.new("RGBA", size, (0, 0, 0, 0))
 
@@ -50,7 +91,7 @@ def _head(draw, glasses=False):
     if glasses:
         draw.rounded_rectangle((31, 32, 41, 42), 3, outline=INK, width=2)
         draw.rounded_rectangle((49, 32, 59, 42), 3, outline=INK, width=2)
-        draw.line((41, 37, 49, 37), fill=INK, width=2)
+        draw.line(((41, 37), (49, 37)), fill=INK, width=2)
 
 
 def _body(draw, round_body=False):
@@ -122,7 +163,7 @@ def _prop(draw, mug=False):
         return
     draw.rounded_rectangle((4, 92, 26, 108), 2, fill="#E76F51")
     draw.rectangle((9, 94, 23, 106), fill="#FFF6E5")
-    draw.line((9, 94, 9, 106), fill="#FFD9B8", width=2)
+    draw.line(((9, 94), (9, 106)), fill="#FFD9B8", width=2)
 
 
 def _pose(draw, wave=False):
@@ -155,9 +196,9 @@ CHARACTER = {
 
 
 def _character(asset_id):
-    image = _new(PART)
-    CHARACTER[asset_id](ImageDraw.Draw(image))
-    return image.resize((PART[0] * 3, PART[1] * 3), Image.Resampling.NEAREST)
+    image = _new((PART[0] * DENSITY, PART[1] * DENSITY))
+    CHARACTER[asset_id](_Drawing(image))
+    return image
 
 
 def _park(draw):
@@ -275,8 +316,8 @@ BACKGROUNDS = {
 
 
 def _background(asset_id):
-    image = _new(SCENE)
-    BACKGROUNDS[asset_id](ImageDraw.Draw(image))
+    image = _new((SCENE[0] * DENSITY, SCENE[1] * DENSITY))
+    BACKGROUNDS[asset_id](_Drawing(image))
     return image
 
 
@@ -302,8 +343,7 @@ def _icon(asset_id):
 
 
 def build_assets(spec, character, canvas, seed):
-    """Every asset of the manifest, drawn at the declared canvas size."""
-    width, height = int(canvas["width"]), int(canvas["height"])
+    """Draw the manifest's assets at their native grid sizes."""
     images = {}
     for slot_ids in spec["parts"].values():
         for asset_id in slot_ids:
@@ -311,9 +351,7 @@ def build_assets(spec, character, canvas, seed):
     for asset_id in [*spec["expressions"], *spec["poses"]]:
         images[asset_id] = _character(asset_id)
     for asset_id in spec["backgrounds"]:
-        images[asset_id] = _background(asset_id).resize(
-            (width, height), Image.Resampling.NEAREST
-        )
+        images[asset_id] = _background(asset_id)
     for asset_id in spec["skins"]:
         images[asset_id] = _skin(asset_id)
     for asset_id in spec["icons"]:
